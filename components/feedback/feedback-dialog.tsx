@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import {
@@ -66,6 +67,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
   const [description, setDescription] = useState('')
   const [page, setPage] = useState<FeedbackPage | ''>('')
   const [images, setImages] = useState<ImagePreview[]>([])
+  const [notifyOnResolution, setNotifyOnResolution] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { compressImage, isCompressing } = useImageCompress()
@@ -174,6 +176,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
           description: description.trim() || null,
           images: imageUrls,
           page,
+          notify_on_resolution: notifyOnResolution,
         }),
       })
 
@@ -189,6 +192,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
       setDescription('')
       setPage('')
       setImages([])
+      setNotifyOnResolution(false)
       onOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
@@ -332,6 +336,25 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Card 4 — Notificação de conclusão */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="feedback-notify" className="cursor-pointer">
+                {type === 'ticket'
+                  ? 'Avisar-me quando for corrigido'
+                  : 'Avisar-me quando for implementada'}
+              </Label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Recebes uma notificação assim que for marcado como concluído.
+              </p>
+            </div>
+            <Switch
+              id="feedback-notify"
+              checked={notifyOnResolution}
+              onCheckedChange={setNotifyOnResolution}
+            />
           </div>
         </div>
 

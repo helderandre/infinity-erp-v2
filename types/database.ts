@@ -14,6 +14,1194 @@ export type Database = {
   }
   public: {
     Tables: {
+      _bkp_deal_marketing_moments_20260522: {
+        Row: {
+          ai_description: string | null
+          ai_description_generated_at: string | null
+          ai_description_locale: string | null
+          ai_description_model: string | null
+          consultant_id: string | null
+          created_at: string | null
+          deal_id: string | null
+          event_id: string | null
+          id: string | null
+          manual_caption: string | null
+          moment_type: string | null
+          photo_urls: string[] | null
+          published_at: string | null
+          published_to_instagram: boolean | null
+          published_to_linkedin: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_description?: string | null
+          ai_description_generated_at?: string | null
+          ai_description_locale?: string | null
+          ai_description_model?: string | null
+          consultant_id?: string | null
+          created_at?: string | null
+          deal_id?: string | null
+          event_id?: string | null
+          id?: string | null
+          manual_caption?: string | null
+          moment_type?: string | null
+          photo_urls?: string[] | null
+          published_at?: string | null
+          published_to_instagram?: boolean | null
+          published_to_linkedin?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_description?: string | null
+          ai_description_generated_at?: string | null
+          ai_description_locale?: string | null
+          ai_description_model?: string | null
+          consultant_id?: string | null
+          created_at?: string | null
+          deal_id?: string | null
+          event_id?: string | null
+          id?: string | null
+          manual_caption?: string | null
+          moment_type?: string | null
+          photo_urls?: string[] | null
+          published_at?: string | null
+          published_to_instagram?: boolean | null
+          published_to_linkedin?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_deal_payments_20260522: {
+        Row: {
+          agency_amount: number | null
+          agency_invoice_amount_gross: number | null
+          agency_invoice_amount_net: number | null
+          agency_invoice_date: string | null
+          agency_invoice_id: string | null
+          agency_invoice_number: string | null
+          agency_invoice_recipient: string | null
+          agency_invoice_recipient_nif: string | null
+          amount: number | null
+          consultant_amount: number | null
+          consultant_invoice_date: string | null
+          consultant_invoice_number: string | null
+          consultant_invoice_requested_at: string | null
+          consultant_invoice_type: string | null
+          consultant_paid: boolean | null
+          consultant_paid_date: string | null
+          created_at: string | null
+          date_type: string | null
+          deal_id: string | null
+          id: string | null
+          is_received: boolean | null
+          is_reported: boolean | null
+          is_signed: boolean | null
+          network_amount: number | null
+          network_invoice_date: string | null
+          network_invoice_number: string | null
+          notes: string | null
+          partner_amount: number | null
+          payment_moment: string | null
+          payment_pct: number | null
+          proc_task_id: string | null
+          received_date: string | null
+          reminder_sent_at: string | null
+          reported_date: string | null
+          signed_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_amount?: number | null
+          agency_invoice_amount_gross?: number | null
+          agency_invoice_amount_net?: number | null
+          agency_invoice_date?: string | null
+          agency_invoice_id?: string | null
+          agency_invoice_number?: string | null
+          agency_invoice_recipient?: string | null
+          agency_invoice_recipient_nif?: string | null
+          amount?: number | null
+          consultant_amount?: number | null
+          consultant_invoice_date?: string | null
+          consultant_invoice_number?: string | null
+          consultant_invoice_requested_at?: string | null
+          consultant_invoice_type?: string | null
+          consultant_paid?: boolean | null
+          consultant_paid_date?: string | null
+          created_at?: string | null
+          date_type?: string | null
+          deal_id?: string | null
+          id?: string | null
+          is_received?: boolean | null
+          is_reported?: boolean | null
+          is_signed?: boolean | null
+          network_amount?: number | null
+          network_invoice_date?: string | null
+          network_invoice_number?: string | null
+          notes?: string | null
+          partner_amount?: number | null
+          payment_moment?: string | null
+          payment_pct?: number | null
+          proc_task_id?: string | null
+          received_date?: string | null
+          reminder_sent_at?: string | null
+          reported_date?: string | null
+          signed_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_amount?: number | null
+          agency_invoice_amount_gross?: number | null
+          agency_invoice_amount_net?: number | null
+          agency_invoice_date?: string | null
+          agency_invoice_id?: string | null
+          agency_invoice_number?: string | null
+          agency_invoice_recipient?: string | null
+          agency_invoice_recipient_nif?: string | null
+          amount?: number | null
+          consultant_amount?: number | null
+          consultant_invoice_date?: string | null
+          consultant_invoice_number?: string | null
+          consultant_invoice_requested_at?: string | null
+          consultant_invoice_type?: string | null
+          consultant_paid?: boolean | null
+          consultant_paid_date?: string | null
+          created_at?: string | null
+          date_type?: string | null
+          deal_id?: string | null
+          id?: string | null
+          is_received?: boolean | null
+          is_reported?: boolean | null
+          is_signed?: boolean | null
+          network_amount?: number | null
+          network_invoice_date?: string | null
+          network_invoice_number?: string | null
+          notes?: string | null
+          partner_amount?: number | null
+          payment_moment?: string | null
+          payment_pct?: number | null
+          proc_task_id?: string | null
+          received_date?: string | null
+          reminder_sent_at?: string | null
+          reported_date?: string | null
+          signed_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_deals_20260522: {
+        Row: {
+          agency_margin: number | null
+          agency_net: number | null
+          business_type: string | null
+          clients_notes: string | null
+          commission_pct: number | null
+          commission_total: number | null
+          commission_type: string | null
+          conditions_notes: string | null
+          consultant_amount: number | null
+          consultant_id: string | null
+          consultant_pct: number | null
+          contract_signing_date: string | null
+          cpcv_actual_date: string | null
+          cpcv_pct: number | null
+          cpcv_signed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_date: string | null
+          deal_type: string | null
+          deal_value: number | null
+          deposit_value: string | null
+          escritura_actual_date: string | null
+          escritura_pct: number | null
+          escritura_signed_at: string | null
+          external_consultant_email: string | null
+          external_consultant_name: string | null
+          external_consultant_phone: string | null
+          external_property_construction_year: string | null
+          external_property_extra: string | null
+          external_property_id: string | null
+          external_property_link: string | null
+          external_property_type: string | null
+          external_property_typology: string | null
+          external_property_zone: string | null
+          extra_info: string | null
+          has_financing: boolean | null
+          has_financing_condition: boolean | null
+          has_furniture: boolean | null
+          has_guarantor: boolean | null
+          has_referral: boolean | null
+          has_share: boolean | null
+          has_signature_recognition: boolean | null
+          housing_regime: string | null
+          id: string | null
+          internal_colleague_id: string | null
+          is_bilingual: boolean | null
+          max_deadline: string | null
+          negocio_id: string | null
+          network_amount: number | null
+          network_pct: number | null
+          notes: string | null
+          partner_agency_name: string | null
+          partner_amount: number | null
+          partner_contact: string | null
+          payment_structure: string | null
+          proc_instance_id: string | null
+          property_id: string | null
+          proposal_file_name: string | null
+          proposal_file_url: string | null
+          pv_number: string | null
+          reference: string | null
+          referral_info: string | null
+          referral_pct: number | null
+          referral_type: string | null
+          share_amount: number | null
+          share_network_type: string | null
+          share_notes: string | null
+          share_pct: number | null
+          share_type: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_margin?: number | null
+          agency_net?: number | null
+          business_type?: string | null
+          clients_notes?: string | null
+          commission_pct?: number | null
+          commission_total?: number | null
+          commission_type?: string | null
+          conditions_notes?: string | null
+          consultant_amount?: number | null
+          consultant_id?: string | null
+          consultant_pct?: number | null
+          contract_signing_date?: string | null
+          cpcv_actual_date?: string | null
+          cpcv_pct?: number | null
+          cpcv_signed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_date?: string | null
+          deal_type?: string | null
+          deal_value?: number | null
+          deposit_value?: string | null
+          escritura_actual_date?: string | null
+          escritura_pct?: number | null
+          escritura_signed_at?: string | null
+          external_consultant_email?: string | null
+          external_consultant_name?: string | null
+          external_consultant_phone?: string | null
+          external_property_construction_year?: string | null
+          external_property_extra?: string | null
+          external_property_id?: string | null
+          external_property_link?: string | null
+          external_property_type?: string | null
+          external_property_typology?: string | null
+          external_property_zone?: string | null
+          extra_info?: string | null
+          has_financing?: boolean | null
+          has_financing_condition?: boolean | null
+          has_furniture?: boolean | null
+          has_guarantor?: boolean | null
+          has_referral?: boolean | null
+          has_share?: boolean | null
+          has_signature_recognition?: boolean | null
+          housing_regime?: string | null
+          id?: string | null
+          internal_colleague_id?: string | null
+          is_bilingual?: boolean | null
+          max_deadline?: string | null
+          negocio_id?: string | null
+          network_amount?: number | null
+          network_pct?: number | null
+          notes?: string | null
+          partner_agency_name?: string | null
+          partner_amount?: number | null
+          partner_contact?: string | null
+          payment_structure?: string | null
+          proc_instance_id?: string | null
+          property_id?: string | null
+          proposal_file_name?: string | null
+          proposal_file_url?: string | null
+          pv_number?: string | null
+          reference?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
+          share_amount?: number | null
+          share_network_type?: string | null
+          share_notes?: string | null
+          share_pct?: number | null
+          share_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_margin?: number | null
+          agency_net?: number | null
+          business_type?: string | null
+          clients_notes?: string | null
+          commission_pct?: number | null
+          commission_total?: number | null
+          commission_type?: string | null
+          conditions_notes?: string | null
+          consultant_amount?: number | null
+          consultant_id?: string | null
+          consultant_pct?: number | null
+          contract_signing_date?: string | null
+          cpcv_actual_date?: string | null
+          cpcv_pct?: number | null
+          cpcv_signed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_date?: string | null
+          deal_type?: string | null
+          deal_value?: number | null
+          deposit_value?: string | null
+          escritura_actual_date?: string | null
+          escritura_pct?: number | null
+          escritura_signed_at?: string | null
+          external_consultant_email?: string | null
+          external_consultant_name?: string | null
+          external_consultant_phone?: string | null
+          external_property_construction_year?: string | null
+          external_property_extra?: string | null
+          external_property_id?: string | null
+          external_property_link?: string | null
+          external_property_type?: string | null
+          external_property_typology?: string | null
+          external_property_zone?: string | null
+          extra_info?: string | null
+          has_financing?: boolean | null
+          has_financing_condition?: boolean | null
+          has_furniture?: boolean | null
+          has_guarantor?: boolean | null
+          has_referral?: boolean | null
+          has_share?: boolean | null
+          has_signature_recognition?: boolean | null
+          housing_regime?: string | null
+          id?: string | null
+          internal_colleague_id?: string | null
+          is_bilingual?: boolean | null
+          max_deadline?: string | null
+          negocio_id?: string | null
+          network_amount?: number | null
+          network_pct?: number | null
+          notes?: string | null
+          partner_agency_name?: string | null
+          partner_amount?: number | null
+          partner_contact?: string | null
+          payment_structure?: string | null
+          proc_instance_id?: string | null
+          property_id?: string | null
+          proposal_file_name?: string | null
+          proposal_file_url?: string | null
+          pv_number?: string | null
+          reference?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
+          share_amount?: number | null
+          share_network_type?: string | null
+          share_notes?: string | null
+          share_pct?: number | null
+          share_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_lead_attachments_20260522: {
+        Row: {
+          created_at: string | null
+          doc_type_id: string | null
+          file_size: number | null
+          id: string | null
+          lead_id: string | null
+          mime_type: string | null
+          name: string | null
+          notes: string | null
+          url: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_size?: number | null
+          id?: string | null
+          lead_id?: string | null
+          mime_type?: string | null
+          name?: string | null
+          notes?: string | null
+          url?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          doc_type_id?: string | null
+          file_size?: number | null
+          id?: string | null
+          lead_id?: string | null
+          mime_type?: string | null
+          name?: string | null
+          notes?: string | null
+          url?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_leads_20260522: {
+        Row: {
+          agent_id: string | null
+          codigo_postal: string | null
+          concelho: string | null
+          consentimento_contacto: boolean | null
+          consentimento_webmarketing: boolean | null
+          created_at: string | null
+          data: string | null
+          data_contacto: string | null
+          data_nascimento: string | null
+          data_validade_documento: string | null
+          distrito: string | null
+          documento_identificacao_frente_url: string | null
+          documento_identificacao_url: string | null
+          documento_identificacao_verso_url: string | null
+          email: string | null
+          email_empresa: string | null
+          empresa: string | null
+          estado: string | null
+          forma_contacto: string | null
+          freguesia: string | null
+          full_name: string | null
+          genero: string | null
+          id: string | null
+          ig_username: string | null
+          import_batch_id: string | null
+          lead_type: string | null
+          lifecycle_stage_id: string | null
+          localidade: string | null
+          meio_contacto_preferencial: string | null
+          meta_data: Json | null
+          morada: string | null
+          morada_empresa: string | null
+          nacionalidade: string | null
+          nif: string | null
+          nipc: string | null
+          nome: string | null
+          numero_documento: string | null
+          observacoes: string | null
+          origem: string | null
+          pais: string | null
+          pais_emissor: string | null
+          platform: string | null
+          referred_by_consultant_id: string | null
+          tags: string[] | null
+          telefone: string | null
+          telefone_empresa: string | null
+          telefone_fixo: string | null
+          telemovel: string | null
+          tem_empresa: boolean | null
+          temperatura: string | null
+          tipo_documento: string | null
+          website_empresa: string | null
+          zona: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          codigo_postal?: string | null
+          concelho?: string | null
+          consentimento_contacto?: boolean | null
+          consentimento_webmarketing?: boolean | null
+          created_at?: string | null
+          data?: string | null
+          data_contacto?: string | null
+          data_nascimento?: string | null
+          data_validade_documento?: string | null
+          distrito?: string | null
+          documento_identificacao_frente_url?: string | null
+          documento_identificacao_url?: string | null
+          documento_identificacao_verso_url?: string | null
+          email?: string | null
+          email_empresa?: string | null
+          empresa?: string | null
+          estado?: string | null
+          forma_contacto?: string | null
+          freguesia?: string | null
+          full_name?: string | null
+          genero?: string | null
+          id?: string | null
+          ig_username?: string | null
+          import_batch_id?: string | null
+          lead_type?: string | null
+          lifecycle_stage_id?: string | null
+          localidade?: string | null
+          meio_contacto_preferencial?: string | null
+          meta_data?: Json | null
+          morada?: string | null
+          morada_empresa?: string | null
+          nacionalidade?: string | null
+          nif?: string | null
+          nipc?: string | null
+          nome?: string | null
+          numero_documento?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          pais?: string | null
+          pais_emissor?: string | null
+          platform?: string | null
+          referred_by_consultant_id?: string | null
+          tags?: string[] | null
+          telefone?: string | null
+          telefone_empresa?: string | null
+          telefone_fixo?: string | null
+          telemovel?: string | null
+          tem_empresa?: boolean | null
+          temperatura?: string | null
+          tipo_documento?: string | null
+          website_empresa?: string | null
+          zona?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          codigo_postal?: string | null
+          concelho?: string | null
+          consentimento_contacto?: boolean | null
+          consentimento_webmarketing?: boolean | null
+          created_at?: string | null
+          data?: string | null
+          data_contacto?: string | null
+          data_nascimento?: string | null
+          data_validade_documento?: string | null
+          distrito?: string | null
+          documento_identificacao_frente_url?: string | null
+          documento_identificacao_url?: string | null
+          documento_identificacao_verso_url?: string | null
+          email?: string | null
+          email_empresa?: string | null
+          empresa?: string | null
+          estado?: string | null
+          forma_contacto?: string | null
+          freguesia?: string | null
+          full_name?: string | null
+          genero?: string | null
+          id?: string | null
+          ig_username?: string | null
+          import_batch_id?: string | null
+          lead_type?: string | null
+          lifecycle_stage_id?: string | null
+          localidade?: string | null
+          meio_contacto_preferencial?: string | null
+          meta_data?: Json | null
+          morada?: string | null
+          morada_empresa?: string | null
+          nacionalidade?: string | null
+          nif?: string | null
+          nipc?: string | null
+          nome?: string | null
+          numero_documento?: string | null
+          observacoes?: string | null
+          origem?: string | null
+          pais?: string | null
+          pais_emissor?: string | null
+          platform?: string | null
+          referred_by_consultant_id?: string | null
+          tags?: string[] | null
+          telefone?: string | null
+          telefone_empresa?: string | null
+          telefone_fixo?: string | null
+          telemovel?: string | null
+          tem_empresa?: boolean | null
+          temperatura?: string | null
+          tipo_documento?: string | null
+          website_empresa?: string | null
+          zona?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_leads_activities_20260522: {
+        Row: {
+          activity_type: string | null
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          direction: string | null
+          id: string | null
+          metadata: Json | null
+          negocio_id: string | null
+          subject: string | null
+        }
+        Insert: {
+          activity_type?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          direction?: string | null
+          id?: string | null
+          metadata?: Json | null
+          negocio_id?: string | null
+          subject?: string | null
+        }
+        Update: {
+          activity_type?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          direction?: string | null
+          id?: string | null
+          metadata?: Json | null
+          negocio_id?: string | null
+          subject?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_leads_entries_20260522: {
+        Row: {
+          assigned_agent_id: string | null
+          assigned_consultant_id: string | null
+          campaign_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          first_contact_at: string | null
+          form_data: Json | null
+          form_url: string | null
+          has_referral: boolean | null
+          id: string | null
+          import_batch_id: string | null
+          is_reactivation: boolean | null
+          match_details: Json | null
+          match_type: string | null
+          notes: string | null
+          partner_id: string | null
+          priority: string | null
+          processed_at: string | null
+          processed_by: string | null
+          property_external_ref: string | null
+          property_id: string | null
+          raw_email: string | null
+          raw_name: string | null
+          raw_phone: string | null
+          referral_consultant_id: string | null
+          referral_external_agency: string | null
+          referral_external_email: string | null
+          referral_external_name: string | null
+          referral_external_phone: string | null
+          referral_pct: number | null
+          sector: string | null
+          sla_deadline: string | null
+          sla_status: string | null
+          source: string | null
+          status: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          assigned_consultant_id?: string | null
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          first_contact_at?: string | null
+          form_data?: Json | null
+          form_url?: string | null
+          has_referral?: boolean | null
+          id?: string | null
+          import_batch_id?: string | null
+          is_reactivation?: boolean | null
+          match_details?: Json | null
+          match_type?: string | null
+          notes?: string | null
+          partner_id?: string | null
+          priority?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          property_external_ref?: string | null
+          property_id?: string | null
+          raw_email?: string | null
+          raw_name?: string | null
+          raw_phone?: string | null
+          referral_consultant_id?: string | null
+          referral_external_agency?: string | null
+          referral_external_email?: string | null
+          referral_external_name?: string | null
+          referral_external_phone?: string | null
+          referral_pct?: number | null
+          sector?: string | null
+          sla_deadline?: string | null
+          sla_status?: string | null
+          source?: string | null
+          status?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          assigned_consultant_id?: string | null
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          first_contact_at?: string | null
+          form_data?: Json | null
+          form_url?: string | null
+          has_referral?: boolean | null
+          id?: string | null
+          import_batch_id?: string | null
+          is_reactivation?: boolean | null
+          match_details?: Json | null
+          match_type?: string | null
+          notes?: string | null
+          partner_id?: string | null
+          priority?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          property_external_ref?: string | null
+          property_id?: string | null
+          raw_email?: string | null
+          raw_name?: string | null
+          raw_phone?: string | null
+          referral_consultant_id?: string | null
+          referral_external_agency?: string | null
+          referral_external_email?: string | null
+          referral_external_name?: string | null
+          referral_external_phone?: string | null
+          referral_pct?: number | null
+          sector?: string | null
+          sla_deadline?: string | null
+          sla_status?: string | null
+          source?: string | null
+          status?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_leads_referrals_20260522: {
+        Row: {
+          contact_id: string | null
+          created_at: string | null
+          entry_id: string | null
+          from_consultant_id: string | null
+          id: string | null
+          negocio_id: string | null
+          notes: string | null
+          partner_id: string | null
+          referral_pct: number | null
+          referral_type: string | null
+          status: string | null
+          to_consultant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string | null
+          entry_id?: string | null
+          from_consultant_id?: string | null
+          id?: string | null
+          negocio_id?: string | null
+          notes?: string | null
+          partner_id?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
+          status?: string | null
+          to_consultant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string | null
+          entry_id?: string | null
+          from_consultant_id?: string | null
+          id?: string | null
+          negocio_id?: string | null
+          notes?: string | null
+          partner_id?: string | null
+          referral_pct?: number | null
+          referral_type?: string | null
+          status?: string | null
+          to_consultant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_negocios_20260522: {
+        Row: {
+          aceita_animais: boolean | null
+          area_m2: number | null
+          area_min_m2: number | null
+          assigned_consultant_id: string | null
+          capital_proprio: number | null
+          casas_banho: number | null
+          caucao_rendas: number | null
+          classe_imovel: string | null
+          concelho: string | null
+          created_at: string | null
+          credit_entity: string | null
+          credit_intermediation: boolean | null
+          credit_notes: string | null
+          credito_pre_aprovado: boolean | null
+          distrito: string | null
+          duracao_minima_contrato: string | null
+          entry_id: string | null
+          estado: string | null
+          estado_imovel: string | null
+          estado_imovel_venda: string | null
+          expected_close_date: string | null
+          expected_value: number | null
+          financiamento_necessario: boolean | null
+          freguesia: string | null
+          has_referral: boolean | null
+          id: string | null
+          lead_id: string | null
+          localizacao: string | null
+          localizacao_venda: string | null
+          lost_date: string | null
+          lost_notes: string | null
+          lost_reason: string | null
+          mobilado: boolean | null
+          motivacao_compra: string | null
+          num_wc: number | null
+          observacoes: string | null
+          orcamento: number | null
+          orcamento_max: number | null
+          origem: string | null
+          origem_detalhe: string | null
+          origem_mensagem: string | null
+          pipeline_stage_id: string | null
+          prazo_compra: string | null
+          preco_venda: number | null
+          probability_pct: number | null
+          property_id: string | null
+          quartos: number | null
+          quartos_min: number | null
+          referral_consultant_id: string | null
+          referral_external_agency: string | null
+          referral_external_email: string | null
+          referral_external_name: string | null
+          referral_external_phone: string | null
+          referral_info: string | null
+          referral_pct: number | null
+          referral_side: string | null
+          referral_type: string | null
+          referrer_consultant_id: string | null
+          renda_max_mensal: number | null
+          renda_pretendida: number | null
+          rendimento_mensal: number | null
+          situacao_profissional: string | null
+          stage_entered_at: string | null
+          tem_arrumos: boolean | null
+          tem_arrumos_venda: boolean | null
+          tem_elevador: boolean | null
+          tem_elevador_venda: boolean | null
+          tem_estacionamento: boolean | null
+          tem_estacionamento_venda: boolean | null
+          tem_exterior: boolean | null
+          tem_exterior_venda: boolean | null
+          tem_fiador: boolean | null
+          tem_garagem: boolean | null
+          tem_garagem_venda: boolean | null
+          tem_piscina: boolean | null
+          tem_piscina_venda: boolean | null
+          tem_porteiro: boolean | null
+          tem_porteiro_venda: boolean | null
+          tem_varanda: boolean | null
+          tem_varanda_venda: boolean | null
+          temperatura: string | null
+          tipo: string | null
+          tipo_imovel: string | null
+          tipo_imovel_venda: string | null
+          total_divisoes: number | null
+          updated_at: string | null
+          valor_credito: number | null
+          won_date: string | null
+          zonas: Json | null
+          zonas_geom: unknown
+        }
+        Insert: {
+          aceita_animais?: boolean | null
+          area_m2?: number | null
+          area_min_m2?: number | null
+          assigned_consultant_id?: string | null
+          capital_proprio?: number | null
+          casas_banho?: number | null
+          caucao_rendas?: number | null
+          classe_imovel?: string | null
+          concelho?: string | null
+          created_at?: string | null
+          credit_entity?: string | null
+          credit_intermediation?: boolean | null
+          credit_notes?: string | null
+          credito_pre_aprovado?: boolean | null
+          distrito?: string | null
+          duracao_minima_contrato?: string | null
+          entry_id?: string | null
+          estado?: string | null
+          estado_imovel?: string | null
+          estado_imovel_venda?: string | null
+          expected_close_date?: string | null
+          expected_value?: number | null
+          financiamento_necessario?: boolean | null
+          freguesia?: string | null
+          has_referral?: boolean | null
+          id?: string | null
+          lead_id?: string | null
+          localizacao?: string | null
+          localizacao_venda?: string | null
+          lost_date?: string | null
+          lost_notes?: string | null
+          lost_reason?: string | null
+          mobilado?: boolean | null
+          motivacao_compra?: string | null
+          num_wc?: number | null
+          observacoes?: string | null
+          orcamento?: number | null
+          orcamento_max?: number | null
+          origem?: string | null
+          origem_detalhe?: string | null
+          origem_mensagem?: string | null
+          pipeline_stage_id?: string | null
+          prazo_compra?: string | null
+          preco_venda?: number | null
+          probability_pct?: number | null
+          property_id?: string | null
+          quartos?: number | null
+          quartos_min?: number | null
+          referral_consultant_id?: string | null
+          referral_external_agency?: string | null
+          referral_external_email?: string | null
+          referral_external_name?: string | null
+          referral_external_phone?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_side?: string | null
+          referral_type?: string | null
+          referrer_consultant_id?: string | null
+          renda_max_mensal?: number | null
+          renda_pretendida?: number | null
+          rendimento_mensal?: number | null
+          situacao_profissional?: string | null
+          stage_entered_at?: string | null
+          tem_arrumos?: boolean | null
+          tem_arrumos_venda?: boolean | null
+          tem_elevador?: boolean | null
+          tem_elevador_venda?: boolean | null
+          tem_estacionamento?: boolean | null
+          tem_estacionamento_venda?: boolean | null
+          tem_exterior?: boolean | null
+          tem_exterior_venda?: boolean | null
+          tem_fiador?: boolean | null
+          tem_garagem?: boolean | null
+          tem_garagem_venda?: boolean | null
+          tem_piscina?: boolean | null
+          tem_piscina_venda?: boolean | null
+          tem_porteiro?: boolean | null
+          tem_porteiro_venda?: boolean | null
+          tem_varanda?: boolean | null
+          tem_varanda_venda?: boolean | null
+          temperatura?: string | null
+          tipo?: string | null
+          tipo_imovel?: string | null
+          tipo_imovel_venda?: string | null
+          total_divisoes?: number | null
+          updated_at?: string | null
+          valor_credito?: number | null
+          won_date?: string | null
+          zonas?: Json | null
+          zonas_geom?: unknown
+        }
+        Update: {
+          aceita_animais?: boolean | null
+          area_m2?: number | null
+          area_min_m2?: number | null
+          assigned_consultant_id?: string | null
+          capital_proprio?: number | null
+          casas_banho?: number | null
+          caucao_rendas?: number | null
+          classe_imovel?: string | null
+          concelho?: string | null
+          created_at?: string | null
+          credit_entity?: string | null
+          credit_intermediation?: boolean | null
+          credit_notes?: string | null
+          credito_pre_aprovado?: boolean | null
+          distrito?: string | null
+          duracao_minima_contrato?: string | null
+          entry_id?: string | null
+          estado?: string | null
+          estado_imovel?: string | null
+          estado_imovel_venda?: string | null
+          expected_close_date?: string | null
+          expected_value?: number | null
+          financiamento_necessario?: boolean | null
+          freguesia?: string | null
+          has_referral?: boolean | null
+          id?: string | null
+          lead_id?: string | null
+          localizacao?: string | null
+          localizacao_venda?: string | null
+          lost_date?: string | null
+          lost_notes?: string | null
+          lost_reason?: string | null
+          mobilado?: boolean | null
+          motivacao_compra?: string | null
+          num_wc?: number | null
+          observacoes?: string | null
+          orcamento?: number | null
+          orcamento_max?: number | null
+          origem?: string | null
+          origem_detalhe?: string | null
+          origem_mensagem?: string | null
+          pipeline_stage_id?: string | null
+          prazo_compra?: string | null
+          preco_venda?: number | null
+          probability_pct?: number | null
+          property_id?: string | null
+          quartos?: number | null
+          quartos_min?: number | null
+          referral_consultant_id?: string | null
+          referral_external_agency?: string | null
+          referral_external_email?: string | null
+          referral_external_name?: string | null
+          referral_external_phone?: string | null
+          referral_info?: string | null
+          referral_pct?: number | null
+          referral_side?: string | null
+          referral_type?: string | null
+          referrer_consultant_id?: string | null
+          renda_max_mensal?: number | null
+          renda_pretendida?: number | null
+          rendimento_mensal?: number | null
+          situacao_profissional?: string | null
+          stage_entered_at?: string | null
+          tem_arrumos?: boolean | null
+          tem_arrumos_venda?: boolean | null
+          tem_elevador?: boolean | null
+          tem_elevador_venda?: boolean | null
+          tem_estacionamento?: boolean | null
+          tem_estacionamento_venda?: boolean | null
+          tem_exterior?: boolean | null
+          tem_exterior_venda?: boolean | null
+          tem_fiador?: boolean | null
+          tem_garagem?: boolean | null
+          tem_garagem_venda?: boolean | null
+          tem_piscina?: boolean | null
+          tem_piscina_venda?: boolean | null
+          tem_porteiro?: boolean | null
+          tem_porteiro_venda?: boolean | null
+          tem_varanda?: boolean | null
+          tem_varanda_venda?: boolean | null
+          temperatura?: string | null
+          tipo?: string | null
+          tipo_imovel?: string | null
+          tipo_imovel_venda?: string | null
+          total_divisoes?: number | null
+          updated_at?: string | null
+          valor_credito?: number | null
+          won_date?: string | null
+          zonas?: Json | null
+          zonas_geom?: unknown
+        }
+        Relationships: []
+      }
+      _bkp_proc_neg_20260522: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          completed_at: string | null
+          completed_stage_ids: string[] | null
+          current_stage_id: string | null
+          current_stage_ids: string[] | null
+          current_status: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          external_ref: string | null
+          id: string | null
+          last_completed_step: number | null
+          negocio_id: string | null
+          notes: string | null
+          percent_complete: number | null
+          process_type: string | null
+          property_id: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejected_reason: string | null
+          requested_by: string | null
+          returned_at: string | null
+          returned_by: string | null
+          returned_reason: string | null
+          started_at: string | null
+          tpl_process_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          completed_stage_ids?: string[] | null
+          current_stage_id?: string | null
+          current_stage_ids?: string[] | null
+          current_status?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          external_ref?: string | null
+          id?: string | null
+          last_completed_step?: number | null
+          negocio_id?: string | null
+          notes?: string | null
+          percent_complete?: number | null
+          process_type?: string | null
+          property_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
+          started_at?: string | null
+          tpl_process_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          completed_at?: string | null
+          completed_stage_ids?: string[] | null
+          current_stage_id?: string | null
+          current_stage_ids?: string[] | null
+          current_status?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          external_ref?: string | null
+          id?: string | null
+          last_completed_step?: number | null
+          negocio_id?: string | null
+          notes?: string | null
+          percent_complete?: number | null
+          process_type?: string | null
+          property_id?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejected_reason?: string | null
+          requested_by?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_reason?: string | null
+          started_at?: string | null
+          tpl_process_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       _debug_wpp_payloads: {
         Row: {
           created_at: string | null
@@ -40,6 +1228,62 @@ export type Database = {
           source?: string | null
         }
         Relationships: []
+      }
+      _staging_freguesias: {
+        Row: {
+          concelho_name: string | null
+          dicofre: string | null
+          distrito_name: string | null
+          freguesia_name: string | null
+          geom: unknown
+          id: number
+        }
+        Insert: {
+          concelho_name?: string | null
+          dicofre?: string | null
+          distrito_name?: string | null
+          freguesia_name?: string | null
+          geom?: unknown
+          id?: number
+        }
+        Update: {
+          concelho_name?: string | null
+          dicofre?: string | null
+          distrito_name?: string | null
+          freguesia_name?: string | null
+          geom?: unknown
+          id?: number
+        }
+        Relationships: []
+      }
+      acessos_company_info: {
+        Row: {
+          data: Json
+          scope: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          data: Json
+          scope: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          data?: Json
+          scope?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acessos_company_info_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       acessos_custom_sites: {
         Row: {
@@ -97,6 +1341,44 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_areas: {
+        Row: {
+          created_at: string
+          dicofre: string | null
+          geom: unknown
+          id: string
+          name: string
+          parent_id: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          dicofre?: string | null
+          geom: unknown
+          id?: string
+          name: string
+          parent_id?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          dicofre?: string | null
+          geom?: unknown
+          id?: string
+          name?: string
+          parent_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_areas_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "admin_areas"
             referencedColumns: ["id"]
           },
         ]
@@ -233,6 +1515,69 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "marketing_design_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auth_rate_limits: {
+        Row: {
+          attempts: number
+          bucket: string
+          created_at: string
+          id: string
+          key: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          bucket: string
+          created_at?: string
+          id?: string
+          key: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          bucket?: string
+          created_at?: string
+          id?: string
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      auth_user_role_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          auth_user_id: string
+          role_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          auth_user_id: string
+          role_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          auth_user_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auth_user_role_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auth_user_role_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -825,6 +2170,62 @@ export type Database = {
           },
         ]
       }
+      bulk_send_jobs: {
+        Row: {
+          attempts: number
+          batch_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          kind: string
+          payload: Json
+          result: Json | null
+          scheduled_at: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          batch_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          kind: string
+          payload: Json
+          result?: Json | null
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          batch_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          result?: Json | null
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_send_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_event_attendees: {
         Row: {
           created_at: string
@@ -930,6 +2331,8 @@ export type Database = {
           links: Json | null
           livestream_url: string | null
           location: string | null
+          location_lat: number | null
+          location_lng: number | null
           owner_ids: string[] | null
           proc_subtask_id: string | null
           process_id: string | null
@@ -965,6 +2368,8 @@ export type Database = {
           links?: Json | null
           livestream_url?: string | null
           location?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
           owner_ids?: string[] | null
           proc_subtask_id?: string | null
           process_id?: string | null
@@ -1000,6 +2405,8 @@ export type Database = {
           links?: Json | null
           livestream_url?: string | null
           location?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
           owner_ids?: string[] | null
           proc_subtask_id?: string | null
           process_id?: string | null
@@ -1059,6 +2466,110 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_satisfaction_surveys: {
+        Row: {
+          client_ip: string | null
+          completed_at: string | null
+          consultant_id: string | null
+          created_at: string
+          deal_id: string
+          google_review_clicked_at: string | null
+          id: string
+          invited_at: string
+          invited_by: string | null
+          lead_id: string | null
+          q1_consultor_ajuda: string | null
+          q2_profissionalismo: string | null
+          q3_acompanhamento: string | null
+          q4_tempo_resposta: string | null
+          q5_transparencia: string | null
+          q6_experiencia_global: string | null
+          q7_recomendaria: string | null
+          q8_referencia: string | null
+          q9_comentarios: string | null
+          token: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          client_ip?: string | null
+          completed_at?: string | null
+          consultant_id?: string | null
+          created_at?: string
+          deal_id: string
+          google_review_clicked_at?: string | null
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          lead_id?: string | null
+          q1_consultor_ajuda?: string | null
+          q2_profissionalismo?: string | null
+          q3_acompanhamento?: string | null
+          q4_tempo_resposta?: string | null
+          q5_transparencia?: string | null
+          q6_experiencia_global?: string | null
+          q7_recomendaria?: string | null
+          q8_referencia?: string | null
+          q9_comentarios?: string | null
+          token: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          client_ip?: string | null
+          completed_at?: string | null
+          consultant_id?: string | null
+          created_at?: string
+          deal_id?: string
+          google_review_clicked_at?: string | null
+          id?: string
+          invited_at?: string
+          invited_by?: string | null
+          lead_id?: string | null
+          q1_consultor_ajuda?: string | null
+          q2_profissionalismo?: string | null
+          q3_acompanhamento?: string | null
+          q4_tempo_resposta?: string | null
+          q5_transparencia?: string | null
+          q6_experiencia_global?: string | null
+          q7_recomendaria?: string | null
+          q8_referencia?: string | null
+          q9_comentarios?: string | null
+          token?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_satisfaction_surveys_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_satisfaction_surveys_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_satisfaction_surveys_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_satisfaction_surveys_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -1782,6 +3293,48 @@ export type Database = {
           },
         ]
       }
+      consultant_export_events: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_note: string | null
+          created_at: string
+          export_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          row_count: number | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_note?: string | null
+          created_at?: string
+          export_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          row_count?: number | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_note?: string | null
+          created_at?: string
+          export_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          row_count?: number | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       consultant_payout_lines: {
         Row: {
           amount: number
@@ -2057,6 +3610,7 @@ export type Database = {
       contact_automation_lead_settings: {
         Row: {
           created_at: string
+          custom_event_id: string | null
           email_template_id: string | null
           event_type: string
           id: string
@@ -2069,6 +3623,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_event_id?: string | null
           email_template_id?: string | null
           event_type: string
           id?: string
@@ -2081,6 +3636,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_event_id?: string | null
           email_template_id?: string | null
           event_type?: string
           id?: string
@@ -2092,6 +3648,13 @@ export type Database = {
           wpp_template_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_automation_lead_settings_custom_event_id_fkey"
+            columns: ["custom_event_id"]
+            isOneToOne: false
+            referencedRelation: "custom_commemorative_events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_automation_lead_settings_email_template_id_fkey"
             columns: ["email_template_id"]
@@ -2428,6 +3991,71 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      contact_property_sends: {
+        Row: {
+          channel: string
+          contact_id: string
+          created_at: string
+          id: string
+          message_summary: string | null
+          property_id: string
+          sent_at: string
+          sent_by: string | null
+          source_negocio_id: string | null
+        }
+        Insert: {
+          channel: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          message_summary?: string | null
+          property_id: string
+          sent_at?: string
+          sent_by?: string | null
+          source_negocio_id?: string | null
+        }
+        Update: {
+          channel?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          message_summary?: string | null
+          property_id?: string
+          sent_at?: string
+          sent_by?: string | null
+          source_negocio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_property_sends_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_property_sends_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_property_sends_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_property_sends_source_negocio_id_fkey"
+            columns: ["source_negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_settings: {
         Row: {
@@ -2770,6 +4398,175 @@ export type Database = {
           },
         ]
       }
+      deal_events: {
+        Row: {
+          attendees: Json
+          created_at: string
+          created_by: string | null
+          deal_id: string
+          duration_minutes: number | null
+          event_type: string
+          id: string
+          last_reschedule_at: string | null
+          last_reschedule_reason: string | null
+          latitude: number | null
+          location_address: string | null
+          location_label: string | null
+          longitude: number | null
+          notary_email: string | null
+          notary_name: string | null
+          notary_phone: string | null
+          notes: string | null
+          occurred_at: string | null
+          reschedule_count: number
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attendees?: Json
+          created_at?: string
+          created_by?: string | null
+          deal_id: string
+          duration_minutes?: number | null
+          event_type: string
+          id?: string
+          last_reschedule_at?: string | null
+          last_reschedule_reason?: string | null
+          latitude?: number | null
+          location_address?: string | null
+          location_label?: string | null
+          longitude?: number | null
+          notary_email?: string | null
+          notary_name?: string | null
+          notary_phone?: string | null
+          notes?: string | null
+          occurred_at?: string | null
+          reschedule_count?: number
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attendees?: Json
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string
+          duration_minutes?: number | null
+          event_type?: string
+          id?: string
+          last_reschedule_at?: string | null
+          last_reschedule_reason?: string | null
+          latitude?: number | null
+          location_address?: string | null
+          location_label?: string | null
+          longitude?: number | null
+          notary_email?: string | null
+          notary_name?: string | null
+          notary_phone?: string | null
+          notes?: string | null
+          occurred_at?: string | null
+          reschedule_count?: number
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_events_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_marketing_moments: {
+        Row: {
+          ai_description: string | null
+          ai_description_generated_at: string | null
+          ai_description_locale: string | null
+          ai_description_model: string | null
+          consultant_id: string | null
+          created_at: string
+          deal_id: string
+          event_id: string | null
+          id: string
+          manual_caption: string | null
+          moment_type: string
+          photo_urls: string[]
+          published_at: string | null
+          published_to_instagram: boolean
+          published_to_linkedin: boolean
+          updated_at: string
+        }
+        Insert: {
+          ai_description?: string | null
+          ai_description_generated_at?: string | null
+          ai_description_locale?: string | null
+          ai_description_model?: string | null
+          consultant_id?: string | null
+          created_at?: string
+          deal_id: string
+          event_id?: string | null
+          id?: string
+          manual_caption?: string | null
+          moment_type: string
+          photo_urls?: string[]
+          published_at?: string | null
+          published_to_instagram?: boolean
+          published_to_linkedin?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ai_description?: string | null
+          ai_description_generated_at?: string | null
+          ai_description_locale?: string | null
+          ai_description_model?: string | null
+          consultant_id?: string | null
+          created_at?: string
+          deal_id?: string
+          event_id?: string | null
+          id?: string
+          manual_caption?: string | null
+          moment_type?: string
+          photo_urls?: string[]
+          published_at?: string | null
+          published_to_instagram?: boolean
+          published_to_linkedin?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_marketing_moments_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_marketing_moments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_marketing_moments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "deal_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_payment_splits: {
         Row: {
           agent_id: string
@@ -3042,14 +4839,18 @@ export type Database = {
           consultant_id: string | null
           consultant_pct: number | null
           contract_signing_date: string | null
+          cpcv_actual_date: string | null
           cpcv_pct: number | null
+          cpcv_signed_at: string | null
           created_at: string | null
           created_by: string | null
           deal_date: string
           deal_type: string
           deal_value: number
           deposit_value: string | null
+          escritura_actual_date: string | null
           escritura_pct: number | null
+          escritura_signed_at: string | null
           external_consultant_email: string | null
           external_consultant_name: string | null
           external_consultant_phone: string | null
@@ -3111,14 +4912,18 @@ export type Database = {
           consultant_id?: string | null
           consultant_pct?: number | null
           contract_signing_date?: string | null
+          cpcv_actual_date?: string | null
           cpcv_pct?: number | null
+          cpcv_signed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           deal_date: string
           deal_type: string
           deal_value: number
           deposit_value?: string | null
+          escritura_actual_date?: string | null
           escritura_pct?: number | null
+          escritura_signed_at?: string | null
           external_consultant_email?: string | null
           external_consultant_name?: string | null
           external_consultant_phone?: string | null
@@ -3180,14 +4985,18 @@ export type Database = {
           consultant_id?: string | null
           consultant_pct?: number | null
           contract_signing_date?: string | null
+          cpcv_actual_date?: string | null
           cpcv_pct?: number | null
+          cpcv_signed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           deal_date?: string
           deal_type?: string
           deal_value?: number
           deposit_value?: string | null
+          escritura_actual_date?: string | null
           escritura_pct?: number | null
+          escritura_signed_at?: string | null
           external_consultant_email?: string | null
           external_consultant_name?: string | null
           external_consultant_phone?: string | null
@@ -3403,6 +5212,7 @@ export type Database = {
       dev_consultant_profiles: {
         Row: {
           bio: string | null
+          calendar_feed_token: string | null
           email_signature_goodbye: string | null
           email_signature_html: string | null
           email_signature_url: string | null
@@ -3417,6 +5227,7 @@ export type Database = {
         }
         Insert: {
           bio?: string | null
+          calendar_feed_token?: string | null
           email_signature_goodbye?: string | null
           email_signature_html?: string | null
           email_signature_url?: string | null
@@ -3431,6 +5242,7 @@ export type Database = {
         }
         Update: {
           bio?: string | null
+          calendar_feed_token?: string | null
           email_signature_goodbye?: string | null
           email_signature_html?: string | null
           email_signature_url?: string | null
@@ -3466,6 +5278,7 @@ export type Database = {
           description: string | null
           energy_certificate: string | null
           external_ref: string | null
+          external_ref_seq: number | null
           id: string
           latitude: number | null
           link_portal_idealista: string | null
@@ -3477,6 +5290,8 @@ export type Database = {
           notas_juridico_convictus: string | null
           postal_code: string | null
           presentation_overrides: Json | null
+          presentation_show_ai_plantas: boolean
+          presentation_show_staging: boolean
           property_condition: string | null
           property_type: string | null
           remax_draft_number: string | null
@@ -3500,6 +5315,7 @@ export type Database = {
           description?: string | null
           energy_certificate?: string | null
           external_ref?: string | null
+          external_ref_seq?: number | null
           id?: string
           latitude?: number | null
           link_portal_idealista?: string | null
@@ -3511,6 +5327,8 @@ export type Database = {
           notas_juridico_convictus?: string | null
           postal_code?: string | null
           presentation_overrides?: Json | null
+          presentation_show_ai_plantas?: boolean
+          presentation_show_staging?: boolean
           property_condition?: string | null
           property_type?: string | null
           remax_draft_number?: string | null
@@ -3534,6 +5352,7 @@ export type Database = {
           description?: string | null
           energy_certificate?: string | null
           external_ref?: string | null
+          external_ref_seq?: number | null
           id?: string
           latitude?: number | null
           link_portal_idealista?: string | null
@@ -3545,6 +5364,8 @@ export type Database = {
           notas_juridico_convictus?: string | null
           postal_code?: string | null
           presentation_overrides?: Json | null
+          presentation_show_ai_plantas?: boolean
+          presentation_show_staging?: boolean
           property_condition?: string | null
           property_type?: string | null
           remax_draft_number?: string | null
@@ -3562,6 +5383,45 @@ export type Database = {
             columns: ["consultant_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_property_consultants: {
+        Row: {
+          consultant_id: string
+          created_at: string
+          is_lead: boolean
+          property_id: string
+          role: string
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string
+          is_lead?: boolean
+          property_id: string
+          role?: string
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string
+          is_lead?: boolean
+          property_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_property_consultants_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_property_consultants_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -3884,6 +5744,30 @@ export type Database = {
           },
         ]
       }
+      dev_user_logins: {
+        Row: {
+          id: string
+          ip_address: string | null
+          logged_in_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          ip_address?: string | null
+          logged_in_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          ip_address?: string | null
+          logged_in_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       dev_users: {
         Row: {
           active_lead_count: number
@@ -3893,6 +5777,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           professional_email: string | null
+          sub_role: string | null
         }
         Insert: {
           active_lead_count?: number
@@ -3902,6 +5787,7 @@ export type Database = {
           id: string
           is_active?: boolean | null
           professional_email?: string | null
+          sub_role?: string | null
         }
         Update: {
           active_lead_count?: number
@@ -3911,6 +5797,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           professional_email?: string | null
+          sub_role?: string | null
         }
         Relationships: []
       }
@@ -4422,7 +6309,10 @@ export type Database = {
           description: string | null
           id: string
           images: string[] | null
+          notify_on_resolution: boolean
+          page: string | null
           priority: number | null
+          resolution_notification_sent_at: string | null
           status: string
           submitted_by: string | null
           tech_notes: string | null
@@ -4437,7 +6327,10 @@ export type Database = {
           description?: string | null
           id?: string
           images?: string[] | null
+          notify_on_resolution?: boolean
+          page?: string | null
           priority?: number | null
+          resolution_notification_sent_at?: string | null
           status?: string
           submitted_by?: string | null
           tech_notes?: string | null
@@ -4452,7 +6345,10 @@ export type Database = {
           description?: string | null
           id?: string
           images?: string[] | null
+          notify_on_resolution?: boolean
+          page?: string | null
           priority?: number | null
+          resolution_notification_sent_at?: string | null
           status?: string
           submitted_by?: string | null
           tech_notes?: string | null
@@ -5052,10 +6948,12 @@ export type Database = {
       forma_training_lesson_progress: {
         Row: {
           completed_at: string | null
+          completion_source: string | null
           created_at: string
           enrollment_id: string
           id: string
           last_accessed_at: string | null
+          last_video_position_seconds: number
           lesson_id: string
           started_at: string | null
           status: string
@@ -5067,10 +6965,12 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          completion_source?: string | null
           created_at?: string
           enrollment_id: string
           id?: string
           last_accessed_at?: string | null
+          last_video_position_seconds?: number
           lesson_id: string
           started_at?: string | null
           status?: string
@@ -5082,10 +6982,12 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          completion_source?: string | null
           created_at?: string
           enrollment_id?: string
           id?: string
           last_accessed_at?: string | null
+          last_video_position_seconds?: number
           lesson_id?: string
           started_at?: string | null
           status?: string
@@ -5722,6 +7624,120 @@ export type Database = {
           },
         ]
       }
+      funnel_manual_events: {
+        Row: {
+          consultant_id: string
+          created_at: string
+          created_by: string | null
+          funnel_type: string
+          id: string
+          notes: string | null
+          occurred_at: string
+          ref_lead_id: string | null
+          ref_negocio_id: string | null
+          ref_property_id: string | null
+          stage_key: string
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string
+          created_by?: string | null
+          funnel_type: string
+          id?: string
+          notes?: string | null
+          occurred_at: string
+          ref_lead_id?: string | null
+          ref_negocio_id?: string | null
+          ref_property_id?: string | null
+          stage_key: string
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string
+          created_by?: string | null
+          funnel_type?: string
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          ref_lead_id?: string | null
+          ref_negocio_id?: string | null
+          ref_property_id?: string | null
+          stage_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_manual_events_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_manual_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_target_overrides: {
+        Row: {
+          consultant_id: string
+          created_at: string
+          created_by: string | null
+          funnel_type: string
+          id: string
+          notes: string | null
+          period: string
+          stage_key: string
+          target_value: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string
+          created_by?: string | null
+          funnel_type: string
+          id?: string
+          notes?: string | null
+          period: string
+          stage_key: string
+          target_value: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string
+          created_by?: string | null
+          funnel_type?: string
+          id?: string
+          notes?: string | null
+          period?: string
+          stage_key?: string
+          target_value?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_target_overrides_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_target_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hidden_ig_conversations: {
         Row: {
           conversation_id: string
@@ -5740,6 +7756,24 @@ export type Database = {
           hidden_at?: string
           hidden_by?: string
           id?: string
+        }
+        Relationships: []
+      }
+      holidays_pt: {
+        Row: {
+          date: string
+          name: string
+          scope: string
+        }
+        Insert: {
+          date: string
+          name: string
+          scope?: string
+        }
+        Update: {
+          date?: string
+          name?: string
+          scope?: string
         }
         Relationships: []
       }
@@ -5791,6 +7825,32 @@ export type Database = {
           {
             foreignKeyName: "internal_chat_attachments_uploaded_by_fkey"
             columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_chat_channel_members: {
+        Row: {
+          channel_id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_chat_channel_members_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
@@ -6004,6 +8064,50 @@ export type Database = {
           },
         ]
       }
+      lead_import_batches: {
+        Row: {
+          errors: Json | null
+          failed_count: number
+          file_name: string | null
+          id: string
+          imported_at: string
+          imported_by: string | null
+          inserted_count: number
+          options: Json | null
+          target_table: string
+        }
+        Insert: {
+          errors?: Json | null
+          failed_count?: number
+          file_name?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          inserted_count?: number
+          options?: Json | null
+          target_table: string
+        }
+        Update: {
+          errors?: Json | null
+          failed_count?: number
+          file_name?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          inserted_count?: number
+          options?: Json | null
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_import_batches_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           agent_id: string | null
@@ -6030,6 +8134,7 @@ export type Database = {
           genero: string | null
           id: string
           ig_username: string | null
+          import_batch_id: string | null
           lead_type: string | null
           lifecycle_stage_id: string | null
           localidade: string | null
@@ -6047,6 +8152,7 @@ export type Database = {
           pais: string | null
           pais_emissor: string | null
           platform: string | null
+          referred_by_consultant_id: string | null
           tags: string[]
           telefone: string | null
           telefone_empresa: string | null
@@ -6083,6 +8189,7 @@ export type Database = {
           genero?: string | null
           id?: string
           ig_username?: string | null
+          import_batch_id?: string | null
           lead_type?: string | null
           lifecycle_stage_id?: string | null
           localidade?: string | null
@@ -6100,6 +8207,7 @@ export type Database = {
           pais?: string | null
           pais_emissor?: string | null
           platform?: string | null
+          referred_by_consultant_id?: string | null
           tags?: string[]
           telefone?: string | null
           telefone_empresa?: string | null
@@ -6136,6 +8244,7 @@ export type Database = {
           genero?: string | null
           id?: string
           ig_username?: string | null
+          import_batch_id?: string | null
           lead_type?: string | null
           lifecycle_stage_id?: string | null
           localidade?: string | null
@@ -6153,6 +8262,7 @@ export type Database = {
           pais?: string | null
           pais_emissor?: string | null
           platform?: string | null
+          referred_by_consultant_id?: string | null
           tags?: string[]
           telefone?: string | null
           telefone_empresa?: string | null
@@ -6173,10 +8283,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leads_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "lead_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leads_lifecycle_stage_id_fkey"
             columns: ["lifecycle_stage_id"]
             isOneToOne: false
             referencedRelation: "leads_contact_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_referred_by_consultant_id_fkey"
+            columns: ["referred_by_consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
             referencedColumns: ["id"]
           },
         ]
@@ -6592,6 +8716,7 @@ export type Database = {
           form_url: string | null
           has_referral: boolean | null
           id: string
+          import_batch_id: string | null
           is_reactivation: boolean
           match_details: Json | null
           match_type: string | null
@@ -6600,6 +8725,8 @@ export type Database = {
           priority: string
           processed_at: string | null
           processed_by: string | null
+          property_external_ref: string | null
+          property_id: string | null
           raw_email: string | null
           raw_name: string | null
           raw_phone: string | null
@@ -6631,6 +8758,7 @@ export type Database = {
           form_url?: string | null
           has_referral?: boolean | null
           id?: string
+          import_batch_id?: string | null
           is_reactivation?: boolean
           match_details?: Json | null
           match_type?: string | null
@@ -6639,6 +8767,8 @@ export type Database = {
           priority?: string
           processed_at?: string | null
           processed_by?: string | null
+          property_external_ref?: string | null
+          property_id?: string | null
           raw_email?: string | null
           raw_name?: string | null
           raw_phone?: string | null
@@ -6670,6 +8800,7 @@ export type Database = {
           form_url?: string | null
           has_referral?: boolean | null
           id?: string
+          import_batch_id?: string | null
           is_reactivation?: boolean
           match_details?: Json | null
           match_type?: string | null
@@ -6678,6 +8809,8 @@ export type Database = {
           priority?: string
           processed_at?: string | null
           processed_by?: string | null
+          property_external_ref?: string | null
+          property_id?: string | null
           raw_email?: string | null
           raw_name?: string | null
           raw_phone?: string | null
@@ -6728,6 +8861,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leads_entries_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "lead_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leads_entries_partner_id_fkey"
             columns: ["partner_id"]
             isOneToOne: false
@@ -6739,6 +8879,13 @@ export type Database = {
             columns: ["processed_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_entries_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
             referencedColumns: ["id"]
           },
           {
@@ -7078,6 +9225,7 @@ export type Database = {
           negocio_id: string | null
           notes: string | null
           partner_id: string | null
+          referral_pct: number | null
           referral_type: string
           status: string
           to_consultant_id: string | null
@@ -7092,6 +9240,7 @@ export type Database = {
           negocio_id?: string | null
           notes?: string | null
           partner_id?: string | null
+          referral_pct?: number | null
           referral_type: string
           status?: string
           to_consultant_id?: string | null
@@ -7106,6 +9255,7 @@ export type Database = {
           negocio_id?: string | null
           notes?: string | null
           partner_id?: string | null
+          referral_pct?: number | null
           referral_type?: string
           status?: string
           to_consultant_id?: string | null
@@ -8649,6 +10799,66 @@ export type Database = {
           },
         ]
       }
+      marketing_resources: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_path: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          is_folder: boolean
+          mime_type: string | null
+          name: string
+          parent_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_folder?: boolean
+          mime_type?: string | null
+          name: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_folder?: boolean
+          mime_type?: string | null
+          name?: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_resources_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_subscription_billing_log: {
         Row: {
           amount: number
@@ -8891,8 +11101,71 @@ export type Database = {
           },
         ]
       }
+      negocio_market_studies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          mime_type: string | null
+          negocio_id: string
+          notes: string | null
+          sent_at: string | null
+          sent_to: string | null
+          sent_via: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          mime_type?: string | null
+          negocio_id: string
+          notes?: string | null
+          sent_at?: string | null
+          sent_to?: string | null
+          sent_via?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          mime_type?: string | null
+          negocio_id?: string
+          notes?: string | null
+          sent_at?: string | null
+          sent_to?: string | null
+          sent_via?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negocio_market_studies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negocio_market_studies_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       negocio_properties: {
         Row: {
+          client_reaction: string | null
+          client_reaction_at: string | null
+          client_reaction_note: string | null
           created_at: string | null
           external_price: number | null
           external_source: string | null
@@ -8908,6 +11181,9 @@ export type Database = {
           visited_at: string | null
         }
         Insert: {
+          client_reaction?: string | null
+          client_reaction_at?: string | null
+          client_reaction_note?: string | null
           created_at?: string | null
           external_price?: number | null
           external_source?: string | null
@@ -8923,6 +11199,9 @@ export type Database = {
           visited_at?: string | null
         }
         Update: {
+          client_reaction?: string | null
+          client_reaction_at?: string | null
+          client_reaction_note?: string | null
           created_at?: string | null
           external_price?: number | null
           external_source?: string | null
@@ -8947,6 +11226,102 @@ export type Database = {
           },
           {
             foreignKeyName: "negocio_properties_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      negocio_proposals: {
+        Row: {
+          accepted_at: string | null
+          amount: number | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          deal_id: string | null
+          direction: string
+          id: string
+          negocio_id: string
+          negocio_property_id: string | null
+          notes: string | null
+          property_id: string | null
+          rejected_at: string | null
+          rejected_reason: string | null
+          status: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deal_id?: string | null
+          direction?: string
+          id?: string
+          negocio_id: string
+          negocio_property_id?: string | null
+          notes?: string | null
+          property_id?: string | null
+          rejected_at?: string | null
+          rejected_reason?: string | null
+          status?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          amount?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deal_id?: string | null
+          direction?: string
+          id?: string
+          negocio_id?: string
+          negocio_property_id?: string | null
+          notes?: string | null
+          property_id?: string | null
+          rejected_at?: string | null
+          rejected_reason?: string | null
+          status?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negocio_proposals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negocio_proposals_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negocio_proposals_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negocio_proposals_negocio_property_id_fkey"
+            columns: ["negocio_property_id"]
+            isOneToOne: false
+            referencedRelation: "negocio_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negocio_proposals_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "dev_properties"
@@ -9013,6 +11388,7 @@ export type Database = {
           referral_pct: number | null
           referral_side: string | null
           referral_type: string | null
+          referrer_consultant_id: string | null
           renda_max_mensal: number | null
           renda_pretendida: number | null
           rendimento_mensal: number | null
@@ -9043,6 +11419,8 @@ export type Database = {
           updated_at: string | null
           valor_credito: number | null
           won_date: string | null
+          zonas: Json
+          zonas_geom: unknown
         }
         Insert: {
           aceita_animais?: boolean | null
@@ -9102,6 +11480,7 @@ export type Database = {
           referral_pct?: number | null
           referral_side?: string | null
           referral_type?: string | null
+          referrer_consultant_id?: string | null
           renda_max_mensal?: number | null
           renda_pretendida?: number | null
           rendimento_mensal?: number | null
@@ -9132,6 +11511,8 @@ export type Database = {
           updated_at?: string | null
           valor_credito?: number | null
           won_date?: string | null
+          zonas?: Json
+          zonas_geom?: unknown
         }
         Update: {
           aceita_animais?: boolean | null
@@ -9191,6 +11572,7 @@ export type Database = {
           referral_pct?: number | null
           referral_side?: string | null
           referral_type?: string | null
+          referrer_consultant_id?: string | null
           renda_max_mensal?: number | null
           renda_pretendida?: number | null
           rendimento_mensal?: number | null
@@ -9221,6 +11603,8 @@ export type Database = {
           updated_at?: string | null
           valor_credito?: number | null
           won_date?: string | null
+          zonas?: Json
+          zonas_geom?: unknown
         }
         Relationships: [
           {
@@ -9261,6 +11645,13 @@ export type Database = {
           {
             foreignKeyName: "negocios_referral_consultant_id_fkey"
             columns: ["referral_consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negocios_referrer_consultant_id_fkey"
+            columns: ["referrer_consultant_id"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
@@ -9357,6 +11748,7 @@ export type Database = {
           is_read: boolean
           metadata: Json | null
           notification_type: string
+          push_dispatched: boolean
           read_at: string | null
           recipient_id: string
           sender_id: string | null
@@ -9372,6 +11764,7 @@ export type Database = {
           is_read?: boolean
           metadata?: Json | null
           notification_type: string
+          push_dispatched?: boolean
           read_at?: string | null
           recipient_id: string
           sender_id?: string | null
@@ -9387,6 +11780,7 @@ export type Database = {
           is_read?: boolean
           metadata?: Json | null
           notification_type?: string
+          push_dispatched?: boolean
           read_at?: string | null
           recipient_id?: string
           sender_id?: string | null
@@ -9459,6 +11853,379 @@ export type Database = {
           },
         ]
       }
+      owner_chat_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          message_id: string
+          mime_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          message_id: string
+          mime_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          message_id?: string
+          mime_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_chat_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "owner_chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          has_attachments: boolean
+          id: string
+          is_deleted: boolean
+          is_edited: boolean
+          sender_consultant_id: string | null
+          sender_owner_id: string | null
+          sender_type: string
+          thread_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          has_attachments?: boolean
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          sender_consultant_id?: string | null
+          sender_owner_id?: string | null
+          sender_type: string
+          thread_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          has_attachments?: boolean
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          sender_consultant_id?: string | null
+          sender_owner_id?: string | null
+          sender_type?: string
+          thread_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_chat_messages_sender_consultant_id_fkey"
+            columns: ["sender_consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_chat_messages_sender_owner_id_fkey"
+            columns: ["sender_owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_chat_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "owner_chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_chat_read_receipts: {
+        Row: {
+          last_read_at: string
+          last_read_message_id: string | null
+          reader_id: string
+          reader_type: string
+          thread_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          last_read_message_id?: string | null
+          reader_id: string
+          reader_type: string
+          thread_id: string
+        }
+        Update: {
+          last_read_at?: string
+          last_read_message_id?: string | null
+          reader_id?: string
+          reader_type?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_chat_read_receipts_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "owner_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_chat_read_receipts_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "owner_chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_chat_thread_participants: {
+        Row: {
+          consultant_id: string
+          joined_at: string
+          left_at: string | null
+          thread_id: string
+        }
+        Insert: {
+          consultant_id: string
+          joined_at?: string
+          left_at?: string | null
+          thread_id: string
+        }
+        Update: {
+          consultant_id?: string
+          joined_at?: string
+          left_at?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_chat_thread_participants_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_chat_thread_participants_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "owner_chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_chat_threads: {
+        Row: {
+          consultant_id: string
+          created_at: string
+          id: string
+          owner_id: string
+          property_id: string
+          updated_at: string
+        }
+        Insert: {
+          consultant_id: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          property_id: string
+          updated_at?: string
+        }
+        Update: {
+          consultant_id?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          property_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_chat_threads_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_chat_threads_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_chat_threads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "dev_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_field_audit: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          decision: string | null
+          edited_by_auth_user_id: string | null
+          edited_via: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          owner_id: string
+          proc_task_id: string | null
+          subtask_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          decision?: string | null
+          edited_by_auth_user_id?: string | null
+          edited_via?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          owner_id: string
+          proc_task_id?: string | null
+          subtask_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          decision?: string | null
+          edited_by_auth_user_id?: string | null
+          edited_via?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          owner_id?: string
+          proc_task_id?: string | null
+          subtask_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_field_audit_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_notifications: {
+        Row: {
+          action_url: string | null
+          body: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_read: boolean
+          metadata: Json | null
+          notification_type: string
+          owner_id: string
+          read_at: string | null
+          title: string
+        }
+        Insert: {
+          action_url?: string | null
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type: string
+          owner_id: string
+          read_at?: string | null
+          title: string
+        }
+        Update: {
+          action_url?: string | null
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          notification_type?: string
+          owner_id?: string
+          read_at?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_notifications_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          owner_id: string
+          p256dh: string
+          user_agent: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          owner_id: string
+          p256dh: string
+          user_agent?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          owner_id?: string
+          p256dh?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_push_subscriptions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owner_role_types: {
         Row: {
           color: string | null
@@ -9492,6 +12259,7 @@ export type Database = {
       owners: {
         Row: {
           address: string | null
+          auth_user_id: string | null
           beneficiaries_json: Json | null
           birth_date: string | null
           cae_code: string | null
@@ -9512,7 +12280,10 @@ export type Database = {
           is_portugal_resident: boolean | null
           last_profession: string | null
           legal_nature: string | null
+          legal_rep_address: string | null
           legal_rep_id_doc: string | null
+          legal_rep_marital_status: string | null
+          legal_rep_naturality: string | null
           legal_representative_name: string | null
           legal_representative_nif: string | null
           marital_regime: string | null
@@ -9527,12 +12298,14 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           profession: string | null
+          profile_photo_url: string | null
           rcbe_code: string | null
           residence_country: string | null
           updated_at: string | null
         }
         Insert: {
           address?: string | null
+          auth_user_id?: string | null
           beneficiaries_json?: Json | null
           birth_date?: string | null
           cae_code?: string | null
@@ -9553,7 +12326,10 @@ export type Database = {
           is_portugal_resident?: boolean | null
           last_profession?: string | null
           legal_nature?: string | null
+          legal_rep_address?: string | null
           legal_rep_id_doc?: string | null
+          legal_rep_marital_status?: string | null
+          legal_rep_naturality?: string | null
           legal_representative_name?: string | null
           legal_representative_nif?: string | null
           marital_regime?: string | null
@@ -9568,12 +12344,14 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           profession?: string | null
+          profile_photo_url?: string | null
           rcbe_code?: string | null
           residence_country?: string | null
           updated_at?: string | null
         }
         Update: {
           address?: string | null
+          auth_user_id?: string | null
           beneficiaries_json?: Json | null
           birth_date?: string | null
           cae_code?: string | null
@@ -9594,7 +12372,10 @@ export type Database = {
           is_portugal_resident?: boolean | null
           last_profession?: string | null
           legal_nature?: string | null
+          legal_rep_address?: string | null
           legal_rep_id_doc?: string | null
+          legal_rep_marital_status?: string | null
+          legal_rep_naturality?: string | null
           legal_representative_name?: string | null
           legal_representative_nif?: string | null
           marital_regime?: string | null
@@ -9609,9 +12390,49 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           profession?: string | null
+          profile_photo_url?: string | null
           rcbe_code?: string | null
           residence_country?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      partner_categories: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          label: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -9959,7 +12780,7 @@ export type Database = {
           notes: string | null
           percent_complete: number | null
           process_type: string
-          property_id: string
+          property_id: string | null
           rejected_at: string | null
           rejected_by: string | null
           rejected_reason: string | null
@@ -9988,7 +12809,7 @@ export type Database = {
           notes?: string | null
           percent_complete?: number | null
           process_type?: string
-          property_id: string
+          property_id?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejected_reason?: string | null
@@ -10017,7 +12838,7 @@ export type Database = {
           notes?: string | null
           percent_complete?: number | null
           process_type?: string
-          property_id?: string
+          property_id?: string | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejected_reason?: string | null
@@ -10116,6 +12937,7 @@ export type Database = {
           priority: string
           proc_task_id: string
           started_at: string | null
+          subtask_key: string
           title: string
           tpl_subtask_id: string | null
           unblocked_at: string | null
@@ -10140,6 +12962,7 @@ export type Database = {
           priority?: string
           proc_task_id: string
           started_at?: string | null
+          subtask_key: string
           title: string
           tpl_subtask_id?: string | null
           unblocked_at?: string | null
@@ -10164,6 +12987,7 @@ export type Database = {
           priority?: string
           proc_task_id?: string
           started_at?: string | null
+          subtask_key?: string
           title?: string
           tpl_subtask_id?: string | null
           unblocked_at?: string | null
@@ -10325,6 +13149,7 @@ export type Database = {
           id: string
           is_blocked: boolean
           is_bypassed: boolean | null
+          is_in_current_stage: boolean
           is_mandatory: boolean | null
           order_index: number | null
           owner_id: string | null
@@ -10353,6 +13178,7 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           is_bypassed?: boolean | null
+          is_in_current_stage?: boolean
           is_mandatory?: boolean | null
           order_index?: number | null
           owner_id?: string | null
@@ -10381,6 +13207,7 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           is_bypassed?: boolean | null
+          is_in_current_stage?: boolean
           is_mandatory?: boolean | null
           order_index?: number | null
           owner_id?: string | null
@@ -11903,6 +14730,30 @@ export type Database = {
         }
         Relationships: []
       }
+      spatial_ref_sys: {
+        Row: {
+          auth_name: string | null
+          auth_srid: number | null
+          proj4text: string | null
+          srid: number
+          srtext: string | null
+        }
+        Insert: {
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid: number
+          srtext?: string | null
+        }
+        Update: {
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid?: number
+          srtext?: string | null
+        }
+        Relationships: []
+      }
       supplier_order_feedback: {
         Row: {
           comment: string | null
@@ -12138,6 +14989,7 @@ export type Database = {
           parent_task_id: string | null
           priority: number
           recurrence_rule: string | null
+          reminders: Json
           section: string | null
           task_list_id: string | null
           title: string
@@ -12161,6 +15013,7 @@ export type Database = {
           parent_task_id?: string | null
           priority?: number
           recurrence_rule?: string | null
+          reminders?: Json
           section?: string | null
           task_list_id?: string | null
           title: string
@@ -12184,6 +15037,7 @@ export type Database = {
           parent_task_id?: string | null
           priority?: number
           recurrence_rule?: string | null
+          reminders?: Json
           section?: string | null
           task_list_id?: string | null
           title?: string
@@ -12443,6 +15297,7 @@ export type Database = {
           buyers_pct_lead_to_qualified: number | null
           consultant_id: string
           created_at: string | null
+          funnel_conversion_rates: Json
           id: string
           is_active: boolean | null
           pct_buyers: number
@@ -12467,6 +15322,7 @@ export type Database = {
           buyers_pct_lead_to_qualified?: number | null
           consultant_id: string
           created_at?: string | null
+          funnel_conversion_rates?: Json
           id?: string
           is_active?: boolean | null
           pct_buyers?: number
@@ -12491,6 +15347,7 @@ export type Database = {
           buyers_pct_lead_to_qualified?: number | null
           consultant_id?: string
           created_at?: string | null
+          funnel_conversion_rates?: Json
           id?: string
           is_active?: boolean | null
           pct_buyers?: number
@@ -13112,8 +15969,10 @@ export type Database = {
           city: string | null
           commercial_conditions: string | null
           contact_person: string | null
+          cover_image_url: string | null
           created_at: string | null
           created_by: string | null
+          description: string | null
           email: string | null
           id: string
           internal_notes: string | null
@@ -13129,8 +15988,13 @@ export type Database = {
           postal_code: string | null
           rating_avg: number | null
           rating_count: number | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           service_areas: string[] | null
           specialties: string[] | null
+          status: string
+          submitted_by: string | null
           updated_at: string | null
           visibility: string
           website: string | null
@@ -13142,8 +16006,10 @@ export type Database = {
           city?: string | null
           commercial_conditions?: string | null
           contact_person?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
+          description?: string | null
           email?: string | null
           id?: string
           internal_notes?: string | null
@@ -13159,8 +16025,13 @@ export type Database = {
           postal_code?: string | null
           rating_avg?: number | null
           rating_count?: number | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           service_areas?: string[] | null
           specialties?: string[] | null
+          status?: string
+          submitted_by?: string | null
           updated_at?: string | null
           visibility?: string
           website?: string | null
@@ -13172,8 +16043,10 @@ export type Database = {
           city?: string | null
           commercial_conditions?: string | null
           contact_person?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
+          description?: string | null
           email?: string | null
           id?: string
           internal_notes?: string | null
@@ -13189,8 +16062,13 @@ export type Database = {
           postal_code?: string | null
           rating_avg?: number | null
           rating_count?: number | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           service_areas?: string[] | null
           specialties?: string[] | null
+          status?: string
+          submitted_by?: string | null
           updated_at?: string | null
           visibility?: string
           website?: string | null
@@ -13199,6 +16077,20 @@ export type Database = {
           {
             foreignKeyName: "temp_partners_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temp_partners_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "dev_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temp_partners_submitted_by_fkey"
+            columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "dev_users"
             referencedColumns: ["id"]
@@ -15324,6 +18216,7 @@ export type Database = {
           feedback_submitted_at: string | null
           id: string
           lead_id: string | null
+          negocio_id: string | null
           notes: string | null
           outcome_prompt_fallback_sent_at: string | null
           outcome_set_at: string | null
@@ -15362,6 +18255,7 @@ export type Database = {
           feedback_submitted_at?: string | null
           id?: string
           lead_id?: string | null
+          negocio_id?: string | null
           notes?: string | null
           outcome_prompt_fallback_sent_at?: string | null
           outcome_set_at?: string | null
@@ -15400,6 +18294,7 @@ export type Database = {
           feedback_submitted_at?: string | null
           id?: string
           lead_id?: string | null
+          negocio_id?: string | null
           notes?: string | null
           outcome_prompt_fallback_sent_at?: string | null
           outcome_set_at?: string | null
@@ -15442,6 +18337,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
             referencedColumns: ["id"]
           },
           {
@@ -16222,6 +19124,61 @@ export type Database = {
           },
         ]
       }
+      funnel_events: {
+        Row: {
+          consultant_id: string | null
+          event_id: string | null
+          funnel_type: string | null
+          occurred_at: string | null
+          ref_id: string | null
+          ref_type: string | null
+          source: string | null
+          stage_key: string | null
+        }
+        Relationships: []
+      }
+      geography_columns: {
+        Row: {
+          coord_dimension: number | null
+          f_geography_column: unknown
+          f_table_catalog: unknown
+          f_table_name: unknown
+          f_table_schema: unknown
+          srid: number | null
+          type: string | null
+        }
+        Relationships: []
+      }
+      geometry_columns: {
+        Row: {
+          coord_dimension: number | null
+          f_geometry_column: unknown
+          f_table_catalog: string | null
+          f_table_name: unknown
+          f_table_schema: unknown
+          srid: number | null
+          type: string | null
+        }
+        Insert: {
+          coord_dimension?: number | null
+          f_geometry_column?: unknown
+          f_table_catalog?: string | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
+          srid?: number | null
+          type?: string | null
+        }
+        Update: {
+          coord_dimension?: number | null
+          f_geometry_column?: unknown
+          f_table_catalog?: string | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
+          srid?: number | null
+          type?: string | null
+        }
+        Relationships: []
+      }
       v_agent_balances: {
         Row: {
           agent_id: string | null
@@ -16243,6 +19200,7 @@ export type Database = {
       }
     }
     Functions: {
+      _finalize_admin_areas_from_staging: { Args: never; Returns: Json }
       _populate_subtasks: {
         Args: {
           p_parent_owner_id: string
@@ -16252,6 +19210,137 @@ export type Database = {
         }
         Returns: undefined
       }
+      _postgis_deprecate: {
+        Args: { newname: string; oldname: string; version: string }
+        Returns: undefined
+      }
+      _postgis_index_extent: {
+        Args: { col: string; tbl: unknown }
+        Returns: unknown
+      }
+      _postgis_pgsql_version: { Args: never; Returns: string }
+      _postgis_scripts_pgsql_version: { Args: never; Returns: string }
+      _postgis_selectivity: {
+        Args: { att_name: string; geom: unknown; mode?: string; tbl: unknown }
+        Returns: number
+      }
+      _postgis_stats: {
+        Args: { ""?: string; att_name: string; tbl: unknown }
+        Returns: string
+      }
+      _seed_admin_freguesias_batch: { Args: { p_batch: Json }; Returns: number }
+      _st_3dintersects: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_contains: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_containsproperly: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_coveredby:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_covers:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_crosses: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_dwithin: {
+        Args: {
+          geog1: unknown
+          geog2: unknown
+          tolerance: number
+          use_spheroid?: boolean
+        }
+        Returns: boolean
+      }
+      _st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_intersects: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_linecrossingdirection: {
+        Args: { line1: unknown; line2: unknown }
+        Returns: number
+      }
+      _st_longestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      _st_maxdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      _st_orderingequals: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_overlaps: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_sortablehash: { Args: { geom: unknown }; Returns: number }
+      _st_touches: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_voronoi: {
+        Args: {
+          clip?: unknown
+          g1: unknown
+          return_polygons?: boolean
+          tolerance?: number
+        }
+        Returns: unknown
+      }
+      _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _truncate_staging_freguesias: { Args: never; Returns: undefined }
+      addauth: { Args: { "": string }; Returns: boolean }
+      addgeometrycolumn:
+        | {
+            Args: {
+              catalog_name: string
+              column_name: string
+              new_dim: number
+              new_srid_in: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+      auth_has_role: { Args: { role_name: string }; Returns: boolean }
+      auth_owner_id: { Args: never; Returns: string }
       auto_claim_steps: {
         Args: { batch_size?: number }
         Returns: {
@@ -16293,20 +19382,297 @@ export type Database = {
       auto_update_run_counts: { Args: { p_run_id: string }; Returns: undefined }
       check_overdue_and_create_alerts: { Args: never; Returns: undefined }
       check_overdue_and_unblock_alerts: { Args: never; Returns: undefined }
+      compute_proc_task_in_current_stage: {
+        Args: { p_proc_instance_id: string; p_stage_order_index: number }
+        Returns: boolean
+      }
+      create_website_lead: {
+        Args: {
+          p_consent: boolean
+          p_consultant_id?: string
+          p_email: string
+          p_form_url?: string
+          p_message: string
+          p_name: string
+          p_phone: string
+          p_property_external_ref?: string
+          p_property_id?: string
+          p_property_slug?: string
+          p_property_title?: string
+        }
+        Returns: string
+      }
       decrypt_email_password: {
         Args: { p_encrypted: string; p_key: string }
         Returns: string
       }
+      disablelongtransactions: { Args: never; Returns: string }
+      dropgeometrycolumn:
+        | {
+            Args: {
+              catalog_name: string
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { column_name: string; table_name: string }; Returns: string }
+      dropgeometrytable:
+        | {
+            Args: {
+              catalog_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { schema_name: string; table_name: string }; Returns: string }
+        | { Args: { table_name: string }; Returns: string }
+      enablelongtransactions: { Args: never; Returns: string }
       encrypt_email_password: {
         Args: { p_key: string; p_password: string }
         Returns: string
       }
+      equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      find_owner_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          auth_user_id: string
+          email: string
+          id: string
+          nif: string
+        }[]
+      }
+      find_owner_by_nif: {
+        Args: { p_nif: string }
+        Returns: {
+          auth_user_id: string
+          email: string
+          id: string
+          nif: string
+        }[]
+      }
+      fn_dispatch_push: {
+        Args: { p_notification_id: string; p_owner_id: string }
+        Returns: undefined
+      }
+      fn_milestone_label: { Args: { p_key: string }; Returns: string }
+      fn_stage_to_milestone: { Args: { p_stage_id: string }; Returns: string }
+      geometry: { Args: { "": string }; Returns: unknown }
+      geometry_above: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_below: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_cmp: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      geometry_contained_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_contains: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_contains_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_distance_box: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      geometry_distance_centroid: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      geometry_eq: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_ge: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_gt: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_le: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_left: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_lt: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overabove: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overbelow: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overlaps: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overlaps_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overleft: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overright: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_right: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_same: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_same_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_within: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_automation_health_summary: {
+        Args: { p_consultant_id: string }
+        Returns: {
+          event_key: string
+          failed_30d: number
+          failed_unresolved: Json
+          failed_unresolved_count: number
+          last_run_at: string
+          last_run_status: string
+          pending_30d: number
+          sent_30d: number
+          skipped_30d: number
+        }[]
+      }
+      gettransactionid: { Args: never; Returns: unknown }
       increment_download_count: { Args: { doc_id: string }; Returns: undefined }
       is_active_dev_user: { Args: never; Returns: boolean }
+      is_internal_chat_member: {
+        Args: { p_channel_id: string }
+        Returns: boolean
+      }
+      longtransactionsenabled: { Args: never; Returns: boolean }
+      match_negocios_for_property: {
+        Args: { p_property_id: string }
+        Returns: {
+          geo_source: string
+          negocio_id: string
+        }[]
+      }
+      match_properties_for_negocio: {
+        Args: { p_negocio_id: string }
+        Returns: {
+          geo_source: string
+          property_id: string
+        }[]
+      }
+      match_properties_preview:
+        | {
+            Args: { p_negocio_id: string; p_zonas: Json }
+            Returns: {
+              geo_source: string
+              property_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_localizacao_override?: string
+              p_negocio_id: string
+              p_zonas: Json
+            }
+            Returns: {
+              geo_source: string
+              property_id: string
+            }[]
+          }
+      match_zonas_via_text: {
+        Args: {
+          p_address_parish: string
+          p_city: string
+          p_zonas: Json
+          p_zone: string
+        }
+        Returns: boolean
+      }
+      populate_geometry_columns:
+        | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
+        | { Args: { use_typmod?: boolean }; Returns: string }
       populate_process_tasks: {
         Args: { p_instance_id: string }
         Returns: undefined
       }
+      postgis_constraint_dims: {
+        Args: { geomcolumn: string; geomschema: string; geomtable: string }
+        Returns: number
+      }
+      postgis_constraint_srid: {
+        Args: { geomcolumn: string; geomschema: string; geomtable: string }
+        Returns: number
+      }
+      postgis_constraint_type: {
+        Args: { geomcolumn: string; geomschema: string; geomtable: string }
+        Returns: string
+      }
+      postgis_extensions_upgrade: { Args: never; Returns: string }
+      postgis_full_version: { Args: never; Returns: string }
+      postgis_geos_version: { Args: never; Returns: string }
+      postgis_lib_build_date: { Args: never; Returns: string }
+      postgis_lib_revision: { Args: never; Returns: string }
+      postgis_lib_version: { Args: never; Returns: string }
+      postgis_libjson_version: { Args: never; Returns: string }
+      postgis_liblwgeom_version: { Args: never; Returns: string }
+      postgis_libprotobuf_version: { Args: never; Returns: string }
+      postgis_libxml_version: { Args: never; Returns: string }
+      postgis_proj_version: { Args: never; Returns: string }
+      postgis_scripts_build_date: { Args: never; Returns: string }
+      postgis_scripts_installed: { Args: never; Returns: string }
+      postgis_scripts_released: { Args: never; Returns: string }
+      postgis_svn_version: { Args: never; Returns: string }
+      postgis_type_name: {
+        Args: {
+          coord_dimension: number
+          geomname: string
+          use_new_name?: boolean
+        }
+        Returns: string
+      }
+      postgis_version: { Args: never; Returns: string }
+      postgis_wagyu_version: { Args: never; Returns: string }
       process_scheduled_wpp_messages: { Args: never; Returns: undefined }
       recalc_agent_lead_count: {
         Args: { agent_uuid: string }
@@ -16316,11 +19682,611 @@ export type Database = {
         Args: { p_proc_instance_id: string }
         Returns: undefined
       }
+      resolve_proc_task_assignee: {
+        Args: { p_assigned_role: string; p_proc_instance_id: string }
+        Returns: string
+      }
       resolve_process_dependencies: {
         Args: { p_instance_id: string }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      st_3dclosestpoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_3ddistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_3dintersects: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_3dlongestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_3dmakebox: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_3dmaxdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_3dshortestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_addpoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_angle:
+        | { Args: { line1: unknown; line2: unknown }; Returns: number }
+        | {
+            Args: { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown }
+            Returns: number
+          }
+      st_area:
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
+      st_asencodedpolyline: {
+        Args: { geom: unknown; nprecision?: number }
+        Returns: string
+      }
+      st_asewkt: { Args: { "": string }; Returns: string }
+      st_asgeojson:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom_column?: string
+              maxdecimaldigits?: number
+              pretty_bool?: boolean
+              r: Record<string, unknown>
+            }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_asgml:
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+            }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
+            Returns: string
+          }
+      st_askml:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_aslatlontext: {
+        Args: { geom: unknown; tmpl?: string }
+        Returns: string
+      }
+      st_asmarc21: { Args: { format?: string; geom: unknown }; Returns: string }
+      st_asmvtgeom: {
+        Args: {
+          bounds: unknown
+          buffer?: number
+          clip_geom?: boolean
+          extent?: number
+          geom: unknown
+        }
+        Returns: unknown
+      }
+      st_assvg:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_astext: { Args: { "": string }; Returns: string }
+      st_astwkb:
+        | {
+            Args: {
+              geom: unknown
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom: unknown[]
+              ids: number[]
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
+      st_asx3d: {
+        Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+        Returns: string
+      }
+      st_azimuth:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+      st_boundingdiagonal: {
+        Args: { fits?: boolean; geom: unknown }
+        Returns: unknown
+      }
+      st_buffer:
+        | {
+            Args: { geom: unknown; options?: string; radius: number }
+            Returns: unknown
+          }
+        | {
+            Args: { geom: unknown; quadsegs: number; radius: number }
+            Returns: unknown
+          }
+      st_centroid: { Args: { "": string }; Returns: unknown }
+      st_clipbybox2d: {
+        Args: { box: unknown; geom: unknown }
+        Returns: unknown
+      }
+      st_closestpoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_collect: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+      st_concavehull: {
+        Args: {
+          param_allow_holes?: boolean
+          param_geom: unknown
+          param_pctconvex: number
+        }
+        Returns: unknown
+      }
+      st_contains: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_containsproperly: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_coorddim: { Args: { geometry: unknown }; Returns: number }
+      st_coveredby:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_covers:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_crosses: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_curvetoline: {
+        Args: { flags?: number; geom: unknown; tol?: number; toltype?: number }
+        Returns: unknown
+      }
+      st_delaunaytriangles: {
+        Args: { flags?: number; g1: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_difference: {
+        Args: { geom1: unknown; geom2: unknown; gridsize?: number }
+        Returns: unknown
+      }
+      st_disjoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_distance:
+        | {
+            Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
+            Returns: number
+          }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+      st_distancesphere:
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+        | {
+            Args: { geom1: unknown; geom2: unknown; radius: number }
+            Returns: number
+          }
+      st_distancespheroid: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_dwithin: {
+        Args: {
+          geog1: unknown
+          geog2: unknown
+          tolerance: number
+          use_spheroid?: boolean
+        }
+        Returns: boolean
+      }
+      st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_expand:
+        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
+        | {
+            Args: { box: unknown; dx: number; dy: number; dz?: number }
+            Returns: unknown
+          }
+        | {
+            Args: {
+              dm?: number
+              dx: number
+              dy: number
+              dz?: number
+              geom: unknown
+            }
+            Returns: unknown
+          }
+      st_force3d: { Args: { geom: unknown; zvalue?: number }; Returns: unknown }
+      st_force3dm: {
+        Args: { geom: unknown; mvalue?: number }
+        Returns: unknown
+      }
+      st_force3dz: {
+        Args: { geom: unknown; zvalue?: number }
+        Returns: unknown
+      }
+      st_force4d: {
+        Args: { geom: unknown; mvalue?: number; zvalue?: number }
+        Returns: unknown
+      }
+      st_generatepoints:
+        | { Args: { area: unknown; npoints: number }; Returns: unknown }
+        | {
+            Args: { area: unknown; npoints: number; seed: number }
+            Returns: unknown
+          }
+      st_geogfromtext: { Args: { "": string }; Returns: unknown }
+      st_geographyfromtext: { Args: { "": string }; Returns: unknown }
+      st_geohash:
+        | { Args: { geog: unknown; maxchars?: number }; Returns: string }
+        | { Args: { geom: unknown; maxchars?: number }; Returns: string }
+      st_geomcollfromtext: { Args: { "": string }; Returns: unknown }
+      st_geometricmedian: {
+        Args: {
+          fail_if_not_converged?: boolean
+          g: unknown
+          max_iter?: number
+          tolerance?: number
+        }
+        Returns: unknown
+      }
+      st_geometryfromtext: { Args: { "": string }; Returns: unknown }
+      st_geomfromewkt: { Args: { "": string }; Returns: unknown }
+      st_geomfromgeojson:
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": string }; Returns: unknown }
+      st_geomfromgml: { Args: { "": string }; Returns: unknown }
+      st_geomfromkml: { Args: { "": string }; Returns: unknown }
+      st_geomfrommarc21: { Args: { marc21xml: string }; Returns: unknown }
+      st_geomfromtext: { Args: { "": string }; Returns: unknown }
+      st_gmltosql: { Args: { "": string }; Returns: unknown }
+      st_hasarc: { Args: { geometry: unknown }; Returns: boolean }
+      st_hausdorffdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_hexagon: {
+        Args: { cell_i: number; cell_j: number; origin?: unknown; size: number }
+        Returns: unknown
+      }
+      st_hexagongrid: {
+        Args: { bounds: unknown; size: number }
+        Returns: Record<string, unknown>[]
+      }
+      st_interpolatepoint: {
+        Args: { line: unknown; point: unknown }
+        Returns: number
+      }
+      st_intersection: {
+        Args: { geom1: unknown; geom2: unknown; gridsize?: number }
+        Returns: unknown
+      }
+      st_intersects:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_isvaliddetail: {
+        Args: { flags?: number; geom: unknown }
+        Returns: Database["public"]["CompositeTypes"]["valid_detail"]
+        SetofOptions: {
+          from: "*"
+          to: "valid_detail"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      st_length:
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
+      st_letters: { Args: { font?: Json; letters: string }; Returns: unknown }
+      st_linecrossingdirection: {
+        Args: { line1: unknown; line2: unknown }
+        Returns: number
+      }
+      st_linefromencodedpolyline: {
+        Args: { nprecision?: number; txtin: string }
+        Returns: unknown
+      }
+      st_linefromtext: { Args: { "": string }; Returns: unknown }
+      st_linelocatepoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_linetocurve: { Args: { geometry: unknown }; Returns: unknown }
+      st_locatealong: {
+        Args: { geometry: unknown; leftrightoffset?: number; measure: number }
+        Returns: unknown
+      }
+      st_locatebetween: {
+        Args: {
+          frommeasure: number
+          geometry: unknown
+          leftrightoffset?: number
+          tomeasure: number
+        }
+        Returns: unknown
+      }
+      st_locatebetweenelevations: {
+        Args: { fromelevation: number; geometry: unknown; toelevation: number }
+        Returns: unknown
+      }
+      st_longestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_makebox2d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_makeline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_makevalid: {
+        Args: { geom: unknown; params: string }
+        Returns: unknown
+      }
+      st_maxdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_minimumboundingcircle: {
+        Args: { inputgeom: unknown; segs_per_quarter?: number }
+        Returns: unknown
+      }
+      st_mlinefromtext: { Args: { "": string }; Returns: unknown }
+      st_mpointfromtext: { Args: { "": string }; Returns: unknown }
+      st_mpolyfromtext: { Args: { "": string }; Returns: unknown }
+      st_multilinestringfromtext: { Args: { "": string }; Returns: unknown }
+      st_multipointfromtext: { Args: { "": string }; Returns: unknown }
+      st_multipolygonfromtext: { Args: { "": string }; Returns: unknown }
+      st_node: { Args: { g: unknown }; Returns: unknown }
+      st_normalize: { Args: { geom: unknown }; Returns: unknown }
+      st_offsetcurve: {
+        Args: { distance: number; line: unknown; params?: string }
+        Returns: unknown
+      }
+      st_orderingequals: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_overlaps: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_perimeter: {
+        Args: { geog: unknown; use_spheroid?: boolean }
+        Returns: number
+      }
+      st_pointfromtext: { Args: { "": string }; Returns: unknown }
+      st_pointm: {
+        Args: {
+          mcoordinate: number
+          srid?: number
+          xcoordinate: number
+          ycoordinate: number
+        }
+        Returns: unknown
+      }
+      st_pointz: {
+        Args: {
+          srid?: number
+          xcoordinate: number
+          ycoordinate: number
+          zcoordinate: number
+        }
+        Returns: unknown
+      }
+      st_pointzm: {
+        Args: {
+          mcoordinate: number
+          srid?: number
+          xcoordinate: number
+          ycoordinate: number
+          zcoordinate: number
+        }
+        Returns: unknown
+      }
+      st_polyfromtext: { Args: { "": string }; Returns: unknown }
+      st_polygonfromtext: { Args: { "": string }; Returns: unknown }
+      st_project: {
+        Args: { azimuth: number; distance: number; geog: unknown }
+        Returns: unknown
+      }
+      st_quantizecoordinates: {
+        Args: {
+          g: unknown
+          prec_m?: number
+          prec_x: number
+          prec_y?: number
+          prec_z?: number
+        }
+        Returns: unknown
+      }
+      st_reduceprecision: {
+        Args: { geom: unknown; gridsize: number }
+        Returns: unknown
+      }
+      st_relate: { Args: { geom1: unknown; geom2: unknown }; Returns: string }
+      st_removerepeatedpoints: {
+        Args: { geom: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_segmentize: {
+        Args: { geog: unknown; max_segment_length: number }
+        Returns: unknown
+      }
+      st_setsrid:
+        | { Args: { geog: unknown; srid: number }; Returns: unknown }
+        | { Args: { geom: unknown; srid: number }; Returns: unknown }
+      st_sharedpaths: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_shortestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_simplifypolygonhull: {
+        Args: { geom: unknown; is_outer?: boolean; vertex_fraction: number }
+        Returns: unknown
+      }
+      st_split: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+      st_square: {
+        Args: { cell_i: number; cell_j: number; origin?: unknown; size: number }
+        Returns: unknown
+      }
+      st_squaregrid: {
+        Args: { bounds: unknown; size: number }
+        Returns: Record<string, unknown>[]
+      }
+      st_srid:
+        | { Args: { geog: unknown }; Returns: number }
+        | { Args: { geom: unknown }; Returns: number }
+      st_subdivide: {
+        Args: { geom: unknown; gridsize?: number; maxvertices?: number }
+        Returns: unknown[]
+      }
+      st_swapordinates: {
+        Args: { geom: unknown; ords: unknown }
+        Returns: unknown
+      }
+      st_symdifference: {
+        Args: { geom1: unknown; geom2: unknown; gridsize?: number }
+        Returns: unknown
+      }
+      st_symmetricdifference: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_tileenvelope: {
+        Args: {
+          bounds?: unknown
+          margin?: number
+          x: number
+          y: number
+          zoom: number
+        }
+        Returns: unknown
+      }
+      st_touches: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_transform:
+        | {
+            Args: { from_proj: string; geom: unknown; to_proj: string }
+            Returns: unknown
+          }
+        | {
+            Args: { from_proj: string; geom: unknown; to_srid: number }
+            Returns: unknown
+          }
+        | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
+      st_triangulatepolygon: { Args: { g1: unknown }; Returns: unknown }
+      st_union:
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+        | {
+            Args: { geom1: unknown; geom2: unknown; gridsize: number }
+            Returns: unknown
+          }
+      st_voronoilines: {
+        Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_voronoipolygons: {
+        Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_wkbtosql: { Args: { wkb: string }; Returns: unknown }
+      st_wkttosql: { Args: { "": string }; Returns: unknown }
+      st_wrapx: {
+        Args: { geom: unknown; move: number; wrap: number }
+        Returns: unknown
+      }
+      strip_typology: { Args: { s: string }; Returns: string }
+      typology_to_int: { Args: { t: string }; Returns: number }
       unaccent: { Args: { "": string }; Returns: string }
+      unlockrows: { Args: { "": string }; Returns: number }
+      updategeometrysrid: {
+        Args: {
+          catalogn_name: string
+          column_name: string
+          new_srid_in: number
+          schema_name: string
+          table_name: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       auto_channel_type: "whatsapp" | "email" | "notification"
@@ -16347,7 +20313,15 @@ export type Database = {
         | "cancelled"
     }
     CompositeTypes: {
-      [_ in never]: never
+      geometry_dump: {
+        path: number[] | null
+        geom: unknown
+      }
+      valid_detail: {
+        valid: boolean | null
+        reason: string | null
+        location: unknown
+      }
     }
   }
 }

@@ -215,7 +215,14 @@ function TarefasPageInner() {
     try {
       await toggleComplete(id, isCompleted)
       toast.success(isCompleted ? 'Tarefa reaberta' : 'Tarefa concluída')
+      // Refetch da tab activa (oculta a tarefa concluída do filtro pendente)
+      // E da `completedTab` que alimenta a secção "Concluídas hoje" no fundo
+      // — sem isto a tarefa simplesmente desaparece sem feedback visual,
+      // pior ainda em recorrentes onde aparece um novo spawn com o mesmo
+      // título noutro bucket. Refetch faz a tarefa mostrar-se concluída
+      // imediatamente em baixo.
       refetch()
+      completedTab.refetch()
       refetchStats()
     } catch {
       toast.error('Erro ao actualizar tarefa')

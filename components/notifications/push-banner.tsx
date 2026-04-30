@@ -41,7 +41,7 @@ export function PushBanner() {
         <Bell className="h-4 w-4 text-primary" />
       </div>
       <p className="text-xs flex-1">
-        Active as notificações para receber alertas de novas leads e SLAs no seu dispositivo.
+        Ative as notificações para receber notificações no seu dispositivo.
       </p>
       <Button
         size="sm"
@@ -49,7 +49,7 @@ export function PushBanner() {
         onClick={handleEnable}
         disabled={isLoading}
       >
-        Activar
+        Ativar
       </Button>
       <button onClick={handleDismiss} className="p-1 rounded-full hover:bg-muted transition-colors">
         <X className="h-3.5 w-3.5 text-muted-foreground" />

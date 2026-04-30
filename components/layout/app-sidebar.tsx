@@ -11,7 +11,7 @@ import {
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Shield, MessagesSquare,
   CheckSquare, Cpu, Infinity, KeyRound, Library, Bell, FolderOpen,
-  Send,
+  Send, Palette,
 } from 'lucide-react'
 import Link from 'next/link'
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon'
@@ -50,7 +50,6 @@ export const meuEspacoItems = [
   { title: 'Tarefas', icon: CheckSquare, href: '/dashboard/tarefas', permission: 'dashboard' },
   { title: 'Calendário', icon: CalendarDays, href: '/dashboard/calendario', permission: 'calendar' },
   { title: 'Objetivos', icon: Target, href: '/dashboard/objetivos', permission: 'goals' },
-  { title: 'Docs e Marketing', icon: Library, href: '/dashboard/documentos', permission: 'dashboard' },
 ]
 
 export const comunicacaoItems = [
@@ -85,11 +84,18 @@ export const crmItems = [
   { title: 'Automatismos', icon: Bell, href: '/dashboard/crm/automatismos-contactos', permission: 'leads', managementOnly: true },
 ]
 
-export const negocioItems = [
-  // Processos: index só visível a gestão. O role Consultor TEM `processes`
-  // (precisa para angariações + tasks de PROC-NEG), mas a página índice
-  // mostra processos transversais — restrita a gestão via `managementOnly`.
-  { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes', managementOnly: true },
+export const negocioItems: Array<{
+  title: string
+  icon: any
+  href: string
+  permission?: string
+  managementOnly?: boolean
+}> = [
+  // Processos: visível a todos com `processes`. A API filtra para mostrar só
+  // os processos do próprio consultor (requested_by = self OR property dele
+  // OR negocio dele); gestão (admin/Broker/CEO/Gestor Processual/Office
+  // Manager/Team Leader) vê todos.
+  { title: 'Processos', icon: FileStack, href: '/dashboard/processos', permission: 'processes' },
   // Template de Processos is hidden from the sidebar for now — route stays live.
   // { title: 'Template de Processos', icon: Workflow, href: '/dashboard/processos/templates', permission: 'processes' },
   { title: 'Imóveis', icon: Building2, href: '/dashboard/imoveis', permission: 'properties' },
@@ -120,20 +126,34 @@ export const recrutamentoItems = [
   { title: 'Integração', icon: FileText, href: '/dashboard/recrutamento/formulario' },
 ]
 
-export const lojaItems = [
-  { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja' },
-  // Catálogo: gestão do catálogo de produtos — só visível a gestão.
-  // Encomendas fica visível a todos (consultor encomenda).
-  { title: 'Catálogo', icon: Boxes, href: '/dashboard/encomendas/catalogo', managementOnly: true },
-  { title: 'Encomendas', icon: Package, href: '/dashboard/encomendas' },
-]
-
 /**
- * "Marketing" unifies the old Digital section + Campanhas + Analytics.
- * The `digitalItems` alias is kept for backwards compatibility with any
- * callers still importing it; new code should reference `marketingItems`.
+ * "Marketing" agrupa documentos, loja institucional, catálogo e encomendas —
+ * tudo o que é material/produto institucional consumido pela equipa.
+ * O conteúdo criativo/promoção (Analytics, Campanhas, Redes Sociais, Ads,
+ * Recursos) vive em "Estúdio" (`estudioItems`).
  */
 export const marketingItems = [
+  // Docs e Marketing: gated by 'dashboard' (todos) — preserva o acesso
+  // anterior do utilizador, agora dentro do grupo Marketing em vez do
+  // "Meu Espaço". A página unifica documentos da empresa + designs.
+  { title: 'Docs e Marketing', icon: Library, href: '/dashboard/documentos', permission: 'dashboard' },
+  // Loja + Encomendas: gated por 'marketing' — preserva o gate prévio do
+  // grupo "Infinity Store".
+  { title: 'Infinity Store', icon: Store, href: '/dashboard/marketing/loja', permission: 'marketing' },
+  // Catálogo: gestão do catálogo de produtos — só visível a gestão.
+  { title: 'Catálogo', icon: Boxes, href: '/dashboard/encomendas/catalogo', permission: 'marketing', managementOnly: true },
+  { title: 'Encomendas', icon: Package, href: '/dashboard/encomendas', permission: 'marketing' },
+]
+// Backwards-compat alias — alguns chamadores importam `lojaItems`.
+export const lojaItems = marketingItems
+
+/**
+ * "Estúdio" — produção criativa e promoção: analytics, campanhas, redes
+ * sociais, ads e recursos visuais. Era o antigo grupo "Marketing".
+ * O alias `digitalItems` mantém compatibilidade com `breadcrumbs.tsx` e
+ * outros chamadores que ainda referenciam o nome antigo.
+ */
+export const estudioItems = [
   { title: 'Analytics', icon: BarChart3, href: '/dashboard/crm/analytics', permission: 'pipeline' },
   { title: 'Campanhas', icon: Megaphone, href: '/dashboard/crm/campanhas', permission: 'pipeline' },
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
@@ -141,7 +161,7 @@ export const marketingItems = [
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
   { title: 'Recursos', icon: FolderOpen, href: '/dashboard/marketing/recursos', permission: 'marketing' },
 ]
-export const digitalItems = marketingItems
+export const digitalItems = estudioItems
 
 export const automationItems = [
   { title: 'Automatismos', icon: Zap, href: '/dashboard/automacao' },
@@ -161,8 +181,8 @@ export const techItems = [
 
 export const menuItems = [
   ...meuEspacoItems, ...comunicacaoItems, ...negocioItems, ...infinityItems,
-  ...financeiroItems, ...creditoItems, ...lojaItems,
-  ...digitalItems, ...bottomItems,
+  ...financeiroItems, ...creditoItems, ...marketingItems,
+  ...estudioItems, ...bottomItems,
 ]
 
 // ─── Active item resolution ──────────────────────────────
@@ -695,17 +715,20 @@ export function AppSidebar() {
           pathPrefixes={['/dashboard/financeiro']}
         />
 
-        {/* 7. Infinity Store */}
-        {hasPermission('marketing' as any) && (
-          <CollapsibleGroup
-            label="Infinity Store"
-            icon={Store}
-            items={filterMgmt(lojaItems)}
-            pathname={pathname}
-            hasPermission={() => true}
-            pathPrefixes={['/dashboard/marketing', '/dashboard/encomendas']}
-          />
-        )}
+        {/* 7. Marketing — antigo "Infinity Store", agora agrupa Documentos +
+              Store + Catálogo + Encomendas. O grupo aparece sempre que pelo
+              menos um item for visível (CollapsibleGroup esconde-se quando
+              `visibleItems.length === 0`); cada item gere o seu próprio gate.
+              O conteúdo criativo (analytics, redes sociais, ads, recursos)
+              vive em "Estúdio". */}
+        <CollapsibleGroup
+          label="Marketing"
+          icon={Megaphone}
+          items={filterMgmt(marketingItems)}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/marketing/loja', '/dashboard/encomendas', '/dashboard/documentos']}
+        />
 
         {/* 10. Recrutamento */}
         {hasPermission('recruitment' as any) && (
@@ -719,18 +742,18 @@ export function AppSidebar() {
           />
         )}
 
-        {/* 12. Marketing (unified: Analytics + Campanhas + antigo "Digital")
+        {/* 12. Estúdio — produção criativa e promoção (antigo grupo "Marketing"):
+              Analytics + Campanhas + Redes Sociais + Ads + Recursos.
               Escondido para o consultor — gate isManagement combinado com
-              `marketing` perm. "For now" porque vamos rever o conteúdo
-              destas páginas antes de as expor a consultores. */}
+              `marketing` perm. */}
         {isManagement && hasPermission('marketing' as any) && (
           <CollapsibleGroup
-            label="Marketing"
-            icon={Megaphone}
-            items={marketingItems}
+            label="Estúdio"
+            icon={Palette}
+            items={estudioItems}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais']}
+            pathPrefixes={['/dashboard/crm/analytics', '/dashboard/crm/campanhas', '/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/marketing/recursos']}
           />
         )}
 

@@ -124,8 +124,10 @@ export default function DashboardLayout({
   const isSidebarPage = SIDEBAR_PAGE_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
     && !SIDEBAR_PAGE_EXCEPTIONS.some((r) => pathname === r || pathname?.startsWith(r + '/'))
   const isCompactPadding = COMPACT_PADDING_ROUTES.some((r) => pathname === r || pathname?.startsWith(r + '/'))
-  // Routes where breadcrumbs should be hidden on mobile (still visible on lg+)
-  const hideBreadcrumbsOnMobile = /^\/dashboard\/imoveis\/[^/]+$/.test(pathname ?? '')
+  // Breadcrumbs are hidden em mobile globalmente — o bottom nav já dá
+  // contexto de navegação suficiente em ecrãs pequenos e libertam-se
+  // pixels valiosos no header. A partir de `sm` voltam a aparecer.
+  const hideBreadcrumbsOnMobile = true
 
   return (
     <BreadcrumbOverrideProvider>
@@ -137,12 +139,12 @@ export default function DashboardLayout({
             <SidebarTrigger className="-ml-1" />
             <Separator
               orientation="vertical"
-              className={cn('mr-2 h-6', hideBreadcrumbsOnMobile && 'hidden lg:block')}
+              className={cn('mr-2 h-6', hideBreadcrumbsOnMobile && 'hidden sm:block')}
             />
             <div
               className={cn(
                 'min-w-0 flex-1 overflow-hidden',
-                hideBreadcrumbsOnMobile && 'hidden lg:block'
+                hideBreadcrumbsOnMobile && 'hidden sm:block'
               )}
             >
               <Breadcrumbs />

@@ -14,6 +14,12 @@ export interface FeedbackSubmission {
    *  Slug correspondente a `FEEDBACK_PAGES` (ou `null` para entradas antigas
    *  pré-feature). */
   page: FeedbackPage | null
+  /** Opt-in do submitter para receber push quando o ticket/ideia transita
+   *  para `concluido`. Default FALSE; form envia TRUE por defeito. */
+  notify_on_resolution: boolean
+  /** Idempotência: timestamp do envio do push de conclusão. NULL = nunca
+   *  disparado. Set pela rota PUT após o primeiro flip para `concluido`. */
+  resolution_notification_sent_at: string | null
   created_at: string
   updated_at: string
 }

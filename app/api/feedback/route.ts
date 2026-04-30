@@ -72,6 +72,7 @@ export async function POST(request: Request) {
         voice_url: data.voice_url || null,
         images: data.images || [],
         page: data.page,
+        notify_on_resolution: data.notify_on_resolution ?? false,
         submitted_by: auth.user.id,
       })
       .select('id')

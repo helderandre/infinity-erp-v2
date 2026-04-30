@@ -7,19 +7,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ContactRound, Briefcase, Euro, Landmark,
-  GraduationCap, Store, Megaphone, Bot, MessageCircle, Infinity,
+  GraduationCap, Megaphone, Palette, Bot, MessageCircle, Infinity,
   ChevronDown,
 } from 'lucide-react'
 import {
   meuEspacoItems, comunicacaoItems, crmItems, negocioItems, infinityItems,
-  financeiroItems, creditoItems, recrutamentoItems, lojaItems,
-  marketingItems, automationItems,
+  financeiroItems, creditoItems, recrutamentoItems, marketingItems,
+  estudioItems, automationItems,
 } from '@/components/layout/app-sidebar'
 import type { LucideIcon } from 'lucide-react'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import { useUser } from '@/hooks/use-user'
+import { usePermissions } from '@/hooks/use-permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 
 // ─── Section definitions (mirrors sidebar groups) ───────────────────────────
@@ -28,6 +29,7 @@ interface SectionItem {
   title: string
   icon: any
   href: string
+  permission?: string
   managementOnly?: boolean
   alternates?: Array<{ title: string; icon: any; href: string }>
 }
@@ -38,10 +40,20 @@ interface Section {
   icon: LucideIcon
   items: SectionItem[]
   prefixes: string[]
+  /** Quando definido, a secção inteira só aparece para utilizadores com
+   *  esta permissão (mirror dos gates por grupo no sidebar desktop). */
+  permission?: string
   /** Quando true, a secção inteira só aparece para roles em MANAGEMENT_ROLES. */
   managementOnly?: boolean
 }
 
+// Section-level gates espelham 1:1 os gates do sidebar desktop em
+// `app-sidebar.tsx`:
+//   - Recrutamento → `hasPermission('recruitment')`
+//   - Automação    → `hasPermission('settings')`        (grupo "Tech")
+//   - Crédito      → `hasPermission('credit')`
+//   - Estúdio      → `isManagement && hasPermission('marketing')`
+// As outras secções deixam o gate por item (cada item declara `permission`).
 const SECTIONS: Section[] = [
   { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: [] },
   { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: [] },
@@ -49,11 +61,11 @@ const SECTIONS: Section[] = [
   { key: 'crm', label: 'Leads', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/acompanhamentos'] },
   { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: [] },
   { key: 'financeiro', label: 'Financeiro', icon: Euro, items: financeiroItems, prefixes: [] },
-  { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: [] },
-  { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: [] },
-  { key: 'loja', label: 'Loja', icon: Store, items: lojaItems, prefixes: [] },
-  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: [], managementOnly: true },
-  { key: 'automacao', label: 'Automação', icon: Bot, items: automationItems, prefixes: [] },
+  { key: 'credito', label: 'Crédito', icon: Landmark, items: creditoItems, prefixes: [], permission: 'credit' },
+  { key: 'recrutamento', label: 'Recrut.', icon: GraduationCap, items: recrutamentoItems, prefixes: [], permission: 'recruitment' },
+  { key: 'marketing', label: 'Marketing', icon: Megaphone, items: marketingItems, prefixes: [] },
+  { key: 'estudio', label: 'Estúdio', icon: Palette, items: estudioItems, prefixes: [], permission: 'marketing', managementOnly: true },
+  { key: 'automacao', label: 'Automação', icon: Bot, items: automationItems, prefixes: [], permission: 'settings' },
 ]
 
 // Longest-prefix match across all sections. Items in different sections can
@@ -76,20 +88,36 @@ export function MobileBottomNav() {
   const stripRef = useRef<HTMLDivElement>(null)
   const [sectionPopupOpen, setSectionPopupOpen] = useState(false)
   const { user } = useUser()
+  const { hasPermission } = usePermissions()
   const isManagement = isManagementRole(user?.role_names ?? [])
 
-  // Filtra secções e items por `managementOnly`. Espelha o gate do sidebar
-  // desktop (filterMgmt + isManagement && hasPermission('marketing')).
-  // Secções cujo `items` fica vazio após o filtro também desaparecem.
+  // Section-level gates mirror EXACTLY os gates do sidebar desktop:
+  //   1. `managementOnly` esconde a secção a roles fora de MANAGEMENT_ROLES.
+  //   2. `permission` esconde a secção a quem não tem essa permissão (era
+  //      isto que estava a faltar — secções como Recrutamento/Automação/
+  //      Crédito/Estúdio têm gate por grupo no desktop, mas no mobile só
+  //      tinham filtro per-item, e os items dessas secções não declaravam
+  //      `permission`, deixando-as sempre visíveis).
+  //   3. Items individuais ainda são filtrados pela sua própria `permission`/
+  //      `managementOnly` para secções com gate só por item (Marketing novo,
+  //      Negócio, CRM, Financeiro).
   const sections = useMemo(() => {
     return SECTIONS
-      .filter((s) => isManagement || !s.managementOnly)
+      .filter((s) => {
+        if (s.managementOnly && !isManagement) return false
+        if (s.permission && !hasPermission(s.permission as any)) return false
+        return true
+      })
       .map((s) => ({
         ...s,
-        items: isManagement ? s.items : s.items.filter((i) => !i.managementOnly),
+        items: s.items.filter((i) => {
+          if (!isManagement && i.managementOnly) return false
+          if (i.permission && !hasPermission(i.permission as any)) return false
+          return true
+        }),
       }))
       .filter((s) => s.items.length > 0)
-  }, [isManagement])
+  }, [isManagement, hasPermission])
 
   // Publish the rendered nav height as a CSS variable so full-bleed pages
   // (like /dashboard/whatsapp) can reserve the exact space.

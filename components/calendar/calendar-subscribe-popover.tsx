@@ -97,14 +97,18 @@ export function CalendarSubscribePopover() {
           <Button
             variant="ghost"
             size="icon"
-            className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9"
+            className="inline-flex h-8 w-8 sm:h-9 sm:w-9"
             aria-label="Sincronizar com Google Calendar"
             title="Sincronizar com Google Calendar"
           >
             <Rss className="h-4 w-4" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-[360px] p-4">
+        <PopoverContent
+          align="end"
+          collisionPadding={12}
+          className="w-[min(92vw,360px)] p-4"
+        >
           <div className="space-y-3">
             <div>
               <h4 className="text-sm font-semibold">Sincronizar com Google Calendar</h4>

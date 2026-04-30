@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { updateFeedbackSchema } from '@/lib/validations/feedback'
+import { sendPushToUser } from '@/lib/crm/send-push'
 
 export async function GET(
   request: Request,
@@ -58,6 +59,14 @@ export async function PUT(
 
     const supabase = createAdminClient()
 
+    // Snapshot pré-update para detectar transição para `concluido` e disparar
+    // push idempotente ao submitter (apenas se ele optou por ser notificado).
+    const { data: before } = await supabase
+      .from('feedback_submissions')
+      .select('status, type, title, submitted_by, notify_on_resolution, resolution_notification_sent_at')
+      .eq('id', id)
+      .single()
+
     const { data, error } = await supabase
       .from('feedback_submissions')
       .update(validation.data)
@@ -72,6 +81,42 @@ export async function PUT(
     if (error) {
       console.error('Erro ao actualizar feedback:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Side-effect: notificar submitter quando ticket/ideia é dado como
+    // concluído. Idempotente via `resolution_notification_sent_at`. Falhas
+    // isoladas — não revertem a actualização.
+    if (
+      validation.data.status === 'concluido' &&
+      before &&
+      before.status !== 'concluido' &&
+      before.notify_on_resolution &&
+      !before.resolution_notification_sent_at &&
+      before.submitted_by
+    ) {
+      try {
+        const isIdeia = before.type === 'ideia'
+        const payload = isIdeia
+          ? {
+              title: 'Obrigado pela tua ideia! 💜',
+              body: `"${before.title}" acaba de ser implementada. Esta melhoria nasceu graças a ti.`,
+            }
+          : {
+              title: 'O bug que reportaste foi corrigido! 🛠️',
+              body: `"${before.title}" está resolvido. Obrigado por nos ajudares a tornar a app melhor.`,
+            }
+        await sendPushToUser(supabase, before.submitted_by, {
+          ...payload,
+          url: '/dashboard',
+          tag: `feedback-resolved-${id}`,
+        })
+        await supabase
+          .from('feedback_submissions')
+          .update({ resolution_notification_sent_at: new Date().toISOString() })
+          .eq('id', id)
+      } catch (pushErr) {
+        console.error('Erro ao enviar push de feedback concluído:', pushErr)
+      }
     }
 
     return NextResponse.json(data)

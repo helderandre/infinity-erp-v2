@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
@@ -8,6 +9,7 @@ export async function GET(request: Request) {
     if (!auth.authorized) return auth.response
 
     const supabase = await createClient()
+    const isManagement = isManagementRole(auth.roles)
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -59,6 +61,33 @@ export async function GET(request: Request) {
 
     if (negocioId) {
       query = query.eq('negocio_id' as any, negocioId)
+    }
+
+    // Visibility scoping: management roles see everything; consultors see
+    // only processos onde:
+    //   - foram quem pediu (`requested_by = self`)  OR
+    //   - o imóvel é deles (`property.consultant_id = self`)  OR
+    //   - o negócio é deles (`negocio.assigned_consultant_id = self`)
+    if (!isManagement) {
+      const userId = auth.user.id
+
+      const [{ data: ownProperties }, { data: ownNegocios }] = await Promise.all([
+        supabase.from('dev_properties').select('id').eq('consultant_id', userId),
+        supabase.from('negocios').select('id').eq('assigned_consultant_id', userId),
+      ])
+
+      const ownPropertyIds = (ownProperties ?? []).map((p: { id: string }) => p.id)
+      const ownNegocioIds = (ownNegocios ?? []).map((n: { id: string }) => n.id)
+
+      const orParts = [`requested_by.eq.${userId}`]
+      if (ownPropertyIds.length > 0) {
+        orParts.push(`property_id.in.(${ownPropertyIds.join(',')})`)
+      }
+      if (ownNegocioIds.length > 0) {
+        orParts.push(`negocio_id.in.(${ownNegocioIds.join(',')})`)
+      }
+
+      query = query.or(orParts.join(','))
     }
 
     const { data, error } = await query

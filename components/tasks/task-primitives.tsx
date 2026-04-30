@@ -10,10 +10,10 @@ import { cn } from '@/lib/utils'
 export type PriorityLevel = 1 | 2 | 3 | 4
 
 const PRIORITY_RING: Record<PriorityLevel, string> = {
-  1: 'border-red-500/70 hover:bg-red-500/5',
-  2: 'border-orange-500/70 hover:bg-orange-500/5',
-  3: 'border-blue-500/70 hover:bg-blue-500/5',
-  4: 'border-muted-foreground/30 hover:bg-muted/60',
+  1: 'border-red-500/90 hover:bg-red-500/5',
+  2: 'border-orange-500/90 hover:bg-orange-500/5',
+  3: 'border-blue-500/90 hover:bg-blue-500/5',
+  4: 'border-muted-foreground/55 hover:border-muted-foreground/80 hover:bg-muted/60',
 }
 
 const PRIORITY_CHECK_BG: Record<PriorityLevel, string> = {
@@ -69,7 +69,7 @@ export function PriorityCheck({
       onClick={(e) => { e.stopPropagation(); onClick() }}
       title={title}
       className={cn(
-        'rounded-full border flex items-center justify-center transition-all shrink-0',
+        'rounded-full border-2 flex items-center justify-center transition-all shrink-0',
         sizeClass,
         checked
           ? PRIORITY_CHECK_BG[p]

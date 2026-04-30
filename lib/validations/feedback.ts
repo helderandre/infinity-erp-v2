@@ -10,6 +10,7 @@ export const createFeedbackSchema = z.object({
   voice_url: z.string().url().optional().nullable(),
   images: z.array(z.string().url()).optional().default([]),
   page: z.enum(FEEDBACK_PAGE_ENUM),
+  notify_on_resolution: z.boolean().optional().default(false),
 })
 
 export const updateFeedbackSchema = z.object({
