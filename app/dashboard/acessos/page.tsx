@@ -7,7 +7,7 @@ import {
   ExternalLink, Phone, MapPin, Plus, Trash2, Search,
   MessageCircle, BarChart3, FileText,
   Home, Users, Laptop, Loader2, UserCircle, AlertTriangle,
-  MoreHorizontal, Pencil, CopyCheck,
+  MoreHorizontal, Pencil, CopyCheck, Lock,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -88,7 +88,8 @@ const WEBSITES = {
 
 const TABS = [
   { key: 'atalhos' as const, label: 'Atalhos', icon: Sparkles },
-  { key: 'websites' as const, label: 'Websites', icon: Globe },
+  { key: 'links' as const, label: 'Links', icon: Globe },
+  { key: 'acm' as const, label: 'ACM', icon: KeyRound },
   { key: 'estrutura' as const, label: 'Estrutura', icon: Building2 },
 ] as const
 
@@ -99,10 +100,14 @@ const SUB_TABS_ESTRUTURA = [
   { key: 'convictus' as const, label: 'Convictus' },
 ]
 
-const SUB_TABS_WEBSITES = [
+const SUB_TABS_ACM = [
   { key: 'microsir' as const, label: 'MicroSIR' },
   { key: 'casafari' as const, label: 'Casafari' },
-  { key: 'outros' as const, label: 'Outros' },
+]
+
+const SUB_TABS_LINKS = [
+  { key: 'equipa' as const, label: 'Equipa' },
+  { key: 'meus' as const, label: 'Meus' },
 ]
 
 // ─── Shared sub-components ──────────────────────────────
@@ -534,64 +539,75 @@ function AtalhosContent() {
   )
 }
 
-// ─── Tab: Websites ──────────────────────────────────────
+// ─── Tab: ACM (credentialed websites) ───────────────────
 
-function WebsitesContent() {
+function AcmContent() {
   const { copiedKey, copy } = useCopy()
-  const [subTab, setSubTab] = useState<'microsir' | 'casafari' | 'outros'>('microsir')
+  const [subTab, setSubTab] = useState<'microsir' | 'casafari'>('microsir')
 
   return (
     <div className="space-y-5">
-      <PillTabs tabs={SUB_TABS_WEBSITES} active={subTab} onChange={setSubTab} />
+      <PillTabs tabs={SUB_TABS_ACM} active={subTab} onChange={setSubTab} />
 
-      {subTab === 'outros' ? (
-        <OutrosContent />
-      ) : (
-        <div className="space-y-4">
-          {/* Credentials */}
-          {'login' in WEBSITES[subTab] && (
-            <GlassCard header="Credenciais de Acesso">
-              <div className="divide-y divide-border/30 px-5">
-                <InfoRow
-                  label="Login"
-                  value={(WEBSITES[subTab] as typeof WEBSITES.microsir).login}
-                  copyKey={`${subTab}-login`} copiedKey={copiedKey} onCopy={copy}
-                />
-                <InfoRow
-                  label="Password"
-                  value={(WEBSITES[subTab] as typeof WEBSITES.microsir).password}
-                  copyKey={`${subTab}-pass`} copiedKey={copiedKey} onCopy={copy}
-                />
+      <div className="space-y-4">
+        {/* Credentials */}
+        {'login' in WEBSITES[subTab] && (
+          <GlassCard header="Credenciais de Acesso">
+            <div className="divide-y divide-border/30 px-5">
+              <InfoRow
+                label="Login"
+                value={(WEBSITES[subTab] as typeof WEBSITES.microsir).login}
+                copyKey={`${subTab}-login`} copiedKey={copiedKey} onCopy={copy}
+              />
+              <InfoRow
+                label="Password"
+                value={(WEBSITES[subTab] as typeof WEBSITES.microsir).password}
+                copyKey={`${subTab}-pass`} copiedKey={copiedKey} onCopy={copy}
+              />
+            </div>
+            {subTab === 'microsir' && (
+              <div className="mx-5 mb-5 mt-3 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>Faz logout do teu Maxwork e entra com as credenciais indicadas acima – Assistente.</span>
               </div>
-              {subTab === 'microsir' && (
-                <div className="mx-5 mb-5 mt-3 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-900 dark:text-amber-200">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>Faz logout do teu Maxwork e entra com as credenciais indicadas acima – Assistente.</span>
-                </div>
-              )}
-            </GlassCard>
-          )}
+            )}
+          </GlassCard>
+        )}
 
-          {/* Links */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {WEBSITES[subTab].links.map((link) => (
-              <LinkCard key={link.title} title={link.title} url={link.url} />
-            ))}
-          </div>
+        {/* Links */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {WEBSITES[subTab].links.map((link) => (
+            <LinkCard key={link.title} title={link.title} url={link.url} />
+          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-// ─── Sub-tab: Outros (dynamic) ──────────────────────────
+// ─── Tab: Links (custom sites — Equipa / Meus) ──────────
 
-function OutrosContent() {
+function LinksContent() {
   const { sites, isLoading, canManageGlobal, refetch } = useAcessosCustomSites()
+  const [subTab, setSubTab] = useState<'equipa' | 'meus'>('equipa')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<HydratedAcessosCustomSite | null>(null)
+  const [defaultScope, setDefaultScope] = useState<'global' | 'personal'>('personal')
   const [deleteTarget, setDeleteTarget] = useState<HydratedAcessosCustomSite | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const teamSites = sites.filter((s) => s.scope === 'global')
+  const personalSites = sites.filter((s) => s.scope === 'personal')
+
+  const isTeam = subTab === 'equipa'
+  const currentSites = isTeam ? teamSites : personalSites
+  const canAddCurrent = isTeam ? canManageGlobal : true
+
+  const openAdd = (scope: 'global' | 'personal') => {
+    setEditing(null)
+    setDefaultScope(scope)
+    setDialogOpen(true)
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -614,80 +630,155 @@ function OutrosContent() {
     }
   }
 
+  const renderSite = (site: HydratedAcessosCustomSite) => {
+    const isPersonal = site.scope === 'personal'
+    const scopeBadge = isPersonal ? (
+      <Badge
+        variant="outline"
+        className="text-[10px] gap-1 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      >
+        <Lock className="size-2.5" />
+        Pessoal
+      </Badge>
+    ) : site.is_system ? (
+      <Badge variant="secondary" className="text-[10px]">Sistema</Badge>
+    ) : (
+      <Badge
+        variant="outline"
+        className="text-[10px] gap-1 border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+      >
+        <Users className="size-2.5" />
+        Equipa
+      </Badge>
+    )
+    const showActions = site.can_edit || site.can_delete
+    const actions = showActions ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"
+            aria-label="Acções"
+          >
+            <MoreHorizontal className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {site.can_edit && (
+            <DropdownMenuItem
+              onClick={() => { setEditing(site); setDialogOpen(true) }}
+            >
+              <Pencil className="mr-2 size-3.5" /> Editar
+            </DropdownMenuItem>
+          )}
+          {site.can_delete && (
+            <DropdownMenuItem
+              onClick={() => setDeleteTarget(site)}
+              className="text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="mr-2 size-3.5" /> Eliminar
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null
+    return (
+      <LinkCard
+        key={site.id}
+        title={site.title}
+        url={site.url}
+        badge={scopeBadge}
+        actions={actions}
+      />
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button
-          size="sm"
-          onClick={() => { setEditing(null); setDialogOpen(true) }}
-          className="gap-1.5"
-        >
-          <Plus className="size-3.5" />
-          Adicionar site
-        </Button>
+    <div className="space-y-5">
+      <PillTabs tabs={SUB_TABS_LINKS} active={subTab} onChange={setSubTab} />
+
+      {/* Description card per sub-tab — with add button on the right */}
+      <div className={cn(
+        'rounded-2xl border px-4 py-3 flex items-start sm:items-center gap-3',
+        isTeam
+          ? 'border-sky-500/20 bg-sky-500/5'
+          : 'border-amber-500/20 bg-amber-500/5',
+      )}>
+        <div className={cn(
+          'flex size-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset',
+          isTeam
+            ? 'bg-sky-500/10 text-sky-700 dark:text-sky-300 ring-sky-500/20'
+            : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/20',
+        )}>
+          {isTeam ? <Users className="size-4.5" /> : <UserCircle className="size-4.5" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold tracking-tight">
+              {isTeam ? 'Acessos da equipa' : 'Os meus acessos'}
+            </h3>
+            <span className="text-[11px] font-medium text-muted-foreground/70">
+              {currentSites.length}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+            {isTeam
+              ? 'Partilhados — visíveis a todos os consultores.'
+              : 'Privados — só tu vês. Atalhos pessoais para ferramentas, dashboards ou notas.'}
+          </p>
+        </div>
+        {canAddCurrent && (
+          <Button
+            size="sm"
+            onClick={() => openAdd(isTeam ? 'global' : 'personal')}
+            className={cn(
+              'gap-1.5 rounded-full shrink-0 h-8 text-xs',
+              isTeam
+                ? 'bg-sky-600 hover:bg-sky-700 text-white dark:bg-sky-500 dark:hover:bg-sky-600'
+                : 'bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-500 dark:hover:bg-amber-600',
+            )}
+          >
+            <Plus className="size-3.5" />
+            <span className="hidden sm:inline">Adicionar</span>
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
         </div>
-      ) : sites.length === 0 ? (
-        <EmptyState
-          icon={Globe}
-          title="Sem sites"
-          description="Adiciona o teu primeiro site para o acessar rapidamente."
-          action={{
-            label: 'Adicionar site',
-            onClick: () => { setEditing(null); setDialogOpen(true) },
-          }}
-        />
+      ) : currentSites.length === 0 ? (
+        <div className={cn(
+          'rounded-2xl border border-dashed px-5 py-10 text-center',
+          isTeam
+            ? 'border-border/50 bg-muted/20'
+            : 'border-amber-500/30 bg-amber-500/[0.04]',
+        )}>
+          {!isTeam && <Lock className="size-4 text-amber-600/60 dark:text-amber-400/60 mx-auto mb-2" />}
+          <p className="text-xs font-medium text-foreground">
+            {isTeam ? 'Sem acessos partilhados' : 'Ainda não tens acessos pessoais'}
+          </p>
+          <p className="text-[11px] text-muted-foreground/80 mt-1">
+            {isTeam
+              ? 'Os acessos da equipa aparecem aqui quando criados.'
+              : 'Adiciona sites privados que só tu vês.'}
+          </p>
+          {canAddCurrent && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openAdd(isTeam ? 'global' : 'personal')}
+              className="mt-3 gap-1.5 rounded-full h-8 text-xs"
+            >
+              <Plus className="size-3.5" />
+              Adicionar primeiro
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {sites.map((site) => {
-            const systemBadge = site.is_system
-              ? <Badge variant="secondary" className="text-[10px]">Sistema</Badge>
-              : null
-            const showActions = site.can_edit || site.can_delete
-            const actions = showActions ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition"
-                    aria-label="Acções"
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {site.can_edit && (
-                    <DropdownMenuItem
-                      onClick={() => { setEditing(site); setDialogOpen(true) }}
-                    >
-                      <Pencil className="mr-2 size-3.5" /> Editar
-                    </DropdownMenuItem>
-                  )}
-                  {site.can_delete && (
-                    <DropdownMenuItem
-                      onClick={() => setDeleteTarget(site)}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <Trash2 className="mr-2 size-3.5" /> Eliminar
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null
-            return (
-              <LinkCard
-                key={site.id}
-                title={site.title}
-                url={site.url}
-                badge={systemBadge}
-                actions={actions}
-              />
-            )
-          })}
+          {currentSites.map(renderSite)}
         </div>
       )}
 
@@ -695,6 +786,7 @@ function OutrosContent() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         initialData={editing}
+        defaultScope={defaultScope}
         canManageGlobal={canManageGlobal}
         onSaved={refetch}
       />
@@ -754,7 +846,8 @@ function AcessosPageContent() {
 
       {/* Content */}
       {activeTab === 'atalhos' && <AtalhosContent />}
-      {activeTab === 'websites' && <WebsitesContent />}
+      {activeTab === 'links' && <LinksContent />}
+      {activeTab === 'acm' && <AcmContent />}
       {activeTab === 'estrutura' && <EstruturaContent />}
     </div>
   )
