@@ -30,13 +30,22 @@ export function DrillDownSheet({
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (open && config) {
-      setLoading(true)
-      setItems([])
-      config.fetcher().then((res) => {
-        if (!res.error) setItems(res.items)
-        setLoading(false)
-      })
+    if (!(open && config)) {
+      // Clear stale items so the next open shows skeletons instead of
+      // last-fetch's results during the loading window.
+      if (!open) setItems([])
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setItems([])
+    config.fetcher().then((res) => {
+      if (cancelled) return
+      if (!res.error) setItems(res.items)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
     }
   }, [open, config])
 

@@ -115,6 +115,7 @@ export function ManagementDashboard() {
   const [rankingPeriod, setRankingPeriod] = useState<TimePeriod>('ytd')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'pipeline' | 'rankings' | 'alerts'>('overview')
 
   const openDrillDown = useCallback((config: DrillDownConfig) => {
     setSheetConfig(config)
@@ -129,13 +130,17 @@ export function ManagementDashboard() {
   const rankingDateTo = rankingPeriod === 'custom' && customTo ? customTo : undefined
   const rankingApiPeriod = rankingPeriod === 'month' ? 'month' : undefined
 
-  const fetchRankings = useCallback(() => {
-    getAgentRankings('revenue', rankingApiPeriod).then((res) => {
-      if (!res.error) setRankings(res.rankings)
-    })
-    getAgentRankings('acquisitions', rankingApiPeriod).then((res) => {
-      if (!res.error) setRankingsAcq(res.rankings)
-    })
+  const fetchRankings = useCallback((kind: 'revenue' | 'acquisitions' | 'both' = 'both') => {
+    if (kind === 'revenue' || kind === 'both') {
+      getAgentRankings('revenue', rankingApiPeriod).then((res) => {
+        if (!res.error) setRankings(res.rankings)
+      })
+    }
+    if (kind === 'acquisitions' || kind === 'both') {
+      getAgentRankings('acquisitions', rankingApiPeriod).then((res) => {
+        if (!res.error) setRankingsAcq(res.rankings)
+      })
+    }
   }, [rankingApiPeriod])
 
   useEffect(() => {
@@ -151,7 +156,13 @@ export function ManagementDashboard() {
     getRevenuePipeline().then((res) => { if (!res.error) setPipeline(res.pipeline) })
   }, [])
 
-  useEffect(() => { fetchRankings() }, [fetchRankings])
+  // Lazy-load rankings: only fetch when the Rankings tab is opened, and only
+  // for the currently-visible sub-tab. Halves the initial-mount server-action
+  // count and avoids competing with drill-down fetches for DB resources.
+  useEffect(() => {
+    if (activeMainTab !== 'rankings') return
+    fetchRankings(rankingTab)
+  }, [activeMainTab, rankingTab, fetchRankings])
 
   if (loading || !data) return <DashboardSkeleton />
 
@@ -184,7 +195,7 @@ export function ManagementDashboard() {
       <DrillDownSheet config={sheetConfig} open={sheetOpen} onOpenChange={setSheetOpen} />
 
       {/* ─── Tabs ─────────────────────────────────────────────────── */}
-      <Tabs defaultValue="overview" className="space-y-5">
+      <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as typeof activeMainTab)} className="space-y-5">
         <TabsList className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm h-auto">
           {[
             { value: 'overview', label: 'Visão Geral', icon: Euro },
@@ -672,7 +683,7 @@ export function ManagementDashboard() {
                   <p className="text-sm">Sem dados disponíveis</p>
                 </div>
               ) : (
-                <div className="divide-y divide-border/40">
+                <div className="divide-y divide-border/40 max-h-[640px] overflow-y-auto overscroll-contain">
                   {currentRankings.map((r) => {
                     const medals = ['', '🥇', '🥈', '🥉']
                     const medal = medals[r.position] || ''
