@@ -242,8 +242,6 @@ function summaryTitleFor(tipo: string): string {
       return 'O que o cliente arrenda'
     case 'Arrendador':
       return 'Imóvel para arrendar'
-    case 'Compra e Venda':
-      return 'Critérios do negócio'
     default:
       return 'Critérios'
   }

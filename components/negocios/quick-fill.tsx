@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -55,18 +54,6 @@ const NUMBER_FIELDS = new Set([
   'orcamento', 'orcamento_max', 'quartos_min', 'num_wc', 'area_min_m2',
   'preco_venda', 'quartos', 'casas_banho', 'area_m2', 'total_divisoes',
   'renda_max_mensal', 'renda_pretendida',
-])
-
-const COMPRA_FIELDS = new Set([
-  'tipo_imovel', 'localizacao', 'estado_imovel',
-  'orcamento', 'orcamento_max', 'quartos_min', 'num_wc',
-  'area_min_m2', 'motivacao_compra', 'prazo_compra',
-])
-
-const VENDA_FIELDS = new Set([
-  'preco_venda', 'tipo_imovel_venda', 'localizacao_venda',
-  'quartos', 'casas_banho', 'area_m2', 'total_divisoes',
-  'distrito', 'concelho', 'freguesia',
 ])
 
 /* ─── Editable field row ─── */
@@ -138,7 +125,9 @@ function EditableRow({
 }
 
 export function QuickFill({ negocioId, tipo, onApply }: QuickFillProps) {
-  const isCompraEVenda = tipo === 'Compra e Venda'
+  // `tipo` é mantido para potencial customização per-tipo do prompt no
+  // backend; aqui já não há branching local após a remoção de "Compra e Venda".
+  void tipo
   const [text, setText] = useState('')
   const [isExtracting, setIsExtracting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
@@ -248,31 +237,6 @@ export function QuickFill({ negocioId, tipo, onApply }: QuickFillProps) {
     toast.success('Dados aplicados com sucesso')
   }
 
-  /* ─── Render field rows for a given set of keys ─── */
-  const renderFields = (fields: Set<string>) => {
-    if (!extractedFields) return null
-    const entries = Object.entries(extractedFields).filter(([k]) => fields.has(k))
-    if (entries.length === 0) {
-      return <p className="text-sm text-muted-foreground py-4 text-center">Nenhum campo extraído</p>
-    }
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        {entries.map(([key, value]) => {
-          const isFullWidth = LOCATION_FIELDS.has(key) || key === 'observacoes'
-          return (
-            <div key={key} className={isFullWidth ? 'col-span-2' : ''}>
-              <EditableRow
-                fieldKey={key}
-                value={value}
-                onChange={(v) => updateField(key, v)}
-              />
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-
   const renderAllFields = () => {
     if (!extractedFields) return null
     const entries = Object.entries(extractedFields).filter(([, v]) => v != null)
@@ -296,8 +260,6 @@ export function QuickFill({ negocioId, tipo, onApply }: QuickFillProps) {
       </div>
     )
   }
-
-  const COMMON_FIELDS = new Set(['observacoes'])
 
   return (
     <div className="space-y-3">
@@ -364,32 +326,7 @@ export function QuickFill({ negocioId, tipo, onApply }: QuickFillProps) {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto min-h-0">
-            {extractedFields && isCompraEVenda ? (
-              <Tabs defaultValue="tab-compra">
-                <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0 mb-4 w-full">
-                  <TabsTrigger value="tab-compra" className="rounded-full flex-1 px-3 py-1.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    O que procura
-                  </TabsTrigger>
-                  <TabsTrigger value="tab-venda" className="rounded-full flex-1 px-3 py-1.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    O que vende
-                  </TabsTrigger>
-                  <TabsTrigger value="tab-outros" className="rounded-full flex-1 px-3 py-1.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    Outros
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="tab-compra" className="mt-0">
-                  {renderFields(COMPRA_FIELDS)}
-                </TabsContent>
-                <TabsContent value="tab-venda" className="mt-0">
-                  {renderFields(VENDA_FIELDS)}
-                </TabsContent>
-                <TabsContent value="tab-outros" className="mt-0">
-                  {renderFields(COMMON_FIELDS)}
-                </TabsContent>
-              </Tabs>
-            ) : extractedFields ? (
-              renderAllFields()
-            ) : null}
+            {extractedFields ? renderAllFields() : null}
           </div>
 
           <DialogFooter>

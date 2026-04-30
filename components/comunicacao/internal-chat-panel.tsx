@@ -92,6 +92,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const endRef = useRef<HTMLDivElement>(null)
   const firstRenderRef = useRef(true)
   const lastMsgCountRef = useRef(0)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -145,6 +146,11 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   //  - Mensagens novas: só auto-scroll se o utilizador já está no fundo OU
   //    se a mensagem é dele próprio. Caso contrário, incrementa um badge
   //    de "N novas" no botão flutuante de scroll-to-bottom.
+  //
+  // O scroll é diferido com rAF + retries para resistir a:
+  //  - Sheets ainda em animação de abertura (height/clientHeight muda).
+  //  - Imagens/avatares que carregam tarde e empurram o scroll.
+  //  - Notification handlers que abrem o panel mid-render.
   useEffect(() => {
     const el = scrollRef.current
     if (!el || messages.length === 0) {
@@ -154,9 +160,29 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
     const newCount = messages.length - lastMsgCountRef.current
     lastMsgCountRef.current = messages.length
 
+    const jumpToBottom = (smooth: boolean) => {
+      // Prefer scrollIntoView no sentinel — robusto contra recálculos
+      // de scrollHeight pós-paint (imagens a carregar, layout a estabilizar).
+      const end = endRef.current
+      if (end) {
+        end.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' })
+      } else if (el) {
+        el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+      }
+    }
+
     if (firstRenderRef.current) {
-      el.scrollTo({ top: el.scrollHeight, behavior: 'auto' })
       firstRenderRef.current = false
+      // 3 attempts em frames sucessivos + um retry tardio. Se o sheet ainda
+      // está a animar ou imagens ainda não carregaram, alguma destas vai
+      // apanhar o estado final. Custo: zero perceptível pelo utilizador.
+      requestAnimationFrame(() => {
+        jumpToBottom(false)
+        requestAnimationFrame(() => {
+          jumpToBottom(false)
+          setTimeout(() => jumpToBottom(false), 150)
+        })
+      })
       setIsAtBottom(true)
       setUnreadBelow(0)
       return
@@ -166,7 +192,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
       const lastMsg = messages[messages.length - 1]
       const ownMessage = lastMsg.sender_id === currentUser.id
       if (ownMessage || isAtBottom) {
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+        requestAnimationFrame(() => jumpToBottom(true))
         setUnreadBelow(0)
       } else {
         setUnreadBelow((prev) => prev + newCount)
@@ -186,9 +212,13 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   }, [])
 
   const scrollToBottom = useCallback(() => {
+    const end = endRef.current
     const el = scrollRef.current
-    if (!el) return
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    if (end) {
+      end.scrollIntoView({ block: 'end', behavior: 'smooth' })
+    } else if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
     setUnreadBelow(0)
   }, [])
 
@@ -406,6 +436,11 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             {typingText}
           </div>
         )}
+
+        {/* Sentinel — alvo do scrollIntoView. Garante que "ir para o fundo"
+            funciona mesmo quando scrollHeight ainda não estabilizou (sheet
+            a animar, imagens a carregar). */}
+        <div ref={endRef} aria-hidden className="h-px" />
       </div>
 
       {/* Floating "scroll to bottom" arrow — só visível quando o utilizador

@@ -178,51 +178,35 @@ const amenityFields = [
 ]
 
 export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
-  const isCompraEVenda = tipo === 'Compra e Venda'
-  const isCompra = tipo === 'Compra' || isCompraEVenda
-  const isVenda = tipo === 'Venda' || isCompraEVenda
+  const isCompra = tipo === 'Compra'
+  const isVenda = tipo === 'Venda'
   const isArrendatario = tipo === 'Arrendatário'
   const isArrendador = tipo === 'Arrendador'
 
   return (
     <div className="space-y-6">
-      {/* Shared top fields — only for single-type negócios (not Compra e Venda) */}
-      {!isCompraEVenda && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
-            <LocationTagsField label="Localização" field="localizacao" form={form} updateField={updateField} />
-          </div>
-          {(isCompra || isArrendatario) && (
-            <NegocioZonasField
-              value={(form.zonas as NegocioZone[] | null) ?? []}
-              onChange={(zonas) => updateField('zonas', zonas)}
-            />
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectField label="Estado do Imóvel" field="estado_imovel" form={form} updateField={updateField} options={NEGOCIO_ESTADOS_IMOVEL} />
-            <SelectField label="Classe" field="classe_imovel" form={form} updateField={updateField} options={NEGOCIO_CLASSES_IMOVEL} />
-          </div>
-        </>
+      {/* Shared top fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
+        <LocationTagsField label="Localização" field="localizacao" form={form} updateField={updateField} />
+      </div>
+      {(isCompra || isArrendatario) && (
+        <NegocioZonasField
+          value={(form.zonas as NegocioZone[] | null) ?? []}
+          onChange={(zonas) => updateField('zonas', zonas)}
+        />
       )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <SelectField label="Estado do Imóvel" field="estado_imovel" form={form} updateField={updateField} options={NEGOCIO_ESTADOS_IMOVEL} />
+        <SelectField label="Classe" field="classe_imovel" form={form} updateField={updateField} options={NEGOCIO_CLASSES_IMOVEL} />
+      </div>
 
       {/* ─── Compra section ─── */}
       {isCompra && (
         <>
           <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {isCompraEVenda ? 'O que procura (Compra)' : 'Critérios de Compra'}
+            Critérios de Compra
           </h4>
-
-          {/* Compra-specific shared fields when Compra e Venda */}
-          {isCompraEVenda && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
-              <LocationTagsField label="Zonas pretendidas" field="localizacao" form={form} updateField={updateField} placeholder="Lisboa, Cascais..." />
-              <SelectField label="Estado do Imóvel" field="estado_imovel" form={form} updateField={updateField} options={NEGOCIO_ESTADOS_IMOVEL} />
-              <SelectField label="Classe" field="classe_imovel" form={form} updateField={updateField} options={NEGOCIO_CLASSES_IMOVEL} />
-            </div>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <NumberInput label="Orçamento Mínimo" field="orcamento" form={form} updateField={updateField} suffix="€" />
             <NumberInput label="Orçamento Máximo" field="orcamento_max" form={form} updateField={updateField} suffix="€" />
@@ -244,18 +228,6 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
               <NumberInput label="Capital Próprio" field="capital_proprio" form={form} updateField={updateField} suffix="€" />
             </div>
           </div>
-
-          {/* Amenities for Compra side */}
-          {isCompraEVenda && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Características pretendidas</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {amenityFields.map(({ field, label }) => (
-                  <CheckboxField key={field} label={label} field={field} form={form} updateField={updateField} />
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
 
@@ -263,17 +235,8 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
       {isVenda && (
         <>
           <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {isCompraEVenda ? 'O que vende (Venda)' : 'Dados de Venda'}
+            Dados de Venda
           </h4>
-
-          {/* Venda-specific fields when Compra e Venda */}
-          {isCompraEVenda && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField label="Tipo de Imóvel" field="tipo_imovel_venda" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
-              <LocationTagsField label="Localização do imóvel" field="localizacao_venda" form={form} updateField={updateField} placeholder="Zona do imóvel..." />
-            </div>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <NumberInput label="Preço de Venda" field="preco_venda" form={form} updateField={updateField} suffix="€" />
             <NumberInput label="Quartos" field="quartos" form={form} updateField={updateField} />
@@ -307,18 +270,6 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
               />
             </div>
           </div>
-
-          {/* Amenities for Venda side */}
-          {isCompraEVenda && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Características do imóvel</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {amenityFields.map(({ field, label }) => (
-                  <CheckboxField key={`${field}_venda`} label={label} field={`${field}_venda`} form={form} updateField={updateField} />
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
 
@@ -363,17 +314,15 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
         </>
       )}
 
-      {/* Amenidades (single-type only — Compra e Venda has them inline above) */}
-      {!isCompraEVenda && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Amenidades</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {amenityFields.map(({ field, label }) => (
-              <CheckboxField key={field} label={label} field={field} form={form} updateField={updateField} />
-            ))}
-          </div>
+      {/* Amenidades */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Amenidades</h4>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {amenityFields.map(({ field, label }) => (
+            <CheckboxField key={field} label={label} field={field} form={form} updateField={updateField} />
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Observações */}
       <div className="space-y-2">

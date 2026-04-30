@@ -21,9 +21,6 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 interface NegocioHeroProps {
   tipo: string
-  isCompraEVenda?: boolean
-  perspective?: 'compra' | 'venda'
-  onPerspectiveChange?: (p: 'compra' | 'venda') => void
   // Lead
   clientName: string
   phone: string | null
@@ -44,9 +41,6 @@ interface NegocioHeroProps {
 
 export function NegocioHero({
   tipo,
-  isCompraEVenda,
-  perspective,
-  onPerspectiveChange,
   clientName,
   phone,
   email,
@@ -99,7 +93,6 @@ export function NegocioHero({
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               <EstadoPipelineSelector
                 tipo={tipo}
-                perspective={isCompraEVenda ? perspective : undefined}
                 pipelineStageId={pipelineStageId}
                 fallbackLabel={estado}
                 onChange={onPipelineChange}
@@ -154,37 +147,6 @@ export function NegocioHero({
         </div>
       </div>
 
-      {/* Compra e Venda perspective toggle */}
-      {isCompraEVenda && onPerspectiveChange && (
-        <div className="mt-4">
-          <div className="inline-flex items-center gap-1 p-0.5 rounded-full bg-muted/60 border border-border/40">
-            <button
-              type="button"
-              onClick={() => onPerspectiveChange('compra')}
-              className={cn(
-                'px-4 py-1 rounded-full text-xs font-medium transition-all',
-                perspective === 'compra'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Compra
-            </button>
-            <button
-              type="button"
-              onClick={() => onPerspectiveChange('venda')}
-              className={cn(
-                'px-4 py-1 rounded-full text-xs font-medium transition-all',
-                perspective === 'venda'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Venda
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   )
 }

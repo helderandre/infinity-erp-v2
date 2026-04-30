@@ -181,6 +181,8 @@ function ChatPageContent() {
               isLoadingChannels={channelsLoading}
               onSearchChannels={searchChannels}
               unreadCounts={unreadCounts}
+              lastActivity={chatLastActivity}
+              lastMessage={chatLastMessage}
             />
           </div>
         </SheetContent>

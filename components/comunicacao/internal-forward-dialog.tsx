@@ -98,10 +98,14 @@ export function InternalForwardDialog({
   }, [open])
 
   const filteredUsers = useMemo(() => {
-    if (!search.trim()) return users
+    // Defensive: também filtramos o próprio aqui (não só na fetch) para
+    // cobrir a race em que `currentUserId` chega vazio na primeira abertura
+    // — o useEffect cacheia users.length>0 e nunca refiltra.
+    const base = users.filter((u) => u.id !== currentUserId)
+    if (!search.trim()) return base
     const t = search.trim().toLowerCase()
-    return users.filter((u) => u.commercial_name.toLowerCase().includes(t))
-  }, [users, search])
+    return base.filter((u) => u.commercial_name.toLowerCase().includes(t))
+  }, [users, search, currentUserId])
 
   const buildTarget = (key: string): Target | null => {
     if (key === 'geral') return { kind: 'geral' }
