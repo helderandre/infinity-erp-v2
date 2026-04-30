@@ -97,31 +97,77 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
     }
   }
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-
+  const addImageFiles = async (files: File[]) => {
     const remaining = MAX_IMAGES - images.length
     if (remaining <= 0) {
       toast.error(`Máximo de ${MAX_IMAGES} imagens`)
       return
     }
-
     const toProcess = files.slice(0, remaining)
-
     for (const file of toProcess) {
       try {
         const compressed = await compressImage(file)
         const preview = URL.createObjectURL(compressed)
         setImages((prev) => [...prev, { file: compressed, preview }])
       } catch {
-        toast.error(`Erro ao comprimir ${file.name}`)
+        toast.error(`Erro ao comprimir ${file.name || 'imagem'}`)
       }
     }
+    if (files.length > remaining) {
+      toast.warning(`Apenas as primeiras ${remaining} imagens foram adicionadas (máx. ${MAX_IMAGES}).`)
+    }
+  }
 
-    // Reset input
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    await addImageFiles(files)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  // Paste do clipboard: aceita imagens directamente da ferramenta de recorte
+  // (Cmd+Shift+4 / Win+Shift+S) sem obrigar a guardar primeiro. Listener no
+  // window — se o item do clipboard for ficheiro de imagem, intercepta com
+  // preventDefault para não tentar colar o blob no Input/Textarea focado.
+  // Plain text continua a colar normalmente nos campos de texto porque
+  // items com kind='string' não são imagens e não chegamos a chamar
+  // preventDefault.
+  useEffect(() => {
+    if (!open) return
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      const imageFiles: File[] = []
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const f = item.getAsFile()
+          if (f) {
+            // Recortes anónimos vêm como "image.png" sem timestamp; renomear
+            // para algo único evita colisões na lista de previews.
+            const renamed = new File(
+              [f],
+              f.name && f.name !== 'image.png' ? f.name : `clipboard-${Date.now()}.png`,
+              { type: f.type },
+            )
+            imageFiles.push(renamed)
+          }
+        }
+      }
+      if (imageFiles.length === 0) return
+      e.preventDefault()
+      void addImageFiles(imageFiles)
+      toast.success(
+        imageFiles.length === 1
+          ? 'Imagem colada do clipboard'
+          : `${imageFiles.length} imagens coladas do clipboard`,
+      )
+    }
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+    // images.length é capturado dentro de addImageFiles → re-bind quando muda
+    // para que MAX_IMAGES seja respeitado em pastes consecutivos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, images.length])
 
   const removeImage = (index: number) => {
     setImages((prev) => {
@@ -299,7 +345,12 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
           {/* Card 3 — Imagens */}
           <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Imagens ({images.length}/{MAX_IMAGES})</Label>
+              <div className="space-y-0.5">
+                <Label>Imagens ({images.length}/{MAX_IMAGES})</Label>
+                <p className="text-[10px] text-muted-foreground/80 leading-snug">
+                  Cola directamente do clipboard (⌘/Ctrl + V) ou usa Adicionar.
+                </p>
+              </div>
               {images.length < MAX_IMAGES && (
                 <Button
                   type="button"
