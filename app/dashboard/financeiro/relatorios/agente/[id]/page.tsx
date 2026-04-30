@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
+import { useSmartBack } from "@/hooks/use-previous-pathname"
 import { toast } from "sonner"
 import {
   ArrowLeft,
@@ -70,6 +71,7 @@ export default function AgentReportPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/financeiro/relatorios')
 
   const consultantId = params.id as string
   // O segmento 'all' é o sentinela para o modo agregado (todos os consultores).
@@ -100,7 +102,7 @@ export default function AgentReportPage() {
   if (!report) {
     return (
       <div className="space-y-4">
-        <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+        <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar
         </button>
         <Card className="p-8 text-center">
@@ -117,7 +119,7 @@ export default function AgentReportPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
             <ArrowLeft className="h-3.5 w-3.5" />
             Voltar
           </button>

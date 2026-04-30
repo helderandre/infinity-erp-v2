@@ -100,6 +100,7 @@ import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/
 import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { ProcessTimelineView } from '@/components/processes/process-timeline-view'
 import { useProcessActivities } from '@/hooks/use-process-activities'
 import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
@@ -112,6 +113,7 @@ export default function ProcessoDetailPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const goBack = useSmartBack('/dashboard/processos')
   const { user } = useUser()
   const { isBroker } = usePermissions()
   const canManageTemplates = isBroker()
@@ -790,10 +792,10 @@ export default function ProcessoDetailPage() {
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-4 px-4 md:px-6 py-4 border-b">
-          <Link href="/dashboard/processos" className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
             <ArrowLeft className="h-3.5 w-3.5" />
             Voltar
-          </Link>
+          </button>
           <h1 className="text-xl font-bold text-muted-foreground">
             {deletedInfo.external_ref || 'Processo'}
           </h1>
@@ -832,10 +834,10 @@ export default function ProcessoDetailPage() {
         <div className="relative z-10 px-5 md:px-6 py-4">
           {/* Top row: back + actions */}
           <div className="flex items-center justify-between">
-            <Link href="/dashboard/processos" className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
+            <button onClick={goBack} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
               <ArrowLeft className="h-3.5 w-3.5" />
               Voltar
-            </Link>
+            </button>
             <div className="flex items-center gap-2">
               {instance.current_status === 'active' && (
                 <button

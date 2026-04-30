@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -67,6 +68,7 @@ import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/leads')
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab')
@@ -270,12 +272,12 @@ export default function LeadDetailPage() {
       const res = await fetch('/api/negocios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lead_id: id, tipo: newNegocioTipo }) })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      toast.success('Negocio criado com sucesso')
+      toast.success('Oportunidade criada com sucesso')
       setNewNegocioOpen(false)
       setNewNegocioTipo('')
       loadNegocios()
       openNegocioSheet(data.id)
-    } catch { toast.error('Erro ao criar negocio') }
+    } catch { toast.error('Erro ao criar oportunidade') }
     finally { setCreatingNegocio(false) }
   }
 
@@ -285,10 +287,10 @@ export default function LeadDetailPage() {
     try {
       const res = await fetch(`/api/negocios/${negocioToDelete}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
-      toast.success('Negocio eliminado')
+      toast.success('Oportunidade eliminada')
       setNegocioToDelete(null)
       loadNegocios()
-    } catch { toast.error('Erro ao eliminar negocio') }
+    } catch { toast.error('Erro ao eliminar oportunidade') }
     finally { setDeletingNegocio(false) }
   }
 
@@ -351,7 +353,7 @@ export default function LeadDetailPage() {
             variant="ghost"
             size="sm"
             className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => router.push('/dashboard/leads')}
+            onClick={goBack}
           >
             <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
             Voltar
@@ -569,7 +571,7 @@ export default function LeadDetailPage() {
               <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
                 {[
                   { key: 'leads', label: 'Leads', icon: Zap, count: pendingLeads.length || undefined },
-                  { key: 'negocios', label: 'Negócios', icon: Briefcase },
+                  { key: 'negocios', label: 'Oportunidades', icon: Briefcase },
                   { key: 'dados', label: 'Dados', icon: Database },
                   { key: 'automatismos', label: 'Automatismos', icon: Workflow },
                   { key: 'historico', label: 'Histórico', icon: Clock },
@@ -638,10 +640,10 @@ export default function LeadDetailPage() {
             {/* Negocios Tab */}
             <TabsContent value="negocios" className="mt-0 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Negocios</h3>
+                <h3 className="text-lg font-semibold">Oportunidades</h3>
                 <Button size="sm" onClick={() => setNewNegocioOpen(true)} className="rounded-full">
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Novo Negocio
+                  Nova Oportunidade
                 </Button>
               </div>
 
@@ -654,9 +656,9 @@ export default function LeadDetailPage() {
                   <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
                     <Briefcase className="h-7 w-7 text-muted-foreground/30" />
                   </div>
-                  <p className="text-muted-foreground text-sm">Nenhum negocio associado</p>
+                  <p className="text-muted-foreground text-sm">Nenhuma oportunidade associada</p>
                   <Button size="sm" className="mt-3 rounded-full" onClick={() => setNewNegocioOpen(true)}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Criar Negocio
+                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Criar Oportunidade
                   </Button>
                 </div>
               ) : (
@@ -681,11 +683,11 @@ export default function LeadDetailPage() {
               <Dialog open={newNegocioOpen} onOpenChange={setNewNegocioOpen}>
                 <DialogContent className="rounded-2xl">
                   <DialogHeader>
-                    <DialogTitle>Novo Negocio</DialogTitle>
+                    <DialogTitle>Nova Oportunidade</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Tipo de Negocio *</Label>
+                      <Label>Tipo de Oportunidade *</Label>
                       <Select value={newNegocioTipo} onValueChange={setNewNegocioTipo}>
                         <SelectTrigger className="rounded-full">
                           <SelectValue placeholder="Seleccionar tipo" />
@@ -712,8 +714,8 @@ export default function LeadDetailPage() {
               <AlertDialog open={!!negocioToDelete} onOpenChange={(open) => !open && setNegocioToDelete(null)}>
                 <AlertDialogContent className="rounded-2xl">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Eliminar Negocio</AlertDialogTitle>
-                    <AlertDialogDescription>Tem a certeza de que pretende eliminar este negocio? Esta accao e irreversivel.</AlertDialogDescription>
+                    <AlertDialogTitle>Eliminar Oportunidade</AlertDialogTitle>
+                    <AlertDialogDescription>Tem a certeza de que pretende eliminar esta oportunidade? Esta acção é irreversível.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>

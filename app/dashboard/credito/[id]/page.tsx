@@ -2,6 +2,7 @@
 
 import { use } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -23,6 +24,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 export default function CreditoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/credito')
 
   const { request, metrics, isLoading, error, refetch } = useCreditRequest(id)
   const { proposals, refetch: refetchProposals } = useCreditProposals(id)
@@ -57,7 +59,7 @@ export default function CreditoDetalhePage({ params }: { params: Promise<{ id: s
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/dashboard/credito')} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
+          <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
             <ArrowLeft className="h-3.5 w-3.5" />
             Voltar
           </button>

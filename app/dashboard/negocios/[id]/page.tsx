@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -131,6 +132,7 @@ export default function NegocioDetailPage() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/negocios')
 
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const [activeTab, setActiveTab] = useState<TabKey>(
@@ -166,7 +168,7 @@ export default function NegocioDetailPage() {
         }
 
         const res = await fetch(`/api/negocios/${negocioId}/related`)
-        if (!res.ok) throw new Error('Negócio não encontrado')
+        if (!res.ok) throw new Error('Oportunidade não encontrada')
         const payload = await res.json()
 
         if (cancelled) return
@@ -206,7 +208,7 @@ export default function NegocioDetailPage() {
           moments: payload.moments ?? [],
         })
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Erro a carregar negócio')
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Erro a carregar oportunidade')
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -289,10 +291,10 @@ export default function NegocioDetailPage() {
   if (error || !bundle || !apresentacaoData) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-sm font-medium text-muted-foreground">{error ?? 'Negócio não encontrado'}</p>
+        <p className="text-sm font-medium text-muted-foreground">{error ?? 'Oportunidade não encontrada'}</p>
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={goBack}
           className="mt-3 text-xs underline hover:text-foreground transition-colors"
         >
           Voltar
@@ -308,7 +310,7 @@ export default function NegocioDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.back()}
+          onClick={goBack}
           className="rounded-full h-9 gap-1.5 self-start"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

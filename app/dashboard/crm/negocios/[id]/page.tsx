@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /**
@@ -15,6 +16,7 @@ export default function CrmNegocioRedirectPage() {
   const { id: negocioId } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const goBack = useSmartBack('/dashboard/crm')
   const [error, setError] = useState(false)
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function CrmNegocioRedirectPage() {
       <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
         <p className="text-sm font-medium">Negócio não encontrado</p>
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="mt-3 text-xs underline hover:text-foreground transition-colors"
         >
           Voltar

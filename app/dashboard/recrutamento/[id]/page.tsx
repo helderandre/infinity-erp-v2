@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { pt } from 'date-fns/locale/pt'
@@ -71,6 +72,7 @@ const getInitials = (name: string) => name.split(' ').map(n => n[0]).slice(0, 2)
 export default function CandidateDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/recrutamento/candidatos')
   const candidateId = params.id as string
 
   const [loading, setLoading] = useState(true)
@@ -262,7 +264,7 @@ export default function CandidateDetailPage() {
   if (!candidate) return (
     <div className="flex items-center justify-center h-[calc(100vh-4rem)] p-4">
       <div className="text-center"><User className="h-16 w-16 text-muted-foreground/20 mx-auto mb-3" /><p className="text-sm text-muted-foreground">Candidato não encontrado</p>
-        <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={() => router.push('/dashboard/recrutamento/candidatos')}>Voltar</Button></div>
+        <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={goBack}>Voltar</Button></div>
     </div>
   )
 
@@ -280,7 +282,7 @@ export default function CandidateDetailPage() {
       <ScrollArea className="w-80 shrink-0 bg-neutral-900 text-white">
         <div className="p-5 space-y-4">
           {/* Back */}
-          <button onClick={() => router.push('/dashboard/recrutamento/candidatos')}
+          <button onClick={goBack}
             className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 px-3 py-1.5 text-[11px] font-medium text-neutral-300 hover:bg-white/20 hover:text-white transition-colors">
             <ArrowLeft className="h-3 w-3" />Candidatos
           </button>
@@ -637,7 +639,7 @@ export default function CandidateDetailPage() {
               variant="ghost"
               size="sm"
               className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => router.push('/dashboard/recrutamento/candidatos')}
+              onClick={goBack}
             >
               <ArrowLeft className="mr-1.5 h-3 w-3" />Voltar
             </Button>

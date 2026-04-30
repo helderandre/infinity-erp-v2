@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -87,6 +88,7 @@ function statusIndicator(p: DealPayment) {
 
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const goBack = useSmartBack('/dashboard/negocios')
   const [deal, setDeal] = useState<Deal | null>(null)
   const [loading, setLoading] = useState(true)
   const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
@@ -197,13 +199,13 @@ export default function DealDetailPage() {
   if (!deal) {
     return (
       <div className="space-y-5">
-        <Link
-          href="/dashboard/negocios"
+        <button
+          onClick={goBack}
           className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Voltar
-        </Link>
+        </button>
         <div className="rounded-xl border bg-card shadow-sm p-12 text-center">
           <h2 className="text-lg font-semibold">Negócio não encontrado</h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -224,13 +226,13 @@ export default function DealDetailPage() {
     <div className="space-y-5">
       {/* ═══ Light toolbar ═══ */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <Link
-          href="/dashboard/negocios"
+        <button
+          onClick={goBack}
           className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Voltar
-        </Link>
+        </button>
       </div>
 
       {/* ═══ Header card ═══ */}

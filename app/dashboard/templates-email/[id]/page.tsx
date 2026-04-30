@@ -1,6 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { useEmailTemplate } from '@/hooks/use-email-template'
 import { EmailEditorComponent } from '@/components/email-editor/email-editor'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,6 +15,7 @@ import {
 export default function EditarTemplateEmailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/templates-email')
   const { template, isLoading, error } = useEmailTemplate(params.id)
 
   if (isLoading) {
@@ -52,7 +54,7 @@ export default function EditarTemplateEmailPage() {
           {error || 'Template não encontrado'}
         </p>
         <button
-          onClick={() => router.push('/dashboard/templates-email')}
+          onClick={goBack}
           className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-card/60 backdrop-blur-sm px-3.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

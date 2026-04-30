@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { useConsultant } from '@/hooks/use-consultant'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -58,6 +59,7 @@ type TabKey = (typeof TABS)[number]['key']
 export default function ConsultorDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/consultores')
   const { consultant, isLoading, refetch } = useConsultant(id)
   const { user } = useUser()
   const { hasPermission } = usePermissions()
@@ -485,7 +487,7 @@ export default function ConsultorDetalhePage() {
       <div className="relative overflow-hidden bg-neutral-900 rounded-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-900/95 via-neutral-900/80 to-neutral-900/60" />
         <button
-          onClick={() => router.push('/dashboard/consultores')}
+          onClick={goBack}
           className="absolute top-4 left-4 z-20 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

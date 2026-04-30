@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { format, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -104,6 +105,7 @@ function ContactSkeleton() {
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const goBack = useSmartBack('/dashboard/crm/contactos')
 
   const [contact, setContact] = useState<LeadsContactWithRelations | null>(null)
   const [entries, setEntries] = useState<LeadsEntryWithRelations[]>([])
@@ -278,7 +280,7 @@ export default function ContactDetailPage() {
             variant="ghost"
             size="sm"
             className="mb-4 -ml-1 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3.5 py-1.5 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
-            onClick={() => router.push('/dashboard/crm/contactos')}
+            onClick={goBack}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Voltar
