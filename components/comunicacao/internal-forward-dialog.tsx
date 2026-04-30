@@ -30,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { getDmChannelId, INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
 
 interface ConsultantOption {
   id: string
@@ -129,8 +130,18 @@ export function InternalForwardDialog({
         mentions: [],
         parent_message_id: null,
       }
-      if (target.kind === 'dm') body.dm_recipient_id = target.userId
-      // Geral usa o canal por defeito (sem campos extra).
+      if (target.kind === 'dm') {
+        // CRÍTICO: a rota encaminha pelo `channel_id` (não pelo
+        // dm_recipient_id). Sem o channel_id da DM, a mensagem cairia no
+        // canal Geral por defeito. Calculamos o channel_id determinístico
+        // dos dois utilizadores e passamos os dois — channel_id rota,
+        // dm_recipient_id garante a criação da membership.
+        body.channel_id = getDmChannelId(currentUserId, target.userId)
+        body.dm_recipient_id = target.userId
+      } else {
+        // Geral — explicitar para não depender do default da rota.
+        body.channel_id = INTERNAL_CHAT_CHANNEL_ID
+      }
 
       const res = await fetch('/api/chat/internal', {
         method: 'POST',
