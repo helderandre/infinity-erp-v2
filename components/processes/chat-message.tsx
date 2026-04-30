@@ -652,27 +652,39 @@ function ReadReceiptIndicator({ readers }: { readers: { userName: string; readAt
   if (count === 0) return null
 
   return (
-    <div className="relative group/read inline-flex items-center gap-0.5 cursor-default">
-      <Eye className="h-3 w-3 text-primary" />
-      <span className="text-[10px] text-primary">{count}</span>
-
-      {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/read:block z-50">
-        <div className="bg-popover text-popover-foreground border rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap">
-          <p className="font-semibold mb-1">Visualizado por:</p>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-0.5 rounded px-0.5 py-0.5 -m-0.5 hover:bg-primary/10 transition-colors cursor-pointer"
+          aria-label={`Visualizado por ${count} pessoa${count !== 1 ? 's' : ''}`}
+        >
+          <Eye className="h-3 w-3 text-primary" />
+          <span className="text-[10px] text-primary">{count}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        className="w-auto max-w-[280px] p-2.5"
+      >
+        <p className="text-[11px] font-semibold mb-1.5 text-muted-foreground uppercase tracking-wider">
+          Visualizado por
+        </p>
+        <div className="space-y-1">
           {readers.map((r, i) => (
-            <div key={i} className="flex items-center gap-2 py-0.5">
-              <span className="h-4 w-4 rounded-full bg-muted flex items-center justify-center text-[9px] font-medium shrink-0">
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0">
                 {r.userName[0]?.toUpperCase()}
               </span>
-              <span>{r.userName}</span>
-              <span className="text-muted-foreground">
+              <span className="font-medium truncate flex-1 min-w-0">{r.userName}</span>
+              <span className="text-[10px] text-muted-foreground shrink-0">
                 {format(new Date(r.readAt), "dd/MM 'às' HH:mm", { locale: pt })}
               </span>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
