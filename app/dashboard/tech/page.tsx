@@ -91,11 +91,23 @@ export default function TechPipelinePage() {
 
   const handleUpdate = () => {
     fetchItems()
-    // Refresh the selected item if sheet is open
-    if (selectedItem) {
+    // Re-fetch o item seleccionado APENAS se o sheet ainda está aberto
+    // (evita refetch após delete, que devolve 404). E se vier 404, limpa
+    // selectedItem em vez de gravar o body de erro — caso contrário o
+    // Sheet renderiza durante a animação de saída com `created_at=undefined`
+    // e `formatDistanceToNow` rebenta com "Invalid time value".
+    if (selectedItem && sheetOpen) {
       fetch(`/api/feedback/${selectedItem.id}`)
-        .then((res) => res.json())
-        .then(setSelectedItem)
+        .then((res) => {
+          if (!res.ok) {
+            setSelectedItem(null)
+            return null
+          }
+          return res.json()
+        })
+        .then((data) => {
+          if (data) setSelectedItem(data)
+        })
         .catch(() => {})
     }
   }

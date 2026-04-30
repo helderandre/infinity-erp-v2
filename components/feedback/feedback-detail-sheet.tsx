@@ -96,7 +96,17 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
 
   const submitterName = item.submitter?.commercial_name || 'Anónimo'
   const initials = submitterName.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-  const createdAgo = formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: pt })
+  // Guarda contra `created_at` vazio/inválido — pode acontecer durante a
+  // animação de saída do Sheet com dados parciais. Sem isto, date-fns
+  // dispara `RangeError: Invalid time value` e crasha a app.
+  const createdDate = item.created_at ? new Date(item.created_at) : null
+  const isValidDate = createdDate && !isNaN(createdDate.getTime())
+  const createdAgo = isValidDate
+    ? formatDistanceToNow(createdDate, { addSuffix: true, locale: pt })
+    : ''
+  const createdTooltip = isValidDate
+    ? format(createdDate, 'PPP HH:mm', { locale: pt })
+    : ''
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -143,7 +153,7 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
                   {submitterName}
                 </span>
                 <span className="text-muted-foreground/40">·</span>
-                <span title={format(new Date(item.created_at), 'PPP HH:mm', { locale: pt })}>
+                <span title={createdTooltip}>
                   {createdAgo}
                 </span>
               </div>
