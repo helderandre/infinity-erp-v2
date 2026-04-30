@@ -542,7 +542,7 @@ export function AiVoiceAssistant() {
   }, [open])
 
   // Gesto MOBILE-only para abrir o assistente: TRÊS TOQUES rápidos em
-  // qualquer parte do ecrã (≤ 350 ms entre toques consecutivos, < 30 px
+  // qualquer parte do ecrã (≤ 450 ms entre toques consecutivos, < 30 px
   // entre os dois toques mais distantes).
   //
   // Triple-tap em vez de double-tap: praticamente impossível de disparar
@@ -609,12 +609,12 @@ export function AiVoiceAssistant() {
       const t = e.changedTouches[0]
       const tap: Tap = { time: Date.now(), x: t.clientX, y: t.clientY }
 
-      // Mantém só taps que estão a ≤ 350 ms do mais recente que vamos
+      // Mantém só taps que estão a ≤ 450 ms do mais recente que vamos
       // empilhar, e que partilham proximidade < 30 px com este. Qualquer
       // toque que não cumpra rebaixa a sequência a um único.
       const fits = taps.every(
         (prev) =>
-          tap.time - prev.time <= 350 &&
+          tap.time - prev.time <= 450 &&
           Math.abs(tap.x - prev.x) < 30 &&
           Math.abs(tap.y - prev.y) < 30,
       )
