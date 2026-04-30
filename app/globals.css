@@ -462,26 +462,26 @@ main:has([data-acessos-page]) {
   -webkit-backdrop-filter: none;
 }
 
-/* Esconde o highlight visual da selecção de texto (caixa azul por
- * defeito do ::selection) na maioria do site. A cópia continua a
- * funcionar — o iOS mostra a lupa e o context-menu nativos.
- * `color: inherit` evita que o texto mude de cor durante a selecção. */
+/* Default global — selecção de texto com highlight azul claro em
+ * qualquer superfície (títulos, parágrafos, badges, links, ...). PC
+ * keyboard+mouse precisa de feedback visual durante drag-select para
+ * saber o que vai copiar. Em touch devices (iOS/Android) escondemos
+ * via media query mais abaixo, porque os browsers mostram a lupa +
+ * context-menu nativos e a caixa azul fica redundante/intrusiva.
+ * `color: inherit` mantém a cor original do texto durante a selecção. */
 ::selection {
-  background: transparent;
+  background-color: rgb(59 130 246 / 0.35); /* blue-500 / 35% */
   color: inherit;
 }
 ::-moz-selection {
-  background: transparent;
+  background-color: rgb(59 130 246 / 0.35);
   color: inherit;
 }
 
-/* Excepção: campos de input interactivos (inputs, textareas e
- * contenteditable) recuperam o highlight em azul translúcido. São
- * superfícies onde o utilizador está activamente a escrever/editar
- * e precisa de feedback visual claro do que está seleccionado para
- * substituir, copiar ou apagar.
- * Mensagens do chat (bubbles) recebem o mesmo tratamento via Tailwind
- * variant `selection:` em chat-message.tsx — ver lá. */
+/* Inputs / textareas / contenteditable mantêm um azul mais saturado
+ * com texto branco — superfícies onde o utilizador está activamente
+ * a editar e precisa de contraste mais forte para ver exactamente o
+ * que vai substituir/apagar. */
 input::selection,
 textarea::selection,
 [contenteditable]::selection,
@@ -495,4 +495,19 @@ textarea::-moz-selection,
 [contenteditable] *::-moz-selection {
   background-color: rgb(59 130 246 / 0.5);
   color: white;
+}
+
+/* Touch devices: esconde a caixa azul globalmente (iOS/Android usam
+ * a lupa + context-menu nativos, o highlight artificial confunde).
+ * Inputs/textareas mantêm-se com highlight porque mesmo em mobile o
+ * utilizador precisa de feedback ao seleccionar para substituir. */
+@media (pointer: coarse) {
+  ::selection {
+    background: transparent;
+    color: inherit;
+  }
+  ::-moz-selection {
+    background: transparent;
+    color: inherit;
+  }
 }
