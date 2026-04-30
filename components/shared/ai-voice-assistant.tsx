@@ -455,7 +455,7 @@ export function AiVoiceAssistant() {
       }
       toast.success(result.message || 'Criado')
       setState('done')
-      setTimeout(close, 450)
+      setTimeout(close, 500)
     } catch (err) {
       setState('reviewing')
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao submeter. Corrige ou continua a falar.')
@@ -524,7 +524,7 @@ export function AiVoiceAssistant() {
       })
       toast.success(result.message || 'Rascunho guardado')
       setState('done')
-      setTimeout(close, 450)
+      setTimeout(close, 500)
     } catch (err) {
       setState('reviewing')
       setErrorMessage(err instanceof Error ? err.message : 'Erro ao guardar rascunho.')
@@ -542,7 +542,7 @@ export function AiVoiceAssistant() {
   }, [open])
 
   // Gesto MOBILE-only para abrir o assistente: TRÊS TOQUES rápidos em
-  // qualquer parte do ecrã (≤ 450 ms entre toques consecutivos, < 30 px
+  // qualquer parte do ecrã (≤ 500 ms entre toques consecutivos, < 30 px
   // entre os dois toques mais distantes).
   //
   // Triple-tap em vez de double-tap: praticamente impossível de disparar
@@ -609,12 +609,12 @@ export function AiVoiceAssistant() {
       const t = e.changedTouches[0]
       const tap: Tap = { time: Date.now(), x: t.clientX, y: t.clientY }
 
-      // Mantém só taps que estão a ≤ 450 ms do mais recente que vamos
+      // Mantém só taps que estão a ≤ 500 ms do mais recente que vamos
       // empilhar, e que partilham proximidade < 30 px com este. Qualquer
       // toque que não cumpra rebaixa a sequência a um único.
       const fits = taps.every(
         (prev) =>
-          tap.time - prev.time <= 450 &&
+          tap.time - prev.time <= 500 &&
           Math.abs(tap.x - prev.x) < 30 &&
           Math.abs(tap.y - prev.y) < 30,
       )
