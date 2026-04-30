@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Users, User, Search } from 'lucide-react'
+import { Users, User, Search, Paperclip } from 'lucide-react'
+import { format, isToday, isYesterday } from 'date-fns'
+import { pt } from 'date-fns/locale'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +13,37 @@ import { cn } from '@/lib/utils'
 import { ConversationListItem } from './conversation-list-item'
 import { ProcessChannelList } from './process-channel-list'
 import { getDmChannelId, INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
+import type { ChatLastMessage } from '@/hooks/use-chat-unread'
 import type { ProcessChannelPreview } from '@/types/internal-chat'
+
+/** Formato à WhatsApp: hoje → HH:mm; ontem → "Ontem"; resto → DD/MM/YY. */
+function formatActivityLabel(iso: string | undefined): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    if (isToday(d)) return format(d, 'HH:mm')
+    if (isYesterday(d)) return 'Ontem'
+    return format(d, 'dd/MM/yy', { locale: pt })
+  } catch {
+    return ''
+  }
+}
+
+function lastMessagePreview(
+  msg: ChatLastMessage | undefined,
+  selfId: string,
+): { text: string; isAttachment: boolean; prefix: string | null } {
+  if (!msg) return { text: '', isAttachment: false, prefix: null }
+  const prefix = msg.sender_id === selfId ? 'Tu:' : null
+  const trimmed = msg.content.trim()
+  if (trimmed) {
+    // Remove menção markup `@[Nome](uuid)` para o preview ficar limpo.
+    const cleaned = trimmed.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1')
+    return { text: cleaned, isAttachment: false, prefix }
+  }
+  if (msg.has_attachments) return { text: 'Anexo', isAttachment: true, prefix }
+  return { text: '', isAttachment: false, prefix }
+}
 
 export type ConversationType =
   | { type: 'internal' }
@@ -52,6 +84,8 @@ interface ConversationListProps {
   /** Mapa channelId → ISO timestamp da última actividade. Usado para
    *  ordenar a lista de DMs pela mais recente, à WhatsApp. */
   lastActivity?: Record<string, string>
+  /** Mapa channelId → última mensagem (preview + sender + timestamp). */
+  lastMessage?: Record<string, ChatLastMessage>
 }
 
 export function ConversationList({
@@ -63,6 +97,7 @@ export function ConversationList({
   onSearchChannels,
   unreadCounts = {},
   lastActivity = {},
+  lastMessage = {},
 }: ConversationListProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'processos'>('chat')
   const [contacts, setContacts] = useState<DevUserContact[]>([])
@@ -236,6 +271,11 @@ export function ConversationList({
                   const roles = (contact.user_roles || [])
                     .map((ur) => ur.role?.name)
                     .filter((n): n is string => Boolean(n))
+                  const primaryRole = roles[0]
+                  const lastMsg = lastMessage[dmChId]
+                  const activityTs = lastActivity[dmChId]
+                  const timeLabel = formatActivityLabel(activityTs)
+                  const preview = lastMessagePreview(lastMsg, currentUserId)
 
                   return (
                     <button
@@ -252,10 +292,10 @@ export function ConversationList({
                       className={cn(
                         'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left',
                         'hover:bg-muted/60',
-                        isDmActive && 'bg-muted'
+                        isDmActive && 'bg-muted',
                       )}
                     >
-                      <Avatar className="h-9 w-9 shrink-0">
+                      <Avatar className="h-10 w-10 shrink-0">
                         {contact.dev_consultant_profiles?.profile_photo_url && (
                           <AvatarImage
                             src={contact.dev_consultant_profiles.profile_photo_url}
@@ -266,31 +306,65 @@ export function ConversationList({
                           {contact.commercial_name?.[0]?.toUpperCase() || '?'}
                         </AvatarFallback>
                       </Avatar>
+                      {/* Layout WhatsApp: nome + hora no topo, role + preview no fundo. */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className={cn('text-sm truncate', dmUnread > 0 && 'font-semibold')}>{contact.commercial_name}</span>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span
+                            className={cn(
+                              'text-sm truncate',
+                              dmUnread > 0 && 'font-semibold',
+                            )}
+                          >
+                            {contact.commercial_name}
+                          </span>
+                          {timeLabel && (
+                            <span
+                              className={cn(
+                                'text-[10px] shrink-0',
+                                dmUnread > 0 ? 'text-primary font-medium' : 'text-muted-foreground',
+                              )}
+                            >
+                              {timeLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                          {primaryRole && (
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                'text-[9px] px-1.5 py-0 h-4 font-medium border-0 shrink-0 max-w-[110px] truncate',
+                                getRoleColor(primaryRole),
+                              )}
+                              title={primaryRole}
+                            >
+                              {primaryRole}
+                            </Badge>
+                          )}
+                          {preview.text || preview.isAttachment ? (
+                            <span
+                              className={cn(
+                                'text-[11px] truncate min-w-0',
+                                dmUnread > 0
+                                  ? 'text-foreground font-medium'
+                                  : 'text-muted-foreground',
+                              )}
+                            >
+                              {preview.prefix && (
+                                <span className="text-muted-foreground/80 mr-1">{preview.prefix}</span>
+                              )}
+                              {preview.isAttachment && (
+                                <Paperclip className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+                              )}
+                              {preview.text}
+                            </span>
+                          ) : null}
                           {dmUnread > 0 && (
-                            <Badge className="h-5 min-w-5 px-1.5 text-[10px] font-bold rounded-full bg-primary text-primary-foreground shrink-0">
+                            <Badge className="ml-auto h-4 min-w-4 px-1 text-[9px] font-bold rounded-full bg-primary text-primary-foreground shrink-0">
                               {dmUnread}
                             </Badge>
                           )}
                         </div>
-                        {roles.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {roles.map((role) => (
-                              <Badge
-                                key={role}
-                                variant="secondary"
-                                className={cn(
-                                  'text-[9px] px-1.5 py-0 h-4 font-medium border-0',
-                                  getRoleColor(role)
-                                )}
-                              >
-                                {role}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </button>
                   )

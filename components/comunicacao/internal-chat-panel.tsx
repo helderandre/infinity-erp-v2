@@ -21,7 +21,9 @@ const INTERNAL_CHAT_LABELS = {
   ...CHAT_LABELS,
   title: 'Grupo Geral',
   no_messages: 'Sem mensagens ainda — comece a conversa!',
-  placeholder: 'Escrever mensagem... @ mencionar',
+  // Placeholder curto para não rebentar o layout do textarea em mobile —
+  // a dica de @ mention já está implícita pelo `@` que abre o picker.
+  placeholder: 'Mensagem…',
 }
 
 const mentionsInputStyle = {

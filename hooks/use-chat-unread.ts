@@ -3,12 +3,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-/** Returns a map of channelId → unread count + last-activity timestamps
- *  for internal chat (group + DMs). `lastActivity` é usado para ordenar a
- *  lista de conversas pela mais recente. */
+export type ChatLastMessage = {
+  id: string
+  content: string
+  sender_id: string
+  created_at: string
+  has_attachments: boolean
+}
+
+/** Returns maps de channelId para unread count, última actividade (timestamp)
+ *  e última mensagem (preview) — usados pela lista de conversas para
+ *  ordenar e mostrar snippets ao estilo WhatsApp. */
 export function useChatUnread() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [lastActivity, setLastActivity] = useState<Record<string, string>>({})
+  const [lastMessage, setLastMessage] = useState<Record<string, ChatLastMessage>>({})
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchCounts = useCallback(async () => {
@@ -16,11 +25,12 @@ export function useChatUnread() {
       const res = await fetch('/api/chat/internal/unread')
       if (!res.ok) return
       const data = await res.json()
-      // Backwards compat: a versão antiga devolvia `Record<string, number>`
-      // directo. A nova devolve `{ counts, lastActivity }`. Aceita ambas.
+      // Backwards compat: aceita tanto a forma antiga `Record<string, number>`
+      // como a nova `{ counts, lastActivity, lastMessage }`.
       if (data && typeof data === 'object' && 'counts' in data) {
         setCounts(data.counts || {})
         setLastActivity(data.lastActivity || {})
+        setLastMessage(data.lastMessage || {})
       } else {
         setCounts(data || {})
       }
@@ -59,5 +69,5 @@ export function useChatUnread() {
 
   const totalUnread = Object.values(counts).reduce((sum, c) => sum + c, 0)
 
-  return { counts, lastActivity, totalUnread, refetch: fetchCounts }
+  return { counts, lastActivity, lastMessage, totalUnread, refetch: fetchCounts }
 }

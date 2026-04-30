@@ -29,7 +29,12 @@ export default function ChatPage() {
 function ChatPageContent() {
   const { user, loading: userLoading } = useUser()
   const { channels, isLoading: channelsLoading, searchChannels } = useProcessChannels()
-  const { counts: unreadCounts, lastActivity: chatLastActivity, refetch: refetchUnread } = useChatUnread()
+  const {
+    counts: unreadCounts,
+    lastActivity: chatLastActivity,
+    lastMessage: chatLastMessage,
+    refetch: refetchUnread,
+  } = useChatUnread()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -154,6 +159,7 @@ function ChatPageContent() {
           onSearchChannels={searchChannels}
           unreadCounts={unreadCounts}
           lastActivity={chatLastActivity}
+          lastMessage={chatLastMessage}
         />
       </div>
 
