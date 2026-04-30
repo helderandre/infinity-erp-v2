@@ -49,6 +49,9 @@ interface ConversationListProps {
   isLoadingChannels: boolean
   onSearchChannels: (query: string) => void
   unreadCounts?: Record<string, number>
+  /** Mapa channelId → ISO timestamp da última actividade. Usado para
+   *  ordenar a lista de DMs pela mais recente, à WhatsApp. */
+  lastActivity?: Record<string, string>
 }
 
 export function ConversationList({
@@ -59,6 +62,7 @@ export function ConversationList({
   isLoadingChannels,
   onSearchChannels,
   unreadCounts = {},
+  lastActivity = {},
 }: ConversationListProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'processos'>('chat')
   const [contacts, setContacts] = useState<DevUserContact[]>([])
@@ -101,18 +105,45 @@ export function ConversationList({
     }
   }, [])
 
-  // Filtered contacts
+  // Filtered + sorted contacts.
+  // Ordem (estilo WhatsApp/uazapi):
+  //   1) Conversas com unread first, ordenadas pela última actividade desc.
+  //   2) Restantes conversas com actividade conhecida, mais recentes primeiro.
+  //   3) Contactos sem qualquer DM ainda — ordem alfabética como fallback.
   const filteredContacts = useMemo(() => {
-    if (!debouncedSearch.trim()) return contacts
-    const lower = debouncedSearch.toLowerCase()
-    return contacts.filter((c) => {
-      const nameMatch = c.commercial_name.toLowerCase().includes(lower)
-      const roleMatch = c.user_roles?.some(
-        (ur) => ur.role?.name?.toLowerCase().includes(lower)
-      )
-      return nameMatch || roleMatch
+    const lower = debouncedSearch.trim().toLowerCase()
+    const base = lower
+      ? contacts.filter((c) => {
+          const nameMatch = c.commercial_name.toLowerCase().includes(lower)
+          const roleMatch = c.user_roles?.some(
+            (ur) => ur.role?.name?.toLowerCase().includes(lower),
+          )
+          return nameMatch || roleMatch
+        })
+      : contacts.slice()
+
+    return base.sort((a, b) => {
+      const chA = getDmChannelId(currentUserId, a.id)
+      const chB = getDmChannelId(currentUserId, b.id)
+      const unreadA = unreadCounts[chA] || 0
+      const unreadB = unreadCounts[chB] || 0
+      // Bucket 1: unread descending
+      if (unreadA !== unreadB && (unreadA > 0 || unreadB > 0)) {
+        if (unreadA > 0 && unreadB === 0) return -1
+        if (unreadB > 0 && unreadA === 0) return 1
+        // Ambos com unread → desempata por actividade mais recente
+      }
+      const actA = lastActivity[chA]
+      const actB = lastActivity[chB]
+      if (actA && actB) {
+        return new Date(actB).getTime() - new Date(actA).getTime()
+      }
+      if (actA && !actB) return -1
+      if (!actA && actB) return 1
+      // Sem histórico → alfabético
+      return a.commercial_name.localeCompare(b.commercial_name, 'pt')
     })
-  }, [contacts, debouncedSearch])
+  }, [contacts, debouncedSearch, unreadCounts, lastActivity, currentUserId])
 
   return (
     <div className="flex flex-col h-full">

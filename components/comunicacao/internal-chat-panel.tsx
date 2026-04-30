@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MentionsInput, Mention } from 'react-mentions'
-import { MessageSquare, Paperclip, Send, X, Mic } from 'lucide-react'
+import { MessageSquare, Paperclip, Send, X, Mic, ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -90,6 +91,9 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const firstRenderRef = useRef(true)
+  const lastMsgCountRef = useRef(0)
+  const [isAtBottom, setIsAtBottom] = useState(true)
+  const [unreadBelow, setUnreadBelow] = useState(0)
 
   // Fetch users for @ mentions
   useEffect(() => {
@@ -134,16 +138,57 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
     return map
   }, [messages, readReceipts])
 
-  // Auto-scroll
+  // Auto-scroll com comportamento WhatsApp:
+  //  - Primeiro load: jump instantâneo para o fundo (última mensagem).
+  //  - Mensagens novas: só auto-scroll se o utilizador já está no fundo OU
+  //    se a mensagem é dele próprio. Caso contrário, incrementa um badge
+  //    de "N novas" no botão flutuante de scroll-to-bottom.
   useEffect(() => {
-    if (scrollRef.current && messages.length > 0) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: firstRenderRef.current ? 'auto' : 'smooth',
-      })
-      firstRenderRef.current = false
+    const el = scrollRef.current
+    if (!el || messages.length === 0) {
+      lastMsgCountRef.current = messages.length
+      return
     }
-  }, [messages.length])
+    const newCount = messages.length - lastMsgCountRef.current
+    lastMsgCountRef.current = messages.length
+
+    if (firstRenderRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'auto' })
+      firstRenderRef.current = false
+      setIsAtBottom(true)
+      setUnreadBelow(0)
+      return
+    }
+
+    if (newCount > 0) {
+      const lastMsg = messages[messages.length - 1]
+      const ownMessage = lastMsg.sender_id === currentUser.id
+      if (ownMessage || isAtBottom) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+        setUnreadBelow(0)
+      } else {
+        setUnreadBelow((prev) => prev + newCount)
+      }
+    }
+  }, [messages, isAtBottom, currentUser.id])
+
+  // Detecta quando o utilizador está perto do fundo (tolerância 80px) — usado
+  // para decidir se auto-scroll de mensagens novas + esconder o botão.
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    const atBottom = distance < 80
+    setIsAtBottom(atBottom)
+    if (atBottom) setUnreadBelow(0)
+  }, [])
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    setUnreadBelow(0)
+  }, [])
 
   // Mark as read
   useEffect(() => {
@@ -282,6 +327,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
         open={forwardMessage !== null}
         onOpenChange={(open) => { if (!open) setForwardMessage(null) }}
         messageContent={forwardMessage?.content ?? ''}
+        messageId={forwardMessage?.id ?? null}
         hasAttachments={Boolean(forwardMessage?.has_attachments)}
         currentUserId={currentUser.id}
       />
@@ -307,7 +353,12 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
       )}
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="relative flex-1 min-h-0">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="absolute inset-0 overflow-y-auto px-4 py-4 space-y-4"
+      >
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className={`flex gap-3 ${i % 2 === 0 ? '' : 'justify-end'}`}>
@@ -353,6 +404,31 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             {typingText}
           </div>
         )}
+      </div>
+
+      {/* Floating "scroll to bottom" arrow — só visível quando o utilizador
+          subiu na conversa. Mostra badge com contagem de mensagens novas
+          recebidas enquanto estava em cima (não-próprias). */}
+      {!isAtBottom && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className={cn(
+            'absolute bottom-3 right-3 z-10 flex h-10 w-10 items-center justify-center',
+            'rounded-full bg-zinc-900/85 hover:bg-zinc-900 text-white',
+            'shadow-lg backdrop-blur-md border border-white/10 transition-colors',
+            'animate-in fade-in zoom-in-95 duration-150',
+          )}
+          aria-label="Ir para a mensagem mais recente"
+        >
+          <ChevronDown className="h-5 w-5" />
+          {unreadBelow > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center px-1 rounded-full bg-red-500 text-[10px] font-medium text-white ring-2 ring-background">
+              {unreadBelow > 99 ? '99+' : unreadBelow}
+            </span>
+          )}
+        </button>
+      )}
       </div>
 
       {/* Input */}

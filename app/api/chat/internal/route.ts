@@ -5,7 +5,7 @@ import { INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
 import { notificationService } from '@/lib/notifications/service'
 import { sendPushToUser } from '@/lib/crm/send-push'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ensureDmMembership, isChannelMember, isGlobalChannel } from '@/lib/chat/membership'
+import { ensureDmMembership, getMessageChannelId, isChannelMember, isGlobalChannel } from '@/lib/chat/membership'
 
 export async function GET(request: Request) {
   try {
@@ -169,6 +169,61 @@ export async function POST(request: Request) {
         .single()
 
       responseMessage = { ...responseMessage, parent_message: parent || null }
+    }
+
+    // --- Forward: clone attachments from the source message ---
+    // Re-uses the existing R2 objects (same storage_key/file_url) — só
+    // criamos rows novos em internal_chat_attachments a apontar para o
+    // novo message_id. Privacidade: o caller TEM de ser membro do canal
+    // de origem para puder reencaminhar; senão, qualquer um podia ler
+    // anexos a que não tinha acesso simplesmente passando um messageId.
+    const forwardFromId = validation.data.forward_from_message_id
+    if (forwardFromId) {
+      try {
+        const sourceChannelId = await getMessageChannelId(supabase, forwardFromId)
+        const sourceAllowed = sourceChannelId
+          ? await isChannelMember(supabase, user.id, sourceChannelId)
+          : false
+        if (sourceChannelId && sourceAllowed) {
+          const { data: sourceAttachments } = await db
+            .from('internal_chat_attachments')
+            .select('file_name, file_url, file_size, mime_type, attachment_type, storage_key')
+            .eq('message_id', forwardFromId)
+
+          const rows = (sourceAttachments || []).map((a: any) => ({
+            message_id: responseMessage.id,
+            file_name: a.file_name,
+            file_url: a.file_url,
+            file_size: a.file_size,
+            mime_type: a.mime_type,
+            attachment_type: a.attachment_type,
+            storage_key: a.storage_key,
+            uploaded_by: user.id,
+          }))
+
+          if (rows.length > 0) {
+            // Casts a `any` para sair do typing demasiado restritivo do
+            // Supabase client (mesmas tabelas funcionam noutros routes).
+            const { data: cloned } = await (db
+              .from('internal_chat_attachments') as any)
+              .insert(rows)
+              .select('*')
+
+            await (db.from('internal_chat_messages') as any)
+              .update({ has_attachments: true })
+              .eq('id', responseMessage.id)
+
+            responseMessage = {
+              ...responseMessage,
+              has_attachments: true,
+              attachments: cloned || [],
+            }
+          }
+        }
+      } catch (cloneError) {
+        // Falha de clone não bloqueia o envio — texto já foi entregue.
+        console.error('[InternalChat] Falha ao clonar anexos no forward:', cloneError)
+      }
     }
 
     // --- Notifications & Push ---

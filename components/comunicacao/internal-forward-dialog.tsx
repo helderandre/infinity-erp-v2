@@ -47,7 +47,9 @@ interface InternalForwardDialogProps {
   onOpenChange: (open: boolean) => void
   /** Conteúdo da mensagem a reencaminhar. */
   messageContent: string
-  /** Tem anexos? Mostra aviso de que serão omitidos. */
+  /** ID da mensagem original — usado pelo backend para clonar anexos. */
+  messageId: string | null
+  /** Tem anexos? Mostra um chip "+ anexos" no preview. */
   hasAttachments?: boolean
   /** ID do utilizador actual — excluído da lista de DMs. */
   currentUserId: string
@@ -57,6 +59,7 @@ export function InternalForwardDialog({
   open,
   onOpenChange,
   messageContent,
+  messageId,
   hasAttachments,
   currentUserId,
 }: InternalForwardDialogProps) {
@@ -125,11 +128,17 @@ export function InternalForwardDialog({
     }
     setSubmitting(true)
     try {
+      // Se a mensagem só tem anexos (sem texto), mandamos um placeholder
+      // mínimo já que o schema do backend exige content >= 1 char.
+      const baseContent = messageContent && messageContent.trim().length > 0
+        ? messageContent
+        : '(anexo)'
       const body: Record<string, unknown> = {
-        content: `↪ Reencaminhada\n${messageContent}`,
+        content: `↪ Reencaminhada\n${baseContent}`,
         mentions: [],
         parent_message_id: null,
       }
+      if (messageId) body.forward_from_message_id = messageId
       if (target.kind === 'dm') {
         // CRÍTICO: a rota encaminha pelo `channel_id` (não pelo
         // dm_recipient_id). Sem o channel_id da DM, a mensagem cairia no
@@ -178,10 +187,12 @@ export function InternalForwardDialog({
         {/* Preview do conteúdo */}
         <div className="rounded-xl border bg-muted/40 p-3 text-xs">
           <p className="font-medium text-muted-foreground mb-1">Mensagem</p>
-          <p className="line-clamp-3 whitespace-pre-wrap break-words">{messageContent || '(sem texto)'}</p>
+          <p className="line-clamp-3 whitespace-pre-wrap break-words">
+            {messageContent || (hasAttachments ? '(apenas anexo)' : '(sem texto)')}
+          </p>
           {hasAttachments && (
-            <p className="text-[11px] text-amber-600 mt-1.5">
-              Os anexos não são reencaminhados nesta versão.
+            <p className="text-[11px] text-emerald-600 mt-1.5">
+              Os anexos seguem com a mensagem.
             </p>
           )}
         </div>

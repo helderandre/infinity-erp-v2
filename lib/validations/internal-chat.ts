@@ -18,6 +18,11 @@ export const sendInternalMessageSchema = z.object({
   /** Destinatário da DM — obrigatório se channel_id for diferente do canal
    *  global e o canal ainda não existir; usado para criar a membership. */
   dm_recipient_id: z.string().regex(uuidRegex).nullable().optional(),
+  /** Quando definido, a mensagem é tratada como forward — o endpoint
+   *  clona os anexos da mensagem origem (mesma file_url/storage_key,
+   *  novos rows em internal_chat_attachments). O caller tem de ser
+   *  membro do canal de origem para evitar exfiltração. */
+  forward_from_message_id: z.string().regex(uuidRegex).nullable().optional(),
 })
 
 export const editInternalMessageSchema = z.object({

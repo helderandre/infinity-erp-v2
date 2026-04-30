@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
 
 export async function GET() {
   try {
@@ -14,7 +13,7 @@ export async function GET() {
       from: (table: string) => ReturnType<typeof supabase.from>
     }
 
-    // Get all read receipts for this user
+    // Read receipts: por canal, quando o utilizador leu pela última vez.
     const { data: receipts } = await db.from('internal_chat_read_receipts')
       .select('channel_id, last_read_at')
       .eq('user_id', user.id)
@@ -24,20 +23,36 @@ export async function GET() {
       receiptMap.set((r as any).channel_id, (r as any).last_read_at)
     }
 
-    // Get all channels this user has messages in (group + DMs)
-    const { data: channels } = await db.from('internal_chat_messages')
-      .select('channel_id')
-      .neq('sender_id', user.id)
+    // Última actividade por canal — última mensagem em qualquer direcção
+    // (recebida OU enviada pelo próprio). Usado para ordenar a lista de
+    // conversas pela mais recente, à WhatsApp.
+    const { data: allMessages } = await db.from('internal_chat_messages')
+      .select('channel_id, created_at, sender_id')
       .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(2000)
 
-    const uniqueChannelIds = Array.from(
-      new Set((channels || []).map((c: any) => c.channel_id))
-    )
+    const lastActivity: Record<string, string> = {}
+    const channelsWithIncoming = new Set<string>()
+    const messagesArr = ((allMessages || []) as unknown) as Array<{
+      channel_id: string
+      created_at: string
+      sender_id: string
+    }>
+    for (const m of messagesArr) {
+      if (!lastActivity[m.channel_id]) {
+        lastActivity[m.channel_id] = m.created_at
+      }
+      if (m.sender_id !== user.id) {
+        channelsWithIncoming.add(m.channel_id)
+      }
+    }
 
-    // Count unread per channel
+    // Count unread per channel — só interessa para canais que têm
+    // mensagens vindas de outros utilizadores (canais "ouvidos").
     const counts: Record<string, number> = {}
 
-    for (const channelId of uniqueChannelIds) {
+    for (const channelId of channelsWithIncoming) {
       const lastReadAt = receiptMap.get(channelId)
 
       let query = db.from('internal_chat_messages')
@@ -57,7 +72,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(counts)
+    return NextResponse.json({ counts, lastActivity })
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
