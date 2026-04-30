@@ -34,9 +34,24 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
 
   const { onlineUsers, typingUsers, setTyping } = useChatPresence(processId, currentUser)
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null)
   const [entitiesMap, setEntitiesMap] = useState<Map<string, ChatEntityData>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
   const firstRenderRef = useRef(true)
+
+  const handleStartEdit = useCallback((m: ChatMessage) => {
+    setEditingMessage(m)
+    setReplyTo(null)
+  }, [])
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null)
+  }, [])
+
+  const handleSubmitEdit = useCallback(async (id: string, content: string) => {
+    await editMessage(id, content)
+    setEditingMessage(null)
+  }, [editMessage])
 
   // Fetch entities for rendering cards in messages
   const loadEntities = useCallback(async () => {
@@ -149,7 +164,7 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
       )}
 
       {/* Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div ref={scrollRef} className={`flex-1 overflow-y-auto px-4 py-4 space-y-4 transition-[filter,opacity] duration-200 ${editingMessage ? 'blur-sm opacity-90' : ''}`}>
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className={`flex gap-3 ${i % 2 === 0 ? '' : 'justify-end'}`}>
@@ -177,10 +192,12 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
                 onReply={() => setReplyTo(msg)}
                 onToggleReaction={toggleReaction}
                 onEdit={editMessage}
+                onStartEdit={handleStartEdit}
                 onDelete={deleteMessage}
                 readers={messageReadersMap.get(msg.id)}
                 onEntityClick={onEntityClick}
                 entitiesMap={entitiesMap}
+                isBeingEdited={editingMessage?.id === msg.id}
               />
             ))}
           </>
@@ -200,7 +217,7 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
       </div>
 
       {/* Footer */}
-      <div className="border-t px-4 py-3 shrink-0">
+      <div className={`border-t px-4 py-3 shrink-0 transition-colors ${editingMessage ? 'bg-primary/[0.04]' : ''}`}>
         <ChatInput
           processId={processId}
           onSend={handleSend}
@@ -216,6 +233,9 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
               : null
           }
           onCancelReply={() => setReplyTo(null)}
+          editingMessage={editingMessage ? { id: editingMessage.id, content: editingMessage.content } : null}
+          onSubmitEdit={handleSubmitEdit}
+          onCancelEdit={handleCancelEdit}
         />
       </div>
     </div>

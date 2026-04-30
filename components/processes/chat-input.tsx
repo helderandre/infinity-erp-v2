@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MentionsInput, Mention } from 'react-mentions'
 import { Button } from '@/components/ui/button'
-import { Paperclip, Send, X, ClipboardList, Pin, FileText, Mic } from 'lucide-react'
+import { Paperclip, Send, X, ClipboardList, Pin, FileText, Mic, Pencil, Check } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { CHAT_LABELS, VOICE_LABELS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { VoiceRecorder } from './voice-recorder'
 import type { ChatMention, ChatMessage } from '@/types/process'
@@ -17,6 +18,12 @@ interface ChatInputProps {
   disabled?: boolean
   replyTo?: { id: string; senderName: string; content: string } | null
   onCancelReply?: () => void
+  /** Mensagem em edição (WhatsApp-style). Quando definida, o composer
+   * pré-popula o conteúdo, troca os botões attach/mic por X cancel +
+   * ✓ verde, e o submit chama `onSubmitEdit` em vez de `onSend`. */
+  editingMessage?: { id: string; content: string } | null
+  onSubmitEdit?: (messageId: string, content: string) => Promise<void>
+  onCancelEdit?: () => void
 }
 
 const mentionsInputStyle = {
@@ -60,6 +67,9 @@ export function ChatInput({
   disabled = false,
   replyTo,
   onCancelReply,
+  editingMessage,
+  onSubmitEdit,
+  onCancelEdit,
 }: ChatInputProps) {
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -69,6 +79,24 @@ export function ChatInput({
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Quando o parent inicia uma edição, pré-popula o input com o conteúdo
+  // actual e cancela qualquer voice-recording em curso. Quando termina
+  // (editingMessage = null), limpa o input.
+  useEffect(() => {
+    if (editingMessage) {
+      setValue(editingMessage.content)
+      setIsRecording(false)
+      setAttachments([])
+    } else {
+      // Só limpa se o último estado era de edição — evita apagar drafts
+      // do utilizador quando o parent oscila por outras razões.
+      // (O reset bate uma vez quando editingMessage transita true → null;
+      // se já era null, o setValue('') é idempotente.)
+      setValue('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingMessage?.id])
 
   // Fetch users for @ mentions
   useEffect(() => {
@@ -152,6 +180,16 @@ export function ChatInput({
     onTypingChange(false)
 
     try {
+      // Edit mode: actualizar mensagem existente em vez de enviar nova.
+      if (editingMessage && onSubmitEdit) {
+        if (value.trim() !== editingMessage.content.trim()) {
+          await onSubmitEdit(editingMessage.id, value)
+        }
+        // O parent é responsável por chamar onCancelEdit() para fechar o
+        // edit mode após sucesso (clear vem do useEffect).
+        return
+      }
+
       // Parse mentions
       const mentions: ChatMention[] = []
       const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g
@@ -170,11 +208,11 @@ export function ChatInput({
       setValue('')
       setAttachments([])
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mensagem')
+      toast.error(err instanceof Error ? err.message : editingMessage ? 'Erro ao editar' : 'Erro ao enviar mensagem')
     } finally {
       setIsSubmitting(false)
     }
-  }, [value, isSubmitting, onSend, onTypingChange, attachments, uploadAttachments])
+  }, [value, isSubmitting, onSend, onTypingChange, attachments, uploadAttachments, editingMessage, onSubmitEdit])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -224,9 +262,20 @@ export function ChatInput({
   }, [onSend, processId])
 
   return (
-    <div className="space-y-2">
+    <div className={cn('space-y-2', editingMessage && 'rounded-xl bg-primary/[0.04] -mx-2 px-2 py-2')}>
+      {/* Edit banner (WhatsApp-style) — sobrepõe-se ao reply preview. */}
+      {editingMessage && (
+        <div className="flex items-center gap-2 text-xs bg-muted/60 rounded-lg px-3 py-1.5 border-l-2 border-primary">
+          <Pencil className="h-3 w-3 shrink-0 text-primary" />
+          <div className="flex-1 min-w-0">
+            <span className="font-medium text-primary">A editar mensagem</span>
+            <p className="text-muted-foreground truncate mt-0.5">{editingMessage.content.slice(0, 80)}</p>
+          </div>
+        </div>
+      )}
+
       {/* Reply preview */}
-      {replyTo && (
+      {replyTo && !editingMessage && (
         <div className="flex items-center gap-2 text-xs bg-muted/60 rounded-lg px-3 py-1.5 border-l-2 border-primary">
           <div className="flex-1 min-w-0">
             <span className="text-muted-foreground">{CHAT_LABELS.reply_to} </span>
@@ -239,8 +288,9 @@ export function ChatInput({
         </div>
       )}
 
-      {/* Attachment previews */}
-      {!isRecording && attachments.length > 0 && (
+      {/* Attachment previews — escondidos em edit mode (não suportamos
+          alterar anexos durante edição). */}
+      {!isRecording && !editingMessage && attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {attachments.map((file, i) => (
             <div key={i} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs bg-muted/50">
@@ -256,7 +306,7 @@ export function ChatInput({
 
       {/* Voice recorder — single instance, always mounted to preserve state.
           When active (recording/preview) it takes full width; when idle it renders just the mic icon. */}
-      {isRecording && (
+      {isRecording && !editingMessage && (
         <VoiceRecorder
           autoStart
           onSend={handleVoiceSend}
@@ -266,13 +316,28 @@ export function ChatInput({
       )}
 
       {/* Text input row — hidden when voice recorder is active */}
-      {!isRecording && (
+      {(!isRecording || editingMessage) && (
         <div className="flex items-end gap-2">
+          {/* Edit mode: X cancel à esquerda */}
+          {editingMessage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+              onClick={onCancelEdit}
+              disabled={isSubmitting}
+              title="Cancelar edição"
+              aria-label="Cancelar edição"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+
           <div className="flex-1 relative">
             <MentionsInput
               value={value}
               onChange={(_e, newValue) => handleValueChange(newValue)}
-              placeholder={CHAT_LABELS.placeholder}
+              placeholder={editingMessage ? 'Edita a mensagem…' : CHAT_LABELS.placeholder}
               style={mentionsInputStyle}
               a11ySuggestionsListLabel="Utilizadores sugeridos"
               forceSuggestionsAboveCursor
@@ -280,6 +345,10 @@ export function ChatInput({
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   handleSubmit()
+                }
+                if (e.key === 'Escape' && editingMessage) {
+                  e.preventDefault()
+                  onCancelEdit?.()
                 }
               }}
               disabled={disabled || isSubmitting}
@@ -328,41 +397,50 @@ export function ChatInput({
             </MentionsInput>
           </div>
 
-          {/* Attach */}
-          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0 text-muted-foreground"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isSubmitting}
-            title={CHAT_LABELS.attach_file}
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
+          {/* Attach + mic escondidos em edit mode */}
+          {!editingMessage && (
+            <>
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-muted-foreground"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled || isSubmitting}
+                title={CHAT_LABELS.attach_file}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
 
-          {/* Mic — clicking sets isRecording which mounts the full VoiceRecorder above */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0 text-muted-foreground"
-            onClick={() => setIsRecording(true)}
-            disabled={disabled || isSubmitting}
-            title={VOICE_LABELS.record}
-          >
-            <Mic className="h-4 w-4" />
-          </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-muted-foreground"
+                onClick={() => setIsRecording(true)}
+                disabled={disabled || isSubmitting}
+                title={VOICE_LABELS.record}
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            </>
+          )}
 
-          {/* Send */}
+          {/* Send / ✓ verde em edit mode */}
           <Button
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className={cn(
+              'h-9 w-9 shrink-0',
+              editingMessage && 'rounded-full bg-emerald-600 hover:bg-emerald-700 text-white',
+            )}
             onClick={handleSubmit}
             disabled={!value.trim() || isSubmitting || disabled}
-            title={CHAT_LABELS.send}
+            title={editingMessage ? 'Gravar edição' : CHAT_LABELS.send}
+            aria-label={editingMessage ? 'Gravar edição' : CHAT_LABELS.send}
           >
             {isSubmitting ? (
               <Spinner variant="infinite" size={14} />
+            ) : editingMessage ? (
+              <Check className="h-4 w-4" />
             ) : (
               <Send className="h-4 w-4" />
             )}

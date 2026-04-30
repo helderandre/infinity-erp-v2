@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,13 +60,25 @@ interface ChatMessageProps {
   onReply: () => void
   onToggleReaction: (messageId: string, emoji: string) => void
   onEdit: (messageId: string, content: string) => Promise<void>
+  /** Quando definido, clicar em "Editar" delega a edição ao parent
+   * (pattern WhatsApp — input no fundo do chat com X / ✓). Sem este
+   * callback, o item cai no fallback inline antigo. */
+  onStartEdit?: (message: ChatMessageType) => void
   onDelete: (messageId: string) => Promise<void>
   /** Quando definido, mostra "Reencaminhar" no menu de acções. */
   onForward?: (message: ChatMessageType) => void
   readers?: { userName: string; readAt: string }[]
   onEntityClick?: (entityType: string, entityId: string) => void
   entitiesMap?: Map<string, ChatEntityData>
+  /** Aplica destaque visual quando esta mensagem está a ser editada
+   * via composer do parent. */
+  isBeingEdited?: boolean
 }
+
+/** Janela máxima durante a qual o autor pode editar uma mensagem.
+ * Match com o standard do WhatsApp (15min). Mensagens mais antigas
+ * deixam de mostrar a opção "Editar" no dropdown. */
+const MESSAGE_EDIT_WINDOW_MS = 15 * 60 * 1000
 
 // Icons for subtask config types
 const SUBTASK_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -275,12 +288,16 @@ export function ChatMessageItem({
   onReply,
   onToggleReaction,
   onEdit,
+  onStartEdit,
   onDelete,
   onForward,
   readers,
   onEntityClick,
   entitiesMap,
+  isBeingEdited,
 }: ChatMessageProps) {
+  // Edit inline ainda existe como fallback quando o parent não fornece
+  // `onStartEdit` (ex.: chats embutidos antigos sem composer disponível).
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(message.content)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -289,6 +306,12 @@ export function ChatMessageItem({
 
   const isOwn = message.sender_id === currentUserId
   const timeStr = format(new Date(message.created_at), 'HH:mm')
+
+  // Janela de edição: só permite Editar nos primeiros 15 min após envio.
+  // Mensagens mais antigas têm o item escondido no dropdown.
+  const isWithinEditWindow =
+    Date.now() - new Date(message.created_at).getTime() < MESSAGE_EDIT_WINDOW_MS
+  const canEdit = isOwn && !message.is_deleted && isWithinEditWindow
 
   // Voice messages: hide the text content (just show the player)
   const isVoiceMsg = message.has_attachments &&
@@ -430,10 +453,21 @@ export function ChatMessageItem({
         {isOwn && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => { setEditValue(message.content); setIsEditing(true) }}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
+            {canEdit && (
+              <DropdownMenuItem
+                onClick={() => {
+                  if (onStartEdit) {
+                    onStartEdit(message)
+                  } else {
+                    setEditValue(message.content)
+                    setIsEditing(true)
+                  }
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => setDeleteDialogOpen(true)}
               className="text-destructive focus:text-destructive"
@@ -470,7 +504,10 @@ export function ChatMessageItem({
             {/* Bubble row: eye (left) + bubble */}
             <div className="flex items-end gap-1.5 justify-end">
               {readReceiptEl}
-              <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3.5 py-2.5 min-w-0">
+              <div className={cn(
+                'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3.5 py-2.5 min-w-0',
+                isBeingEdited && 'ring-2 ring-primary-foreground/60 ring-offset-2 ring-offset-background',
+              )}>
                 {/* Reply quote */}
                 {hasParentMessage && (
                   <div className="bg-primary-foreground/15 rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 border-primary-foreground/40">
@@ -483,25 +520,58 @@ export function ChatMessageItem({
                   </div>
                 )}
 
-                {/* Content / Edit mode */}
+                {/* Content / Edit mode — Textarea auto-grow, Enter = nova linha,
+                    Cmd/Ctrl+Enter ou clicar ✓ para gravar. Mais espaço visível
+                    para mensagens longas; cola multi-linha funciona naturalmente. */}
                 {isEditing ? (
-                  <div className="flex items-center gap-2">
-                    <Input
+                  <div className="flex flex-col gap-2 min-w-[240px] sm:min-w-[320px]">
+                    <Textarea
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit() }
-                        if (e.key === 'Escape') { setIsEditing(false); setEditValue(message.content) }
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault()
+                          handleSaveEdit()
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault()
+                          setIsEditing(false)
+                          setEditValue(message.content)
+                        }
                       }}
-                      className="h-7 text-sm bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground placeholder:text-primary-foreground/50"
+                      className="text-sm bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground placeholder:text-primary-foreground/50 min-h-[60px] max-h-[260px] resize-none"
+                      rows={Math.min(Math.max(2, editValue.split('\n').length), 8)}
                       autoFocus
                     />
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20" onClick={handleSaveEdit} disabled={isSubmitting}>
-                      {isSubmitting ? <Spinner variant="infinite" size={12} /> : <Check className="h-3 w-3" />}
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20" onClick={() => { setIsEditing(false); setEditValue(message.content) }}>
-                      <X className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-primary-foreground/60 select-none">
+                        Enter = nova linha · ⌘/Ctrl+Enter = gravar
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-primary-foreground hover:bg-primary-foreground/20"
+                          onClick={() => {
+                            setIsEditing(false)
+                            setEditValue(message.content)
+                          }}
+                          aria-label="Cancelar"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-primary-foreground hover:bg-primary-foreground/20"
+                          onClick={handleSaveEdit}
+                          disabled={isSubmitting || !editValue.trim()}
+                          aria-label="Gravar"
+                        >
+                          {isSubmitting ? <Spinner variant="infinite" size={14} /> : <Check className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 ) : !isVoiceMsg ? (
                   <p className="text-sm whitespace-pre-wrap break-words select-text cursor-text selection:!bg-blue-500/50 selection:!text-white">

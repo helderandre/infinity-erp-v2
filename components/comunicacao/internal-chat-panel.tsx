@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MentionsInput, Mention } from 'react-mentions'
-import { MessageSquare, Paperclip, Send, X, Mic, ChevronDown } from 'lucide-react'
+import { MessageSquare, Paperclip, Send, X, Mic, ChevronDown, Pencil, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
 
   const [replyTo, setReplyTo] = useState<InternalChatMessage | null>(null)
   const [forwardMessage, setForwardMessage] = useState<InternalChatMessage | null>(null)
+  const [editingMessage, setEditingMessage] = useState<InternalChatMessage | null>(null)
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
@@ -274,13 +275,50 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
     }
   }, [])
 
-  // Submit
+  // Inicia edição WhatsApp-style — passa o conteúdo da mensagem para o
+  // composer e cancela qualquer reply em curso. O ChatMessageItem dispara
+  // isto a partir do dropdown "Editar"; a mensagem fica destacada via
+  // `isBeingEdited`.
+  const handleStartEdit = useCallback((msg: InternalChatMessage) => {
+    setEditingMessage(msg)
+    setValue(msg.content)
+    setReplyTo(null)
+    setAttachments([])
+    requestAnimationFrame(() => {
+      messageInputRef.current?.focus()
+      // Cursor no fim do texto
+      const el = messageInputRef.current
+      if (el) {
+        const len = el.value.length
+        try { el.setSelectionRange(len, len) } catch {}
+      }
+    })
+  }, [])
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessage(null)
+    setValue('')
+  }, [])
+
+  // Submit — quando há `editingMessage`, chama editMessage em vez de
+  // sendMessage. Validação reutilizada (não submete se vazio).
   const handleSubmit = useCallback(async () => {
     if (!value.trim() || isSubmitting) return
     setIsSubmitting(true)
     setTyping(false)
 
     try {
+      // Edit mode: actualizar mensagem existente.
+      if (editingMessage) {
+        // No-op se o utilizador não mudou nada — evita bater no servidor à toa.
+        if (value.trim() !== editingMessage.content.trim()) {
+          await editMessage(editingMessage.id, value)
+        }
+        setEditingMessage(null)
+        setValue('')
+        return
+      }
+
       const mentions: InternalChatMention[] = []
       const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g
       let match
@@ -298,7 +336,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
       setAttachments([])
       setReplyTo(null)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mensagem')
+      toast.error(err instanceof Error ? err.message : editingMessage ? 'Erro ao editar' : 'Erro ao enviar mensagem')
     } finally {
       setIsSubmitting(false)
       // Devolve o foco ao textarea após o disabled sair (próximo tick).
@@ -308,7 +346,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
         messageInputRef.current?.focus()
       })
     }
-  }, [value, isSubmitting, sendMessage, setTyping, replyTo, attachments, uploadAttachments])
+  }, [value, isSubmitting, sendMessage, editMessage, editingMessage, setTyping, replyTo, attachments, uploadAttachments])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -400,7 +438,19 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="absolute inset-0 overflow-y-auto px-4 py-4 space-y-4"
+        className={cn(
+          'absolute inset-0 overflow-y-auto px-4 py-4 space-y-4 transition-[filter,opacity] duration-200',
+          // WhatsApp-style: ao editar, faz blur da conversa para focar
+          // o utilizador no composer. Click na zona blurred cancela o edit.
+          editingMessage && 'blur-sm opacity-90',
+        )}
+        onClickCapture={(e) => {
+          if (!editingMessage) return
+          // Não cancelar quando clica numa mensagem que ainda quer ler
+          // ou em interactivos — só cliques "vazios" no fundo cancelam.
+          const target = e.target as HTMLElement
+          if (target.closest('button, a, [role="button"]')) return
+        }}
       >
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -429,9 +479,11 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
                 onReply={() => setReplyTo(msg)}
                 onToggleReaction={toggleReaction}
                 onEdit={editMessage}
+                onStartEdit={(m) => handleStartEdit(m as any)}
                 onDelete={deleteMessage}
                 onForward={(m) => setForwardMessage(m as any)}
                 readers={messageReadersMap.get(msg.id)}
+                isBeingEdited={editingMessage?.id === msg.id}
               />
             ))}
           </>
@@ -480,9 +532,24 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
       </div>
 
       {/* Input */}
-      <div className="border-t px-4 py-3 shrink-0">
+      <div className={cn(
+        'border-t px-4 py-3 shrink-0 transition-colors',
+        editingMessage && 'bg-primary/[0.04]',
+      )}>
         <div className="space-y-2">
-          {replyTo && (
+          {/* Edit banner — pattern WhatsApp: "A editar mensagem" com preview
+              + X. Sobrepõe-se ao reply preview (não mostramos os dois). */}
+          {editingMessage && (
+            <div className="flex items-center gap-2 text-xs bg-muted/60 rounded-lg px-3 py-1.5 border-l-2 border-primary">
+              <Pencil className="h-3 w-3 shrink-0 text-primary" />
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-primary">A editar mensagem</span>
+                <p className="text-muted-foreground truncate mt-0.5">{editingMessage.content.slice(0, 80)}</p>
+              </div>
+            </div>
+          )}
+
+          {replyTo && !editingMessage && (
             <div className="flex items-center gap-2 text-xs bg-muted/60 rounded-lg px-3 py-1.5 border-l-2 border-primary">
               <div className="flex-1 min-w-0">
                 <span className="text-muted-foreground">{INTERNAL_CHAT_LABELS.reply_to} </span>
@@ -495,7 +562,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             </div>
           )}
 
-          {!isRecording && attachments.length > 0 && (
+          {!isRecording && !editingMessage && attachments.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {attachments.map((file, i) => (
                 <div key={i} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs bg-muted/50">
@@ -509,7 +576,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             </div>
           )}
 
-          {isRecording && (
+          {isRecording && !editingMessage && (
             <VoiceRecorder
               autoStart
               onSend={handleVoiceSend}
@@ -518,14 +585,29 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             />
           )}
 
-          {!isRecording && (
+          {(!isRecording || editingMessage) && (
             <div className="flex items-end gap-2">
+              {/* Edit mode: X cancel à esquerda. */}
+              {editingMessage && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                  title="Cancelar edição"
+                  aria-label="Cancelar edição"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+
               <div className="flex-1 relative">
                 <MentionsInput
                   inputRef={messageInputRef}
                   value={value}
                   onChange={(_e, newValue) => handleValueChange(newValue)}
-                  placeholder={INTERNAL_CHAT_LABELS.placeholder}
+                  placeholder={editingMessage ? 'Edita a mensagem…' : INTERNAL_CHAT_LABELS.placeholder}
                   style={mentionsInputStyle}
                   a11ySuggestionsListLabel="Utilizadores sugeridos"
                   forceSuggestionsAboveCursor
@@ -533,6 +615,10 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
                       handleSubmit()
+                    }
+                    if (e.key === 'Escape' && editingMessage) {
+                      e.preventDefault()
+                      handleCancelEdit()
                     }
                   }}
                   disabled={isSending || isSubmitting}
@@ -555,38 +641,50 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
                 </MentionsInput>
               </div>
 
-              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 text-muted-foreground"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSending || isSubmitting}
-                title={INTERNAL_CHAT_LABELS.attach_file}
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
+              {/* Em edit mode escondemos paperclip + mic — não suportamos
+                  alterar anexos/áudio na edição (só o texto). */}
+              {!editingMessage && (
+                <>
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 text-muted-foreground"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSending || isSubmitting}
+                    title={INTERNAL_CHAT_LABELS.attach_file}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 text-muted-foreground"
+                    onClick={() => setIsRecording(true)}
+                    disabled={isSending || isSubmitting}
+                    title={VOICE_LABELS.record}
+                  >
+                    <Mic className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
 
               <Button
-                variant="ghost"
                 size="icon"
-                className="h-9 w-9 shrink-0 text-muted-foreground"
-                onClick={() => setIsRecording(true)}
-                disabled={isSending || isSubmitting}
-                title={VOICE_LABELS.record}
-              >
-                <Mic className="h-4 w-4" />
-              </Button>
-
-              <Button
-                size="icon"
-                className="h-9 w-9 shrink-0"
+                className={cn(
+                  'h-9 w-9 shrink-0',
+                  editingMessage && 'rounded-full bg-emerald-600 hover:bg-emerald-700 text-white',
+                )}
                 onClick={handleSubmit}
                 disabled={!value.trim() || isSubmitting || isSending}
-                title={INTERNAL_CHAT_LABELS.send}
+                title={editingMessage ? 'Gravar edição' : INTERNAL_CHAT_LABELS.send}
+                aria-label={editingMessage ? 'Gravar edição' : INTERNAL_CHAT_LABELS.send}
               >
                 {isSubmitting ? (
                   <Spinner variant="infinite" size={14} />
+                ) : editingMessage ? (
+                  <Check className="h-4 w-4" />
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
