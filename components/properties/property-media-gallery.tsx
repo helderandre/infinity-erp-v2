@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PropertyMediaUpload } from './property-media-upload'
 import { usePropertyMedia } from '@/hooks/use-property-media'
-import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, X, Sparkles, Loader2, Brain, Sofa, Presentation, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, X, Sparkles, Loader2, Brain, Sofa, Presentation, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import { BorderBeam } from 'border-beam'
@@ -852,6 +852,76 @@ export function PropertyMediaGallery({
     runBatchStage(Array.from(selectedIds), style)
   }
 
+  const [isDownloading, setIsDownloading] = useState(false)
+  const handleBatchDownload = useCallback(async () => {
+    if (selectedIds.size === 0) return
+    // Resolve URLs por ordem do display actual: em modo `original` baixa
+    // o `url`; em modo `staged` baixa `ai_staged_url` (a versão decorada).
+    const items = currentMedia.filter((m) => selectedIds.has(m.id))
+    const targets = items
+      .map((m, idx) => {
+        const url = displayMode === 'staged' ? m.ai_staged_url : m.url
+        if (!url) return null
+        const indexLabel = String(idx + 1).padStart(2, '0')
+        const room = m.ai_room_label ? `-${m.ai_room_label}` : ''
+        const suffix = displayMode === 'staged' ? '-decorada' : ''
+        // Tenta inferir extensão a partir da URL (.jpg/.png/.webp...).
+        const m2 = url.match(/\.([a-z0-9]{2,5})(?:\?|$)/i)
+        const ext = m2 ? m2[1].toLowerCase() : 'jpg'
+        return {
+          url,
+          name: `imagem-${indexLabel}${room}${suffix}.${ext}`,
+        }
+      })
+      .filter((x): x is { url: string; name: string } => x !== null)
+    if (targets.length === 0) {
+      toast.error('Sem imagens para descarregar')
+      return
+    }
+    setIsDownloading(true)
+    try {
+      const fetchOne = async (url: string) => {
+        const proxied = `/api/documents/proxy?url=${encodeURIComponent(url)}`
+        const res = await fetch(proxied, { credentials: 'same-origin' })
+        if (!res.ok) throw new Error(`${res.status}`)
+        return res.blob()
+      }
+      const { saveAs } = await import('file-saver')
+      if (targets.length === 1) {
+        const blob = await fetchOne(targets[0].url)
+        saveAs(blob, targets[0].name)
+      } else {
+        const JSZip = (await import('jszip')).default
+        const zip = new JSZip()
+        const errors: string[] = []
+        await Promise.all(
+          targets.map(async (t) => {
+            try {
+              const blob = await fetchOne(t.url)
+              zip.file(t.name, blob)
+            } catch (err) {
+              errors.push(`${t.name}: ${err instanceof Error ? err.message : 'erro'}`)
+            }
+          }),
+        )
+        if (errors.length > 0) zip.file('_erros.txt', errors.join('\n'))
+        const out = await zip.generateAsync({ type: 'blob' })
+        const folderTag = displayMode === 'staged' ? 'decoradas' : 'originais'
+        const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '')
+        saveAs(out, `imoveis-imagens-${folderTag}-${stamp}.zip`)
+      }
+      toast.success(
+        targets.length === 1
+          ? 'Imagem descarregada'
+          : `${targets.length} imagens descarregadas`,
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao descarregar')
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [currentMedia, displayMode, selectedIds])
+
   const handleClearSelectedStaged = async () => {
     if (selectedIds.size === 0) return
     try {
@@ -1066,6 +1136,24 @@ export function PropertyMediaGallery({
                     </span>
                   </BorderBeam>
                 )}
+
+                {/* Descarregar selecção. Em modo `original` baixa o ficheiro
+                    original; em `staged` baixa a versão decorada. ZIP quando
+                    há mais que uma; download directo quando só uma. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs rounded-full gap-1"
+                  disabled={selectedIds.size === 0 || isDownloading}
+                  onClick={handleBatchDownload}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Download className="h-3 w-3" />
+                  )}
+                  Descarregar ({selectedIds.size})
+                </Button>
 
                 {displayMode === 'staged' ? (
                   <Button
