@@ -11,9 +11,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Dialog, DialogContent, DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet, SheetContent, SheetTitle,
+} from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   Popover, PopoverAnchor, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
@@ -69,6 +70,7 @@ const TOP_CATEGORIES: { value: TopCategory; label: string; icon: React.ElementTy
 // ─── Component ──────────────────────────────────────────────────
 
 export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly }: LeadEntryDialogProps) {
+  const isMobile = useIsMobile()
   const [dialogMode, setDialogMode] = useState<DialogMode>('criar')
   const [category, setCategory] = useState<TopCategory>('imobiliario')
   const [creating, setCreating] = useState(false)
@@ -299,9 +301,22 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm() }}>
-      <DialogContent className="sm:max-w-md !rounded-2xl !p-0 !gap-0 !ring-0 overflow-hidden" showCloseButton={false}>
-        <VisuallyHidden><DialogTitle>Registar Lead</DialogTitle></VisuallyHidden>
+    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm() }}>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        showCloseButton={false}
+        className={cn(
+          'p-0 gap-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+          'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+          isMobile
+            ? 'data-[side=bottom]:h-[90dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[480px] sm:rounded-l-3xl',
+        )}
+      >
+        <VisuallyHidden><SheetTitle>Registar Lead</SheetTitle></VisuallyHidden>
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+        )}
         {/* Dark header: tabs + AI button */}
         <div className="bg-neutral-900 rounded-t-2xl px-5 py-4">
           <div className="flex items-center justify-between">
@@ -736,7 +751,7 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
             {dialogMode === 'referenciar' ? 'Referenciar' : 'Registar'}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

@@ -41,6 +41,7 @@ export type NotificationEntityType =
   | 'task_comment'
   | 'lead'
   | 'visit'
+  | 'deal'
 
 export const PROCESS_NOTIFICATION_TYPES = [
   'comment_mention',

@@ -84,8 +84,8 @@ export function MomentosTab({ dealId }: MomentosTabProps) {
         <div>
           <p className="text-sm font-medium">Sem deal associado</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Os momentos de marketing são capturados após criar um deal de fecho. Quando submeteres
-            o negócio para fecho, esta tab fica disponível.
+            Os momentos de marketing são capturados após criar um negócio de fecho. Quando submeteres
+            a oportunidade para fecho, esta tab fica disponível.
           </p>
         </div>
       </div>

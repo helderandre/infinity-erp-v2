@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { notificationService } from '@/lib/notifications/service'
+import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 
 export async function POST(request: Request) {
   try {
@@ -88,6 +90,31 @@ export async function POST(request: Request) {
         { error: 'Erro ao criar processo', details: procError?.message },
         { status: 500 }
       )
+    }
+
+    // Notify management — pré-aviso de que alguém começou um rascunho. Só
+    // dispara na criação inicial (POST aqui); saves subsequentes em
+    // /api/acquisitions/[id]/step/* não voltam a notificar.
+    try {
+      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
+      if (approverIds.length > 0) {
+        const consultantName = (auth.user as any).user_metadata?.commercial_name
+          || (auth.user as any).email
+          || 'Um consultor'
+        const propertyTitle = prefillData?.title || 'Sem título'
+        await notificationService.createBatch(approverIds, {
+          senderId: auth.user.id,
+          notificationType: 'process_created',
+          entityType: 'proc_instance',
+          entityId: procInstance.id,
+          title: 'Novo rascunho de angariação',
+          body: `${consultantName} começou um rascunho — ${propertyTitle}`,
+          actionUrl: `/dashboard/processos/${procInstance.id}`,
+          metadata: { kind: 'draft', property_title: propertyTitle },
+        })
+      }
+    } catch (notifError) {
+      console.error('[Draft] Erro ao notificar management:', notifError)
     }
 
     return NextResponse.json({

@@ -69,6 +69,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
   const [images, setImages] = useState<ImagePreview[]>([])
   const [notifyOnResolution, setNotifyOnResolution] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { compressImage, isCompressing } = useImageCompress()
   const config = CONFIG[type]
@@ -129,9 +130,15 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
     })
   }
 
-  const uploadImages = async (): Promise<string[]> => {
-    const urls: string[] = []
-    for (const img of images) {
+  // Uploads em paralelo via Promise.all em vez de sequencial — em ligação
+  // 4G com 3 fotos isto reduz de ~6s para ~2s. `uploadProgress` alimenta
+  // o label do botão "A enviar (N/M)..." para o utilizador ver que algo
+  // está a acontecer (sem isto parece "stuck").
+  const uploadImages = async (
+    onProgress: (done: number) => void,
+  ): Promise<string[]> => {
+    let done = 0
+    const tasks = images.map(async (img) => {
       const formData = new FormData()
       formData.append('file', img.file)
       const res = await fetch('/api/feedback/upload', {
@@ -140,9 +147,11 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
       })
       if (!res.ok) throw new Error('Erro ao fazer upload de imagem')
       const { url } = await res.json()
-      urls.push(url)
-    }
-    return urls
+      done += 1
+      onProgress(done)
+      return url as string
+    })
+    return Promise.all(tasks)
   }
 
   const handleSubmit = async () => {
@@ -160,11 +169,12 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
     }
 
     setIsSubmitting(true)
+    setUploadProgress(0)
     try {
-      // Upload images first
+      // Upload images first (parallel + progress)
       let imageUrls: string[] = []
       if (images.length > 0) {
-        imageUrls = await uploadImages()
+        imageUrls = await uploadImages((done) => setUploadProgress(done))
       }
 
       const res = await fetch('/api/feedback', {
@@ -198,6 +208,7 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
     } finally {
       setIsSubmitting(false)
+      setUploadProgress(0)
     }
   }
 
@@ -367,10 +378,14 @@ export function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps
             size="sm"
             onClick={handleSubmit}
             disabled={isSubmitting || isCompressing || !title.trim() || !page}
-            className="min-w-[100px]"
+            className="min-w-[120px]"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Enviar
+            {isSubmitting && images.length > 0 && uploadProgress < images.length
+              ? `A enviar ${uploadProgress}/${images.length}…`
+              : isSubmitting
+                ? 'A enviar…'
+                : 'Enviar'}
           </Button>
         </div>
       </SheetContent>

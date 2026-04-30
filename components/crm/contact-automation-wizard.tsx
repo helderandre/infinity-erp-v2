@@ -287,7 +287,7 @@ export function ContactAutomationWizard({
                     <Label htmlFor={t} className="cursor-pointer font-normal">
                       {CONTACT_AUTOMATION_EVENT_LABELS_PT[t]}
                       {disabled && t === "aniversario_fecho" && (
-                        <span className="ml-1 text-xs text-muted-foreground">(contacto sem negócios)</span>
+                        <span className="ml-1 text-xs text-muted-foreground">(contacto sem oportunidades)</span>
                       )}
                     </Label>
                   </div>
@@ -296,10 +296,10 @@ export function ContactAutomationWizard({
             </RadioGroup>
             {eventType === "aniversario_fecho" && (
               <div className="space-y-1 pt-2">
-                <Label>Negócio</Label>
+                <Label>Oportunidade</Label>
                 <Select value={dealId ?? ""} onValueChange={(v) => setDealId(v)}>
                   <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Escolher negócio" className="truncate" />
+                    <SelectValue placeholder="Escolher oportunidade" className="truncate" />
                   </SelectTrigger>
                   <SelectContent className="max-w-[var(--radix-select-trigger-width)]">
                     {deals.map((d) => (

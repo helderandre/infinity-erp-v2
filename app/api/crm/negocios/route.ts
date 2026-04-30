@@ -55,9 +55,9 @@ export async function GET(request: Request) {
     if (pipeline_type) {
       // Map pipeline_type to the `tipo` column values in the negocios table
       if (pipeline_type === 'comprador') {
-        query = query.in('tipo', ['Compra', 'Compra e Venda'])
+        query = query.eq('tipo', 'Compra')
       } else if (pipeline_type === 'vendedor') {
-        query = query.in('tipo', ['Venda', 'Compra e Venda'])
+        query = query.eq('tipo', 'Venda')
       } else if (pipeline_type === 'arrendatario') {
         query = query.eq('tipo', 'Arrendatário')
       } else if (pipeline_type === 'arrendador') {

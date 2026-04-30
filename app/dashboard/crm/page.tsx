@@ -35,7 +35,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { SlidersHorizontal } from 'lucide-react'
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command'
+import { Check, ChevronsUpDown, SlidersHorizontal } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -380,8 +383,8 @@ function NegociosListView({
                   <TableRow>
                     <TableCell colSpan={9} className="py-12 text-center">
                       <Briefcase className="h-7 w-7 text-muted-foreground/30 mx-auto mb-2" />
-                      <p className="text-sm font-medium">Nenhum negócio neste pipeline</p>
-                      <p className="text-xs text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
+                      <p className="text-sm font-medium">Nenhuma oportunidade neste pipeline</p>
+                      <p className="text-xs text-muted-foreground mt-1">As oportunidades criadas aparecerão aqui.</p>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -488,8 +491,8 @@ function NegociosListView({
             ) : negocios.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border/50 bg-card/40 py-10 text-center">
                 <Briefcase className="h-7 w-7 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm font-medium">Nenhum negócio neste pipeline</p>
-                <p className="text-xs text-muted-foreground mt-1">Os negócios criados aparecerão aqui.</p>
+                <p className="text-sm font-medium">Nenhuma oportunidade neste pipeline</p>
+                <p className="text-xs text-muted-foreground mt-1">As oportunidades criadas aparecerão aqui.</p>
               </div>
             ) : (
               negocios.map((n) => {
@@ -1113,6 +1116,10 @@ export default function CRMPage() {
   const [stages, setStages] = useState<PipelineStageOption[]>([])
   const [consultants, setConsultants] = useState<ConsultantOption[]>([])
 
+  // UI state para o consultor picker pesquisável (Popover+Command).
+  // Substitui o Select plano que ficava com 22 items sem typeahead.
+  const [consultantPickerOpen, setConsultantPickerOpen] = useState(false)
+
   // Reset stage filter when pipeline tab changes (stage ids are pipeline-scoped)
   useEffect(() => {
     setFilters((f) => ({ ...f, pipelineStageId: '' }))
@@ -1247,20 +1254,73 @@ export default function CRMPage() {
           {canSeeAllNegocios && (
             <div className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
-              <Select
-                value={filters.consultantId || 'all'}
-                onValueChange={(v) => setFilters((f) => ({ ...f, consultantId: v === 'all' ? '' : v }))}
-              >
-                <SelectTrigger className="h-9 w-full rounded-full text-xs">
-                  <SelectValue placeholder="Consultor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os consultores</SelectItem>
-                  {consultants.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Popover+Command — typeahead permite filtrar a lista
+                  de 22+ consultores escrevendo o nome em vez de fazer
+                  scroll. */}
+              <Popover open={consultantPickerOpen} onOpenChange={setConsultantPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={consultantPickerOpen}
+                    className="h-9 w-full rounded-full text-xs justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {filters.consultantId
+                        ? consultants.find((c) => c.id === filters.consultantId)?.commercial_name ?? 'Consultor'
+                        : 'Todos os consultores'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                  align="start"
+                >
+                  <Command>
+                    <CommandInput placeholder="Pesquisar consultor..." className="h-9" />
+                    <CommandList>
+                      <CommandEmpty>Nenhum consultor encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="todos"
+                          onSelect={() => {
+                            setFilters((f) => ({ ...f, consultantId: '' }))
+                            setConsultantPickerOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              !filters.consultantId ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                          Todos os consultores
+                        </CommandItem>
+                        {consultants.map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={c.commercial_name}
+                            onSelect={() => {
+                              setFilters((f) => ({ ...f, consultantId: c.id }))
+                              setConsultantPickerOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                filters.consultantId === c.id ? 'opacity-100' : 'opacity-0',
+                              )}
+                            />
+                            {c.commercial_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
           {/* Inbound-referrals toggle — surfaces négocios that came in via
@@ -1344,7 +1404,7 @@ export default function CRMPage() {
         type="button"
         onClick={() => setNewNegocioOpen(true)}
         className="shrink-0 inline-flex items-center justify-center gap-1 h-8 px-2.5 sm:px-3 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[11px] font-semibold shadow-md ring-1 ring-black/5 hover:bg-neutral-800 dark:hover:bg-white/90 transition-colors"
-        aria-label="Novo Negócio"
+        aria-label="Nova Oportunidade"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
         <span className="hidden sm:inline">Novo</span>
@@ -1457,9 +1517,17 @@ export default function CRMPage() {
             })}
           </div>
 
-          {/* Data points only — filter row moved out of the hero. */}
+          {/* Data points only — filter row moved out of the hero.
+              `filters` é passado para que os 3 KPIs reflictam os
+              filtros activos (consultor, stage, temperatura, etc.)
+              em vez de mostrarem sempre os totais brutos. */}
           <div className="mt-4 flex justify-center">
-            <SummaryBar pipelineType={activeTab} inHero refreshKey={kanbanRefreshKey} />
+            <SummaryBar
+              pipelineType={activeTab}
+              inHero
+              refreshKey={kanbanRefreshKey}
+              filters={filters}
+            />
           </div>
         </div>
         <Button
@@ -1512,7 +1580,7 @@ export default function CRMPage() {
         open={exportOpen}
         onOpenChange={setExportOpen}
         endpoint="/api/export/negocios"
-        title="Negócios"
+        title="Oportunidades"
       />
 
       <MyLeadsSheet

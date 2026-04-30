@@ -14,8 +14,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { LEAD_ORIGENS, LEAD_TYPES } from '@/lib/constants'
@@ -23,6 +23,7 @@ import {
   Mic, MicOff, Loader2, Sparkles, Users, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface ContactDialogProps {
   open: boolean
@@ -32,6 +33,7 @@ interface ContactDialogProps {
 }
 
 export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }: ContactDialogProps) {
+  const isMobile = useIsMobile()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [aiExpanded, setAiExpanded] = useState(false)
@@ -145,137 +147,153 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="-mx-6 -mt-6 mb-4 bg-neutral-900 dark:bg-neutral-800 rounded-t-2xl px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
-              <Users className="h-5 w-5 text-white" />
-            </div>
-            <DialogTitle className="text-white text-lg">Novo Contacto</DialogTitle>
-          </div>
-        </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
+          isMobile
+            ? 'data-[side=bottom]:h-[90dvh] rounded-t-3xl'
+            : 'w-full sm:max-w-[520px] sm:rounded-l-3xl',
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+        )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* AI Section — collapsible */}
-          <button
-            type="button"
-            onClick={() => setAiExpanded(!aiExpanded)}
-            className="flex items-center gap-2 w-full text-left rounded-xl border bg-muted/30 px-3 py-2.5 transition-colors hover:bg-muted/50"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground flex-1">Preenchimento por voz ou texto</span>
-            {aiExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-          </button>
+        <SheetHeader className={cn('px-6 pb-4 border-b border-border/40 shrink-0', isMobile ? 'pt-8' : 'pt-6')}>
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <Users className="h-5 w-5" />
+            Novo Contacto
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Adiciona um contacto à agenda
+          </SheetDescription>
+        </SheetHeader>
 
-          {aiExpanded && (
-            <div className="rounded-xl border bg-muted/20 p-3 space-y-3 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={isRecording ? 'destructive' : 'outline'}
-                  size="sm"
-                  className="rounded-full gap-2 h-8"
-                  disabled={isProcessing}
-                  onClick={isRecording ? stopRecording : startRecording}
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff className="h-3.5 w-3.5" />
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
+            {/* Card 1 — AI helper (collapsible) */}
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setAiExpanded(!aiExpanded)}
+                className="w-full px-4 py-3 flex items-center gap-2 hover:bg-muted/40 transition-colors"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium flex-1 text-left">Preenchimento por voz ou texto</span>
+                {aiExpanded
+                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+              </button>
+              {aiExpanded && (
+                <div className="px-4 pb-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={isRecording ? 'destructive' : 'outline'}
+                      size="sm"
+                      className="rounded-full gap-2 h-8"
+                      disabled={isProcessing}
+                      onClick={isRecording ? stopRecording : startRecording}
+                    >
+                      {isRecording ? (
+                        <>
+                          <MicOff className="h-3.5 w-3.5" />
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                          </span>
+                          Parar
+                        </>
+                      ) : (
+                        <><Mic className="h-3.5 w-3.5" /> Gravar</>
+                      )}
+                    </Button>
+                    {isProcessing && (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" /> A processar...
                       </span>
-                      Parar
-                    </>
-                  ) : (
-                    <><Mic className="h-3.5 w-3.5" /> Gravar</>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Ou cola texto com dados do contacto..."
+                      rows={2} className="text-xs resize-none rounded-xl flex-1"
+                      id="contact-ai-text"
+                    />
+                    <Button
+                      type="button" variant="ghost" size="sm"
+                      className="rounded-full text-xs gap-1 h-8 shrink-0 self-end"
+                      disabled={isProcessing}
+                      onClick={() => {
+                        const el = document.getElementById('contact-ai-text') as HTMLTextAreaElement
+                        if (el?.value) { setIsProcessing(true); extractAndFill(el.value).finally(() => setIsProcessing(false)) }
+                      }}
+                    >
+                      <Sparkles className="h-3 w-3" /> Extrair
+                    </Button>
+                  </div>
+                  {transcription && (
+                    <div className="rounded-lg bg-background border border-border/40 p-2.5 text-xs text-muted-foreground">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1">Transcrição</p>
+                      <p className="leading-relaxed">{transcription}</p>
+                    </div>
                   )}
-                </Button>
-                {isProcessing && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" /> A processar...
-                  </span>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Textarea
-                  placeholder="Ou cole texto com dados do contacto..."
-                  rows={2} className="text-xs resize-none rounded-xl flex-1"
-                  id="contact-ai-text"
-                />
-                <Button
-                  type="button" variant="ghost" size="sm"
-                  className="rounded-full text-xs gap-1 h-8 shrink-0 self-end"
-                  disabled={isProcessing}
-                  onClick={() => {
-                    const el = document.getElementById('contact-ai-text') as HTMLTextAreaElement
-                    if (el?.value) { setIsProcessing(true); extractAndFill(el.value).finally(() => setIsProcessing(false)) }
-                  }}
-                >
-                  <Sparkles className="h-3 w-3" /> Extrair
-                </Button>
-              </div>
-              {transcription && (
-                <div className="rounded-lg bg-background border p-2.5 text-xs text-muted-foreground">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1">Transcrição</p>
-                  <p className="leading-relaxed">{transcription}</p>
                 </div>
               )}
             </div>
-          )}
 
-          {/* Form fields */}
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <Label className="text-xs font-medium">Nome *</Label>
-              <Input {...register('nome')} className="rounded-xl" placeholder="Nome do contacto" />
-              {errors.nome && <p className="text-xs text-destructive">{errors.nome.message}</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label className="text-xs font-medium">Email</Label>
-                <Input type="email" {...register('email')} className="rounded-xl" placeholder="email@exemplo.com" />
+            {/* Card 2 — Identidade */}
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Nome *</Label>
+                <Input {...register('nome')} className="rounded-xl" placeholder="Nome do contacto" />
+                {errors.nome && <p className="text-xs text-destructive">{errors.nome.message}</p>}
               </div>
-              <div className="grid gap-2">
-                <Label className="text-xs font-medium">Telemóvel</Label>
-                <MaskInput
-                  mask={phonePTMask}
-                  placeholder="+351 9XX XXX XXX"
-                  className="rounded-xl"
-                  value={watch('telemovel') || ''}
-                  onValueChange={(_m, u) => setValue('telemovel', u)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label className="text-xs font-medium">Tipo</Label>
-                <Select value={watch('lead_type') || ''} onValueChange={v => setValue('lead_type', v)}>
-                  <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(LEAD_TYPES).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label className="text-xs font-medium">Origem</Label>
-                <Select onValueChange={v => setValue('origem', v)}>
-                  <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>
-                    {LEAD_ORIGENS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Email</Label>
+                  <Input type="email" {...register('email')} className="rounded-xl" placeholder="email@exemplo.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Telemóvel</Label>
+                  <MaskInput
+                    mask={phonePTMask}
+                    placeholder="+351 9XX XXX XXX"
+                    className="rounded-xl"
+                    value={watch('telemovel') || ''}
+                    onValueChange={(_m, u) => setValue('telemovel', u)}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
+            {/* Card 3 — Classificação */}
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Tipo</Label>
+                  <Select value={watch('lead_type') || ''} onValueChange={v => setValue('lead_type', v)}>
+                    <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(LEAD_TYPES).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Origem</Label>
+                  <Select onValueChange={v => setValue('origem', v)}>
+                    <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>
+                      {LEAD_ORIGENS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label className="text-xs font-medium">Consultor</Label>
                 <Select onValueChange={v => setValue('agent_id', v)}>
                   <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Atribuir" /></SelectTrigger>
@@ -286,23 +304,24 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
               </div>
             </div>
 
-            <div className="grid gap-2">
+            {/* Card 4 — Observações */}
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-2">
               <Label className="text-xs font-medium">Observações</Label>
-              <Textarea {...register('observacoes')} className="rounded-xl text-xs" rows={2} placeholder="Notas..." />
+              <Textarea {...register('observacoes')} className="rounded-xl text-xs" rows={3} placeholder="Notas sobre o contacto..." />
             </div>
           </div>
 
-          <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
-            <Button type="button" variant="outline" className="rounded-full w-full sm:w-auto" onClick={() => onOpenChange(false)}>
+          <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" className="rounded-full w-full sm:w-auto" disabled={isSubmitting}>
+            <Button type="submit" size="sm" className="min-w-[120px]" disabled={isSubmitting}>
               {isSubmitting && <Spinner variant="infinite" size={14} className="mr-1.5" />}
               Criar Contacto
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

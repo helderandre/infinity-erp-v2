@@ -34,6 +34,7 @@ import Link from 'next/link'
 import { MobileDashboard } from '@/components/dashboard/mobile/mobile-dashboard'
 import { ManagerMobileDashboard } from '@/components/dashboard/mobile/manager-mobile-dashboard'
 import { ManagementDashboard } from '@/components/dashboard/management-dashboard'
+import { TeamGoalsInlinePanel } from '@/components/dashboard/team-goals-inline-panel'
 import { ConsultorDashboard } from '@/components/dashboard/consultor-dashboard'
 import { DashboardHero } from '@/components/dashboard/dashboard-hero'
 import { WelcomeCard } from '@/components/dashboard/mobile/welcome-card'
@@ -475,6 +476,16 @@ function AgentDashboardView({ userId, userName }: { userId: string; userName: st
 function AgentPersonalSection({ userId }: { userId: string }) {
   const [data, setData] = useState<AgentData | null>(null)
   const [loading, setLoading] = useState(true)
+  const { user } = useUser()
+
+  // Roles seniors (CEO + admin + Office Manager) viam o card "Os Meus
+  // Objectivos" com os números pessoais — substituímos por uma vista
+  // agregada da equipa, que é o que efectivamente acompanham. "Próximas
+  // Acções" continua a aparecer porque o calendário pessoal continua útil.
+  const showTeamGoalsInsteadOfPersonal = (() => {
+    const lc = (user?.role_names ?? []).map((r) => r.toLowerCase())
+    return lc.includes('admin') || lc.includes('broker/ceo') || lc.includes('office manager')
+  })()
 
   useEffect(() => {
     getAgentDashboard(userId).then(res => {
@@ -503,41 +514,48 @@ function AgentPersonalSection({ userId }: { userId: string }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {/* Objectives */}
-      <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
-        <h3 className="text-sm font-semibold mb-4">Os Meus Objectivos</h3>
-        <div className="space-y-5">
-          {[
-            { label: 'Anual', actual: data.revenue_ytd, target: data.annual_target, pct: data.pct_achieved },
-            { label: 'Mensal', actual: data.revenue_this_month, target: monthlyTarget, pct: monthlyPct },
-          ].map(obj => (
-            <div key={obj.label}>
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-medium">{obj.label}</span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {fmtCompact.format(obj.actual)} / {fmtCompact.format(obj.target)}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
-                  <div className={cn(
-                    'h-full rounded-full transition-all duration-500',
-                    obj.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
-                    obj.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
-                    'bg-gradient-to-r from-red-400 to-red-600'
-                  )} style={{ width: `${Math.min(obj.pct, 100)}%` }} />
+      {/* Objectives — para CEO/admin/Office Manager mostramos a vista
+          agregada da equipa em vez dos números pessoais (que pouco fazem
+          sentido para essas funções). Os outros (Team Leader, Gestor
+          Processual, etc.) continuam a ver "Os Meus Objectivos". */}
+      {showTeamGoalsInsteadOfPersonal ? (
+        <TeamGoalsInlinePanel />
+      ) : (
+        <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">
+          <h3 className="text-sm font-semibold mb-4">Os Meus Objectivos</h3>
+          <div className="space-y-5">
+            {[
+              { label: 'Anual', actual: data.revenue_ytd, target: data.annual_target, pct: data.pct_achieved },
+              { label: 'Mensal', actual: data.revenue_this_month, target: monthlyTarget, pct: monthlyPct },
+            ].map(obj => (
+              <div key={obj.label}>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="font-medium">{obj.label}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {fmtCompact.format(obj.actual)} / {fmtCompact.format(obj.target)}
+                  </span>
                 </div>
-                <span className={cn(
-                  'text-sm font-bold tabular-nums w-12 text-right',
-                  obj.pct >= 80 ? 'text-emerald-600' : obj.pct >= 50 ? 'text-amber-600' : 'text-red-600'
-                )}>
-                  {Math.round(obj.pct)}%
-                </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+                    <div className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      obj.pct >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+                      obj.pct >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+                      'bg-gradient-to-r from-red-400 to-red-600'
+                    )} style={{ width: `${Math.min(obj.pct, 100)}%` }} />
+                  </div>
+                  <span className={cn(
+                    'text-sm font-bold tabular-nums w-12 text-right',
+                    obj.pct >= 80 ? 'text-emerald-600' : obj.pct >= 50 ? 'text-amber-600' : 'text-red-600'
+                  )}>
+                    {Math.round(obj.pct)}%
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Upcoming Actions */}
       <div className="rounded-2xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] p-5">

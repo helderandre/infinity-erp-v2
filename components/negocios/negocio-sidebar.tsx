@@ -58,8 +58,8 @@ export function NegocioSidebar({
   onQuickFillApply,
   onStartAcquisition,
 }: NegocioSidebarProps) {
-  const showAcquisitionButton = ['Venda', 'Compra e Venda'].includes(tipo)
-  const showAcompanhamentoButton = ['Compra', 'Compra e Venda'].includes(tipo)
+  const showAcquisitionButton = tipo === 'Venda'
+  const showAcompanhamentoButton = tipo === 'Compra'
   const isInAcompanhamento = estado === 'Em Acompanhamento'
   return (
     <Card className="w-full">

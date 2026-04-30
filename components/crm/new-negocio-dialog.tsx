@@ -3,17 +3,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   Building2,
   Euro,
@@ -105,6 +105,7 @@ const VALUE_CONFIG: Record<string, {
 }
 
 export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDialogProps) {
+  const isMobile = useIsMobile()
   const [tab, setTab] = useState<Tab>('existente')
   const [search, setSearch] = useState('')
   const [leads, setLeads] = useState<LeadOption[]>([])
@@ -174,7 +175,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
   // Validation gate (also drives the disabled state of the Create button)
   const validationError = useMemo<string | null>(() => {
     if (!selectedLead) return 'Selecciona um contacto'
-    if (!tipo) return 'Selecciona o tipo de negócio'
+    if (!tipo) return 'Selecciona o tipo de oportunidade'
     if (!localizacao.trim()) return 'Localização obrigatória'
     if (!config) return 'Tipo inválido'
     if (config.mode === 'range') {
@@ -213,14 +214,14 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
       })
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}))
-        throw new Error(errBody.error || 'Erro ao criar negócio')
+        throw new Error(errBody.error || 'Erro ao criar oportunidade')
       }
       const data = await res.json()
-      toast.success('Negócio criado com sucesso')
+      toast.success('Oportunidade criada com sucesso')
       onOpenChange(false)
       onCreated?.(data.id)
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao criar negócio')
+      toast.error(err?.message || 'Erro ao criar oportunidade')
     } finally {
       setCreating(false)
     }
@@ -228,246 +229,255 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[520px] rounded-2xl p-0 gap-0 overflow-hidden">
-          <div className="bg-neutral-900 px-6 py-5">
-            <DialogHeader className="space-y-1">
-              <DialogTitle className="flex items-center gap-2.5 text-white">
-                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm">
-                  <Plus className="h-4 w-4" />
-                </div>
-                Novo Negócio
-              </DialogTitle>
-              <DialogDescription className="text-neutral-400 text-xs">
-                Cria um negócio para um contacto existente ou começa do zero.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-
-          {/* Tab pills */}
-          <div className="px-6 pt-5">
-            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40 w-full">
-              <TabButton active={tab === 'existente'} onClick={() => setTab('existente')} icon={Users}>
-                Contacto existente
-              </TabButton>
-              <TabButton active={tab === 'novo'} onClick={() => setTab('novo')} icon={UserPlus}>
-                Novo contacto
-              </TabButton>
-            </div>
-          </div>
-
-          {/* Body */}
-          {tab === 'existente' ? (
-            <div className="px-6 py-5 space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  autoFocus
-                  placeholder="Pesquisar por nome..."
-                  className="pl-9 rounded-full h-9 text-xs"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-
-              <div className="max-h-[260px] overflow-y-auto rounded-xl border border-border/40 bg-muted/20">
-                {loading ? (
-                  <div className="space-y-1 p-2">
-                    {[0, 1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-10 w-full rounded-lg" />
-                    ))}
-                  </div>
-                ) : leads.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-xs text-muted-foreground">
-                    {debouncedSearch
-                      ? 'Sem resultados.'
-                      : 'Pesquise pelo nome para listar contactos.'}
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border/30">
-                    {leads.map((l) => {
-                      const name = l.full_name || l.nome || 'Sem nome'
-                      const phone = l.telemovel || l.telefone || null
-                      const isSelected = selectedLead?.id === l.id
-                      return (
-                        <button
-                          key={l.id}
-                          type="button"
-                          onClick={() => setSelectedLead(l)}
-                          className={cn(
-                            'w-full text-left px-3 py-2.5 transition-colors',
-                            isSelected
-                              ? 'bg-primary/10 text-foreground'
-                              : 'hover:bg-muted/40',
-                          )}
-                        >
-                          <p className={cn('text-sm font-medium truncate', isSelected && 'text-primary')}>
-                            {name}
-                          </p>
-                          {(phone || l.email) && (
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {[phone, l.email].filter(Boolean).join(' · ')}
-                            </p>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {selectedLead && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Tipo de negócio
-                  </p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {NEGOCIO_TIPOS_PICKER.map((t) => {
-                      const Icon = TIPO_ICONS[t] || Plus
-                      const isActive = tipo === t
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setTipo(t)}
-                          className={cn(
-                            'inline-flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors',
-                            isActive
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border/40 hover:bg-muted/40',
-                          )}
-                        >
-                          <Icon className="h-4 w-4" />
-                          {t}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Mandatory fields — appear once tipo is selected */}
-              {selectedLead && tipo && config && (
-                <div className="space-y-2.5 pt-1">
-                  {config.mode === 'range' ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
-                          <Euro className="h-3 w-3" />
-                          {config.minLabel} *
-                        </Label>
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="0"
-                          value={valueMin}
-                          onChange={(e) => setValueMin(e.target.value)}
-                          className="rounded-full h-9 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
-                          <Euro className="h-3 w-3" />
-                          {config.maxLabel} *
-                        </Label>
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          placeholder="0"
-                          value={valueMax}
-                          onChange={(e) => setValueMax(e.target.value)}
-                          className="rounded-full h-9 text-xs"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
-                        <Euro className="h-3 w-3" />
-                        {config.singleLabel}
-                        {config.unit ? ` ${config.unit}` : ''} *
-                      </Label>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        placeholder="0"
-                        value={valueSingle}
-                        onChange={(e) => setValueSingle(e.target.value)}
-                        className="rounded-full h-9 text-xs"
-                      />
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      Localização *
-                    </Label>
-                    <Input
-                      placeholder="Ex: Lisboa, Cascais, Oeiras"
-                      value={localizacao}
-                      onChange={(e) => setLocalizacao(e.target.value)}
-                      className="rounded-full h-9 text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground/80">
-                      Separa várias zonas por vírgulas.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="px-6 py-8 flex flex-col items-center text-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-muted/60 flex items-center justify-center">
-                <UserPlus className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Novo contacto + negócio</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Cria um novo lead e qualifica-o num negócio em poucos passos.
-                </p>
-              </div>
-              <Button
-                size="sm"
-                className="rounded-full mt-1 gap-1.5"
-                onClick={() => {
-                  onOpenChange(false)
-                  setShowLeadEntry(true)
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Criar novo contacto
-              </Button>
-            </div>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
+            isMobile
+              ? 'data-[side=bottom]:h-[90dvh] rounded-t-3xl'
+              : 'w-full sm:max-w-[520px] sm:rounded-l-3xl',
+          )}
+        >
+          {isMobile && (
+            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
           )}
 
-          <DialogFooter className="px-6 py-4 border-t border-border/40 bg-muted/20">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              onClick={() => onOpenChange(false)}
-            >
+          <SheetHeader className={cn('px-6 pb-4 border-b border-border/40 shrink-0', isMobile ? 'pt-8' : 'pt-6')}>
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Plus className="h-5 w-5" />
+              Nova Oportunidade
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              Cria uma oportunidade para um contacto existente ou começa do zero.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
+            {/* Card 1 — Tab pills */}
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-2">
+              <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40 w-full">
+                <TabButton active={tab === 'existente'} onClick={() => setTab('existente')} icon={Users}>
+                  Contacto existente
+                </TabButton>
+                <TabButton active={tab === 'novo'} onClick={() => setTab('novo')} icon={UserPlus}>
+                  Novo contacto
+                </TabButton>
+              </div>
+            </div>
+
+            {tab === 'existente' ? (
+              <>
+                {/* Card 2 — Pesquisa de contacto */}
+                <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      autoFocus
+                      placeholder="Pesquisar por nome..."
+                      className="pl-9 rounded-full h-9 text-xs"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="max-h-[260px] overflow-y-auto rounded-xl border border-border/40 bg-muted/20">
+                    {loading ? (
+                      <div className="space-y-1 p-2">
+                        {[0, 1, 2, 3].map((i) => (
+                          <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                        ))}
+                      </div>
+                    ) : leads.length === 0 ? (
+                      <div className="px-4 py-10 text-center text-xs text-muted-foreground">
+                        {debouncedSearch
+                          ? 'Sem resultados.'
+                          : 'Pesquise pelo nome para listar contactos.'}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border/30">
+                        {leads.map((l) => {
+                          const name = l.full_name || l.nome || 'Sem nome'
+                          const phone = l.telemovel || l.telefone || null
+                          const isSelected = selectedLead?.id === l.id
+                          return (
+                            <button
+                              key={l.id}
+                              type="button"
+                              onClick={() => setSelectedLead(l)}
+                              className={cn(
+                                'w-full text-left px-3 py-2.5 transition-colors',
+                                isSelected
+                                  ? 'bg-primary/10 text-foreground'
+                                  : 'hover:bg-muted/40',
+                              )}
+                            >
+                              <p className={cn('text-sm font-medium truncate', isSelected && 'text-primary')}>
+                                {name}
+                              </p>
+                              {(phone || l.email) && (
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  {[phone, l.email].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card 3 — Tipo de oportunidade (após escolher contacto) */}
+                {selectedLead && (
+                  <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-2">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Tipo de oportunidade
+                    </p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {NEGOCIO_TIPOS_PICKER.map((t) => {
+                        const Icon = TIPO_ICONS[t] || Plus
+                        const isActive = tipo === t
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setTipo(t)}
+                            className={cn(
+                              'inline-flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors',
+                              isActive
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border/40 hover:bg-muted/40',
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {t}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Card 4 — Detalhes (valores + localização) */}
+                {selectedLead && tipo && config && (
+                  <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
+                    {config.mode === 'range' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
+                            <Euro className="h-3 w-3" />
+                            {config.minLabel} *
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            placeholder="0"
+                            value={valueMin}
+                            onChange={(e) => setValueMin(e.target.value)}
+                            className="rounded-full h-9 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
+                            <Euro className="h-3 w-3" />
+                            {config.maxLabel} *
+                          </Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            placeholder="0"
+                            value={valueMax}
+                            onChange={(e) => setValueMax(e.target.value)}
+                            className="rounded-full h-9 text-xs"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
+                          <Euro className="h-3 w-3" />
+                          {config.singleLabel}
+                          {config.unit ? ` ${config.unit}` : ''} *
+                        </Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="0"
+                          value={valueSingle}
+                          onChange={(e) => setValueSingle(e.target.value)}
+                          className="rounded-full h-9 text-xs"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        Localização *
+                      </Label>
+                      <Input
+                        placeholder="Ex: Lisboa, Cascais, Oeiras"
+                        value={localizacao}
+                        onChange={(e) => setLocalizacao(e.target.value)}
+                        className="rounded-full h-9 text-xs"
+                      />
+                      <p className="text-[10px] text-muted-foreground/80">
+                        Separa várias zonas por vírgulas.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-6 flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-muted/60 flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Novo contacto + oportunidade</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Cria um novo lead e qualifica-o numa oportunidade em poucos passos.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-full mt-1 gap-1.5"
+                  onClick={() => {
+                    onOpenChange(false)
+                    setShowLeadEntry(true)
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Criar novo contacto
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Footer translúcido */}
+          <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             {tab === 'existente' && (
               <Button
                 size="sm"
-                className="rounded-full px-5"
+                className="min-w-[140px]"
                 disabled={!!validationError || creating}
                 onClick={handleCreate}
                 title={validationError || undefined}
               >
                 {creating && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                Criar negócio
+                Criar oportunidade
               </Button>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <LeadEntryDialog
         open={showLeadEntry}

@@ -104,7 +104,7 @@ export function KanbanCard({
       ? grossForCommission * commissionFactor * (referralPct / 100)
       : null
 
-  const isBuyer = tipo === 'Compra' || tipo === 'Compra e Venda' || tipo === 'Arrendatário'
+  const isBuyer = tipo === 'Compra' || tipo === 'Arrendatário'
   const displayValue = isBuyer
     ? (orcamentoMax ?? orcamento ?? expectedValue ?? null)
     : (expectedValue ?? negocio.preco_venda ?? null)

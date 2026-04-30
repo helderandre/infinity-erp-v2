@@ -11,7 +11,11 @@ import { Form } from '@/components/ui/form'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Check, Sparkles, Save, X, AlertCircle, Briefcase, Link2 } from 'lucide-react'
+import {
+  Send, Sparkles, Save, X, AlertCircle, Briefcase, Link2,
+  Home, MapPin, Users, FileSignature, Folder,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StepProperty } from './step-1-property'
 import { StepLocation } from './step-2-location'
@@ -25,27 +29,12 @@ import { buildAcquisitionPrefillFromNegocio } from '@/lib/negocios/prefill-from-
 type AcquisitionFormData = z.infer<typeof acquisitionSchema>
 
 const TABS = [
-  {
-    value: 'property',
-    label: 'Dados do Imóvel',
-  },
-  {
-    value: 'location',
-    label: 'Localização',
-  },
-  {
-    value: 'owners',
-    label: 'Proprietários',
-  },
-  {
-    value: 'contract',
-    label: 'Contrato',
-  },
-  {
-    value: 'documents',
-    label: 'Documentos',
-  },
-]
+  { value: 'property', label: 'Dados do Imóvel', icon: Home },
+  { value: 'location', label: 'Localização', icon: MapPin },
+  { value: 'owners', label: 'Proprietários', icon: Users },
+  { value: 'contract', label: 'Contrato', icon: FileSignature },
+  { value: 'documents', label: 'Documentos', icon: Folder },
+] as const
 
 // Map field keys to PT labels for error messages
 const FIELD_LABELS: Record<string, string> = {
@@ -507,6 +496,10 @@ export function AcquisitionFormV2({
     </div>
   ) : null
 
+  // Step counter — current tab index (1-based) and total
+  const currentStepIndex = Math.max(0, TABS.findIndex((t) => t.value === activeTab))
+  const stepLabel = `Passo ${currentStepIndex + 1}/${TABS.length}`
+
   // Standalone mode (full page)
   if (mode === 'standalone') {
     return (
@@ -515,31 +508,71 @@ export function AcquisitionFormV2({
           <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
             {linkBanner}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList variant="line" className="w-full justify-start">
-                {TABS.map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value}>
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <TabsContent value="property"><StepProperty form={form} /></TabsContent>
-              <TabsContent value="location"><StepLocation form={form} /></TabsContent>
-              <TabsContent value="owners"><StepOwners form={form} /></TabsContent>
-              <TabsContent value="contract"><StepContract form={form} /></TabsContent>
-              <TabsContent value="documents"><StepDocuments form={form} /></TabsContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+              <div className="overflow-x-auto scrollbar-none">
+                <div className="inline-flex items-center gap-1 rounded-full bg-muted/50 p-1">
+                  {TABS.map((tab) => {
+                    const isActive = activeTab === tab.value
+                    const TabIcon = tab.icon
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setActiveTab(tab.value)}
+                        aria-label={tab.label}
+                        className={cn(
+                          'inline-flex items-center justify-center gap-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all shrink-0',
+                          isActive
+                            ? 'bg-background shadow-sm text-foreground px-3 py-1.5'
+                            : 'text-muted-foreground hover:text-foreground px-2.5 py-1.5 sm:px-3',
+                        )}
+                      >
+                        <TabIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>
+                          {tab.label}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 sm:p-5">
+                <div className="flex justify-end mb-3">
+                  <span className="inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+                    {stepLabel}
+                  </span>
+                </div>
+                <TabsContent value="property" className="mt-0"><StepProperty form={form} /></TabsContent>
+                <TabsContent value="location" className="mt-0"><StepLocation form={form} /></TabsContent>
+                <TabsContent value="owners" className="mt-0"><StepOwners form={form} /></TabsContent>
+                <TabsContent value="contract" className="mt-0"><StepContract form={form} /></TabsContent>
+                <TabsContent value="documents" className="mt-0"><StepDocuments form={form} /></TabsContent>
+              </div>
             </Tabs>
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft || isSubmitting}
+              >
+                {isSavingDraft ? (
+                  <Spinner variant="infinite" size={14} className="mr-2" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Guardar rascunho
+              </Button>
               <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !canSubmit}>
                 {isSubmitting ? (
                   <>
                     <Spinner variant="infinite" size={16} className="mr-2" />
-                    {uploadProgress || 'A submeter...'}
+                    {uploadProgress || 'A enviar...'}
                   </>
                 ) : (
                   <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Submeter Angariação
+                    <Send className="mr-2 h-4 w-4" />
+                    Fazer pedido
                   </>
                 )}
               </Button>
@@ -564,126 +597,169 @@ export function AcquisitionFormV2({
       <form onSubmit={(e) => e.preventDefault()} className="flex flex-col h-full overflow-hidden">
         <AcquisitionQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
 
-        {/* Dark header — matches lead-entry-dialog look */}
-        <div className="bg-neutral-900 rounded-t-2xl px-5 py-4 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="text-white text-sm sm:text-base font-medium shrink min-w-0 truncate">
-              {draftId ? 'Retomar Angariação' : 'Nova Angariação'}
-            </DialogTitle>
+        {/* Glass header — matches feedback dialog's design language */}
+        <div className="px-6 pt-6 pb-3 border-b border-border/40 shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
+                <Briefcase className="h-5 w-5" />
+                {draftId ? 'Retomar Angariação' : 'Nova Angariação'}
+              </DialogTitle>
+            </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
+              <Button
                 type="button"
-                onClick={handleSaveDraft}
-                disabled={isSavingDraft || isSubmitting}
-                className="h-8 px-2.5 sm:px-3 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium hover:bg-white/15 hover:text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {isSavingDraft ? (
-                  <Spinner variant="infinite" size={14} />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">Guardar Rascunho</span>
-              </button>
-              <button
-                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setQuickFillOpen(true)}
-                className="h-8 px-2.5 sm:px-3 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium hover:bg-white/15 hover:text-white transition-colors flex items-center gap-1.5"
+                className="rounded-full h-8 text-xs gap-1.5"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Preencher com IA</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className="h-8 w-8 rounded-full bg-white/10 border border-white/15 text-white/60 hover:text-white hover:bg-white/15 transition-colors flex items-center justify-center"
+                className="h-8 w-8 rounded-full"
               >
                 <X className="h-4 w-4" />
-              </button>
+                <span className="sr-only">Fechar</span>
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Banner: associar a negócio existente (só em modo standalone-ctx) */}
+        {/* Banner: associar a oportunidade existente — em card claro */}
         {isStandaloneCtx && (
-          <div className="flex-shrink-0 px-5 py-2.5 border-b bg-muted/30 flex items-center gap-2 flex-wrap">
-            <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            {pickedNegocio ? (
-              <>
-                <span className="text-xs text-muted-foreground">Vinculado a</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border/60 px-2.5 py-1 text-xs font-medium">
-                  <Link2 className="h-3 w-3 text-muted-foreground" />
-                  {linkedLabel}
-                </span>
-                <button
-                  type="button"
-                  onClick={clearPickedNegocio}
-                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
-                >
-                  Limpar
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-xs font-medium text-foreground">É de um negócio existente?</span>
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen(true)}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
-                >
-                  <Briefcase className="h-3.5 w-3.5" />
-                  Escolher negócio
-                </button>
-              </>
-            )}
+          <div className="shrink-0 px-6 pt-3">
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm px-4 py-2.5 flex items-center gap-2 flex-wrap">
+              <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              {pickedNegocio ? (
+                <>
+                  <span className="text-xs text-muted-foreground">Vinculado a</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                    <Link2 className="h-3 w-3 text-muted-foreground" />
+                    {linkedLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearPickedNegocio}
+                    className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
+                  >
+                    Limpar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-medium text-foreground">É de uma oportunidade existente?</span>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+                  >
+                    <Briefcase className="h-3.5 w-3.5" />
+                    Escolher oportunidade
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Content with Tabs */}
+        {/* Content with pill tabs + white card wrapper for each tab */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full gap-0">
-            <div className="flex-shrink-0 border-b px-5 overflow-x-auto scrollbar-none">
-              <TabsList variant="line" className="w-max sm:w-full justify-start -mb-px">
-                {TABS.map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value} className="shrink-0 text-xs sm:text-sm">
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            {/* Pill tabs — mobile: ícone só + label no activo. Desktop: label always. */}
+            <div className="flex-shrink-0 px-6 pt-4 pb-2">
+              <div className="overflow-x-auto scrollbar-none">
+                <div className="inline-flex items-center gap-1 rounded-full bg-muted/50 p-1">
+                  {TABS.map((tab) => {
+                    const isActive = activeTab === tab.value
+                    const TabIcon = tab.icon
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setActiveTab(tab.value)}
+                        aria-label={tab.label}
+                        className={cn(
+                          'inline-flex items-center justify-center gap-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all shrink-0',
+                          isActive
+                            ? 'bg-background shadow-sm text-foreground px-3 py-1.5'
+                            : 'text-muted-foreground hover:text-foreground px-2.5 py-1.5 sm:px-3',
+                        )}
+                      >
+                        <TabIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>
+                          {tab.label}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5">
-              <TabsContent value="property" className="mt-0"><StepProperty form={form} /></TabsContent>
-              <TabsContent value="location" className="mt-0"><StepLocation form={form} /></TabsContent>
-              <TabsContent value="owners" className="mt-0"><StepOwners form={form} /></TabsContent>
-              <TabsContent value="contract" className="mt-0"><StepContract form={form} /></TabsContent>
-              <TabsContent value="documents" className="mt-0"><StepDocuments form={form} /></TabsContent>
+
+            {/* Tab content — wrapped in a white card with step counter inside */}
+            <div className="flex-1 overflow-y-auto px-6 pt-2 pb-5">
+              <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 sm:p-5">
+                <div className="flex justify-end mb-3">
+                  <span className="inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+                    {stepLabel}
+                  </span>
+                </div>
+                <TabsContent value="property" className="mt-0"><StepProperty form={form} /></TabsContent>
+                <TabsContent value="location" className="mt-0"><StepLocation form={form} /></TabsContent>
+                <TabsContent value="owners" className="mt-0"><StepOwners form={form} /></TabsContent>
+                <TabsContent value="contract" className="mt-0"><StepContract form={form} /></TabsContent>
+                <TabsContent value="documents" className="mt-0"><StepDocuments form={form} /></TabsContent>
+              </div>
             </div>
           </Tabs>
         </div>
 
-        {/* Footer */}
-        <div className="flex-shrink-0 border-t px-5 py-3 flex items-center justify-end gap-2 sm:gap-3">
+        {/* Footer translúcido — Guardar rascunho + Fazer pedido lado-a-lado */}
+        <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2 flex-wrap">
           {missingCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 text-[11px] font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300 mr-auto">
               <AlertCircle className="h-3 w-3" />
-              {missingCount} campo{missingCount > 1 ? 's' : ''} em falta
+              <span className="tabular-nums">{missingCount}</span>
+              <span className="hidden sm:inline">{' '}campo{missingCount > 1 ? 's' : ''} em falta</span>
             </span>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft || isSubmitting}
+            className="rounded-full text-xs h-8 gap-1.5"
+          >
+            {isSavingDraft ? (
+              <Spinner variant="infinite" size={14} />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Guardar rascunho
+          </Button>
           <Button
             type="button"
             size="sm"
             onClick={handleSubmit}
             disabled={isSubmitting || !canSubmit}
-            className="rounded-full text-xs h-8 px-4"
+            className="rounded-full text-xs h-8 px-4 gap-1.5 min-w-[120px]"
           >
             {isSubmitting ? (
               <>
-                <Spinner variant="infinite" size={14} className="mr-1.5" />
-                {uploadProgress || 'A submeter...'}
+                <Spinner variant="infinite" size={14} />
+                {uploadProgress || 'A enviar...'}
               </>
             ) : (
               <>
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-                Submeter Angariação
+                <Send className="h-3.5 w-3.5" />
+                Fazer pedido
               </>
             )}
           </Button>
@@ -692,8 +768,8 @@ export function AcquisitionFormV2({
       <NegocioPickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        title="Escolher negócio existente"
-        description="Pré-preenche tipo, valor e tipo de imóvel a partir do negócio."
+        title="Escolher oportunidade existente"
+        description="Pré-preenche tipo, valor e tipo de imóvel a partir da oportunidade."
         filterTipos={['Venda', 'Arrendador']}
         onSelect={applyPickedNegocio}
       />

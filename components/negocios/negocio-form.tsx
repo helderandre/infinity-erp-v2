@@ -382,7 +382,7 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
           rows={3}
           value={(form.observacoes as string) || ''}
           onChange={(e) => updateField('observacoes', e.target.value)}
-          placeholder="Notas sobre o negócio..."
+          placeholder="Notas sobre a oportunidade..."
         />
       </div>
     </div>

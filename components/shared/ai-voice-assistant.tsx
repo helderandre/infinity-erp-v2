@@ -850,7 +850,7 @@ export function AiVoiceAssistant() {
                         const parts = [tipoImovel || tipo, loc].filter(Boolean)
                         return {
                           id: String(n.id),
-                          label: parts.join(' · ') || 'Negócio',
+                          label: parts.join(' · ') || 'Oportunidade',
                           tipo,
                           localizacao: loc,
                         }
@@ -1319,7 +1319,7 @@ function ReviewPanel({
   const showEntityHint = entity && ENTITY_LINKED_TOOLS.includes(intent.tool)
   const entityTypeLabel: Record<EntityContext['type'], string> = {
     lead: 'este contacto',
-    negocio: 'este negócio',
+    negocio: 'esta oportunidade',
     property: 'este imóvel',
     process: 'este processo',
   }
@@ -1356,7 +1356,7 @@ function ReviewPanel({
                 negocio_label:
                   `${n.lead?.full_name || n.lead?.nome || 'Lead'} · ${n.tipo}`,
               })
-              toast.success('Pré-preenchido a partir do negócio')
+              toast.success('Pré-preenchido a partir da oportunidade')
             } else {
               const delta = buildFechoArgsFromNegocio(n as any)
               onArgsMerge({
@@ -1365,7 +1365,7 @@ function ReviewPanel({
                 negocio_label:
                   `${n.lead?.full_name || n.lead?.nome || 'Lead'} · ${n.tipo}`,
               })
-              toast.success('Pré-preenchido a partir do negócio')
+              toast.success('Pré-preenchido a partir da oportunidade')
             }
           }}
           onClear={() =>
@@ -1525,7 +1525,7 @@ function NegocioLinkBanner({
       : ['Compra', 'Venda', 'Arrendatário', 'Arrendador']
   const description =
     tool === 'create_angariacao'
-      ? 'Pré-preenche tipo, valor e tipo de imóvel a partir do negócio.'
+      ? 'Pré-preenche tipo, valor e tipo de imóvel a partir da oportunidade.'
       : 'Pré-preenche o cliente, valor e tipo. Podes ajustar depois.'
   return (
     <>
@@ -1536,7 +1536,7 @@ function NegocioLinkBanner({
             <span className="text-xs text-white/60">Vinculado a</span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 ring-1 ring-white/15 px-2.5 py-1 text-xs font-medium text-white">
               <Link2 className="h-3 w-3 text-white/60" />
-              {linkedLabel || 'Negócio'}
+              {linkedLabel || 'Oportunidade'}
             </span>
             <button
               type="button"
@@ -1549,7 +1549,7 @@ function NegocioLinkBanner({
         ) : initialQuery ? (
           <>
             <span className="text-xs text-white/70">
-              Mencionaste um negócio existente:{' '}
+              Mencionaste uma oportunidade existente:{' '}
               <span className="text-white">"{initialQuery}"</span>
             </span>
             <button
@@ -1562,13 +1562,13 @@ function NegocioLinkBanner({
           </>
         ) : (
           <>
-            <span className="text-xs text-white/70">É de um negócio existente?</span>
+            <span className="text-xs text-white/70">É de uma oportunidade existente?</span>
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
               className="text-xs font-medium text-sky-300 hover:text-sky-200 hover:underline ml-auto"
             >
-              Escolher negócio
+              Escolher oportunidade
             </button>
           </>
         )}
@@ -1576,7 +1576,7 @@ function NegocioLinkBanner({
       <NegocioPickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        title="Escolher negócio existente"
+        title="Escolher oportunidade existente"
         description={description}
         filterTipos={filterTipos}
         initialQuery={initialQuery}
@@ -3246,8 +3246,8 @@ function AddNotePanel({
             </div>
             <p className="mt-1 text-[11px] text-white/40">
               {scopeNegocioId
-                ? 'A nota fica ligada ao negócio escolhido.'
-                : 'A nota fica ao contacto (aplica-se a todos os negócios).'}
+                ? 'A nota fica ligada à oportunidade escolhida.'
+                : 'A nota fica ao contacto (aplica-se a todas as oportunidades).'}
             </p>
           </div>
         )}

@@ -85,7 +85,7 @@ function titleFor(tipo: string): string {
     case 'Arrendador':
       return 'Briefing do Imóvel'
     case 'Compra e Venda':
-      return 'Briefing do Negócio'
+      return 'Briefing da Oportunidade'
     default:
       return 'Briefing'
   }

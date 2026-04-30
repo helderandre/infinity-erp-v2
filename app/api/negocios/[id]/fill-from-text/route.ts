@@ -43,39 +43,7 @@ export async function POST(
 
     const openai = new OpenAI({ apiKey })
 
-    const isCompraEVenda = negocio.tipo === 'Compra e Venda'
-
-    const systemPrompt = isCompraEVenda
-      ? `Extrai dados estruturados do seguinte texto livre sobre um negócio imobiliário de tipo "Compra e Venda".
-O cliente quer COMPRAR um imóvel e ao mesmo tempo VENDER outro. Distingue entre os dois lados.
-
-Campos para a COMPRA (o que procura):
-- tipo_imovel: string (Apartamento, Moradia, Terreno, etc.)
-- localizacao: string (zonas/cidades pretendidas, separadas por vírgula se várias. Ex: "Lisboa, Cascais, Oeiras")
-- estado_imovel: string (Novo, Usado, Para recuperação, etc.)
-- orcamento: number (orçamento mínimo em euros)
-- orcamento_max: number (orçamento máximo em euros)
-- quartos_min: number
-- area_min_m2: number
-- motivacao_compra: string
-- prazo_compra: string
-
-Campos para a VENDA (o que vende):
-- preco_venda: number (preço pretendido em euros)
-- tipo_imovel_venda: string (tipo do imóvel que vende)
-- localizacao_venda: string (localização do imóvel que vende, separadas por vírgula se várias)
-- quartos: number (quartos do imóvel que vende)
-- casas_banho: number
-- area_m2: number
-- distrito: string
-- concelho: string
-- freguesia: string
-
-Campo comum:
-- observacoes: string (informação que não encaixe noutros campos)
-
-IMPORTANTE: Retorna um JSON PLANO (flat) com TODOS os campos ao mesmo nível. NÃO agrupes em sub-objectos como "compra" ou "venda". Usa os nomes exactos dos campos listados acima (ex: tipo_imovel, localizacao, preco_venda, tipo_imovel_venda, localizacao_venda). Valores numéricos devem ser números puros (sem € ou m²). Não incluas campos que não foram mencionados.`
-      : `Extrai dados estruturados do seguinte texto livre sobre um negócio imobiliário de tipo "${negocio.tipo}".
+    const systemPrompt = `Extrai dados estruturados do seguinte texto livre sobre um negócio imobiliário de tipo "${negocio.tipo}".
 
 Campos possíveis (usa apenas os que conseguires detectar):
 - tipo_imovel: string (Apartamento, Moradia, Terreno, etc.)

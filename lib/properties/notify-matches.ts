@@ -46,7 +46,7 @@ export async function notifyPropertyMatches(
   const { data: deals, error } = await supabase
     .from('negocios')
     .select('id, lead_id, tipo, localizacao, orcamento, orcamento_max, quartos_min, tipo_imovel, lead:leads!inner(nome, agent_id)')
-    .in('tipo', ['Compra', 'Compra e Venda'])
+    .eq('tipo', 'Compra')
     .in('estado', ['Aberto', 'Em Acompanhamento', 'Em progresso'])
 
   if (error || !deals?.length) return 0

@@ -10,15 +10,10 @@ const DOC_TYPE_CC_ID = '16706cb5-1a27-413d-ad75-ec6aee1c3674'
 export function mapNegocioToAcquisition(
   negocio: Record<string, unknown>
 ): Partial<AcquisitionFormData> {
-  const tipo = negocio.tipo as string
-
-  // For Compra e Venda, use _venda suffixed fields; for Venda, use base fields
-  const isCompraVenda = tipo === 'Compra e Venda'
-
-  const propertyType = (isCompraVenda ? negocio.tipo_imovel_venda : negocio.tipo_imovel) as string | undefined
+  const propertyType = negocio.tipo_imovel as string | undefined
   const preco = negocio.preco_venda as number | undefined
-  const localizacao = (isCompraVenda ? negocio.localizacao_venda : negocio.localizacao) as string | undefined
-  const estadoImovel = (isCompraVenda ? negocio.estado_imovel_venda : negocio.estado_imovel) as string | undefined
+  const localizacao = negocio.localizacao as string | undefined
+  const estadoImovel = negocio.estado_imovel as string | undefined
   const quartos = negocio.quartos as number | undefined
   const casasBanho = negocio.casas_banho as number | undefined
   const area = negocio.area_m2 as number | undefined
@@ -41,16 +36,15 @@ export function mapNegocioToAcquisition(
 
   // Collect features from boolean amenity fields
   const features: string[] = []
-  const amenityPrefix = isCompraVenda ? '_venda' : ''
   const amenityMap: Record<string, string> = {
-    [`tem_elevador${amenityPrefix}`]: 'Elevador',
-    [`tem_estacionamento${amenityPrefix}`]: 'Estacionamento',
-    [`tem_garagem${amenityPrefix}`]: 'Garagem',
-    [`tem_exterior${amenityPrefix}`]: 'Espaço Exterior',
-    [`tem_varanda${amenityPrefix}`]: 'Varanda',
-    [`tem_piscina${amenityPrefix}`]: 'Piscina',
-    [`tem_porteiro${amenityPrefix}`]: 'Porteiro',
-    [`tem_arrumos${amenityPrefix}`]: 'Arrumos',
+    tem_elevador: 'Elevador',
+    tem_estacionamento: 'Estacionamento',
+    tem_garagem: 'Garagem',
+    tem_exterior: 'Espaço Exterior',
+    tem_varanda: 'Varanda',
+    tem_piscina: 'Piscina',
+    tem_porteiro: 'Porteiro',
+    tem_arrumos: 'Arrumos',
   }
 
   for (const [field, label] of Object.entries(amenityMap)) {
@@ -96,14 +90,9 @@ export function mapNegocioToAcquisition(
   if (typologyStr) specs.typology = typologyStr
   if (features.length > 0) specs.features = features
 
-  const hasElevator = isCompraVenda ? negocio.tem_elevador_venda : negocio.tem_elevador
-  if (hasElevator) specs.has_elevator = true
-
-  const hasParking = isCompraVenda ? negocio.tem_estacionamento_venda : negocio.tem_estacionamento
-  if (hasParking) specs.parking_spaces = 1
-
-  const hasGarage = isCompraVenda ? negocio.tem_garagem_venda : negocio.tem_garagem
-  if (hasGarage) specs.garage_spaces = 1
+  if (negocio.tem_elevador) specs.has_elevator = true
+  if (negocio.tem_estacionamento) specs.parking_spaces = 1
+  if (negocio.tem_garagem) specs.garage_spaces = 1
 
   if (Object.keys(specs).length > 0) {
     result.specifications = specs as any

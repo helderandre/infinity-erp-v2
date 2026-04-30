@@ -22,7 +22,7 @@ export function ProcessoTab({ procInstanceId, procExternalRef, procStatus }: Pro
         <div>
           <p className="text-sm font-medium">Processo ainda não iniciado</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Quando o negócio for submetido para fecho, o processo PROC-NEG aparece aqui com todas as fases,
+            Quando a oportunidade for submetida para fecho, o processo PROC-NEG aparece aqui com todas as fases,
             tarefas e progresso.
           </p>
         </div>

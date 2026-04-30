@@ -183,7 +183,7 @@ export async function GET(request: Request) {
     const { data: buyerNegocios } = await supabase
       .from('negocios')
       .select('orcamento')
-      .in('tipo', ['Compra', 'Compra e Venda'])
+      .eq('tipo', 'Compra')
       .not('orcamento', 'is', null)
       .gt('orcamento', 0)
 

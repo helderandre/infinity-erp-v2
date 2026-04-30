@@ -196,7 +196,7 @@ export function AiFillDialog({ open, onOpenChange, negocioId, onApply }: AiFillD
             Preencher com IA
           </DialogTitle>
           <DialogDescription className="text-neutral-400 mt-1">
-            Cole texto livre ou grave uma nota de voz. A IA extrai os dados e preenche o negócio.
+            Cole texto livre ou grave uma nota de voz. A IA extrai os dados e preenche a oportunidade.
           </DialogDescription>
         </div>
 

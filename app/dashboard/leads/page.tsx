@@ -229,7 +229,7 @@ function LeadsPageContent() {
   const getQualifTags = (lead: any) => {
     const negocios = lead.negocios as { id: string; tipo: string }[] | null
     if (!negocios?.length) return null
-    const tipos = new Set(negocios.flatMap((n) => n.tipo === 'Compra e Venda' ? ['Compra', 'Venda'] : [n.tipo]))
+    const tipos = new Set(negocios.map((n) => n.tipo))
     return QUALIF_TAGS.filter((t) => tipos.has(t.tipo))
   }
 

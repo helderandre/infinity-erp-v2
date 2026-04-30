@@ -29,7 +29,7 @@ export interface NegocioWithLeadBasic extends NegocioRow {
 export type LeadAttachment = LeadAttachmentRow
 
 // Tipos de negocio
-export type NegocioTipo = 'Compra' | 'Venda' | 'Compra e Venda' | 'Arrendatário' | 'Arrendador' | 'Outro'
+export type NegocioTipo = 'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador' | 'Outro'
 export type NegocioEstado = 'Aberto' | 'Em Acompanhamento' | 'Em progresso' | 'Proposta' | 'Fechado' | 'Cancelado' | 'Perdido'
 
 // Property tracking for buyer negócios

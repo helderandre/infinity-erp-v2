@@ -99,11 +99,11 @@ export async function PUT(
         const payload = isIdeia
           ? {
               title: 'Obrigado pela tua ideia! 💜',
-              body: `"${before.title}" acaba de ser implementada. Esta melhoria nasceu graças a ti.`,
+              body: `"${before.title}" acaba de ser implementada. Esta melhoria nasceu graças a ti :)`,
             }
           : {
               title: 'O bug que reportaste foi corrigido! 🛠️',
-              body: `"${before.title}" está resolvido. Obrigado por nos ajudares a tornar a app melhor.`,
+              body: `"${before.title}" está resolvido. Obrigado por nos ajudares a tornar a app melhor :)`,
             }
         await sendPushToUser(supabase, before.submitted_by, {
           ...payload,

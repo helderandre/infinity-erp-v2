@@ -30,7 +30,6 @@ const fmt = new Intl.NumberFormat('pt-PT', {
 const TIPO_TAG: Record<string, { color: string; label: string }> = {
   'Compra': { color: '#3b82f6', label: 'Compra' },
   'Venda': { color: '#10b981', label: 'Venda' },
-  'Compra e Venda': { color: '#8b5cf6', label: 'C+V' },
   'Arrendatário': { color: '#f59e0b', label: 'Arrendatário' },
   'Arrendador': { color: '#fb923c', label: 'Senhorio' },
 }
@@ -49,7 +48,7 @@ interface NegocioListItemProps {
 
 export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItemProps) {
   const tipo = negocio.tipo || ''
-  const tipoTag = TIPO_TAG[tipo] || { color: '#64748b', label: tipo || 'Negócio' }
+  const tipoTag = TIPO_TAG[tipo] || { color: '#64748b', label: tipo || 'Oportunidade' }
   const tempTag = negocio.temperatura ? TEMP_TAG[negocio.temperatura] : null
 
   const stage = negocio.leads_pipeline_stages || negocio.pipeline_stage
@@ -159,7 +158,7 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
             onDelete()
           }}
           className="absolute top-3 right-3 h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/40 hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
-          aria-label="Eliminar negócio"
+          aria-label="Eliminar oportunidade"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

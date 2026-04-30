@@ -30,6 +30,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Dialog as DialogPrimitive } from 'radix-ui'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import {
@@ -577,14 +578,25 @@ export function ZonasMapPicker({
     preHoverViewRef.current = null
   }, [properties])
 
-  if (!open) return null
-
   const propertiesWithCoords = properties.filter(
     (p) => p.latitude != null && p.longitude != null
   )
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col lg:flex-row">
+    <DialogPrimitive.Root open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-[60] bg-black/40 supports-[backdrop-filter]:backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150"
+        />
+        <DialogPrimitive.Content
+          className="fixed left-1/2 top-1/2 z-[60] w-[min(96vw,1280px)] h-[min(92dvh,860px)] -translate-x-1/2 -translate-y-1/2 bg-background rounded-2xl shadow-2xl border border-border/40 overflow-hidden flex flex-col lg:flex-row outline-none data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=open]:fade-in-0 duration-150"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogPrimitive.Title className="sr-only">Escolher zonas no mapa</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
+            Selecione zonas administrativas ou desenhe áreas no mapa para definir os critérios de localização.
+          </DialogPrimitive.Description>
       {/* Sidebar (desktop) / Header + List (mobile) */}
       <div
         className={cn(
@@ -828,7 +840,9 @@ export function ZonasMapPicker({
           </div>
         )}
       </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 

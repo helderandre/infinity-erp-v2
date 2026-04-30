@@ -87,7 +87,7 @@ export function DocumentosTab({ negocioId }: DocumentosTabProps) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">Documentos do Negócio</h3>
+          <h3 className="text-sm font-semibold">Documentos da Oportunidade</h3>
           {docs.length > 0 && (
             <Badge variant="outline" className="text-[10px]">
               {docs.length}
@@ -122,7 +122,7 @@ export function DocumentosTab({ negocioId }: DocumentosTabProps) {
         <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center space-y-2">
           <FileText className="h-8 w-8 mx-auto text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
-            Sem documentos ainda. Carrega comprovativos, contratos ou anexos relacionados com este negócio.
+            Sem documentos ainda. Carrega comprovativos, contratos ou anexos relacionados com esta oportunidade.
           </p>
         </div>
       ) : (

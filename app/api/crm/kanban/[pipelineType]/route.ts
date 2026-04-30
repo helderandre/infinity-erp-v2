@@ -92,9 +92,9 @@ export async function GET(
       )
 
     if (pipelineType === 'comprador') {
-      negociosQuery = negociosQuery.in('tipo', ['Compra', 'Compra e Venda'])
+      negociosQuery = negociosQuery.eq('tipo', 'Compra')
     } else if (pipelineType === 'vendedor') {
-      negociosQuery = negociosQuery.in('tipo', ['Venda', 'Compra e Venda'])
+      negociosQuery = negociosQuery.eq('tipo', 'Venda')
     } else if (pipelineType === 'arrendatario') {
       negociosQuery = negociosQuery.eq('tipo', 'Arrendatário')
     } else if (pipelineType === 'arrendador') {

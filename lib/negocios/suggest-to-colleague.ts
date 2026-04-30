@@ -210,7 +210,7 @@ const AMENITY_LABELS: Array<{ field: string; label: string }> = [
 
 export function buildNegocioSpecs(negocio: any): NegocioSpecs {
   const tipo = (negocio?.tipo as string) || ''
-  const isVenda = tipo === 'Venda' || tipo === 'Compra e Venda'
+  const isVenda = tipo === 'Venda'
   const isArrendador = tipo === 'Arrendador'
 
   const amount = isArrendador

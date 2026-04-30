@@ -159,8 +159,8 @@ export function QuickActions() {
           key: 'negocio',
           icon: Briefcase,
           tint: 'bg-amber-500/15 text-amber-600',
-          label: 'Novo Negócio',
-          description: 'Abrir negócio a partir de um contacto',
+          label: 'Nova Oportunidade',
+          description: 'Abrir oportunidade a partir de um contacto',
           onClick: () => trigger(() => setNegocioOpen(true)),
         },
         {
@@ -175,7 +175,7 @@ export function QuickActions() {
           key: 'deal',
           icon: Handshake,
           tint: 'bg-rose-500/15 text-rose-600',
-          label: 'Novo Fecho',
+          label: 'Novo Negócio',
           description: 'Registar venda / arrendamento concluído',
           onClick: () => trigger(() => setFechoOpen(true)),
         },
@@ -244,7 +244,7 @@ export function QuickActions() {
         className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/70 hover:bg-zinc-900/85 text-white backdrop-blur-md border border-white/10 transition-colors"
       >
         <Plus className="size-4" />
-        <span className="sr-only">Acções rápidas</span>
+        <span className="sr-only">Ações rápidas</span>
       </button>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -258,10 +258,10 @@ export function QuickActions() {
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/40 shrink-0">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Plus className="h-5 w-5" />
-              Acções rápidas
+              Ações rápidas
             </SheetTitle>
-            <SheetDescription className="text-[12px]">
-              Cria algo novo ou reporta um problema.
+            <SheetDescription className="sr-only">
+              Cria algo novo ou reporta um problema
             </SheetDescription>
           </SheetHeader>
 

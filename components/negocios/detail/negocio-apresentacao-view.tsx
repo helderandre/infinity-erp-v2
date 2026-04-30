@@ -241,7 +241,7 @@ export function NegocioApresentacaoView({ data, photos, onOpenMomentos }: Props)
           {/* Sub-tab content */}
           {section === 'descricao' && (
             <div className="rounded-2xl border bg-card p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Sobre este negócio</h3>
+              <h3 className="text-sm font-semibold">Sobre esta oportunidade</h3>
               {photos[0]?.caption ? (
                 <p className="text-sm leading-relaxed whitespace-pre-line">{photos[0].caption}</p>
               ) : data.observacoes ? (
@@ -257,7 +257,7 @@ export function NegocioApresentacaoView({ data, photos, onOpenMomentos }: Props)
 
           {section === 'detalhes' && (
             <div className="rounded-2xl border bg-card p-5">
-              <h3 className="text-sm font-semibold mb-3">Detalhes do negócio</h3>
+              <h3 className="text-sm font-semibold mb-3">Detalhes da oportunidade</h3>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div>
                   <dt className="text-[10px] uppercase text-muted-foreground tracking-wide">Tipo</dt>

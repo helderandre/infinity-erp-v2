@@ -158,7 +158,6 @@ const TEMP_COLORS: Record<string, string> = {
 const TIPO_COLORS: Record<string, string> = {
   Compra: '#2563eb',
   Venda: '#16a34a',
-  'Compra e Venda': '#7c3aed',
   Arrendatário: '#f59e0b',
   Arrendador: '#0891b2',
   Outro: '#64748b',
@@ -228,7 +227,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       setNegocio(data)
       setForm(data)
     } catch {
-      toast.error('Erro ao carregar negócio')
+      toast.error('Erro ao carregar oportunidade')
       setNegocio(null)
     } finally {
       setLoading(false)
@@ -308,8 +307,8 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   )
 
   const tipo = (form.tipo as string) || negocio?.tipo || ''
-  const isBuyerType = ['Compra', 'Compra e Venda', 'Arrendatário'].includes(tipo)
-  const isSellerType = ['Venda', 'Compra e Venda', 'Arrendador'].includes(tipo)
+  const isBuyerType = ['Compra', 'Arrendatário'].includes(tipo)
+  const isSellerType = ['Venda', 'Arrendador'].includes(tipo)
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
     // Read-only mode (referrer viewing a referenced négocio): collapse to
@@ -340,7 +339,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   const leadId = negocio?.lead_id ?? null
 
   const lead = negocio?.lead
-  const clientName = lead?.full_name || lead?.nome || 'Negócio'
+  const clientName = lead?.full_name || lead?.nome || 'Oportunidade'
 
   return (
     <>
@@ -365,7 +364,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
               {clientName}
             </SheetTitle>
             <SheetDescription className="sr-only">
-              Detalhes do negócio.
+              Detalhes da oportunidade.
             </SheetDescription>
           </div>
           {negocio?.id && (
@@ -396,7 +395,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                       setEditInitialForm({ ...form })
                       setEditOpen(true)
                     }}
-                    title="Editar dados do negócio"
+                    title="Editar dados da oportunidade"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -416,7 +415,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                     aria-label="Eliminar"
                     className="rounded-full h-8 w-8 p-0 justify-center border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
                     onClick={() => setDeleteOpen(true)}
-                    title="Eliminar negócio"
+                    title="Eliminar oportunidade"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -425,7 +424,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
               {readOnly && (
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 px-3 py-1 text-[11px] font-medium"
-                  title="Estás a ver este negócio como consultor referenciador. Apenas leitura."
+                  title="Estás a ver esta oportunidade como consultor referenciador. Apenas leitura."
                 >
                   <Send className="h-3 w-3" />
                   Apenas leitura
@@ -443,7 +442,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           <div className="shrink-0 mx-6 mt-1 mb-2 px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-300/60 dark:border-sky-700/60 text-[12px] text-sky-800 dark:text-sky-200 inline-flex items-center gap-2">
             <Send className="h-3.5 w-3.5 shrink-0" />
             <span>
-              Este negócio paga{' '}
+              Esta oportunidade paga{' '}
               <strong className="font-semibold tabular-nums">
                 {(negocio as { referral_pct?: number | null }).referral_pct ?? '—'}%
               </strong>
@@ -574,7 +573,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                     body: JSON.stringify(form),
                   })
                   if (!res.ok) throw new Error()
-                  toast.success('Negócio actualizado')
+                  toast.success('Oportunidade actualizada')
                   await loadNegocio()
                   setEditOpen(false)
                   setEditInitialForm(null)
@@ -604,7 +603,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <SheetTitle className="flex items-center gap-2 text-base">
-                            Editar negócio
+                            Editar oportunidade
                             {isDirty && (
                               <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 text-[10px] font-semibold">
                                 Alterações não guardadas
@@ -612,7 +611,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                             )}
                           </SheetTitle>
                           <SheetDescription className="sr-only">
-                            Editar dados do negócio.
+                            Editar dados da oportunidade.
                           </SheetDescription>
                         </div>
                         <Button
@@ -680,7 +679,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                 <AlertDialogHeader>
                   <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Tens alterações por guardar neste negócio. Se saíres agora,{' '}
+                    Tens alterações por guardar nesta oportunidade. Se saíres agora,{' '}
                     <strong>perdes tudo o que ainda não foi guardado</strong>.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -709,10 +708,10 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
             <AlertDialogContent className="rounded-2xl">
               <AlertDialogHeader>
-                <AlertDialogTitle>Eliminar este negócio?</AlertDialogTitle>
+                <AlertDialogTitle>Eliminar esta oportunidade?</AlertDialogTitle>
                 <AlertDialogDescription className="space-y-2">
                   <span className="block">
-                    Esta acção é <strong>irreversível</strong>. Todos os dados associados ao negócio
+                    Esta acção é <strong>irreversível</strong>. Todos os dados associados à oportunidade
                     (zonas, propriedades anexadas, propostas, comunicações) serão eliminados
                     permanentemente.
                   </span>
@@ -734,7 +733,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                         method: 'DELETE',
                       })
                       if (!res.ok) throw new Error()
-                      toast.success('Negócio eliminado')
+                      toast.success('Oportunidade eliminada')
                       setDeleteOpen(false)
                       onOpenChange(false)
                       // Refresh the underlying lead page so the negocio disappears
@@ -910,8 +909,6 @@ function DetalhesTab({
     return fallback
   })()
 
-  const isVendaCompra = tipo === 'Compra e Venda'
-
   const motivacao = (form.motivacao_compra as string | null) ?? null
   const prazo = (form.prazo_compra as string | null) ?? null
   const financiamento = (form.financiamento_necessario as boolean | null) ?? null
@@ -954,10 +951,7 @@ function DetalhesTab({
   const hasImovelSection = hasZones || hasProcura || hasContexto
 
   const enabledAmenities = AMENITY_ITEMS.filter((a) => !!form[a.field])
-  const enabledAmenitiesVenda = isVendaCompra
-    ? AMENITY_ITEMS.filter((a) => !!form[`${a.field}_venda`])
-    : []
-  const hasFeatures = enabledAmenities.length > 0 || enabledAmenitiesVenda.length > 0
+  const hasFeatures = enabledAmenities.length > 0
 
   const sectionLabel = isArrendador || tipo === 'Venda' ? 'Imóvel' : 'O que procura'
 
@@ -1120,7 +1114,7 @@ function DetalhesTab({
           )}
 
           {/* Estudos de mercado — só em angariação (Venda / Arrendador) */}
-          {(tipo === 'Venda' || tipo === 'Arrendador' || tipo === 'Compra e Venda') && negocio.id && (
+          {(tipo === 'Venda' || tipo === 'Arrendador') && negocio.id && (
             <>
               <CardDivider />
               <MarketStudiesCard negocioId={negocio.id} />
@@ -1775,7 +1769,7 @@ function ImoveisTab({
       </div>
 
       {items.length === 0 ? (
-        <EmptyHint icon={Home} message="Nenhum imóvel no dossier deste negócio." />
+        <EmptyHint icon={Home} message="Nenhum imóvel no dossier desta oportunidade." />
       ) : (
         <div className="space-y-2">
           {items.map((ap) => {
@@ -3207,7 +3201,7 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
           <Home className="h-7 w-7 text-muted-foreground/40 mb-2" />
           <p className="text-sm font-medium">Sem imóvel angariado</p>
           <p className="text-xs text-muted-foreground mt-1 max-w-[300px]">
-            Cria a angariação a partir deste negócio. Quando concluída, o imóvel passa a estar disponível.
+            Cria a angariação a partir desta oportunidade. Quando concluída, o imóvel passa a estar disponível.
           </p>
           <Button
             type="button"

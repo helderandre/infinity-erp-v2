@@ -23,19 +23,17 @@ export interface PipelineStage {
 export type NegocioTipo =
   | 'Compra'
   | 'Venda'
-  | 'Compra e Venda'
   | 'Arrendatário'
   | 'Arrendador'
   | string
 
-/** Map negocio tipo → DB pipeline_type */
+/** Map negocio tipo → DB pipeline_type. `perspective` é mantido por compat
+ *  com call-sites antigos mas já não tem efeito (era usado só para o
+ *  removido "Compra e Venda"). */
 export function tipoToPipelineType(
   tipo: NegocioTipo | undefined,
-  perspective?: 'compra' | 'venda',
+  _perspective?: 'compra' | 'venda',
 ): 'comprador' | 'vendedor' | 'arrendatario' | 'arrendador' {
-  if (tipo === 'Compra e Venda') {
-    return perspective === 'venda' ? 'vendedor' : 'comprador'
-  }
   if (tipo === 'Compra') return 'comprador'
   if (tipo === 'Venda') return 'vendedor'
   if (tipo === 'Arrendatário') return 'arrendatario'

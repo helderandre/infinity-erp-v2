@@ -1,6 +1,9 @@
 'use client'
 
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { DealForm } from './deal-form'
 
 interface DealDialogProps {
@@ -36,14 +39,28 @@ export function DealDialog({
   negocioContext,
   onComplete,
 }: DealDialogProps) {
+  const isMobile = useIsMobile()
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-[800px] w-[calc(100%-1rem)] sm:w-full h-[85dvh] sm:h-[90vh] p-0 gap-0 flex flex-col rounded-2xl overflow-hidden"
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
         showCloseButton={false}
+        className={cn(
+          'p-0 gap-0 flex flex-col overflow-hidden border-border/40 shadow-2xl',
+          'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+          isMobile
+            ? 'data-[side=bottom]:h-[90dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[760px] sm:rounded-l-3xl',
+        )}
         onInteractOutside={() => onOpenChange(false)}
         onEscapeKeyDown={() => onOpenChange(false)}
       >
+        <VisuallyHidden>
+          <SheetTitle>Novo Negócio</SheetTitle>
+        </VisuallyHidden>
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+        )}
         {open && (
           <DealForm
             draftId={draftId}
@@ -56,7 +73,7 @@ export function DealDialog({
             onClose={() => onOpenChange(false)}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

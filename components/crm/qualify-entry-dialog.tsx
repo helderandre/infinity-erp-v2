@@ -51,7 +51,6 @@ const PIPELINE_TO_TIPO: Record<string, string[]> = {
 const TIPO_LABELS: Record<string, string> = {
   Compra: 'Compra',
   Venda: 'Venda',
-  'Compra e Venda': 'Compra e Venda',
   'Arrendatário': 'Arrendamento (procura)',
   'Arrendador': 'Arrendamento (proprietário)',
 }

@@ -24,6 +24,27 @@ interface SummaryData {
   forecast_commission: number
 }
 
+/**
+ * Subset dos filtros do CRM que afectam os totais. Cada um mapeia a um
+ * query param do `/api/crm/kanban/[pipelineType]` — passar este objecto
+ * faz com que os 3 KPIs (oportunidades, comissão possível, comissão
+ * prevista) reflictam o que o utilizador filtrou no kanban/lista, em
+ * vez de mostrarem sempre os totais brutos da pipeline inteira.
+ */
+export interface SummaryBarFilters {
+  search?: string
+  pipelineStageId?: string
+  temperatura?: string
+  consultantId?: string
+  onlyReferenced?: boolean
+  tipoImovel?: string
+  localizacao?: string
+  orcamentoMin?: string
+  orcamentoMax?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
 interface SummaryBarProps {
   pipelineType: PipelineType
   inHero?: boolean
@@ -35,6 +56,12 @@ interface SummaryBarProps {
    * Used by the Referências page.
    */
   referrerConsultantId?: string
+  /**
+   * Filtros activos no kanban/lista. Quando passados, os totais são
+   * recalculados pela API com os mesmos predicados. Quando undefined ou
+   * vazio, os totais voltam ao bruto da pipeline.
+   */
+  filters?: SummaryBarFilters
 }
 
 const formatEUR = (value: number) =>
@@ -49,15 +76,33 @@ export function SummaryBar({
   inHero = false,
   refreshKey = 0,
   referrerConsultantId,
+  filters,
 }: SummaryBarProps) {
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Serializa filtros relevantes numa única string para evitar re-fetchs
+  // espúrios quando o parent re-renderiza com a mesma forma do objecto.
+  const filtersKey = JSON.stringify(filters ?? {})
 
   useEffect(() => {
     setLoading(true)
     setData(null)
     const params = new URLSearchParams()
     if (referrerConsultantId) params.set('referrer_consultant_id', referrerConsultantId)
+    if (filters) {
+      if (filters.search) params.set('search', filters.search)
+      if (filters.pipelineStageId) params.set('pipeline_stage_id', filters.pipelineStageId)
+      if (filters.temperatura) params.set('temperatura', filters.temperatura)
+      if (filters.consultantId) params.set('assigned_consultant_id', filters.consultantId)
+      if (filters.onlyReferenced) params.set('only_referenced', '1')
+      if (filters.tipoImovel) params.set('tipo_imovel', filters.tipoImovel)
+      if (filters.localizacao) params.set('localizacao', filters.localizacao)
+      if (filters.orcamentoMin) params.set('orcamento_min', filters.orcamentoMin)
+      if (filters.orcamentoMax) params.set('orcamento_max', filters.orcamentoMax)
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom)
+      if (filters.dateTo) params.set('date_to', filters.dateTo)
+    }
     const url = `/api/crm/kanban/${pipelineType}${params.size ? `?${params}` : ''}`
     fetch(url)
       .then((r) => r.json())
@@ -66,13 +111,14 @@ export function SummaryBar({
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [pipelineType, refreshKey, referrerConsultantId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipelineType, refreshKey, referrerConsultantId, filtersKey])
 
   const stats = [
     {
       icon: Briefcase,
-      label: 'Negócios activos',
-      mobileLabel: 'Negócios',
+      label: 'Oportunidades activas',
+      mobileLabel: 'Oportunidades',
       value: loading ? null : String(data?.negocios ?? 0),
     },
     {

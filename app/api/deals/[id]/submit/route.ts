@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { bypassNonApplicableNegTasks } from '@/lib/processes/neg/bypass-non-applicable-tasks'
 import { repeatTasksPerClient } from '@/lib/processes/neg/repeat-tasks-per-client'
+import { notificationService } from '@/lib/notifications/service'
+import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 
 // POST /api/deals/[id]/submit — Submit deal, create proc_instance + payments + splits
 export async function POST(
@@ -423,6 +425,30 @@ export async function POST(
       totalClones = repeatResult.total_clones
     } catch (repeatErr) {
       console.error('[ProcNegRepeat] Erro:', repeatErr)
+    }
+
+    // Notify management — submissão de negócio para análise/aprovação.
+    // Inclui referência + valor para contexto rápido.
+    try {
+      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
+      if (approverIds.length > 0) {
+        const ref = (deal as any).reference || id.slice(0, 8)
+        const valueStr = deal.deal_value
+          ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(deal.deal_value))
+          : '—'
+        await notificationService.createBatch(approverIds, {
+          senderId: auth.user.id,
+          notificationType: 'process_created',
+          entityType: 'deal',
+          entityId: id,
+          title: 'Novo negócio submetido',
+          body: `${ref} — ${valueStr} · aguarda análise`,
+          actionUrl: `/dashboard/financeiro/deals/${id}`,
+          metadata: { kind: 'submit', deal_value: deal.deal_value },
+        })
+      }
+    } catch (notifError) {
+      console.error('[DealSubmit] Erro ao notificar management:', notifError)
     }
 
     return NextResponse.json({

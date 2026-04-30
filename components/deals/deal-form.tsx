@@ -10,25 +10,28 @@ import { Form } from '@/components/ui/form'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Check, Save, X, AlertCircle, Sparkles } from 'lucide-react'
+import {
+  Send, Save, X, AlertCircle, Sparkles, Briefcase, Link2,
+  Handshake, Users, FileSignature, SlidersHorizontal, ArrowRightLeft,
+} from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
+import { cn } from '@/lib/utils'
 import { DealQuickFill } from './deal-quick-fill'
 import { StepPartilha } from './step-1-partilha'
 import { StepClientes } from './step-2-clientes'
 import { StepCondicoes } from './step-3-condicoes'
 import { StepExtra } from './step-4-extra'
 import { StepReferenciacao } from './step-5-referenciacao'
-import { Briefcase, Link2 } from 'lucide-react'
 import { NegocioPickerDialog, type NegocioPickerItem } from '@/components/negocios/negocio-picker-dialog'
 import { buildDealPropertyContextFromNegocio } from '@/lib/negocios/prefill-from-negocio'
 
 const TABS = [
-  { value: 'partilha', label: 'Partilha' },
-  { value: 'clientes', label: 'Clientes' },
-  { value: 'condicoes', label: 'Condições' },
-  { value: 'extra', label: 'Extra' },
-  { value: 'referenciacao', label: 'Referenciação' },
-]
+  { value: 'partilha', label: 'Partilha', icon: Handshake },
+  { value: 'clientes', label: 'Clientes', icon: Users },
+  { value: 'condicoes', label: 'Condições', icon: FileSignature },
+  { value: 'extra', label: 'Extra', icon: SlidersHorizontal },
+  { value: 'referenciacao', label: 'Referenciação', icon: ArrowRightLeft },
+] as const
 
 const TAB_FIELDS: Record<string, string[]> = {
   partilha: ['proposal_file_url', 'scenario', 'property_id', 'internal_colleague_id', 'colleague_property_id', 'external_consultant_name', 'external_consultant_phone', 'external_consultant_email', 'partner_agency_name', 'share_pct', 'share_network_type'],
@@ -343,159 +346,209 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
     )
   }
 
+  // Step counter — current tab index (1-based) and total
+  const currentStepIndex = Math.max(0, TABS.findIndex((t) => t.value === activeTab))
+  const stepLabel = `Passo ${currentStepIndex + 1}/${TABS.length}`
+
   return (
     <Form {...(form as any)}>
       <form onSubmit={(e) => e.preventDefault()} className="flex flex-col h-full overflow-hidden">
         <DealQuickFill form={form} open={quickFillOpen} onOpenChange={setQuickFillOpen} />
-        {/* Dark header — matches lead-entry-dialog look */}
-        <div className="bg-neutral-900 rounded-t-2xl px-4 sm:px-5 py-3 sm:py-4 flex-shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle asChild>
-              <div className="text-white text-sm sm:text-base font-medium shrink min-w-0">
-                <span className="truncate block">{initialDraftId ? 'Retomar Fecho' : 'Fecho de Negócio'}</span>
-                {propertyContext && (
-                  <span className="text-[11px] sm:text-xs font-normal text-white/60 truncate block">
-                    {propertyContext.external_ref || propertyContext.title}
-                  </span>
-                )}
-              </div>
-            </DialogTitle>
+
+        {/* Glass header — matches feedback dialog's design language */}
+        <div className="px-6 pt-6 pb-3 border-b border-border/40 shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle asChild>
+                <div className="text-base font-semibold tracking-tight flex items-center gap-2 min-w-0">
+                  <Briefcase className="h-5 w-5 shrink-0" />
+                  <span className="truncate">{initialDraftId ? 'Retomar Negócio' : 'Novo Negócio'}</span>
+                </div>
+              </DialogTitle>
+              {propertyContext && (
+                <p className="text-[11px] text-muted-foreground truncate mt-1 ml-7">
+                  {propertyContext.external_ref || propertyContext.title}
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
+              <Button
                 type="button"
-                onClick={handleSaveDraft}
-                disabled={savingDraft || submitting}
-                className="h-8 px-2.5 sm:px-3 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium hover:bg-white/15 hover:text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {savingDraft ? (
-                  <Spinner variant="infinite" size={14} />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">Guardar Rascunho</span>
-              </button>
-              <button
-                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setQuickFillOpen(true)}
-                className="h-8 px-2.5 sm:px-3 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs font-medium hover:bg-white/15 hover:text-white transition-colors flex items-center gap-1.5"
+                className="rounded-full h-8 text-xs gap-1.5"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Preencher com IA</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className="h-8 w-8 rounded-full bg-white/10 border border-white/15 text-white/60 hover:text-white hover:bg-white/15 transition-colors flex items-center justify-center"
+                className="h-8 w-8 rounded-full"
               >
                 <X className="h-4 w-4" />
-              </button>
+                <span className="sr-only">Fechar</span>
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Banner: associar a negócio existente (só em modo standalone) */}
+        {/* Banner: associar a oportunidade existente (só em modo standalone) — em card claro */}
         {isStandalone && (
-          <div className="flex-shrink-0 px-4 sm:px-5 py-2.5 border-b bg-muted/30 flex items-center gap-2 flex-wrap">
-            <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            {pickedNegocio ? (
-              <>
-                <span className="text-xs text-muted-foreground">Vinculado a</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border/60 px-2.5 py-1 text-xs font-medium">
-                  <Link2 className="h-3 w-3 text-muted-foreground" />
-                  {linkedLabel}
-                </span>
-                <button
-                  type="button"
-                  onClick={clearPickedNegocio}
-                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
-                >
-                  Limpar
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-xs text-muted-foreground">É de um negócio existente?</span>
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen(true)}
-                  className="text-xs font-medium text-primary hover:underline ml-auto"
-                >
-                  Escolher negócio
-                </button>
-              </>
-            )}
+          <div className="shrink-0 px-6 pt-3">
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm px-4 py-2.5 flex items-center gap-2 flex-wrap">
+              <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              {pickedNegocio ? (
+                <>
+                  <span className="text-xs text-muted-foreground">Vinculado a</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                    <Link2 className="h-3 w-3 text-muted-foreground" />
+                    {linkedLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearPickedNegocio}
+                    className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline ml-auto"
+                  >
+                    Limpar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-medium text-foreground">É de uma oportunidade existente?</span>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+                  >
+                    <Briefcase className="h-3.5 w-3.5" />
+                    Escolher oportunidade
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Content with Tabs */}
+        {/* Content with pill tabs + white card wrapper for each tab */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full gap-0">
-            <div className="flex-shrink-0 border-b px-4 sm:px-6 overflow-x-auto scrollbar-none">
-              <TabsList variant="line" className="w-max sm:w-full justify-start -mb-px">
-                {TABS.map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value} className="relative shrink-0 text-xs sm:text-sm">
-                    {tab.label}
-                    {tabErrors[tab.value] > 0 && (
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
-                        {tabErrors[tab.value]}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            {/* Pill tabs — mobile: ícone só + label no activo. Desktop: label always. */}
+            <div className="flex-shrink-0 px-6 pt-4 pb-2">
+              <div className="overflow-x-auto scrollbar-none">
+                <div className="inline-flex items-center gap-1 rounded-full bg-muted/50 p-1">
+                  {TABS.map((tab) => {
+                    const isActive = activeTab === tab.value
+                    const TabIcon = tab.icon
+                    const errorCount = tabErrors[tab.value] || 0
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => handleTabChange(tab.value)}
+                        aria-label={tab.label}
+                        className={cn(
+                          'relative inline-flex items-center justify-center gap-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all shrink-0',
+                          isActive
+                            ? 'bg-background shadow-sm text-foreground px-3 py-1.5'
+                            : 'text-muted-foreground hover:text-foreground px-2.5 py-1.5 sm:px-3',
+                        )}
+                      >
+                        <TabIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>
+                          {tab.label}
+                        </span>
+                        {errorCount > 0 && (
+                          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center">
+                            {errorCount}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
-              <TabsContent value="partilha" className="mt-0">
-                <StepPartilha
-                  form={form}
-                  errors={validationErrors}
-                  dealId={dealId}
-                  fromProperty={fromProperty}
-                  onProposalUploaded={handleProposalScan}
-                  scanningProposal={scanningProposal}
-                  ensureDraft={ensureDraft}
-                />
-              </TabsContent>
-              <TabsContent value="clientes" className="mt-0">
-                <StepClientes form={form} errors={validationErrors} />
-              </TabsContent>
-              <TabsContent value="condicoes" className="mt-0">
-                <StepCondicoes form={form} errors={validationErrors} />
-              </TabsContent>
-              <TabsContent value="extra" className="mt-0">
-                <StepExtra form={form} errors={validationErrors} />
-              </TabsContent>
-              <TabsContent value="referenciacao" className="mt-0">
-                <StepReferenciacao form={form} errors={validationErrors} />
-              </TabsContent>
+
+            {/* Tab content — wrapped in a white card with step counter inside */}
+            <div className="flex-1 overflow-y-auto px-6 pt-2 pb-5">
+              <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 sm:p-5">
+                <div className="flex justify-end mb-3">
+                  <span className="inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+                    {stepLabel}
+                  </span>
+                </div>
+                <TabsContent value="partilha" className="mt-0">
+                  <StepPartilha
+                    form={form}
+                    errors={validationErrors}
+                    dealId={dealId}
+                    fromProperty={fromProperty}
+                    onProposalUploaded={handleProposalScan}
+                    scanningProposal={scanningProposal}
+                    ensureDraft={ensureDraft}
+                  />
+                </TabsContent>
+                <TabsContent value="clientes" className="mt-0">
+                  <StepClientes form={form} errors={validationErrors} />
+                </TabsContent>
+                <TabsContent value="condicoes" className="mt-0">
+                  <StepCondicoes form={form} errors={validationErrors} />
+                </TabsContent>
+                <TabsContent value="extra" className="mt-0">
+                  <StepExtra form={form} errors={validationErrors} />
+                </TabsContent>
+                <TabsContent value="referenciacao" className="mt-0">
+                  <StepReferenciacao form={form} errors={validationErrors} />
+                </TabsContent>
+              </div>
             </div>
           </Tabs>
         </div>
 
-        {/* Footer */}
-        <div className="flex-shrink-0 border-t px-4 sm:px-5 py-3 flex items-center justify-end gap-2 sm:gap-3">
+        {/* Footer translúcido — Guardar rascunho + Fazer pedido lado-a-lado */}
+        <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2 flex-wrap">
           {missingCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 text-[11px] font-medium px-2.5 py-1 dark:bg-amber-950 dark:text-amber-300 mr-auto">
               <AlertCircle className="h-3 w-3" />
-              {missingCount} campo{missingCount > 1 ? 's' : ''} em falta
+              <span className="tabular-nums">{missingCount}</span>
+              <span className="hidden sm:inline">{' '}campo{missingCount > 1 ? 's' : ''} em falta</span>
             </span>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSaveDraft}
+            disabled={savingDraft || submitting}
+            className="rounded-full text-xs h-8 gap-1.5"
+          >
+            {savingDraft ? (
+              <Spinner variant="infinite" size={14} />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Guardar rascunho
+          </Button>
           <Button
             type="button"
             size="sm"
             onClick={handleSubmit}
             disabled={submitting}
-            className="rounded-full text-xs h-8 px-4"
+            className="rounded-full text-xs h-8 px-4 gap-1.5 min-w-[120px]"
           >
             {submitting ? (
               <>
-                <Spinner variant="infinite" size={14} className="mr-1.5" />
-                A submeter...
+                <Spinner variant="infinite" size={14} />
+                A enviar...
               </>
             ) : (
               <>
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-                Submeter Fecho
+                <Send className="h-3.5 w-3.5" />
+                Fazer pedido
               </>
             )}
           </Button>

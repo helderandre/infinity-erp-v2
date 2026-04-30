@@ -329,9 +329,8 @@ export function NegocioDataCard({
   const numVal = (field: string) => form[field] as number | null
   const boolVal = (field: string) => !!form[field]
 
-  const isCompraEVenda = tipo === 'Compra e Venda'
-  const isCompra = tipo === 'Compra' || isCompraEVenda
-  const isVenda = tipo === 'Venda' || isCompraEVenda
+  const isCompra = tipo === 'Compra'
+  const isVenda = tipo === 'Venda'
   const isArrendatario = tipo === 'Arrendatário'
   const isArrendador = tipo === 'Arrendador'
 
@@ -447,9 +446,9 @@ export function NegocioDataCard({
   )
 
   /* ─── Venda fields block ─── */
-  const vendaTipoField = isCompraEVenda ? 'tipo_imovel_venda' : 'tipo_imovel'
-  const vendaLocField = isCompraEVenda ? 'localizacao_venda' : 'localizacao'
-  const vendaAmenityPrefix = isCompraEVenda ? '_venda' : ''
+  const vendaTipoField = 'tipo_imovel'
+  const vendaLocField = 'localizacao'
+  const vendaAmenityPrefix = ''
 
   const renderVendaFields = () => (
     <>
@@ -475,10 +474,14 @@ export function NegocioDataCard({
       )}
 
       <SectionHeader title="Localização" />
+      {/* Sem polígonos — a venda incide num único imóvel/morada concreta.
+          O search por zonas só faz sentido para Compra/Arrendatário que
+          procuram em várias áreas. Mantemos o campo livre + Distrito/
+          Concelho/Freguesia para a localização exacta. */}
       {isEditing ? (
         <>
-          <div className="col-span-full rounded-xl border px-4 py-3">
-            <p className="text-xs text-muted-foreground mb-1">Localização</p>
+          <div className="col-span-full space-y-1.5">
+            <p className="text-xs text-muted-foreground">Localização</p>
             <TagsInput value={val(vendaLocField)} onChange={(v) => onFieldChange(vendaLocField, v)} placeholder="Zona do imóvel..." suggestions={LOCALIZACOES_PT} />
           </div>
           <EditField label="Distrito" value={val('distrito')} onChange={(v) => onFieldChange('distrito', v)} />
@@ -487,10 +490,7 @@ export function NegocioDataCard({
         </>
       ) : (
         <>
-          <div className="col-span-full rounded-xl border px-4 py-3">
-            <p className="text-xs text-muted-foreground mb-0.5">Localização</p>
-            <TagsDisplay value={val(vendaLocField)} />
-          </div>
+          <DisplayField label="Localização" value={val(vendaLocField)} />
           <DisplayField label="Distrito" value={val('distrito')} />
           <DisplayField label="Concelho" value={val('concelho')} />
           <DisplayField label="Freguesia" value={val('freguesia')} />
@@ -529,36 +529,6 @@ export function NegocioDataCard({
 
   /* ─── Dados do negócio tab content ─── */
   const renderDadosTab = () => {
-    /* Compra e Venda → subtabs for Compra / Venda */
-    if (isCompraEVenda) {
-      return (
-        <>
-          {renderAiFillRow()}
-          <Tabs defaultValue="subtab-compra">
-            <TabsList className="bg-muted/50 rounded-full p-1 h-auto gap-0 mb-4">
-              <TabsTrigger value="subtab-compra" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                O que procura
-              </TabsTrigger>
-              <TabsTrigger value="subtab-venda" className="rounded-full px-4 py-1.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                O que vende
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="subtab-compra" className="mt-0">
-              <div className="grid grid-cols-2 gap-3">
-                {renderCompraFields()}
-              </div>
-            </TabsContent>
-            <TabsContent value="subtab-venda" className="mt-0">
-              <div className="grid grid-cols-2 gap-3">
-                {renderVendaFields()}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </>
-      )
-    }
-
-    /* Single-type negócios */
     return (
       <div className="grid grid-cols-2 gap-3">
         {renderAiFillRow()}
@@ -635,6 +605,29 @@ export function NegocioDataCard({
             <ToggleRow label="Aceita animais" checked={boolVal('aceita_animais')} onChange={(v) => onFieldChange('aceita_animais', v)} isEditing={isEditing} />
             <ToggleRow label="Mobilado" checked={boolVal('mobilado')} onChange={(v) => onFieldChange('mobilado', v)} isEditing={isEditing} />
 
+            <SectionHeader title="Localização" />
+            {/* Sem polígonos — o imóvel para arrendar tem uma morada
+                concreta. Polígonos só fazem sentido para Compra e
+                Arrendatário, que procuram em várias áreas. */}
+            {isEditing ? (
+              <>
+                <div className="col-span-full space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Localização</p>
+                  <TagsInput value={val('localizacao')} onChange={(v) => onFieldChange('localizacao', v)} placeholder="Zona do imóvel..." suggestions={LOCALIZACOES_PT} />
+                </div>
+                <EditField label="Distrito" value={val('distrito')} onChange={(v) => onFieldChange('distrito', v)} />
+                <EditField label="Concelho" value={val('concelho')} onChange={(v) => onFieldChange('concelho', v)} />
+                <EditField label="Freguesia" value={val('freguesia')} onChange={(v) => onFieldChange('freguesia', v)} />
+              </>
+            ) : (
+              <>
+                <DisplayField label="Localização" value={val('localizacao')} />
+                <DisplayField label="Distrito" value={val('distrito')} />
+                <DisplayField label="Concelho" value={val('concelho')} />
+                <DisplayField label="Freguesia" value={val('freguesia')} />
+              </>
+            )}
+
             <SectionHeader title="Características" />
             <AmenityGrid form={form} isEditing={isEditing} onToggle={(f, v) => onFieldChange(f, v)} />
           </>
@@ -644,17 +637,15 @@ export function NegocioDataCard({
   }
 
   /* ─── Build tabs ─── */
-  const dadosLabel = isCompraEVenda
-    ? 'Dados do negócio'
-    : isCompra
-      ? 'Dados da Compra'
-      : isVenda
-        ? 'Dados da Venda'
-        : isArrendatario
+  const dadosLabel = isCompra
+    ? 'Dados da Compra'
+    : isVenda
+      ? 'Dados da Venda'
+      : isArrendatario
+        ? 'Dados do Arrendamento'
+        : isArrendador
           ? 'Dados do Arrendamento'
-          : isArrendador
-            ? 'Dados do Arrendamento'
-            : 'Dados do negócio'
+          : 'Dados do negócio'
 
   const tabs: { value: string; label: string; onActivate?: () => void }[] = [
     { value: 'dados', label: dadosLabel },

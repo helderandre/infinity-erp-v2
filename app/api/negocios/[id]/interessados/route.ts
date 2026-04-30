@@ -53,24 +53,23 @@ export async function GET(
       return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
     }
 
-    if (!['Venda', 'Compra e Venda'].includes(negocio.tipo)) {
+    if (negocio.tipo !== 'Venda') {
       return NextResponse.json({ data: [] })
     }
 
     // Use assigned_consultant_id first, fallback to lead.agent_id
     const currentAgentId = negocio.assigned_consultant_id || negocio.leads?.agent_id || null
-    const isCompraEVenda = negocio.tipo === 'Compra e Venda'
 
     // Extract seller property profile
     const sellerPrice = negocio.preco_venda || null
-    const sellerType = isCompraEVenda ? (negocio.tipo_imovel_venda || negocio.tipo_imovel) : negocio.tipo_imovel
-    const sellerLocation = isCompraEVenda ? (negocio.localizacao_venda || negocio.localizacao) : negocio.localizacao
+    const sellerType = negocio.tipo_imovel
+    const sellerLocation = negocio.localizacao
     const sellerRooms = negocio.quartos || null
-    const sellerAmenities = extractAmenities(negocio, isCompraEVenda ? '_venda' : '')
+    const sellerAmenities = extractAmenities(negocio, '')
 
     // Perfil estruturado do imóvel à venda — usado para computar mismatches
-    // por comprador. Lê os mesmos campos `tem_*[_venda]` que o resto do flow.
-    const amenitySuffix = isCompraEVenda ? '_venda' : ''
+    // por comprador. Lê os mesmos campos `tem_*` que o resto do flow.
+    const amenitySuffix = ''
     const sellerProfileForBadges: SellerProfile = {
       preco_venda: sellerPrice,
       tipo_imovel: sellerType ?? null,
@@ -112,7 +111,7 @@ export async function GET(
           profile:dev_consultant_profiles(phone_commercial)
         )
       `)
-      .in('tipo', ['Compra', 'Compra e Venda'])
+      .eq('tipo', 'Compra')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

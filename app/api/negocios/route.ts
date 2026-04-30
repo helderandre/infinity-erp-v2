@@ -103,7 +103,6 @@ export async function POST(request: Request) {
     if (!insertPayload.pipeline_stage_id) {
       const TIPO_TO_PIPELINE: Record<string, string> = {
         'Compra': 'comprador',
-        'Compra e Venda': 'comprador',
         'Venda': 'vendedor',
         'Arrendatário': 'arrendatario',
         'Arrendador': 'arrendador',

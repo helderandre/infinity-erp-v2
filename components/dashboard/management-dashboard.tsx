@@ -40,6 +40,8 @@ import {
   DrillDownSheet, type DrillDownConfig,
 } from '@/components/dashboard/shared/drill-down-sheet'
 import { ConsultantAlertsTab } from '@/components/dashboard/consultant-alerts-tab'
+import { TeamGoalsSheet } from '@/components/dashboard/team-goals-sheet'
+import { useUser } from '@/hooks/use-user'
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig,
@@ -116,6 +118,16 @@ export function ManagementDashboard() {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [activeMainTab, setActiveMainTab] = useState<'overview' | 'pipeline' | 'rankings' | 'alerts'>('overview')
+  const [teamGoalsOpen, setTeamGoalsOpen] = useState(false)
+
+  // Roles autorizados a ver os objectivos agregados da equipa: CEO + admin
+  // + Office Manager. Subset deliberadamente mais estreito do que
+  // MANAGEMENT_ROLES (que inclui Team Leader e Gestor Processual).
+  const { user } = useUser()
+  const canSeeTeamGoals = (() => {
+    const lc = (user?.role_names ?? []).map((r) => r.toLowerCase())
+    return lc.includes('admin') || lc.includes('broker/ceo') || lc.includes('office manager')
+  })()
 
   const openDrillDown = useCallback((config: DrillDownConfig) => {
     setSheetConfig(config)
@@ -193,6 +205,7 @@ export function ManagementDashboard() {
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-400">
       <DrillDownSheet config={sheetConfig} open={sheetOpen} onOpenChange={setSheetOpen} />
+      <TeamGoalsSheet open={teamGoalsOpen} onOpenChange={setTeamGoalsOpen} />
 
       {/* ─── Tabs ─────────────────────────────────────────────────── */}
       <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as typeof activeMainTab)} className="space-y-5">
@@ -232,7 +245,10 @@ export function ManagementDashboard() {
             title="Indicadores do ano"
             description="Facturação acumulada, margem e estado da carteira"
           >
-            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+            <div className={cn(
+              'grid gap-3 grid-cols-2',
+              canSeeTeamGoals ? 'lg:grid-cols-5' : 'lg:grid-cols-4',
+            )}>
               <FinanceiroKpiCard
                 icon={Banknote}
                 label="Facturação YTD"
@@ -274,6 +290,16 @@ export function ManagementDashboard() {
                   fetcher: () => getDrillDownProperties({ status: 'active' }),
                 })}
               />
+              {canSeeTeamGoals && (
+                <FinanceiroKpiCard
+                  icon={Target}
+                  label="Objectivos da equipa"
+                  value="Ver detalhe"
+                  hint="Todos os consultores"
+                  tone="positive"
+                  onClick={() => setTeamGoalsOpen(true)}
+                />
+              )}
             </div>
 
             <PipelineGroup title="Valores em curso">
@@ -541,7 +567,7 @@ export function ManagementDashboard() {
             description="Valor ponderado por fase × probabilidade"
           >
             {pipeline.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem negócios activos</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Sem oportunidades activas</p>
             ) : (
               <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-5 space-y-4">
                 {pipeline.map((p) => {

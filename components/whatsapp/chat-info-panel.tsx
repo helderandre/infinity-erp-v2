@@ -570,7 +570,6 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
                             const TIPO_TAG: Record<string, { color: string; label: string }> = {
                               'Compra':         { color: '#3b82f6', label: 'Compra' },
                               'Venda':          { color: '#10b981', label: 'Venda' },
-                              'Compra e Venda': { color: '#8b5cf6', label: 'C+V' },
                               'Arrendatário':   { color: '#f59e0b', label: 'Arrendat.' },
                               'Arrendador':     { color: '#fb923c', label: 'Senhorio' },
                             }
@@ -718,7 +717,7 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
                           })}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">Sem negócios</p>
+                        <p className="text-sm text-muted-foreground">Sem oportunidades</p>
                       )}
                     </div>
                   </>

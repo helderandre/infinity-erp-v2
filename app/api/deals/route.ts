@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { notificationService } from '@/lib/notifications/service'
+import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 
 // POST /api/deals — Create new deal (draft)
 export async function POST(request: Request) {
@@ -55,6 +57,30 @@ export async function POST(request: Request) {
 
     if (error || !deal) {
       return NextResponse.json({ error: 'Erro ao criar negocio', details: error?.message }, { status: 500 })
+    }
+
+    // Notify management — pré-aviso de que alguém começou um rascunho de
+    // negócio. Só dispara aqui (criação inicial); PATCH subsequentes em
+    // /api/deals/[id] não voltam a notificar.
+    try {
+      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
+      if (approverIds.length > 0) {
+        const consultantName = (auth.user as any).user_metadata?.commercial_name
+          || (auth.user as any).email
+          || 'Um consultor'
+        await notificationService.createBatch(approverIds, {
+          senderId: auth.user.id,
+          notificationType: 'process_created',
+          entityType: 'deal',
+          entityId: deal.id,
+          title: 'Novo rascunho de negócio',
+          body: `${consultantName} começou um rascunho de fecho`,
+          actionUrl: `/dashboard/financeiro/deals/${deal.id}`,
+          metadata: { kind: 'draft', scenario },
+        })
+      }
+    } catch (notifError) {
+      console.error('[DealDraft] Erro ao notificar management:', notifError)
     }
 
     return NextResponse.json(deal, { status: 201 })

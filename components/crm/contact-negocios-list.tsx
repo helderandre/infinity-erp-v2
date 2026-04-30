@@ -27,7 +27,6 @@ import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temper
 const TIPO_BADGE: Record<string, { bg: string; text: string; label: string }> = {
   'Compra':         { bg: 'bg-blue-500/15',    text: 'text-blue-700',    label: 'Compra' },
   'Venda':          { bg: 'bg-emerald-500/15', text: 'text-emerald-700', label: 'Venda' },
-  'Compra e Venda': { bg: 'bg-violet-500/15',  text: 'text-violet-700',  label: 'C+V' },
   'Arrendatário':   { bg: 'bg-amber-500/15',   text: 'text-amber-700',   label: 'Arrend.' },
   'Arrendador':     { bg: 'bg-orange-500/15',  text: 'text-orange-700',  label: 'Senhorio' },
 }

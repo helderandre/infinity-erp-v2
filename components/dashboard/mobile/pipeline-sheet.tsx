@@ -63,9 +63,9 @@ const TEMP_DOT: Record<string, string> = {
   frio: 'bg-blue-500',
 }
 
-// Tipo picker — the four primary deal categories. Negócios with tipo
-// 'Compra e Venda' show in both Compradores AND Vendedores. Anything else
-// (e.g. 'Outro') stays hidden until a category includes it explicitly.
+// Tipo picker — the four primary deal categories. Negócios com `tipo`
+// fora destas (ex: 'Outro') ficam escondidos até uma categoria os incluir
+// explicitamente.
 type TipoKey = 'compra' | 'venda' | 'arrendatario' | 'arrendador'
 const TIPO_PICKER: Array<{
   key: TipoKey
@@ -77,13 +77,13 @@ const TIPO_PICKER: Array<{
     key: 'compra',
     label: 'Compradores',
     icon: ShoppingBag,
-    matches: (t) => t === 'Compra' || t === 'Compra e Venda',
+    matches: (t) => t === 'Compra',
   },
   {
     key: 'venda',
     label: 'Vendedores',
     icon: Tag,
-    matches: (t) => t === 'Venda' || t === 'Compra e Venda',
+    matches: (t) => t === 'Venda',
   },
   {
     key: 'arrendatario',
@@ -329,7 +329,7 @@ export function PipelineSheet({
           ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center py-10 text-muted-foreground">
               <Kanban className="h-8 w-8 mb-2 opacity-40" />
-              <p className="text-sm">Sem negócios</p>
+              <p className="text-sm">Sem oportunidades</p>
             </div>
           ) : (
             sorted.map((n) => (

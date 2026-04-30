@@ -74,7 +74,7 @@ export const updateLeadSchema = z.object({
 // Schema de criacao de negocio
 export const createNegocioSchema = z.object({
   lead_id: z.string().uuid('Lead ID inválido'),
-  tipo: z.enum(['Compra', 'Venda', 'Compra e Venda', 'Arrendatário', 'Arrendador', 'Outro']),
+  tipo: z.enum(['Compra', 'Venda', 'Arrendatário', 'Arrendador', 'Outro']),
   // When omitted, the POST handler auto-resolves to the first non-terminal
   // stage of the matching pipeline so the negócio always lands in the kanban.
   pipeline_stage_id: z.string().uuid().optional().nullable(),
@@ -141,7 +141,8 @@ export const updateNegocioSchema = z.object({
   caucao_rendas: z.number().optional().nullable(),
   aceita_animais: z.boolean().optional().nullable(),
   mobilado: z.boolean().optional().nullable(),
-  // Campos _venda (para tipo "Compra e Venda")
+  // Campos _venda — deprecated: eram usados pelo tipo "Compra e Venda"
+  // (já removido). Mantidos no schema só para compat com colunas DB legadas.
   localizacao_venda: z.string().optional().nullable(),
   tipo_imovel_venda: z.string().optional().nullable(),
   estado_imovel_venda: z.string().optional().nullable(),

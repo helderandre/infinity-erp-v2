@@ -534,7 +534,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
         const failCount = (json.results ?? []).length - okCount
         if (failCount === 0) {
           toast.success(
-            `${okCount} ${okCount === 1 ? 'negócio marcado' : 'negócios marcados'} como perdido`,
+            `${okCount} ${okCount === 1 ? 'oportunidade marcada' : 'oportunidades marcadas'} como perdida`,
           )
         } else {
           toast.warning(`${okCount} marcado(s), ${failCount} falhou`)
@@ -672,7 +672,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
       const failCount = (json.results ?? []).length - okCount
       if (failCount === 0) {
         toast.success(
-          `${okCount} ${okCount === 1 ? 'negócio movido' : 'negócios movidos'}`,
+          `${okCount} ${okCount === 1 ? 'oportunidade movida' : 'oportunidades movidas'}`,
         )
       } else {
         toast.warning(`${okCount} movido(s), ${failCount} falhou`)
@@ -940,9 +940,9 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
         open={bulkAction === 'export_csv'}
         onOpenChange={(o) => !o && setBulkAction(null)}
         endpoint="/api/export/negocios"
-        title="Negócios selecionados"
+        title="Oportunidades selecionadas"
         showConsultantFilter={false}
-        scopeLabel={`${selectedIds.size} ${selectedIds.size === 1 ? 'negócio' : 'negócios'} selecionado${selectedIds.size === 1 ? '' : 's'}`}
+        scopeLabel={`${selectedIds.size} ${selectedIds.size === 1 ? 'oportunidade' : 'oportunidades'} selecionada${selectedIds.size === 1 ? '' : 's'}`}
         extraParams={{ negocio_ids: Array.from(selectedIds).join(',') }}
       />
     </div>

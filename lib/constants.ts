@@ -1099,26 +1099,13 @@ export const LEAD_TIPOS_DOCUMENTO = [
 export const NEGOCIO_TIPOS = [
   'Compra',
   'Venda',
-  'Compra e Venda',
   'Arrendatário',
   'Arrendador',
   'Outro',
 ] as const
 
-/**
- * Tipos disponíveis para criar novos negócios na UI.
- * "Compra e Venda" foi deprecado — clientes que vendem e compram em
- * simultâneo devem ter dois negócios separados.
- * Os negócios existentes com tipo='Compra e Venda' continuam a funcionar
- * (não há migração automática).
- */
-export const NEGOCIO_TIPOS_PICKER = [
-  'Compra',
-  'Venda',
-  'Arrendatário',
-  'Arrendador',
-  'Outro',
-] as const
+/** Alias mantido por compat — antes excluía o já-removido "Compra e Venda". */
+export const NEGOCIO_TIPOS_PICKER = NEGOCIO_TIPOS
 
 export const NEGOCIO_ESTADOS = [
   'Aberto',

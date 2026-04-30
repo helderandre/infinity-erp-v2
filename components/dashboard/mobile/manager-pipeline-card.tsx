@@ -289,7 +289,7 @@ function PipelineSection({
     <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 space-y-3">
       <p className="text-xs font-semibold tracking-tight">{title}</p>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">Sem negócios activos</p>
+        <p className="text-sm text-muted-foreground py-4 text-center">Sem oportunidades activas</p>
       ) : (
         <div className="space-y-3">
           {rows.map((p) => (

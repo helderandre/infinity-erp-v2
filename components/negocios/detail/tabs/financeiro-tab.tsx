@@ -74,7 +74,7 @@ export function FinanceiroTab({ deal, payments }: FinanceiroTabProps) {
         <div>
           <p className="text-sm font-medium">Sem deal financeiro</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            O lado financeiro aparece quando o negócio é submetido para fecho. Cria um deal e
+            O lado financeiro aparece quando a oportunidade é submetida para fecho. Cria um negócio e
             submete-o para iniciar a contabilização de pagamentos, splits e compliance.
           </p>
         </div>
