@@ -118,9 +118,14 @@ export default function TechPipelinePage() {
     return acc
   }, {} as Record<FeedbackStatus, FeedbackWithRelations[]>)
 
+  // Counters no tab picker reflectem só items "em curso" — concluídos
+  // ficam visíveis na coluna Concluído mas não inflam os totais (a
+  // intenção é dar visibilidade do que ainda há para fazer).
+  const activeItems = items.filter((i) => i.status !== 'concluido')
   const totalByType = {
-    ticket: items.filter((i) => i.type === 'ticket').length,
-    ideia: items.filter((i) => i.type === 'ideia').length,
+    all: activeItems.length,
+    ticket: activeItems.filter((i) => i.type === 'ticket').length,
+    ideia: activeItems.filter((i) => i.type === 'ideia').length,
   }
 
   return (
@@ -140,7 +145,7 @@ export default function TechPipelinePage() {
             <TabsTrigger value="all">
               Todos
               <Badge variant="secondary" className="ml-1.5 h-5 min-w-5 px-1.5 text-[0.65rem]">
-                {items.length}
+                {totalByType.all}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="ticket" className="gap-1.5">
