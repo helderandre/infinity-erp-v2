@@ -15,6 +15,7 @@ import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { BreadcrumbOverrideProvider } from '@/hooks/use-breadcrumb-overrides'
 import { EmailComposerProvider } from '@/hooks/use-email-composer'
+import { PreviousPathnameProvider } from '@/hooks/use-previous-pathname'
 
 const SearchCommand = dynamic(
   () => import('@/components/layout/search-command').then((m) => m.SearchCommand),
@@ -130,6 +131,7 @@ export default function DashboardLayout({
   const hideBreadcrumbsOnMobile = true
 
   return (
+    <PreviousPathnameProvider>
     <BreadcrumbOverrideProvider>
       <EmailComposerProvider>
       <SidebarProvider className={cn(isFullBleed && "!min-h-svh !max-h-svh overflow-hidden")}>
@@ -200,5 +202,6 @@ export default function DashboardLayout({
       <EmailComposerPopup />
       </EmailComposerProvider>
     </BreadcrumbOverrideProvider>
+    </PreviousPathnameProvider>
   )
 }

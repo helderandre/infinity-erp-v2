@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { useProperty } from '@/hooks/use-property'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
@@ -165,6 +166,10 @@ export default function ImovelDetalhePage() {
   const { user: currentUser } = useUser()
   const currentUserId = currentUser?.id || null
   const router = useRouter()
+  // Voltar inteligente: faz router.back() quando há histórico SPA
+  // (utilizador veio de outra página da app), e cai no /dashboard/imoveis
+  // só quando o utilizador chegou aqui por deep link.
+  const goBack = useSmartBack('/dashboard/imoveis')
   const { property, isLoading, refetch } = useProperty(id)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
@@ -576,7 +581,7 @@ export default function ImovelDetalhePage() {
         {/* Row 1 (mobile): Voltar + Edit/Delete inline. On desktop: only Voltar */}
         <div className="flex items-center justify-between gap-2 lg:justify-start">
           <button
-            onClick={() => router.push('/dashboard/imoveis')}
+            onClick={goBack}
             className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
