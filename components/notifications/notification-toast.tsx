@@ -78,8 +78,16 @@ function NotificationToastContent({ notification, toastId }: NotificationToastCo
 
   const handleClick = () => {
     toast.dismiss(toastId)
-    if (notification.notification_type === 'dm_message' && notification.sender_id) {
+    // Force-route todas as notificações de chat para a página da
+    // conversa, ignorando `action_url` stale. DM → ?dm=<sender>;
+    // Geral / mention no Geral → ?geral=1.
+    const t = notification.notification_type
+    if (t === 'dm_message' && notification.sender_id) {
       router.push(`/dashboard/comunicacao/chat?dm=${notification.sender_id}`)
+      return
+    }
+    if (t === 'internal_chat_message' || t === 'internal_chat_mention') {
+      router.push('/dashboard/comunicacao/chat?geral=1')
       return
     }
     router.push(notification.action_url)
