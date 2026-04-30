@@ -12,6 +12,7 @@ import { useInternalChat } from '@/hooks/use-internal-chat'
 import { useInternalChatPresence } from '@/hooks/use-internal-chat-presence'
 import { ChatMessageItem } from '@/components/processes/chat-message'
 import { VoiceRecorder } from '@/components/processes/voice-recorder'
+import { InternalForwardDialog } from '@/components/comunicacao/internal-forward-dialog'
 import { CHAT_LABELS, VOICE_LABELS } from '@/lib/constants'
 import type { InternalChatMessage, InternalChatMention, InternalChatReadReceipt } from '@/types/internal-chat'
 
@@ -79,6 +80,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   const { onlineUsers, typingUsers, setTyping } = useInternalChatPresence(currentUser)
 
   const [replyTo, setReplyTo] = useState<InternalChatMessage | null>(null)
+  const [forwardMessage, setForwardMessage] = useState<InternalChatMessage | null>(null)
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
@@ -276,6 +278,13 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
 
   return (
     <div className="flex flex-col h-full">
+      <InternalForwardDialog
+        open={forwardMessage !== null}
+        onOpenChange={(open) => { if (!open) setForwardMessage(null) }}
+        messageContent={forwardMessage?.content ?? ''}
+        hasAttachments={Boolean(forwardMessage?.has_attachments)}
+        currentUserId={currentUser.id}
+      />
       {/* Header */}
       {header || (
         <div className="border-b px-4 py-2.5 flex items-center justify-between shrink-0">
@@ -327,6 +336,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
                 onToggleReaction={toggleReaction}
                 onEdit={editMessage}
                 onDelete={deleteMessage}
+                onForward={(m) => setForwardMessage(m as any)}
                 readers={messageReadersMap.get(msg.id)}
               />
             ))}

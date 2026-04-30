@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Reply, Smile, Pencil, Trash2, X, Check, Eye, ClipboardList, Pin, FileText, Upload, Mail, CheckSquare, Circle, CheckCircle2 } from 'lucide-react'
+import { Reply, Smile, Pencil, Trash2, X, Check, Eye, ClipboardList, Pin, FileText, Upload, Mail, CheckSquare, Circle, CheckCircle2, ChevronDown, Forward, Copy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import {
@@ -22,6 +22,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -50,6 +60,8 @@ interface ChatMessageProps {
   onToggleReaction: (messageId: string, emoji: string) => void
   onEdit: (messageId: string, content: string) => Promise<void>
   onDelete: (messageId: string) => Promise<void>
+  /** Quando definido, mostra "Reencaminhar" no menu de acções. */
+  onForward?: (message: ChatMessageType) => void
   readers?: { userName: string; readAt: string }[]
   onEntityClick?: (entityType: string, entityId: string) => void
   entitiesMap?: Map<string, ChatEntityData>
@@ -227,6 +239,7 @@ export function ChatMessageItem({
   onToggleReaction,
   onEdit,
   onDelete,
+  onForward,
   readers,
   onEntityClick,
   entitiesMap,
@@ -245,6 +258,15 @@ export function ChatMessageItem({
     message.attachments?.some(
       (a) => a.attachment_type === 'audio' && a.file_name.includes('voice')
     )
+
+  // Mensagens com imagem precisam de mais espaço — o bubble normal (75%)
+  // deixa as imagens cramped em mobile e força crops feios. Bump para 88%
+  // (mobile) com cap de 440px em desktop para não esticar absurdamente.
+  const hasImage = message.has_attachments &&
+    message.attachments?.some((a) => a.attachment_type === 'image')
+  const bubbleMaxWidth = hasImage
+    ? 'max-w-[88%] sm:max-w-[440px]'
+    : 'max-w-[75%]'
 
   if (message.is_deleted) {
     return (
@@ -301,12 +323,99 @@ export function ChatMessageItem({
     ? <ReadReceiptIndicator readers={readers} />
     : null
 
+  const handleCopy = () => {
+    if (!message.content) return
+    navigator.clipboard.writeText(message.content)
+      .then(() => toast.success('Texto copiado'))
+      .catch(() => toast.error('Não foi possível copiar'))
+  }
+
+  /**
+   * Menu de acções no estilo WhatsApp — chevron-down a abrir DropdownMenu
+   * com Responder / Reagir / Reencaminhar / Copiar / Editar / Apagar.
+   * `onForward` é opcional (process chat ainda não o providencia) — quando
+   * ausente, a entrada "Reencaminhar" é escondida.
+   */
+  const ActionsMenu = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+          title="Mais acções"
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={isOwn ? 'end' : 'start'}
+        sideOffset={4}
+        collisionPadding={8}
+        className="w-44 max-w-[calc(100vw-1rem)]"
+      >
+        <DropdownMenuItem onClick={onReply}>
+          <Reply className="mr-2 h-4 w-4" />
+          Responder
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Smile className="mr-2 h-4 w-4" />
+            Reagir
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent sideOffset={4} collisionPadding={8}>
+            <div className="flex flex-wrap gap-1 p-1">
+              {CHAT_EMOJI_QUICK.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => onToggleReaction(message.id, emoji)}
+                  className="hover:bg-accent rounded p-1 text-lg"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        {onForward && (
+          <DropdownMenuItem onClick={() => onForward(message)}>
+            <Forward className="mr-2 h-4 w-4" />
+            Reencaminhar
+          </DropdownMenuItem>
+        )}
+        {message.content && (
+          <DropdownMenuItem onClick={handleCopy}>
+            <Copy className="mr-2 h-4 w-4" />
+            Copiar texto
+          </DropdownMenuItem>
+        )}
+        {isOwn && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { setEditValue(message.content); setIsEditing(true) }}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setDeleteDialogOpen(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Apagar
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
   // ── Own message (right-aligned) ──
   if (isOwn) {
     return (
       <>
         <div className="flex justify-end gap-2 group">
-          <div className="max-w-[75%] min-w-[120px]">
+          <div className={cn(bubbleMaxWidth, 'min-w-[120px]')}>
             {/* Meta line + reactions */}
             <div className="flex items-center justify-end gap-2 mb-0.5 flex-wrap">
               {message.reactions && message.reactions.length > 0 && (
@@ -377,9 +486,9 @@ export function ChatMessageItem({
               </div>
             </div>
 
-            {/* Hover actions — horizontal below bubble */}
+            {/* Hover actions — quick reply/react inline + WhatsApp-style chevron menu */}
             <div className="flex items-center justify-end gap-0 mt-0.5 min-h-[20px]">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0">
+              <div className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity flex items-center gap-0">
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={onReply} title="Responder">
                   <Reply className="h-3.5 w-3.5" />
                 </Button>
@@ -399,12 +508,7 @@ export function ChatMessageItem({
                     </div>
                   </PopoverContent>
                 </Popover>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => { setEditValue(message.content); setIsEditing(true) }} title={CHAT_LABELS.edit_message}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70 hover:text-destructive" onClick={() => setDeleteDialogOpen(true)} title={CHAT_LABELS.delete_message}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <ActionsMenu />
               </div>
             </div>
 
@@ -455,7 +559,7 @@ export function ChatMessageItem({
           </AvatarFallback>
         </Avatar>
 
-        <div className="max-w-[75%] min-w-[120px]">
+        <div className={cn(bubbleMaxWidth, 'min-w-[120px]')}>
           {/* Meta line + reactions */}
           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <span className="text-[11px] font-semibold">{message.sender?.commercial_name || 'Utilizador'}</span>
@@ -507,9 +611,9 @@ export function ChatMessageItem({
             {readReceiptEl}
           </div>
 
-          {/* Hover actions — horizontal below bubble */}
+          {/* Hover actions — quick reply/react inline + WhatsApp-style chevron menu */}
           <div className="flex items-center gap-0 mt-0.5 min-h-[20px]">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0">
+            <div className="opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity flex items-center gap-0">
               <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={onReply} title="Responder">
                 <Reply className="h-3.5 w-3.5" />
               </Button>
@@ -529,6 +633,7 @@ export function ChatMessageItem({
                   </div>
                 </PopoverContent>
               </Popover>
+              <ActionsMenu />
             </div>
           </div>
 

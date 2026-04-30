@@ -30,12 +30,20 @@ export function ChatAttachment({ attachment, isOwn = true }: ChatAttachmentProps
   const sizeLabel = formatFileSize(attachment.file_size)
 
   if (attachment.attachment_type === 'image') {
+    // Image fills the bubble width and caps its height so portrait pictures
+    // don't dominate the screen. `object-cover` evita letterboxing dentro do
+    // bubble; `max-h-[60vh]` mantém o aspecto WhatsApp em retratos altos.
     return (
-      <a href={attachment.file_url} target="_blank" rel="noopener noreferrer">
+      <a
+        href={attachment.file_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+      >
         <img
           src={attachment.file_url}
           alt={attachment.file_name}
-          className="max-w-xs rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
+          className="block w-full max-h-[60vh] object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
         />
       </a>
     )
