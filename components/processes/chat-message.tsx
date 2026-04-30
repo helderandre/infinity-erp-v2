@@ -467,7 +467,7 @@ export function ChatMessageItem({
                     </Button>
                   </div>
                 ) : !isVoiceMsg ? (
-                  <p className="text-sm whitespace-pre-wrap break-words">
+                  <p className="text-sm whitespace-pre-wrap break-words select-text cursor-text selection:!bg-blue-500/50 selection:!text-white">
                     {renderMessageContent(message.content, true, onEntityClick, entitiesMap)}
                     {message.is_edited && (
                       <span className="text-[10px] opacity-60 ml-1">{CHAT_LABELS.edited}</span>
@@ -591,7 +591,7 @@ export function ChatMessageItem({
 
               {/* Content */}
               {!isVoiceMsg && (
-                <p className="text-sm whitespace-pre-wrap break-words">
+                <p className="text-sm whitespace-pre-wrap break-words select-text cursor-text selection:!bg-blue-500/50 selection:!text-white">
                   {renderMessageContent(message.content, false, onEntityClick, entitiesMap)}
                   {message.is_edited && (
                     <span className="text-[10px] text-muted-foreground ml-1">{CHAT_LABELS.edited}</span>
