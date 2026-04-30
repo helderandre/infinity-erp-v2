@@ -1101,6 +1101,7 @@ export const NEGOCIO_TIPOS = [
   'Venda',
   'Arrendatário',
   'Arrendador',
+  'Trespasse',
   'Outro',
 ] as const
 

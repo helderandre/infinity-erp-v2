@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
+  Briefcase,
   Building2,
   Euro,
   Key,
@@ -54,6 +55,7 @@ const TIPO_ICONS: Record<string, React.ElementType> = {
   Venda: Store,
   Arrendatário: Key,
   Arrendador: Building2,
+  Trespasse: Briefcase,
   Outro: Users,
 }
 
@@ -101,6 +103,11 @@ const VALUE_CONFIG: Record<string, {
     singleField: 'renda_pretendida',
     singleLabel: 'Renda pretendida',
     unit: '/mês',
+  },
+  Trespasse: {
+    mode: 'single',
+    singleField: 'preco_venda',
+    singleLabel: 'Valor do trespasse',
   },
 }
 

@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import {
   Mic, MicOff, Loader2, Sparkles, ArrowDownLeft, ArrowUpRight,
-  ShoppingCart, Store, Key, Building2,
+  ShoppingCart, Store, Key, Building2, Briefcase,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
@@ -56,6 +56,7 @@ const NEGOCIO_TYPES = [
   { value: 'Venda', label: 'Vendedor', icon: Store },
   { value: 'Arrendatário', label: 'Arrendatário', icon: Key },
   { value: 'Arrendador', label: 'Senhorio', icon: Building2 },
+  { value: 'Trespasse', label: 'Trespasse', icon: Briefcase },
 ]
 
 const PROPERTY_TYPES = [
@@ -127,7 +128,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
       telemovel: lockedFieldsRef.current.telemovel ? p.telemovel : (fields.telemovel || fields.phone || p.telemovel),
       observacoes: fields.observacoes ? (p.observacoes ? p.observacoes + '\n' + fields.observacoes : fields.observacoes) : p.observacoes,
     }))
-    if (fields.negocio_tipo && ['Compra', 'Venda', 'Arrendatário', 'Arrendador'].includes(fields.negocio_tipo)) {
+    if (fields.negocio_tipo && ['Compra', 'Venda', 'Arrendatário', 'Arrendador', 'Trespasse'].includes(fields.negocio_tipo)) {
       setNegocioTipo(fields.negocio_tipo)
     }
     if (fields.localizacao) setNegocioFields((p) => ({ ...p, localizacao: fields.localizacao }))
