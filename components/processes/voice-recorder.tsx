@@ -424,7 +424,7 @@ interface VoiceMessagePlayerProps {
  * "natural-looking" estável serve. WhatsApp Web faz decode real;
  * aqui geramos pseudo-amplitudes a partir de um hash do src.
  */
-function getWaveformBars(src: string, count = 36): number[] {
+function getWaveformBars(src: string, count = 24): number[] {
   let hash = 0
   for (let i = 0; i < src.length; i++) {
     hash = ((hash << 5) - hash) + src.charCodeAt(i)
@@ -683,19 +683,22 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
           com transição suave. Click seeka. */}
       <div
         onClick={handleWaveformClick}
-        className="relative flex-1 min-w-0 h-6 cursor-pointer"
+        className="relative flex-1 min-w-0 h-6 cursor-pointer overflow-hidden"
         role="slider"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress * 100)}
       >
-        {/* Layer 1 — barras unfilled (background) */}
+        {/* Layer 1 — barras unfilled (background). `min-w-[2px]` evita que
+            cada barra colapse para sub-pixel quando o bubble é estreito;
+            o `overflow-hidden` no parent corta as últimas barras se o total
+            exceder a largura disponível, mas mantém as visíveis legíveis. */}
         <div className="absolute inset-0 flex items-center gap-[2px]">
           {bars.map((h, i) => (
             <div
               key={i}
               className={cn(
-                'flex-1 rounded-full',
+                'flex-1 min-w-[2px] rounded-full',
                 isOther ? 'bg-foreground/30' : 'bg-primary-foreground/35',
               )}
               style={{ height: `${Math.round(h * 100)}%` }}
@@ -719,7 +722,7 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
               <div
                 key={i}
                 className={cn(
-                  'flex-1 rounded-full',
+                  'flex-1 min-w-[2px] rounded-full',
                   isOther ? 'bg-foreground' : 'bg-primary-foreground',
                 )}
                 style={{ height: `${Math.round(h * 100)}%` }}
