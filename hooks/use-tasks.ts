@@ -28,6 +28,12 @@ interface UseTasksReturn {
   page: number
   setPage: (page: number) => void
   pageSize: number
+  patchTaskLocal: (
+    id: string,
+    patch: Partial<TaskWithRelations>,
+    opts?: { removeIfFiltered?: boolean },
+  ) => void
+  upsertTaskLocal: (task: TaskWithRelations) => void
 }
 
 interface UseTasksOptions {
@@ -62,14 +68,18 @@ export function useTasks(initialFilters?: TaskFilters, options: UseTasksOptions 
 
   const debouncedSearch = useDebounce(filters.search || '', 300)
 
-  const fetchTasks = useCallback(async () => {
+  // `silent=true` pula o flag `isLoading`, evitando o flash de skeletons
+  // quando o caller só quer reconciliar dados em background (ex.: após
+  // marcar uma tarefa como concluída). O initial-load e mudanças de filtro
+  // continuam a passar por aqui via useEffect com silent=false.
+  const fetchTasks = useCallback(async (silent = false) => {
     if (!enabled) {
       setTasks([])
       setTotal(0)
       setIsLoading(false)
       return
     }
-    setIsLoading(true)
+    if (!silent) setIsLoading(true)
     setError(null)
 
     try {
@@ -96,13 +106,66 @@ export function useTasks(initialFilters?: TaskFilters, options: UseTasksOptions 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }, [enabled, filters.assigned_to, filters.created_by, filters.priority, filters.is_completed, filters.overdue, filters.entity_type, filters.entity_id, filters.source_filter, filters.task_list_id, debouncedSearch, page, pageSize])
 
   useEffect(() => {
     fetchTasks()
   }, [fetchTasks])
+
+  // `refetch` exposto é sempre silencioso — chamado após acções do utilizador
+  // (toggle, save, delete) onde já temos o dado anterior em ecrã e queremos
+  // reconciliar sem flash. Para forçar non-silent (raro), use fetchTasks
+  // directamente via refetch indirecto.
+  const refetch = useCallback(() => fetchTasks(true), [fetchTasks])
+
+  // Mutador local optimístico — permite ao caller actualizar uma row sem
+  // esperar pelo round-trip ao servidor. Útil para ticks de checkbox onde
+  // queremos feedback imediato. Os campos em `patch` são merged sobre o
+  // objecto existente; `removeIfFiltered` faz drop da row quando ela deixa
+  // de bater no filtro do hook (ex.: marcaste completed e o filtro é
+  // is_completed='false').
+  const patchTaskLocal = useCallback(
+    (
+      id: string,
+      patch: Partial<TaskWithRelations>,
+      opts: { removeIfFiltered?: boolean } = {},
+    ) => {
+      setTasks((prev) => {
+        const idx = prev.findIndex((t) => t.id === id)
+        if (idx < 0) return prev
+        const merged = { ...prev[idx], ...patch }
+        // Se o filtro é por completion e a tarefa deixa de bater, remove.
+        if (opts.removeIfFiltered && filters.is_completed) {
+          const wantCompleted = filters.is_completed === 'true'
+          if (!!merged.is_completed !== wantCompleted) {
+            const next = [...prev]
+            next.splice(idx, 1)
+            return next
+          }
+        }
+        const next = [...prev]
+        next[idx] = merged
+        return next
+      })
+    },
+    [filters.is_completed],
+  )
+
+  // Insert local optimístico — usado para mover uma tarefa de um hook para
+  // outro (ex.: lista activa → completedTab) sem refetch.
+  const upsertTaskLocal = useCallback((task: TaskWithRelations) => {
+    setTasks((prev) => {
+      const idx = prev.findIndex((t) => t.id === task.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = task
+        return next
+      }
+      return [task, ...prev]
+    })
+  }, [])
 
   return {
     tasks,
@@ -111,10 +174,12 @@ export function useTasks(initialFilters?: TaskFilters, options: UseTasksOptions 
     error,
     filters,
     setFilters,
-    refetch: fetchTasks,
+    refetch,
     page,
     setPage,
     pageSize,
+    patchTaskLocal,
+    upsertTaskLocal,
   }
 }
 
@@ -140,8 +205,8 @@ export function useTaskStats(userId?: string | null) {
   const [stats, setStats] = useState<TaskStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchStats = useCallback(async () => {
-    setIsLoading(true)
+  const fetchStats = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true)
     try {
       const params = userId ? `?user_id=${userId}` : ''
       const res = await fetch(`/api/tasks/stats${params}`)
@@ -151,7 +216,7 @@ export function useTaskStats(userId?: string | null) {
     } catch {
       setStats(null)
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }, [userId])
 
@@ -159,7 +224,11 @@ export function useTaskStats(userId?: string | null) {
     fetchStats()
   }, [fetchStats])
 
-  return { stats, isLoading, refetch: fetchStats }
+  // Refetch silencioso — chamado depois de acções do utilizador para evitar
+  // que o card de stats pisque skeletons só para reconciliar.
+  const refetch = useCallback(() => fetchStats(true), [fetchStats])
+
+  return { stats, isLoading, refetch }
 }
 
 // ─── Single Task Mutations ───────────────────────────────────

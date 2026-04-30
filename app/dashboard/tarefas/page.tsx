@@ -212,20 +212,53 @@ function TarefasPageInner() {
       toast.info('Conclui esta tarefa no detalhe do processo.')
       return
     }
+
+    // ─── Optimistic update ────────────────────────────────────────────────
+    // Mexer já no estado local antes do await dá feedback INSTANTÂNEO ao
+    // utilizador — a tarefa some da lista activa e aparece no fundo em
+    // "Concluídas hoje" sem skeleton, sem flash, sem esperar pelo PUT.
+    // O refetch silencioso depois do await reconcilia com a resposta real
+    // (incluindo recorrências que spawn nova ocorrência server-side).
+    const allActive = [allTab, personalTab, processTab, listTab, allListsTab]
+    let snapshot: TaskWithRelations | undefined
+    for (const tab of allActive) {
+      const found = tab.tasks.find((t) => t.id === id)
+      if (found) { snapshot = found; break }
+    }
+    if (!snapshot) snapshot = completedTab.tasks.find((t) => t.id === id)
+
+    const newCompleted = !isCompleted
+    const patch: Partial<TaskWithRelations> = {
+      is_completed: newCompleted,
+      completed_at: newCompleted ? new Date().toISOString() : null,
+    }
+
+    // Aplica patch (com remove-if-filtered) em todas as listas pendentes —
+    // só a que tem a row sofre alteração visível.
+    for (const tab of allActive) {
+      tab.patchTaskLocal(id, patch, { removeIfFiltered: true })
+    }
+    // Move/remove da lista de concluídas conforme o sentido do toggle.
+    if (newCompleted && snapshot) {
+      completedTab.upsertTaskLocal({ ...snapshot, ...patch })
+    } else {
+      completedTab.patchTaskLocal(id, patch, { removeIfFiltered: true })
+    }
+
     try {
       await toggleComplete(id, isCompleted)
       toast.success(isCompleted ? 'Tarefa reaberta' : 'Tarefa concluída')
-      // Refetch da tab activa (oculta a tarefa concluída do filtro pendente)
-      // E da `completedTab` que alimenta a secção "Concluídas hoje" no fundo
-      // — sem isto a tarefa simplesmente desaparece sem feedback visual,
-      // pior ainda em recorrentes onde aparece um novo spawn com o mesmo
-      // título noutro bucket. Refetch faz a tarefa mostrar-se concluída
-      // imediatamente em baixo.
+      // Refetch silencioso (sem skeleton) para reconciliar — apanha o spawn
+      // de recorrência e qualquer derivação server-side que o optimístico
+      // não consegue prever.
       refetch()
       completedTab.refetch()
       refetchStats()
     } catch {
       toast.error('Erro ao actualizar tarefa')
+      // Rollback via refetch — o servidor é a fonte de verdade.
+      refetch()
+      completedTab.refetch()
     }
   }
 
