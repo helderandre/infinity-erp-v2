@@ -17,6 +17,9 @@ interface LeadFiltersProps {
   consultants: { id: string; commercial_name: string }[]
   onClearFilters: () => void
   hasActiveFilters: boolean
+  /** Esconde o filtro "Consultor" — usar para a vista do consultor (que
+   *  só vê os seus contactos, logo o filtro é redundante). */
+  hideConsultantFilter?: boolean
   // Multi-select (optional — use these for new pages)
   selectedEstados?: string[]
   onEstadosChange?: (value: string[]) => void
@@ -26,6 +29,9 @@ interface LeadFiltersProps {
   onOrigensChange?: (value: string[]) => void
   selectedAgents?: string[]
   onAgentsChange?: (value: string[]) => void
+  /** Filtro de qualificação por tipo de negócio (Compra/Venda/Arrendatário/Arrendador). */
+  selectedQualifs?: string[]
+  onQualifsChange?: (value: string[]) => void
   // Single-select (backward compat)
   estado?: string
   onEstadoChange?: (value: string) => void
@@ -41,6 +47,15 @@ const estadoOptions = LEAD_ESTADOS.map((e) => ({ value: e, label: e }))
 const temperaturaOptions = LEAD_TEMPERATURAS.map((t) => ({ value: t.value, label: t.label, color: t.color?.split(' ')[0] }))
 const origemOptions = LEAD_ORIGENS.map((o) => ({ value: o, label: o }))
 
+// Qualificação = tipo do negocio associado. Etiquetas curtas (QC/QV/QA-P/QA-A)
+// ficam no badge do contacto; aqui mostramos labels descritivas.
+const qualifOptions: { value: string; label: string }[] = [
+  { value: 'Compra', label: 'QC · Comprador' },
+  { value: 'Venda', label: 'QV · Vendedor' },
+  { value: 'Arrendatário', label: 'QA-P · Arrendatário' },
+  { value: 'Arrendador', label: 'QA-A · Senhorio' },
+]
+
 export function LeadFilters({
   search,
   onSearchChange,
@@ -52,9 +67,12 @@ export function LeadFilters({
   onOrigensChange,
   selectedAgents = [],
   onAgentsChange,
+  selectedQualifs = [],
+  onQualifsChange,
   consultants,
   onClearFilters,
   hasActiveFilters,
+  hideConsultantFilter,
   // Backward compat
   estado,
   onEstadoChange,
@@ -69,6 +87,7 @@ export function LeadFilters({
   const handleTemps = onTemperaturasChange || ((vals: string[]) => onTemperaturaChange?.(vals[0] || 'all'))
   const handleOrigens = onOrigensChange || ((vals: string[]) => onOrigemChange?.(vals[0] || 'all'))
   const handleAgents = onAgentsChange || ((vals: string[]) => onAgentChange?.(vals[0] || 'all'))
+  const handleQualifs = onQualifsChange || (() => {})
 
   const effectiveEstados = onEstadosChange ? selectedEstados : (estado && estado !== 'all' ? [estado] : [])
   const effectiveTemps = onTemperaturasChange ? selectedTemperaturas : (temperatura && temperatura !== 'all' ? [temperatura] : [])
@@ -80,14 +99,20 @@ export function LeadFilters({
     label: c.commercial_name,
   }))
 
-  const activeFilterCount = effectiveEstados.length + effectiveTemps.length + effectiveOrigens.length + effectiveAgents.length
+  const showConsultantFilter = !hideConsultantFilter && consultants.length > 0
+  const activeFilterCount =
+    effectiveEstados.length + effectiveTemps.length + effectiveOrigens.length +
+    effectiveAgents.length + selectedQualifs.length
 
   const filterButtons = (
     <>
       <MultiSelectFilter title="Estado" options={estadoOptions} selected={effectiveEstados} onSelectedChange={handleEstados} />
       <MultiSelectFilter title="Temperatura" options={temperaturaOptions} selected={effectiveTemps} onSelectedChange={handleTemps} />
+      {onQualifsChange && (
+        <MultiSelectFilter title="Qualificação" options={qualifOptions} selected={selectedQualifs} onSelectedChange={handleQualifs} />
+      )}
       <MultiSelectFilter title="Origem" options={origemOptions} selected={effectiveOrigens} onSelectedChange={handleOrigens} />
-      {consultants.length > 0 && (
+      {showConsultantFilter && (
         <MultiSelectFilter title="Consultor" options={consultantOptions} selected={effectiveAgents} onSelectedChange={handleAgents} searchable />
       )}
       {hasActiveFilters && (

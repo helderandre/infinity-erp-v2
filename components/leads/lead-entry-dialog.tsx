@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { useUser } from '@/hooks/use-user'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -22,8 +23,9 @@ import {
   Command, CommandEmpty, CommandGroup, CommandItem, CommandList,
 } from '@/components/ui/command'
 import {
-  Mic, MicOff, Loader2, Sparkles, Handshake, Building2, UserPlus, Landmark, Search, X,
+  Mic, MicOff, Loader2, Sparkles, Handshake, Building2, UserPlus, Landmark, Search, X, Users,
 } from 'lucide-react'
+import { SheetHeader, SheetDescription } from '@/components/ui/sheet'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -71,6 +73,7 @@ const TOP_CATEGORIES: { value: TopCategory; label: string; icon: React.ElementTy
 
 export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly }: LeadEntryDialogProps) {
   const isMobile = useIsMobile()
+  const { user: currentUser } = useUser()
   const [dialogMode, setDialogMode] = useState<DialogMode>('criar')
   const [category, setCategory] = useState<TopCategory>('imobiliario')
   const [creating, setCreating] = useState(false)
@@ -145,6 +148,13 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
         .catch(() => {})
     }
   }, [open])
+
+  // Default "Para quem" para o utilizador actual quando o dialog abre.
+  // Só corre se o campo ainda estiver vazio — não sobrepõe escolhas explícitas.
+  useEffect(() => {
+    if (!open || !currentUser?.id) return
+    setForm((p) => (p.assigned_consultant_id ? p : { ...p, assigned_consultant_id: currentUser.id }))
+  }, [open, currentUser?.id])
 
   const resetForm = () => {
     setForm({
@@ -313,75 +323,96 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
             : 'w-full data-[side=right]:sm:max-w-[480px] sm:rounded-l-3xl',
         )}
       >
-        <VisuallyHidden><SheetTitle>Registar Lead</SheetTitle></VisuallyHidden>
         {isMobile && (
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
         )}
-        {/* Dark header: tabs + AI button */}
-        <div className="bg-neutral-900 rounded-t-2xl px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/10">
-              {([
-                { key: 'criar' as const, label: 'Criar Lead' },
-                { key: 'referenciar' as const, label: 'Referenciar Lead' },
-              ]).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setDialogMode(tab.key)}
-                  className={cn(
-                    'px-3.5 py-1.5 rounded-full text-xs font-medium transition-all',
-                    dialogMode === tab.key ? 'bg-white text-neutral-900 shadow-sm' : 'text-white/60 hover:text-white'
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
 
-            <Popover open={aiOpen} onOpenChange={setAiOpen}>
-              <PopoverTrigger asChild>
-                <button className={cn(
-                  'h-8 w-8 rounded-full flex items-center justify-center transition-colors',
-                  isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 border border-white/15 text-white/60 hover:text-white hover:bg-white/15',
-                  isProcessing && 'bg-white/10 text-white/60'
-                )}>
-                  {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" sideOffset={8} className="w-72 rounded-xl p-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  {isRecording ? (
-                    <Button type="button" variant="destructive" size="sm" className="rounded-full gap-2 h-7 text-xs" onClick={() => { stopRecording(); setAiOpen(false) }}>
-                      <MicOff className="h-3 w-3" />
-                      <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" /></span>
-                      Parar
-                    </Button>
-                  ) : (
-                    <Button type="button" variant="outline" size="sm" className="rounded-full gap-1.5 h-7 text-xs" disabled={isProcessing} onClick={() => { startRecording(); setAiOpen(false) }}>
-                      <Mic className="h-3 w-3" /> Gravar
-                    </Button>
-                  )}
-                  {isProcessing && <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> A processar...</span>}
-                </div>
-                <Textarea placeholder="Cole texto com dados do lead..." rows={3} className="text-xs resize-none rounded-lg" value={aiText} onChange={(e) => setAiText(e.target.value)} />
-                <Button type="button" size="sm" className="rounded-full text-xs gap-1.5 w-full h-7" disabled={isProcessing || !aiText.trim()} onClick={() => extractFromText(aiText)}>
-                  <Sparkles className="h-3 w-3" /> Extrair dados
-                </Button>
-              </PopoverContent>
-            </Popover>
+        {/* Glass header — match feedback dialog design language */}
+        <SheetHeader className={cn('px-6 pb-3 border-b border-border/40 shrink-0', isMobile ? 'pt-8' : 'pt-6')}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <SheetTitle className="flex items-center gap-2 text-base">
+                <UserPlus className="h-5 w-5" />
+                {dialogMode === 'referenciar' ? 'Referenciar Lead' : 'Registar Lead'}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Adiciona um lead à base de contactos
+              </SheetDescription>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Popover open={aiOpen} onOpenChange={setAiOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={isRecording ? 'destructive' : 'outline'}
+                    size="sm"
+                    className={cn('rounded-full h-8 text-xs gap-1.5', isRecording && 'animate-pulse')}
+                  >
+                    {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isRecording ? <MicOff className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    <span className="hidden sm:inline">{isRecording ? 'A gravar' : isProcessing ? 'A processar' : 'Preencher com IA'}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" sideOffset={8} className="w-72 rounded-xl p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    {isRecording ? (
+                      <Button type="button" variant="destructive" size="sm" className="rounded-full gap-2 h-7 text-xs" onClick={() => { stopRecording(); setAiOpen(false) }}>
+                        <MicOff className="h-3 w-3" />
+                        <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" /></span>
+                        Parar
+                      </Button>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" className="rounded-full gap-1.5 h-7 text-xs" disabled={isProcessing} onClick={() => { startRecording(); setAiOpen(false) }}>
+                        <Mic className="h-3 w-3" /> Gravar
+                      </Button>
+                    )}
+                    {isProcessing && <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> A processar...</span>}
+                  </div>
+                  <Textarea placeholder="Cole texto com dados do lead..." rows={3} className="text-xs resize-none rounded-lg" value={aiText} onChange={(e) => setAiText(e.target.value)} />
+                  <Button type="button" size="sm" className="rounded-full text-xs gap-1.5 w-full h-7" disabled={isProcessing || !aiText.trim()} onClick={() => extractFromText(aiText)}>
+                    <Sparkles className="h-3 w-3" /> Extrair dados
+                  </Button>
+                </PopoverContent>
+              </Popover>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                className="h-8 w-8 rounded-full"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Fechar</span>
+              </Button>
+            </div>
           </div>
-          {isRecording && (
-            <div className="flex items-center gap-1.5 mt-2 text-[10px] text-red-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />A gravar...
-            </div>
-          )}
-        </div>
+          {/* Pill tabs — Criar / Referenciar */}
+          <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-muted/50 p-1 w-full sm:w-auto">
+            {([
+              { key: 'criar' as const, label: 'Criar Lead' },
+              { key: 'referenciar' as const, label: 'Referenciar Lead' },
+            ]).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setDialogMode(tab.key)}
+                className={cn(
+                  'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-[12px] font-medium transition-all flex-1 sm:flex-none',
+                  dialogMode === tab.key
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </SheetHeader>
 
-        {/* Form body */}
-        <div className="px-5 pt-4 pb-5 space-y-4 max-h-[65vh] overflow-y-auto">
-          {/* ── REFERENCIAR: referral details first ── */}
+        {/* Form body — sections wrapped in white cards */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
+          {/* Card 1 — Referenciação details (only in referenciar mode) */}
           {dialogMode === 'referenciar' && (
-            <div className="space-y-3">
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
               <div>
                 <Label className="text-[11px] text-muted-foreground font-medium">Referência (%)</Label>
                 <div className="relative mt-1">
@@ -399,312 +430,217 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
             </div>
           )}
 
-          {/* ── Top category: Imobiliário / Recrutamento / Crédito ── */}
-          {!realEstateOnly && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Área</Label>
-              <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                {TOP_CATEGORIES.map((cat) => {
-                  const isActive = category === cat.value
-                  return (
-                    <button key={cat.value} type="button" onClick={() => { setCategory(cat.value); setForm((p) => ({ ...p, sector: '' })) }}
-                      className={cn('rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
-                      <cat.icon className="h-3.5 w-3.5" />
-                      {cat.label}
-                    </button>
-                  )
-                })}
+          {/* Card 2 — Categoria (Área + Tipo de Lead + Origem) + específicos */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+            {/* ── Área ── */}
+            {!realEstateOnly && (
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Área</Label>
+                <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                  {TOP_CATEGORIES.map((cat) => {
+                    const isActive = category === cat.value
+                    return (
+                      <button key={cat.value} type="button" onClick={() => { setCategory(cat.value); setForm((p) => ({ ...p, sector: '' })) }}
+                        className={cn('rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
+                        <cat.icon className="h-3.5 w-3.5" />
+                        {cat.label}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── Imobiliário sub-type ── */}
-          {category === 'imobiliario' && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Lead</Label>
-              <div className="grid grid-cols-4 gap-1.5 mt-1.5">
-                {IMOB_SECTORS.map((opt) => {
-                  const isActive = form.sector === opt.value
-                  return (
-                    <button key={opt.value} type="button" onClick={() => setForm((p) => ({ ...p, sector: isActive ? '' : opt.value }))}
-                      className={cn('rounded-lg py-1.5 text-[11px] font-medium transition-all text-center', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
-                      {opt.label}
-                    </button>
-                  )
-                })}
+            {/* ── Tipo de Lead (Imobiliário) ── */}
+            {category === 'imobiliario' && (
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Lead</Label>
+                <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+                  {IMOB_SECTORS.map((opt) => {
+                    const isActive = form.sector === opt.value
+                    return (
+                      <button key={opt.value} type="button" onClick={() => setForm((p) => ({ ...p, sector: isActive ? '' : opt.value }))}
+                        className={cn('rounded-lg py-1.5 text-[11px] font-medium transition-all text-center', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── Origem ── */}
-          <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
-            <Select value={form.source} onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}>
-              <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{SOURCE_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent>
-            </Select>
-          </div>
-
-          {/* ── Atribuir a (criar mode only — referenciar uses its own consultor select above) ── */}
-          {dialogMode === 'criar' && (
+            {/* ── Origem ── */}
             <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Para quem</Label>
-              <Select
-                value={form.assigned_consultant_id || '_auto'}
-                onValueChange={(v) => setForm((p) => ({ ...p, assigned_consultant_id: v === '_auto' ? '' : v }))}
-              >
+              <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
+              <Select value={form.source} onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}>
                 <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_auto">Automático (via regras)</SelectItem>
-                  {consultantsList.map((c) => (<SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>))}
-                </SelectContent>
+                <SelectContent>{SOURCE_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent>
               </Select>
             </div>
-          )}
 
-          {/* ── Imóvel relacionado (apenas imobiliário) ── */}
-          {category === 'imobiliario' && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                Imóvel relacionado <span className="text-muted-foreground/60 font-normal">(opcional)</span>
-              </Label>
-              {form.property_id ? (
-                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 mt-1 h-9">
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs truncate flex-1">{form.property_label}</span>
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => setForm((p) => ({ ...p, property_id: '', property_label: '' }))}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+            {/* ── Recruitment-specific ── */}
+            {category === 'recrutamento' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Experiência imobiliária?</span>
+                  <Switch checked={form.has_experience} onCheckedChange={(v) => setForm((p) => ({ ...p, has_experience: v }))} />
                 </div>
-              ) : (
-                <Popover open={propPopoverOpen} onOpenChange={setPropPopoverOpen}>
-                  <PopoverAnchor asChild>
-                    <div className="relative mt-1">
-                      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                      {isPropLoading && (
-                        <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
-                      )}
-                      <Input
-                        value={propQuery}
-                        onChange={(e) => { setPropQuery(e.target.value); setHasPropTyped(true) }}
-                        onFocus={() => propResults.length > 0 && setPropPopoverOpen(true)}
-                        placeholder="Pesquisar por referência ou título..."
-                        autoComplete="off"
-                        className="rounded-lg h-9 pl-8 text-xs"
-                      />
-                    </div>
-                  </PopoverAnchor>
-                  <PopoverContent
-                    className="w-[var(--radix-popover-trigger-width)] p-0"
-                    sideOffset={4}
-                    align="start"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <Command shouldFilter={false}>
-                      <CommandList>
-                        <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
-                          {isPropLoading ? 'A pesquisar...' : 'Sem resultados.'}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {propResults.map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.id}
-                              onSelect={() => {
-                                const label = [p.external_ref, p.title].filter(Boolean).join(' — ')
-                                setForm((prev) => ({ ...prev, property_id: p.id, property_label: label }))
-                                setPropQuery('')
-                                setHasPropTyped(false)
-                                setPropResults([])
-                                setPropPopoverOpen(false)
-                              }}
-                              className="cursor-pointer gap-2"
-                            >
-                              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-xs truncate font-medium">
-                                  {p.external_ref ? `${p.external_ref} — ${p.title}` : p.title}
-                                </span>
-                                {p.city && (<span className="text-[10px] text-muted-foreground truncate">{p.city}</span>)}
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              )}
-            </div>
-          )}
-
-          {/* ── Shared contact fields ── */}
-          <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Nome *</Label>
-            <Input placeholder="Nome completo" value={form.raw_name} onChange={(e) => setForm((p) => ({ ...p, raw_name: e.target.value }))} className="rounded-lg mt-1 h-9" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Email</Label>
-              <Input type="email" placeholder="email@exemplo.pt" value={form.raw_email} onChange={(e) => setForm((p) => ({ ...p, raw_email: e.target.value }))} className="rounded-lg mt-1 h-9" />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Telefone</Label>
-              <Input placeholder="+351 912 345 678" value={form.raw_phone} onChange={(e) => setForm((p) => ({ ...p, raw_phone: e.target.value }))} className="rounded-lg mt-1 h-9" />
-            </div>
-          </div>
-
-          {/* ── Recruitment-specific fields ── */}
-          {category === 'recrutamento' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Experiência imobiliária?</span>
-                <Switch checked={form.has_experience} onCheckedChange={(v) => setForm((p) => ({ ...p, has_experience: v }))} />
+                {form.has_experience && (
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground font-medium">Agência anterior</Label>
+                    <Input placeholder="Nome da agência" value={form.previous_agency} onChange={(e) => setForm((p) => ({ ...p, previous_agency: e.target.value }))} className="rounded-lg mt-1 h-9" />
+                  </div>
+                )}
               </div>
-              {form.has_experience && (
+            )}
+
+            {/* ── Credit-specific ── */}
+            {category === 'credito' && (
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Finalidade</Label>
+                <Select value={form.credit_purpose} onValueChange={(v) => setForm((p) => ({ ...p, credit_purpose: v }))}>
+                  <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="habitacao_propria_permanente">Habitação Própria Permanente</SelectItem>
+                    <SelectItem value="habitacao_propria_secundaria">Habitação Secundária</SelectItem>
+                    <SelectItem value="investimento">Investimento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          {/* /Card 2 */}
+
+          {/* Card 3 — Imóvel relacionado + Para quem (criar mode) */}
+          {dialogMode === 'criar' && (
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+              {/* Imóvel relacionado FIRST (apenas imobiliário) */}
+              {category === 'imobiliario' && (
                 <div>
-                  <Label className="text-[11px] text-muted-foreground font-medium">Agência anterior</Label>
-                  <Input placeholder="Nome da agência" value={form.previous_agency} onChange={(e) => setForm((p) => ({ ...p, previous_agency: e.target.value }))} className="rounded-lg mt-1 h-9" />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Credit-specific fields ── */}
-          {category === 'credito' && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Finalidade</Label>
-              <Select value={form.credit_purpose} onValueChange={(v) => setForm((p) => ({ ...p, credit_purpose: v }))}>
-                <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="habitacao_propria_permanente">Habitação Própria Permanente</SelectItem>
-                  <SelectItem value="habitacao_propria_secundaria">Habitação Secundária</SelectItem>
-                  <SelectItem value="investimento">Investimento</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* ── Atribuir a consultor (criar mode) ── */}
-          {dialogMode === 'criar' && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Atribuir a</Label>
-              <Select
-                value={form.assigned_consultant_id || 'auto'}
-                onValueChange={(v) => setForm((p) => ({ ...p, assigned_consultant_id: v === 'auto' ? '' : v }))}
-              >
-                <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Automático (via regras)</SelectItem>
-                  {consultantsList.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* ── Imóvel relacionado (angariação) ── */}
-          {category === 'imobiliario' && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
-                <Building2 className="h-3 w-3" />
-                Imóvel relacionado <span className="text-muted-foreground/70 font-normal">(opcional)</span>
-              </Label>
-              {form.property_id ? (
-                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 mt-1 h-9">
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs truncate flex-1">{form.property_label}</span>
-                  <button
-                    type="button"
-                    className="h-5 w-5 rounded-full text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
-                    onClick={() => setForm((p) => ({ ...p, property_id: '', property_label: '' }))}
-                    aria-label="Remover imóvel"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <Popover open={propPopoverOpen} onOpenChange={setPropPopoverOpen}>
-                  <PopoverAnchor asChild>
-                    <div className="relative mt-1">
-                      <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      {isPropLoading && (
-                        <Loader2 className="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-muted-foreground" />
-                      )}
-                      <Input
-                        value={propQuery}
-                        onChange={(e) => { setPropQuery(e.target.value); setHasPropTyped(true) }}
-                        onFocus={() => propResults.length > 0 && setPropPopoverOpen(true)}
-                        placeholder="Pesquisar por referência ou título..."
-                        autoComplete="off"
-                        className="pl-7 rounded-lg h-9 text-xs"
-                      />
+                  <Label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    Imóvel relacionado <span className="text-muted-foreground/60 font-normal">(opcional)</span>
+                  </Label>
+                  {form.property_id ? (
+                    <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 mt-1 h-9">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs truncate flex-1">{form.property_label}</span>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setForm((p) => ({ ...p, property_id: '', property_label: '' }))}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  </PopoverAnchor>
-                  <PopoverContent
-                    className="w-[var(--radix-popover-trigger-width)] p-0"
-                    sideOffset={4}
-                    align="start"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <Command shouldFilter={false}>
-                      <CommandList>
-                        <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
-                          {isPropLoading ? 'A pesquisar...' : 'Sem resultados.'}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {propResults.map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.id}
-                              onSelect={() => {
-                                const label = [p.external_ref, p.title].filter(Boolean).join(' — ')
-                                setForm((prev) => ({ ...prev, property_id: p.id, property_label: label }))
-                                setPropQuery('')
-                                setHasPropTyped(false)
-                                setPropResults([])
-                                setPropPopoverOpen(false)
-                              }}
-                              className="cursor-pointer gap-2"
-                            >
-                              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-xs truncate font-medium">
-                                  {p.external_ref ? `${p.external_ref} — ${p.title}` : p.title}
-                                </span>
-                                {p.city && (
-                                  <span className="text-[10px] text-muted-foreground truncate">{p.city}</span>
-                                )}
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                  ) : (
+                    <Popover open={propPopoverOpen} onOpenChange={setPropPopoverOpen}>
+                      <PopoverAnchor asChild>
+                        <div className="relative mt-1">
+                          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          {isPropLoading && (
+                            <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+                          )}
+                          <Input
+                            value={propQuery}
+                            onChange={(e) => { setPropQuery(e.target.value); setHasPropTyped(true) }}
+                            onFocus={() => propResults.length > 0 && setPropPopoverOpen(true)}
+                            placeholder="Pesquisar por referência ou título..."
+                            autoComplete="off"
+                            className="rounded-lg h-9 pl-8 text-xs"
+                          />
+                        </div>
+                      </PopoverAnchor>
+                      <PopoverContent
+                        className="w-[var(--radix-popover-trigger-width)] p-0"
+                        sideOffset={4}
+                        align="start"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <Command shouldFilter={false}>
+                          <CommandList>
+                            <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                              {isPropLoading ? 'A pesquisar...' : 'Sem resultados.'}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {propResults.map((p) => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={p.id}
+                                  onSelect={() => {
+                                    const label = [p.external_ref, p.title].filter(Boolean).join(' — ')
+                                    setForm((prev) => ({ ...prev, property_id: p.id, property_label: label }))
+                                    setPropQuery('')
+                                    setHasPropTyped(false)
+                                    setPropResults([])
+                                    setPropPopoverOpen(false)
+                                  }}
+                                  className="cursor-pointer gap-2"
+                                >
+                                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs truncate font-medium">
+                                      {p.external_ref ? `${p.external_ref} — ${p.title}` : p.title}
+                                    </span>
+                                    {p.city && (<span className="text-[10px] text-muted-foreground truncate">{p.city}</span>)}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
               )}
+
+              {/* Para quem — default = utilizador actual */}
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Para quem</Label>
+                <Select
+                  value={form.assigned_consultant_id || '_auto'}
+                  onValueChange={(v) => setForm((p) => ({ ...p, assigned_consultant_id: v === '_auto' ? '' : v }))}
+                >
+                  <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_auto">Automático (via regras)</SelectItem>
+                    {consultantsList.map((c) => (<SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
+          {/* /Card 3 */}
 
-          {/* ── Notes ── */}
-          <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Notas</Label>
-            <Textarea rows={2} placeholder="Observações..." value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="rounded-lg mt-1 text-xs" />
+          {/* Card 4 — Identidade (Nome, Email, Telefone, Notas) */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Nome *</Label>
+              <Input placeholder="Nome completo" value={form.raw_name} onChange={(e) => setForm((p) => ({ ...p, raw_name: e.target.value }))} className="rounded-lg mt-1 h-9" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Email</Label>
+                <Input type="email" placeholder="email@exemplo.pt" value={form.raw_email} onChange={(e) => setForm((p) => ({ ...p, raw_email: e.target.value }))} className="rounded-lg mt-1 h-9" />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground font-medium">Telefone</Label>
+                <Input placeholder="+351 912 345 678" value={form.raw_phone} onChange={(e) => setForm((p) => ({ ...p, raw_phone: e.target.value }))} className="rounded-lg mt-1 h-9" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium">Notas</Label>
+              <Textarea rows={2} placeholder="Observações..." value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="rounded-lg mt-1 text-xs" />
+            </div>
           </div>
+          {/* /Card 4 */}
 
-          {/* ── CRIAR: referral toggle (imobiliário only) ── */}
+          {/* Card 4 — Referenciação opcional (criar + imobiliário only) */}
           {dialogMode === 'criar' && category === 'imobiliario' && (
-            <>
-              <div className="flex items-center justify-between pt-1">
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
+              <div className="flex items-center justify-between">
                 <span className="text-xs font-medium">Tem referenciação?</span>
                 <Switch checked={form.has_referral} onCheckedChange={(v) => setForm((p) => ({ ...p, has_referral: v }))} />
               </div>
@@ -739,14 +675,14 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
                   )}
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3 border-t flex items-center justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="rounded-full text-xs">Cancelar</Button>
-          <Button size="sm" onClick={handleCreate} disabled={creating} className="rounded-full text-xs">
+        {/* Footer translúcido */}
+        <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button size="sm" onClick={handleCreate} disabled={creating} className="min-w-[120px]">
             {creating && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             {dialogMode === 'referenciar' ? 'Referenciar' : 'Registar'}
           </Button>

@@ -38,6 +38,8 @@ import {
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { formatDate } from '@/lib/constants'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -125,17 +127,25 @@ function LeadsPageContent() {
   const [importOpen, setImportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table')
 
+  const { user } = useUser()
+  const isManagement = isManagementRole(user?.role_names ?? [])
+
   const [search, setSearch] = useState(searchParams.get('nome') || '')
   const [estado, setEstado] = useState(searchParams.get('estado') || 'all')
   const [temperatura, setTemperatura] = useState(searchParams.get('temperatura') || 'all')
   const [origem, setOrigem] = useState(searchParams.get('origem') || 'all')
   const [agentId, setAgentId] = useState(searchParams.get('agent_id') || 'all')
+  const [qualifTipos, setQualifTipos] = useState<string[]>(() => {
+    const csv = searchParams.get('qualif_tipos') || ''
+    return csv ? csv.split(',').filter(Boolean) : []
+  })
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
   const debouncedSearch = useDebounce(search, 300)
 
   const hasActiveFilters =
-    debouncedSearch !== '' || estado !== 'all' || temperatura !== 'all' || origem !== 'all' || agentId !== 'all'
+    debouncedSearch !== '' || estado !== 'all' || temperatura !== 'all' ||
+    origem !== 'all' || agentId !== 'all' || qualifTipos.length > 0
 
   const loadLeads = useCallback(async () => {
     setIsLoading(true)
@@ -146,6 +156,7 @@ function LeadsPageContent() {
       if (temperatura !== 'all') params.set('temperatura', temperatura)
       if (origem !== 'all') params.set('origem', origem)
       if (agentId !== 'all') params.set('agent_id', agentId)
+      if (qualifTipos.length > 0) params.set('qualif_tipos', qualifTipos.join(','))
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String(page * PAGE_SIZE))
 
@@ -161,7 +172,7 @@ function LeadsPageContent() {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, estado, temperatura, origem, agentId, page])
+  }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, page])
 
   const loadConsultants = useCallback(async () => {
     try {
@@ -177,8 +188,12 @@ function LeadsPageContent() {
   }, [])
 
   useEffect(() => { loadLeads() }, [loadLeads])
-  useEffect(() => { loadConsultants() }, [loadConsultants])
-  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId])
+  useEffect(() => {
+    // Para consultor, não fazemos download da lista de consultores —
+    // o filtro fica escondido e a API força agent_id=self.
+    if (isManagement) loadConsultants()
+  }, [loadConsultants, isManagement])
+  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -200,6 +215,7 @@ function LeadsPageContent() {
     setTemperatura('all')
     setOrigem('all')
     setAgentId('all')
+    setQualifTipos([])
     setPage(0)
   }
 
@@ -289,6 +305,9 @@ function LeadsPageContent() {
             consultants={consultants}
             agentId={agentId}
             onAgentChange={setAgentId}
+            selectedQualifs={qualifTipos}
+            onQualifsChange={setQualifTipos}
+            hideConsultantFilter={!isManagement}
             onClearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
           />

@@ -655,7 +655,7 @@ export function VoiceMessagePlayer({ src, duration, variant = 'own' }: VoiceMess
   }, [handleSeek])
 
   return (
-    <div className="flex items-center gap-2.5 w-[280px]">
+    <div className="flex items-center gap-2.5 w-full max-w-[280px] min-w-0">
       {/* Play/Pause */}
       <button
         onClick={togglePlay}

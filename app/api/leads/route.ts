@@ -29,6 +29,12 @@ export async function GET(request: Request) {
     const canSeeAll = isManagementRole(auth.roles)
     const agent_id = canSeeAll ? agentParam : auth.user.id
     const qualified_only = searchParams.get('qualified_only') === 'true'
+    const qualifTiposCsv = searchParams.get('qualif_tipos') || ''
+    const qualifTipos = qualifTiposCsv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 10) // safety cap
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100)
     const offset = Number(searchParams.get('offset')) || 0
 
@@ -55,6 +61,26 @@ export async function GET(request: Request) {
     }
     if (agent_id) {
       query = query.eq('agent_id', agent_id)
+    }
+
+    // Filtrar por qualificação (tipo do negocio associado): pre-fetch dos
+    // lead_ids que têm pelo menos um negocio com esses tipos, depois `.in()`
+    // sobre `leads.id`. Mais simples e correcto que tentar filtrar via
+    // PostgREST nested (que filtra a embedded array, não as parent rows).
+    if (qualifTipos.length > 0) {
+      const { data: negs } = await supabase
+        .from('negocios')
+        .select('lead_id')
+        .in('tipo', qualifTipos)
+      const leadIds = Array.from(
+        new Set(((negs as Array<{ lead_id: string | null }> | null) ?? [])
+          .map((n) => n.lead_id)
+          .filter((id): id is string => !!id)),
+      )
+      if (leadIds.length === 0) {
+        return NextResponse.json({ data: [], total: 0 })
+      }
+      query = query.in('id', leadIds)
     }
 
     const { data, error, count } = await query

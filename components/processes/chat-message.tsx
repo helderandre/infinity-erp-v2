@@ -189,6 +189,41 @@ function EntityMentionCard({
   )
 }
 
+// URL detection — split em http(s)://… ou www.… cobre ~95% dos casos.
+// `/g` é OK em `.split()` (não usa lastIndex). Para test usamos um regex
+// separado sem `/g` para evitar o bug do lastIndex.
+const URL_SPLIT_RE = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi
+const URL_TEST_RE = /^(https?:\/\/|www\.)/i
+const TRAILING_PUNCT_RE = /[.,;:!?)\]}>]+$/
+
+function linkifyPlainText(text: string, isOwn: boolean): React.ReactNode {
+  if (!text) return text
+  const segments = text.split(URL_SPLIT_RE)
+  return segments.map((seg, i) => {
+    if (!URL_TEST_RE.test(seg)) return <React.Fragment key={i}>{seg}</React.Fragment>
+    // Strip trailing punctuation que não pertence ao URL ("…example.com." →
+    // URL é "…example.com" e o "." fica como texto a seguir).
+    const trail = seg.match(TRAILING_PUNCT_RE)
+    const urlText = trail ? seg.slice(0, seg.length - trail[0].length) : seg
+    const after = trail ? trail[0] : ''
+    const href = urlText.toLowerCase().startsWith('http') ? urlText : `https://${urlText}`
+    return (
+      <React.Fragment key={i}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-sky-400 underline underline-offset-2 break-all hover:text-sky-300 transition-colors"
+        >
+          {urlText}
+        </a>
+        {after}
+      </React.Fragment>
+    )
+  })
+}
+
 function renderMessageContent(
   content: string,
   isOwn: boolean,
@@ -228,7 +263,9 @@ function renderMessageContent(
         />
       )
     }
-    return part
+    // Plain text — auto-link URLs (http(s):// e www.) sem perder mentions
+    // já tratados acima.
+    return <React.Fragment key={i}>{linkifyPlainText(part, isOwn)}</React.Fragment>
   })
 }
 

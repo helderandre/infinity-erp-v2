@@ -294,7 +294,7 @@ export function QuickActions() {
                             {row.label}
                           </span>
                           {row.description && (
-                            <span className="block text-[11px] text-muted-foreground/80 truncate mt-0.5">
+                            <span className="hidden sm:block text-[11px] text-muted-foreground/80 truncate mt-0.5">
                               {row.description}
                             </span>
                           )}
