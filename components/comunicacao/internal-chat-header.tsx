@@ -1,7 +1,7 @@
 'use client'
 
-import { Users, ArrowLeft } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ArrowLeft } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -34,8 +34,12 @@ export function InternalChatHeader({ onlineUsers, currentUserId, onBack }: Inter
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
-        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-          <Users className="h-4 w-4 text-primary" />
+        <div className="h-9 w-9 rounded-full bg-neutral-900 flex items-center justify-center overflow-hidden shrink-0">
+          <img
+            src="/icon-512.png"
+            alt="Infinity Group"
+            className="h-full w-full object-cover"
+          />
         </div>
         <div>
           <h3 className="text-sm font-semibold">Grupo Geral</h3>

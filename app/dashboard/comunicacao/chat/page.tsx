@@ -262,7 +262,7 @@ function DmChatHeader({
       </Avatar>
       <div>
         <h3 className="text-sm font-semibold">{userName}</h3>
-        <p className="text-[11px] text-muted-foreground">Mensagem directa</p>
+        <p className="text-[11px] text-muted-foreground">Mensagem direta</p>
       </div>
     </div>
   )

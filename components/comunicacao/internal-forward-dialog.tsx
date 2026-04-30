@@ -180,7 +180,7 @@ export function InternalForwardDialog({
             Reencaminhar mensagem
           </DialogTitle>
           <DialogDescription>
-            Escolha o destino — Geral ou conversa directa com um colega.
+            Escolha o destino — Geral ou conversa direta com um colega.
           </DialogDescription>
         </DialogHeader>
 
@@ -255,7 +255,7 @@ export function InternalForwardDialog({
                       </Avatar>
                     }
                     title={u.commercial_name}
-                    subtitle="Mensagem directa"
+                    subtitle="Mensagem direta"
                   />
                 )
               })
