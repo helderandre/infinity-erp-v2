@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Users, User, Search, Paperclip } from 'lucide-react'
+import { User, Search, Paperclip } from 'lucide-react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { Separator } from '@/components/ui/separator'
@@ -187,15 +187,88 @@ export function ConversationList({
         <h2 className="text-sm font-semibold">Conversas</h2>
       </div>
 
-      {/* Grupo Geral — pinned */}
+      {/* Grupo Geral — pinned. Layout idêntico aos DMs (avatar, nome, hora,
+          preview) mas com a logo Infinity Group como avatar. */}
       <div className="px-1 shrink-0">
-        <ConversationListItem
-          icon={<Users className="h-4 w-4 text-primary" />}
-          title="Grupo Geral"
-          unreadCount={unreadCounts[INTERNAL_CHAT_CHANNEL_ID] || 0}
-          isActive={isInternalActive}
-          onClick={() => onSelect({ type: 'internal' })}
-        />
+        {(() => {
+          const geralUnread = unreadCounts[INTERNAL_CHAT_CHANNEL_ID] || 0
+          const geralLastMsg = lastMessage[INTERNAL_CHAT_CHANNEL_ID]
+          const geralActivity = lastActivity[INTERNAL_CHAT_CHANNEL_ID]
+          const geralTime = formatActivityLabel(geralActivity)
+          const geralPreview = lastMessagePreview(geralLastMsg, currentUserId)
+          return (
+            <button
+              type="button"
+              onClick={() => onSelect({ type: 'internal' })}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left',
+                'hover:bg-muted/60',
+                isInternalActive && 'bg-muted',
+              )}
+            >
+              <div className="h-10 w-10 shrink-0 rounded-full bg-neutral-900 flex items-center justify-center overflow-hidden">
+                <img
+                  src="/icon-512.png"
+                  alt="Infinity Group"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span
+                    className={cn(
+                      'text-sm truncate',
+                      geralUnread > 0 && 'font-semibold',
+                    )}
+                  >
+                    Grupo Geral
+                  </span>
+                  {geralTime && (
+                    <span
+                      className={cn(
+                        'text-[10px] shrink-0',
+                        geralUnread > 0 ? 'text-primary font-medium' : 'text-muted-foreground',
+                      )}
+                    >
+                      {geralTime}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                  {geralPreview.text || geralPreview.isAttachment ? (
+                    <span
+                      className={cn(
+                        'text-[11px] truncate min-w-0',
+                        geralUnread > 0
+                          ? 'text-foreground font-medium'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {geralPreview.prefix && (
+                        <span className="text-muted-foreground/80 mr-1">
+                          {geralPreview.prefix}
+                        </span>
+                      )}
+                      {geralPreview.isAttachment && (
+                        <Paperclip className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+                      )}
+                      {geralPreview.text}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground/70 truncate">
+                      Canal interno da equipa
+                    </span>
+                  )}
+                  {geralUnread > 0 && (
+                    <Badge className="ml-auto h-4 min-w-4 px-1 text-[9px] font-bold rounded-full bg-primary text-primary-foreground shrink-0">
+                      {geralUnread}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </button>
+          )
+        })()}
       </div>
 
       <Separator className="my-2" />
