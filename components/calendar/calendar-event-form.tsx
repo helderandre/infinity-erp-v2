@@ -123,7 +123,9 @@ export function CalendarEventForm({
       is_recurring: false,
       recurrence_rule: null,
       user_id: null,
-      visibility: 'all',
+      // Consultores: por defeito o evento é só para o próprio. Apenas leadership
+      // pode escolher "Visível para todos" (selector escondido — ver render).
+      visibility: isLeadership ? 'all' : 'private',
       visibility_mode: 'all',
       visibility_user_ids: [],
       visibility_role_names: [],
@@ -170,7 +172,8 @@ export function CalendarEventForm({
       reset({
         title: '', description: '', category: 'meeting', item_type: 'event',
         start_date: '', end_date: '', all_day: false, is_recurring: false,
-        recurrence_rule: null, user_id: null, visibility: 'all',
+        recurrence_rule: null, user_id: null,
+        visibility: isLeadership ? 'all' : 'private',
         visibility_mode: 'all', visibility_user_ids: [], visibility_role_names: [],
         color: null, cover_image_url: null, location: null,
         location_lat: null, location_lng: null,
@@ -734,8 +737,11 @@ export function CalendarEventForm({
                 )}
 
                 {/* Visibilidade — events only — colocada logo abaixo da categoria
-                    no mesmo card "Detalhes" para facilitar o fluxo de criação. */}
-                {itemType === 'event' && (
+                    no mesmo card "Detalhes" para facilitar o fluxo de criação.
+                    Consultores não podem escolher visibilidade — o evento fica
+                    sempre privado (só para o próprio). Selector apenas para
+                    leadership. */}
+                {itemType === 'event' && isLeadership && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs font-medium text-muted-foreground">

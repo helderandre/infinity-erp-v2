@@ -658,6 +658,25 @@ export async function POST(request: Request) {
     const { priority: _priority, ...eventInsert } = parsed.data
     void _priority
 
+    // Consultores não podem criar eventos visíveis para outros utilizadores.
+    // Forçamos visibilidade privada no servidor independentemente do que o
+    // payload trouxer — o selector está escondido na UI mas reforçamos aqui
+    // para impedir bypass via curl.
+    const { data: ud } = await admin
+      .from('dev_users')
+      .select('user_roles!user_roles_user_id_fkey(role:roles(name))')
+      .eq('id', user.id)
+      .single()
+    const callerRoleNames = ((ud?.user_roles as any) || [])
+      .map((ur: any) => ur?.role?.name)
+      .filter((n: any): n is string => !!n)
+    if (!isManagementRole(callerRoleNames)) {
+      eventInsert.visibility = 'private'
+      eventInsert.visibility_mode = 'all'
+      eventInsert.visibility_user_ids = []
+      eventInsert.visibility_role_names = []
+    }
+
     const { data, error } = await admin
       .from('calendar_events')
       .insert({

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calendarEventSchema, scheduleEventSchema } from '@/lib/validations/calendar'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 // ---------------------------------------------------------------------------
 // GET — Fetch a single manual calendar event
@@ -56,19 +58,32 @@ export async function PUT(
       return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 })
     }
 
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const body = await request.json()
 
     const admin = createAdminClient() as any
 
-    // Check event exists and get its category
+    // Check event exists and get its category + creator
     const { data: existing, error: findError } = await admin
       .from('calendar_events')
-      .select('id, category, proc_subtask_id')
+      .select('id, category, proc_subtask_id, created_by')
       .eq('id', id)
       .single()
 
     if (findError || !existing) {
       return NextResponse.json({ error: 'Evento não encontrado.' }, { status: 404 })
+    }
+
+    // Só o criador ou um gestor pode editar. Consultores não podem mexer em
+    // eventos da empresa nem em eventos criados por outros utilizadores.
+    const isCreator = existing.created_by === auth.user.id
+    if (!isCreator && !isManagementRole(auth.roles)) {
+      return NextResponse.json(
+        { error: 'Sem permissão para editar este evento.' },
+        { status: 403 },
+      )
     }
 
     // Use different validation depending on category
@@ -117,6 +132,14 @@ export async function PUT(
       // ("Could not find the 'priority' column of 'calendar_events'").
       const { priority: _priority, ...eventUpdate } = parsed.data
       void _priority
+      // Consultores não podem promover um evento a "Visível para todos".
+      // Mesmo que sejam o criador, força-se a visibilidade para privada.
+      if (!isManagementRole(auth.roles)) {
+        eventUpdate.visibility = 'private'
+        eventUpdate.visibility_mode = 'all'
+        eventUpdate.visibility_user_ids = []
+        eventUpdate.visibility_role_names = []
+      }
       updatePayload = {
         ...eventUpdate,
         updated_at: new Date().toISOString(),
@@ -159,17 +182,29 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID é obrigatório.' }, { status: 400 })
     }
 
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const admin = createAdminClient() as any
 
-    // Check event exists
+    // Check event exists + load creator
     const { data: existing, error: findError } = await admin
       .from('calendar_events')
-      .select('id')
+      .select('id, created_by')
       .eq('id', id)
       .single()
 
     if (findError || !existing) {
       return NextResponse.json({ error: 'Evento não encontrado.' }, { status: 404 })
+    }
+
+    // Só o criador ou um gestor pode eliminar.
+    const isCreator = existing.created_by === auth.user.id
+    if (!isCreator && !isManagementRole(auth.roles)) {
+      return NextResponse.json(
+        { error: 'Sem permissão para eliminar este evento.' },
+        { status: 403 },
+      )
     }
 
     const { error } = await admin

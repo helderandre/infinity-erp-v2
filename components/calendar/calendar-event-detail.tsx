@@ -203,6 +203,10 @@ export function CalendarEventDetail({
   const colors = DETAIL_COLORS[event.category] ?? DETAIL_COLORS.custom
   const categoryLabel = CALENDAR_CATEGORY_LABELS[event.category]
   const isManual = event.source === 'manual'
+  // Consultores só podem editar/eliminar eventos que criaram. Gestão pode tudo.
+  const canModify =
+    isManager ||
+    (!!currentUser?.id && !!event.created_by && event.created_by === currentUser.id)
   const isProcessEvent =
     event.category === 'process_task' ||
     event.category === 'process_subtask' ||
@@ -306,15 +310,6 @@ export function CalendarEventDetail({
               <span>– {format(parseISO(event.end_date), 'HH:mm')}</span>
             )}
             {impliedEndTime && <span>– {impliedEndTime}</span>}
-            {event.location && (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="inline-flex items-center gap-1 min-w-0">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{event.location}</span>
-                </span>
-              </>
-            )}
           </div>
 
           {(event.item_type === 'task' ||
@@ -346,31 +341,57 @@ export function CalendarEventDetail({
           )}
         </div>
 
-        {/* Cover image — centered square thumbnail with expand affordance */}
-        {event.cover_image_url && (
-          <div className="px-6 pb-2 shrink-0 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setImageLightboxOpen(true)}
-              className="group relative overflow-hidden rounded-2xl border border-border/40 shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              aria-label="Ampliar imagem"
-            >
-              <img
-                src={event.cover_image_url}
-                alt={event.title}
-                className="h-56 w-56 sm:h-64 sm:w-64 object-cover"
-              />
-              <span className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md shadow-md group-hover:bg-black/75 transition-colors">
-                <Maximize2 className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Body */}
+        {/* Body — note: morada e cover image vivem aqui dentro para que o
+            scroll comece a partir da morada (em mobile o sheet inteiro abaixo
+            do header de título scrolla em conjunto). */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
-          <div className="px-6 pt-3 pb-5 space-y-6">
+          <div className="px-6 pt-3 pb-5 space-y-4">
+            {/* Morada — texto completo + link para Google Maps */}
+            {event.location && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-start gap-2.5 rounded-2xl border border-border/40 bg-background/40 px-3.5 py-2.5 transition-colors hover:bg-muted/50 hover:border-border/70"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <MapPin className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-snug break-words">
+                    {event.location}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Abrir no Google Maps
+                  </p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+              </a>
+            )}
+
+            {/* Cover image — centered square thumbnail with expand affordance */}
+            {event.cover_image_url && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setImageLightboxOpen(true)}
+                  className="group relative overflow-hidden rounded-2xl border border-border/40 shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  aria-label="Ampliar imagem"
+                >
+                  <img
+                    src={event.cover_image_url}
+                    alt={event.title}
+                    className="h-56 w-56 sm:h-64 sm:w-64 object-cover"
+                  />
+                  <span className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md shadow-md group-hover:bg-black/75 transition-colors">
+                    <Maximize2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </span>
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-6">
             {/* Description */}
             {event.description && (
               <div className="rounded-2xl border border-border/40 bg-muted/30 px-4 py-3 backdrop-blur-sm">
@@ -743,12 +764,13 @@ export function CalendarEventDetail({
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
 
         {/* Footer — translucent, borderless */}
         <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md">
-          {isManual && onEdit && (
+          {isManual && onEdit && canModify && (
             <Button
               variant="outline"
               size="sm"
@@ -759,7 +781,7 @@ export function CalendarEventDetail({
               Editar
             </Button>
           )}
-          {isManual && onDelete && (
+          {isManual && onDelete && canModify && (
             <Button
               variant="outline"
               size="sm"
