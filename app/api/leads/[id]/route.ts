@@ -171,6 +171,22 @@ export async function DELETE(
       return NextResponse.json({ error: access.error }, { status: access.status })
     }
 
+    // `calendar_events.lead_id` has FK ON DELETE NO ACTION — would block the
+    // delete if any event references this lead. Decouple first by NULLing
+    // the FK; the events themselves stay (they belong to the consultant's
+    // calendar, not to the lead).
+    await supabase
+      .from('calendar_events')
+      .update({ lead_id: null })
+      .eq('lead_id', id)
+
+    // Everything else cascades or sets-null automatically:
+    //   CASCADE: negocios, leads_activities, leads_entries, lead_attachments,
+    //            contact_automations*, contact_property_sends, custom_event_leads,
+    //            leads_referrals, temp_acompanhamentos, temp_pedidos_credito,
+    //            wpp_activity_sessions
+    //   SET NULL: visits, wpp_contacts, leads_notifications, property_propostas,
+    //             client_satisfaction_surveys
     const { error } = await supabase
       .from('leads')
       .delete()

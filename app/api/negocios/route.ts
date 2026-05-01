@@ -94,20 +94,44 @@ export async function POST(request: Request) {
       )
     }
 
+    // Normalise legacy `tipo` values into the new (business_type, tipo) pair.
+    // Pre-refactor `tipo` mixed deal type + perspective. Old clients still
+    // POST 'Compra'/'Venda'/'Arrendador'/'Trespasse' — we accept and split.
+    const insertPayload: Record<string, unknown> = { ...validation.data }
+    {
+      const incomingTipo = String(insertPayload.tipo ?? '')
+      const incomingBT = (insertPayload.business_type as string | null | undefined) ?? null
+      const LEGACY_MAP: Record<string, { tipo: string; business_type: string }> = {
+        'Compra':       { tipo: 'Comprador',    business_type: 'Venda' },
+        'Venda':        { tipo: 'Vendedor',     business_type: 'Venda' },
+        'Arrendador':   { tipo: 'Senhorio',     business_type: 'Arrendamento' },
+        'Trespasse':    { tipo: 'Vendedor',     business_type: 'Trespasse' },
+      }
+      const mapped = LEGACY_MAP[incomingTipo]
+      if (mapped) {
+        insertPayload.tipo = mapped.tipo
+        if (!incomingBT) insertPayload.business_type = mapped.business_type
+      }
+      // For Arrendatário (perspective unchanged) without business_type → assume Arrendamento
+      if (insertPayload.tipo === 'Arrendatário' && !insertPayload.business_type) {
+        insertPayload.business_type = 'Arrendamento'
+      }
+    }
+
     // Resolve pipeline_stage_id: if the caller didn't provide one (legacy
     // call sites like /dashboard/leads/[id]'s "Novo negócio" only send
     // {lead_id, tipo}), look up the first non-terminal stage of the matching
     // pipeline. Without this, the negócio lands with stage=null and the
     // kanban silently filters it out — looking like "lead disappeared".
-    const insertPayload: Record<string, unknown> = { ...validation.data }
     if (!insertPayload.pipeline_stage_id) {
       const TIPO_TO_PIPELINE: Record<string, string> = {
-        'Compra': 'comprador',
-        'Venda': 'vendedor',
+        // New perspective values
+        'Comprador':    'comprador',
+        'Vendedor':     'vendedor',
         'Arrendatário': 'arrendatario',
-        'Arrendador': 'arrendador',
+        'Senhorio':     'arrendador',
       }
-      const pipelineType = TIPO_TO_PIPELINE[validation.data.tipo as string]
+      const pipelineType = TIPO_TO_PIPELINE[String(insertPayload.tipo ?? '')]
       if (pipelineType) {
         const { data: firstStage } = await supabase
           .from('leads_pipeline_stages')

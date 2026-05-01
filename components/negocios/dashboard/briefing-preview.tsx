@@ -53,10 +53,10 @@ function buildChips(tipo: string, f: Record<string, unknown>): Chip[] {
   const fmtEuros = (v: number | null | undefined) =>
     v != null ? `${(v / 1000).toFixed(0)}k €` : null
 
-  const isCompra = tipo === 'Compra'
-  const isVenda = tipo === 'Venda'
+  const isCompra = tipo === 'Comprador' || tipo === 'Compra'
+  const isVenda = tipo === 'Vendedor' || tipo === 'Venda'
   const isArrendatario = tipo === 'Arrendatário'
-  const isArrendador = tipo === 'Arrendador'
+  const isArrendador = tipo === 'Senhorio' || tipo === 'Arrendador'
 
   // Tipo imóvel
   if (str('tipo_imovel')) {

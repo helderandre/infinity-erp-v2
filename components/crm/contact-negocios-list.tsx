@@ -24,11 +24,16 @@ import {
 import type { LeadsNegocioWithRelations, PipelineType } from '@/types/leads-crm'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
 
+// Tipo (perspective) badge — accepts new + legacy values defensively
 const TIPO_BADGE: Record<string, { bg: string; text: string; label: string }> = {
-  'Compra':         { bg: 'bg-blue-500/15',    text: 'text-blue-700',    label: 'Compra' },
-  'Venda':          { bg: 'bg-emerald-500/15', text: 'text-emerald-700', label: 'Venda' },
-  'Arrendatário':   { bg: 'bg-amber-500/15',   text: 'text-amber-700',   label: 'Arrend.' },
-  'Arrendador':     { bg: 'bg-orange-500/15',  text: 'text-orange-700',  label: 'Senhorio' },
+  Comprador:    { bg: 'bg-blue-500/15',    text: 'text-blue-700',    label: 'Comprador' },
+  Vendedor:     { bg: 'bg-emerald-500/15', text: 'text-emerald-700', label: 'Vendedor' },
+  Arrendatário: { bg: 'bg-amber-500/15',   text: 'text-amber-700',   label: 'Arrend.' },
+  Senhorio:     { bg: 'bg-orange-500/15',  text: 'text-orange-700',  label: 'Senhorio' },
+  // Legacy fallbacks
+  Compra:       { bg: 'bg-blue-500/15',    text: 'text-blue-700',    label: 'Comprador' },
+  Venda:        { bg: 'bg-emerald-500/15', text: 'text-emerald-700', label: 'Vendedor' },
+  Arrendador:   { bg: 'bg-orange-500/15',  text: 'text-orange-700',  label: 'Senhorio' },
 }
 
 const TEMPERATURA_BADGE: Record<string, { bg: string; text: string; label: string }> = {

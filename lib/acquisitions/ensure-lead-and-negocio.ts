@@ -3,8 +3,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 const PIPELINE_STAGE_VENDEDOR_ANGARIACAO = 'f2c9ab0e-e7d6-4564-b529-0ca91d705138'
 const PIPELINE_STAGE_ARRENDADOR_ANGARIACAO = 'd450fbef-e7d7-4a1f-a18c-9d6eb64ba3fe'
 
+// Property's `business_type` (lowercase: 'venda'|'arrendamento') →
+// negócio's perspectiva (`tipo`). Angariação is always seller-side.
 function mapBusinessTypeToTipo(businessType: string | null | undefined) {
-  if (businessType === 'arrendamento') return 'Arrendador'
+  if (businessType === 'arrendamento') return 'Senhorio'
+  return 'Vendedor'
+}
+
+// Capitalised version of business_type for the negocios.business_type column
+function mapPropertyBusinessTypeToNegocio(businessType: string | null | undefined) {
+  if (businessType === 'arrendamento') return 'Arrendamento'
+  if (businessType === 'trespasse') return 'Trespasse'
   return 'Venda'
 }
 
@@ -123,6 +132,7 @@ export async function ensureLeadAndNegocioForAcquisition(
 
   const negocioInsert: Record<string, any> = {
     lead_id: leadId,
+    business_type: mapPropertyBusinessTypeToNegocio(property.business_type),
     tipo,
     estado: 'Aberto',
     pipeline_stage_id: stageId,

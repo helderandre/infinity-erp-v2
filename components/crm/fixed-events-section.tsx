@@ -130,7 +130,7 @@ export function FixedEventsSection({ leadId, birthday }: Props) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-6 w-48" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3 gap-3">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
@@ -254,7 +254,7 @@ function EventCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-3 rounded-xl border bg-card p-4",
+        "group relative flex flex-col gap-3 rounded-xl border bg-card p-3",
         "transition-all duration-200",
         isDisabled && "opacity-50",
         card.status === "muted" && "opacity-70",
@@ -262,70 +262,73 @@ function EventCard({
       )}
     >
       {/* Header */}
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2.5 min-w-0">
         <div className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
           card.isFixed ? "bg-primary/10 text-primary" : "bg-violet-100 text-violet-700",
         )}>
-          {card.isFixed ? <Calendar className="h-4.5 w-4.5" /> : <Gift className="h-4.5 w-4.5" />}
+          {card.isFixed ? <Calendar className="h-4 w-4" /> : <Gift className="h-4 w-4" />}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-semibold truncate">{card.name}</h3>
-            <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0", status.bg, status.text)}>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <h3 className="text-sm font-semibold truncate">{card.name}</h3>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-medium", status.bg, status.text)}>
               {status.label}
             </span>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {card.dateLabel} · {String(card.hour).padStart(2, "0")}:00
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {card.dateLabel} · {String(card.hour).padStart(2, "0")}:00
-          </p>
         </div>
       </div>
 
-      {/* Channels */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <div className="flex gap-1">
-          {card.channels.includes("email") && (
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px] gap-0.5">
-              <Mail className="h-2.5 w-2.5" /> Email
-            </Badge>
-          )}
-          {card.channels.includes("whatsapp") && (
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px] gap-0.5">
-              <MessageCircle className="h-2.5 w-2.5" /> WPP
-            </Badge>
-          )}
-        </div>
+      {/* Channels — wrap when narrow */}
+      <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
+        {card.channels.includes("email") && (
+          <Badge variant="outline" className="h-5 px-1.5 text-[10px] gap-0.5">
+            <Mail className="h-2.5 w-2.5" /> Email
+          </Badge>
+        )}
+        {card.channels.includes("whatsapp") && (
+          <Badge variant="outline" className="h-5 px-1.5 text-[10px] gap-0.5">
+            <MessageCircle className="h-2.5 w-2.5" /> WPP
+          </Badge>
+        )}
         <Badge variant="secondary" className="text-[10px]">
           {card.isRecurring ? "Anual" : "Única vez"}
         </Badge>
       </div>
 
-      {/* Actions */}
+      {/* Actions — full-width split, never overflow */}
       {!isDisabled && (
-        <div className="flex items-center gap-1 pt-1 border-t">
+        <div className="grid grid-cols-2 gap-1 pt-2 border-t">
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 text-xs gap-1"
+            className="h-7 text-[11px] gap-1 px-1 min-w-0 justify-center"
             onClick={onCustomize}
           >
-            <Settings2 className="h-3.5 w-3.5" />
-            Personalizar
+            <Settings2 className="h-3 w-3 shrink-0" />
+            <span className="truncate">Personalizar</span>
           </Button>
           <Button
             size="sm"
             variant={card.status === "muted" ? "default" : "ghost"}
-            className={cn("h-7 text-xs gap-1", card.status === "muted" && "bg-emerald-600 hover:bg-emerald-700")}
+            className={cn(
+              "h-7 text-[11px] gap-1 px-1 min-w-0 justify-center",
+              card.status === "muted" && "bg-emerald-600 hover:bg-emerald-700",
+            )}
             onClick={onToggleMute}
           >
             {card.status === "muted" ? (
               <>
-                <Bell className="h-3.5 w-3.5" /> Activar
+                <Bell className="h-3 w-3 shrink-0" />
+                <span className="truncate">Activar</span>
               </>
             ) : (
               <>
-                <BellOff className="h-3.5 w-3.5" /> Desactivar
+                <BellOff className="h-3 w-3 shrink-0" />
+                <span className="truncate">Desactivar</span>
               </>
             )}
           </Button>

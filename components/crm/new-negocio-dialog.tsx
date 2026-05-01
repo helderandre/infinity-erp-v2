@@ -32,7 +32,11 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
-import { NEGOCIO_TIPOS_PICKER } from '@/lib/constants'
+import {
+  NEGOCIO_BUSINESS_TYPES,
+  NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE,
+  type NegocioBusinessType,
+} from '@/lib/constants'
 
 interface NewNegocioDialogProps {
   open: boolean
@@ -50,19 +54,25 @@ interface LeadOption {
   email: string | null
 }
 
+// Icons by perspectiva (post-refactor `negocios.tipo` values)
 const TIPO_ICONS: Record<string, React.ElementType> = {
-  Compra: ShoppingCart,
-  Venda: Store,
+  Comprador:    ShoppingCart,
+  Vendedor:     Store,
   Arrendatário: Key,
-  Arrendador: Building2,
-  Trespasse: Briefcase,
-  Outro: Users,
+  Senhorio:     Building2,
+  Outro:        Users,
+}
+
+const BUSINESS_TYPE_ICONS: Record<NegocioBusinessType, React.ElementType> = {
+  Venda:        Store,
+  Arrendamento: Key,
+  Trespasse:    Briefcase,
 }
 
 type Tab = 'existente' | 'novo'
 
-// Maps a tipo to the relevant value field(s) in the negocios schema.
-// "range" tipos have a min + max field; "single" tipos have one mandatory value.
+// Maps the (business_type, perspectiva) pair to the relevant value field(s).
+// Keyed as `${business_type}|${tipo}`.
 const VALUE_CONFIG: Record<string, {
   mode: 'range' | 'single'
   minField?: string
@@ -73,41 +83,50 @@ const VALUE_CONFIG: Record<string, {
   singleLabel?: string
   unit?: string
 }> = {
-  Compra: {
+  // Venda
+  'Venda|Comprador': {
     mode: 'range',
     minField: 'orcamento',
     maxField: 'orcamento_max',
     minLabel: 'Orçamento mínimo',
     maxLabel: 'Orçamento máximo',
   },
-  Outro: {
-    mode: 'range',
-    minField: 'orcamento',
-    maxField: 'orcamento_max',
-    minLabel: 'Valor mínimo',
-    maxLabel: 'Valor máximo',
-  },
-  Venda: {
+  'Venda|Vendedor': {
     mode: 'single',
     singleField: 'preco_venda',
     singleLabel: 'Preço pretendido',
   },
-  Arrendatário: {
+  // Arrendamento
+  'Arrendamento|Arrendatário': {
     mode: 'single',
     singleField: 'renda_max_mensal',
     singleLabel: 'Renda máxima mensal',
     unit: '/mês',
   },
-  Arrendador: {
+  'Arrendamento|Senhorio': {
     mode: 'single',
     singleField: 'renda_pretendida',
     singleLabel: 'Renda pretendida',
     unit: '/mês',
   },
-  Trespasse: {
+  // Trespasse — both perspectives use a single price field
+  'Trespasse|Comprador': {
+    mode: 'single',
+    singleField: 'orcamento_max',
+    singleLabel: 'Orçamento para trespasse',
+  },
+  'Trespasse|Vendedor': {
     mode: 'single',
     singleField: 'preco_venda',
     singleLabel: 'Valor do trespasse',
+  },
+  // Fallback
+  'Outro|Outro': {
+    mode: 'range',
+    minField: 'orcamento',
+    maxField: 'orcamento_max',
+    minLabel: 'Valor mínimo',
+    maxLabel: 'Valor máximo',
   },
 }
 
@@ -118,6 +137,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
   const [leads, setLeads] = useState<LeadOption[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedLead, setSelectedLead] = useState<LeadOption | null>(null)
+  const [businessType, setBusinessType] = useState<NegocioBusinessType | ''>('')
   const [tipo, setTipo] = useState<string>('')
   const [valueMin, setValueMin] = useState('')
   const [valueMax, setValueMax] = useState('')
@@ -135,6 +155,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
       setSearch('')
       setLeads([])
       setSelectedLead(null)
+      setBusinessType('')
       setTipo('')
       setValueMin('')
       setValueMax('')
@@ -145,12 +166,19 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     }
   }, [open])
 
-  // Reset value fields when tipo changes (different schema fields)
+  // Reset value fields when (business_type, tipo) changes
   useEffect(() => {
     setValueMin('')
     setValueMax('')
     setValueSingle('')
-  }, [tipo])
+  }, [businessType, tipo])
+
+  // When business_type changes, clear tipo if it's no longer valid
+  useEffect(() => {
+    if (!businessType) return
+    const allowed = NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE[businessType]
+    if (tipo && !allowed.includes(tipo)) setTipo('')
+  }, [businessType, tipo])
 
   // Search leads — fires on debounced search OR when the dialog first opens
   useEffect(() => {
@@ -177,14 +205,15 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     }
   }, [open, tab, debouncedSearch])
 
-  const config = tipo ? VALUE_CONFIG[tipo] : null
+  const config = businessType && tipo ? VALUE_CONFIG[`${businessType}|${tipo}`] : null
 
   // Validation gate (also drives the disabled state of the Create button)
   const validationError = useMemo<string | null>(() => {
     if (!selectedLead) return 'Selecciona um contacto'
-    if (!tipo) return 'Selecciona o tipo de oportunidade'
+    if (!businessType) return 'Selecciona o tipo de negócio'
+    if (!tipo) return 'Selecciona a perspectiva'
     if (!localizacao.trim()) return 'Localização obrigatória'
-    if (!config) return 'Tipo inválido'
+    if (!config) return 'Combinação inválida'
     if (config.mode === 'range') {
       const min = Number(valueMin)
       const max = Number(valueMax)
@@ -196,14 +225,15 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
       if (!valueSingle.trim() || !Number.isFinite(v) || v <= 0) return 'Valor obrigatório'
     }
     return null
-  }, [selectedLead, tipo, localizacao, valueMin, valueMax, valueSingle, config])
+  }, [selectedLead, businessType, tipo, localizacao, valueMin, valueMax, valueSingle, config])
 
   const handleCreate = useCallback(async () => {
-    if (validationError || !selectedLead || !tipo || !config) return
+    if (validationError || !selectedLead || !businessType || !tipo || !config) return
     setCreating(true)
     try {
       const body: Record<string, unknown> = {
         lead_id: selectedLead.id,
+        business_type: businessType,
         tipo,
         localizacao: localizacao.trim(),
       }
@@ -232,7 +262,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     } finally {
       setCreating(false)
     }
-  }, [validationError, selectedLead, tipo, config, localizacao, valueMin, valueMax, valueSingle, onOpenChange, onCreated])
+  }, [validationError, selectedLead, businessType, tipo, config, localizacao, valueMin, valueMax, valueSingle, onOpenChange, onCreated])
 
   return (
     <>
@@ -337,37 +367,71 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
 
                 {/* Card 3 — Tipo de oportunidade (após escolher contacto) */}
                 {selectedLead && (
-                  <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-2">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                      Tipo de oportunidade
-                    </p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {NEGOCIO_TIPOS_PICKER.map((t) => {
-                        const Icon = TIPO_ICONS[t] || Plus
-                        const isActive = tipo === t
-                        return (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setTipo(t)}
-                            className={cn(
-                              'inline-flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors',
-                              isActive
-                                ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/40 hover:bg-muted/40',
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            {t}
-                          </button>
-                        )
-                      })}
+                  <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
+                    {/* Step 1 — Tipo de negócio */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                        Tipo de negócio
+                      </p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {NEGOCIO_BUSINESS_TYPES.map((bt) => {
+                          const Icon = BUSINESS_TYPE_ICONS[bt]
+                          const isActive = businessType === bt
+                          return (
+                            <button
+                              key={bt}
+                              type="button"
+                              onClick={() => setBusinessType(isActive ? '' : bt)}
+                              className={cn(
+                                'inline-flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors',
+                                isActive
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-border/40 hover:bg-muted/40',
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {bt}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
+
+                    {/* Step 2 — Perspectiva */}
+                    {businessType && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Perspectiva
+                        </p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE[businessType].map((p) => {
+                            const Icon = TIPO_ICONS[p] || Plus
+                            const isActive = tipo === p
+                            return (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setTipo(isActive ? '' : p)}
+                                className={cn(
+                                  'inline-flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors',
+                                  isActive
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : 'border-border/40 hover:bg-muted/40',
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                                {p}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Card 4 — Detalhes (valores + localização) */}
-                {selectedLead && tipo && config && (
+                {selectedLead && businessType && tipo && config && (
                   <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
                     {config.mode === 'range' ? (
                       <div className="grid grid-cols-2 gap-2">

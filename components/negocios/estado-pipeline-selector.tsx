@@ -34,10 +34,11 @@ export function tipoToPipelineType(
   tipo: NegocioTipo | undefined,
   _perspective?: 'compra' | 'venda',
 ): 'comprador' | 'vendedor' | 'arrendatario' | 'arrendador' {
-  if (tipo === 'Compra') return 'comprador'
-  if (tipo === 'Venda') return 'vendedor'
+  // 2026-06-XX: tipo post-refactor = perspective only; accept both new + legacy
+  if (tipo === 'Comprador' || tipo === 'Compra') return 'comprador'
+  if (tipo === 'Vendedor' || tipo === 'Venda') return 'vendedor'
   if (tipo === 'Arrendatário') return 'arrendatario'
-  if (tipo === 'Arrendador') return 'arrendador'
+  if (tipo === 'Senhorio' || tipo === 'Arrendador') return 'arrendador'
   return 'comprador'
 }
 

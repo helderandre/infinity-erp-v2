@@ -38,11 +38,12 @@ const STATUS_STYLES: Record<string, { label: string; class: string; icon: typeof
   discarded: { label: 'Descartado', class: 'bg-slate-500/10 text-slate-600', icon: XCircle },
 }
 
+// 2026-06-XX: each option carries the (business_type, perspectiva) pair.
 const QUALIFY_OPTIONS = [
-  { value: 'Compra', label: 'Compra', description: 'O cliente quer comprar um imóvel', icon: ShoppingCart, color: 'hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30' },
-  { value: 'Venda', label: 'Venda', description: 'O cliente quer vender um imóvel', icon: Store, color: 'hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30' },
-  { value: 'Arrendatário', label: 'Arrendamento (procura)', description: 'O cliente procura um imóvel para arrendar', icon: Key, color: 'hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30' },
-  { value: 'Arrendador', label: 'Arrendamento (proprietário)', description: 'O cliente quer arrendar o seu imóvel', icon: Building2, color: 'hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30' },
+  { value: 'Comprador',    business_type: 'Venda',        label: 'Comprador',    description: 'O cliente quer comprar um imóvel',      icon: ShoppingCart, color: 'hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30' },
+  { value: 'Vendedor',     business_type: 'Venda',        label: 'Vendedor',     description: 'O cliente quer vender um imóvel',       icon: Store,        color: 'hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30' },
+  { value: 'Arrendatário', business_type: 'Arrendamento', label: 'Arrendatário', description: 'O cliente procura um imóvel para arrendar', icon: Key,         color: 'hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30' },
+  { value: 'Senhorio',     business_type: 'Arrendamento', label: 'Senhorio',     description: 'O cliente quer arrendar o seu imóvel',  icon: Building2,    color: 'hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30' },
 ]
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null | undefined }) {
@@ -74,11 +75,12 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
   const handleQualify = async (entry: any, tipo: string) => {
     setSubmitting(true)
     try {
+      // 2026-06-XX: tipo post-refactor = perspective only
       const tipoToType: Record<string, string> = {
-        'Compra': 'comprador',
-        'Venda': 'vendedor',
-        'Arrendatário': 'arrendatario',
-        'Arrendador': 'arrendador',
+        Comprador:    'comprador',
+        Vendedor:     'vendedor',
+        Arrendatário: 'arrendatario',
+        Senhorio:     'arrendador',
       }
       const pipelineType = tipoToType[tipo] || 'comprador'
 
@@ -92,9 +94,12 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
         return
       }
 
+      // Look up the matching business_type from QUALIFY_OPTIONS
+      const opt = QUALIFY_OPTIONS.find((o) => o.value === tipo)
       const payload: Record<string, any> = {
         lead_id: contactId,
         entry_id: entry.id,
+        business_type: opt?.business_type || null,
         tipo,
         pipeline_stage_id: targetStage.id,
         assigned_consultant_id: entry.assigned_consultant?.id || null,

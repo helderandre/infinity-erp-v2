@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
-import { LEAD_ORIGENS, LEAD_TYPES } from '@/lib/constants'
+import { LEAD_ORIGENS } from '@/lib/constants'
 import {
   Mic, MicOff, Loader2, Sparkles, Users, ChevronDown, ChevronUp,
 } from 'lucide-react'
@@ -37,6 +37,11 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [aiExpanded, setAiExpanded] = useState(false)
+
+  // Inline qualification (optional) — creates a négocio after the lead.
+  // 2026-06-XX: tipo split into business_type + perspectiva.
+  const [negocioBusinessType, setNegocioBusinessType] = useState<string>('')
+  const [negocioTipo, setNegocioTipo] = useState<string>('')
 
   // Audio
   const [isRecording, setIsRecording] = useState(false)
@@ -69,6 +74,8 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
       reset(defaultValues || {})
       setTranscription(null)
       setAiExpanded(false)
+      setNegocioBusinessType('')
+      setNegocioTipo('')
     } else if (defaultValues) {
       reset(defaultValues)
     }
@@ -138,7 +145,28 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Erro') }
       const { id } = await res.json()
+
+      // If the consultant filled in the qualification (business_type + tipo),
+      // also spin up a négocio. Failure here doesn't roll back the lead — the
+      // lead is the source of truth; the negocio is best-effort follow-up.
+      if (negocioBusinessType && negocioTipo) {
+        try {
+          await fetch('/api/negocios', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lead_id: id,
+              business_type: negocioBusinessType,
+              tipo: negocioTipo,
+            }),
+          })
+        } catch { /* surface only the lead success */ }
+      }
+
       toast.success('Contacto criado com sucesso')
+      // Reset local state so subsequent opens don't carry over
+      setNegocioBusinessType('')
+      setNegocioTipo('')
       onOpenChange(false)
       onComplete?.(id)
     } catch (err) {
@@ -269,20 +297,77 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
               </div>
             </div>
 
-            {/* Card 3 — Classificação */}
+            {/* Card 3 — Qualificação (opcional, cria também a oportunidade) */}
             <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Tipo</Label>
-                  <Select value={watch('lead_type') || ''} onValueChange={v => setValue('lead_type', v)}>
-                    <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(LEAD_TYPES).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Step 1 — Tipo de negócio */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Tipo de negócio</Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['Venda', 'Arrendamento', 'Trespasse'] as const).map((bt) => {
+                    const active = negocioBusinessType === bt
+                    return (
+                      <button
+                        key={bt}
+                        type="button"
+                        onClick={() => {
+                          if (active) {
+                            setNegocioBusinessType('')
+                            setNegocioTipo('')
+                            return
+                          }
+                          setNegocioBusinessType(bt)
+                          // Reset perspectiva if it doesn't fit the new business_type
+                          const allowed = bt === 'Arrendamento'
+                            ? ['Arrendatário', 'Senhorio']
+                            : ['Comprador', 'Vendedor']
+                          if (!allowed.includes(negocioTipo)) setNegocioTipo('')
+                        }}
+                        className={cn(
+                          'inline-flex items-center justify-center h-9 rounded-full text-xs font-medium transition-all border',
+                          active
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'border-border/40 bg-background/40 text-muted-foreground hover:text-foreground hover:border-border/70',
+                        )}
+                      >
+                        {bt}
+                      </button>
+                    )
+                  })}
                 </div>
+              </div>
+
+              {/* Step 2 — Perspectiva (only when business_type set) */}
+              {negocioBusinessType && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                  <Label className="text-xs font-medium">Perspectiva</Label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(negocioBusinessType === 'Arrendamento'
+                      ? ['Arrendatário', 'Senhorio']
+                      : ['Comprador', 'Vendedor']
+                    ).map((p) => {
+                      const active = negocioTipo === p
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setNegocioTipo(active ? '' : p)}
+                          className={cn(
+                            'inline-flex items-center justify-center h-9 rounded-full text-xs font-medium transition-all border',
+                            active
+                              ? 'bg-foreground text-background border-foreground'
+                              : 'border-border/40 bg-background/40 text-muted-foreground hover:text-foreground hover:border-border/70',
+                          )}
+                        >
+                          {p}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Origem + Consultor */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Origem</Label>
                   <Select onValueChange={v => setValue('origem', v)}>
@@ -292,15 +377,15 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">Consultor</Label>
-                <Select onValueChange={v => setValue('agent_id', v)}>
-                  <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Atribuir" /></SelectTrigger>
-                  <SelectContent>
-                    {consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Consultor</Label>
+                  <Select onValueChange={v => setValue('agent_id', v)}>
+                    <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Atribuir" /></SelectTrigger>
+                    <SelectContent>
+                      {consultants.map(c => <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

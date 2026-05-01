@@ -91,14 +91,15 @@ export async function GET(
          leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days)`
       )
 
+    // 2026-06-XX: filter by perspective (post-refactor `tipo` values)
     if (pipelineType === 'comprador') {
-      negociosQuery = negociosQuery.eq('tipo', 'Compra')
+      negociosQuery = negociosQuery.eq('tipo', 'Comprador')
     } else if (pipelineType === 'vendedor') {
-      negociosQuery = negociosQuery.eq('tipo', 'Venda')
+      negociosQuery = negociosQuery.eq('tipo', 'Vendedor')
     } else if (pipelineType === 'arrendatario') {
       negociosQuery = negociosQuery.eq('tipo', 'Arrendatário')
     } else if (pipelineType === 'arrendador') {
-      negociosQuery = negociosQuery.eq('tipo', 'Arrendador')
+      negociosQuery = negociosQuery.eq('tipo', 'Senhorio')
     }
 
     if (assigned_consultant_id) {

@@ -1095,18 +1095,54 @@ export const LEAD_TIPOS_DOCUMENTO = [
 ] as const
 
 // --- NEGOCIOS ---
+//
+// 2026-06-XX REFACTOR: split monolithic `tipo` into 2 fields.
+//   business_type ∈ {Venda, Arrendamento, Trespasse}     → negocios.business_type
+//   tipo (perspectiva) ∈ {Comprador, Vendedor,            → negocios.tipo
+//                          Arrendatário, Senhorio, Outro}
+//
+// Mapping (Venda ↔ Comprador/Vendedor, Trespasse ↔ Comprador/Vendedor,
+// Arrendamento ↔ Arrendatário/Senhorio).
+//
+// Existing rows were backfilled by the SQL migration; new rows must populate
+// both fields.
 
+export const NEGOCIO_BUSINESS_TYPES = ['Venda', 'Arrendamento', 'Trespasse'] as const
+export type NegocioBusinessType = (typeof NEGOCIO_BUSINESS_TYPES)[number]
+
+/** Perspective options conditional on business_type. */
+export const NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE: Record<NegocioBusinessType, readonly string[]> = {
+  Venda:        ['Comprador', 'Vendedor'],
+  Arrendamento: ['Arrendatário', 'Senhorio'],
+  Trespasse:    ['Comprador', 'Vendedor'],
+} as const
+
+/** All possible perspective values (`negocios.tipo` post-refactor). */
 export const NEGOCIO_TIPOS = [
-  'Compra',
-  'Venda',
+  'Comprador',
+  'Vendedor',
   'Arrendatário',
-  'Arrendador',
-  'Trespasse',
+  'Senhorio',
   'Outro',
 ] as const
 
-/** Alias mantido por compat — antes excluía o já-removido "Compra e Venda". */
+/** Backwards-compat — some callers still import `NEGOCIO_TIPOS_PICKER`. */
 export const NEGOCIO_TIPOS_PICKER = NEGOCIO_TIPOS
+
+/** Convert a legacy `tipo` value (pre-split) into the new pair.
+ *  Useful for normalising payloads from old clients. */
+export function legacyTipoToNew(legacy: string | null | undefined):
+  { tipo: string | null; business_type: NegocioBusinessType | null } {
+  switch (legacy) {
+    case 'Compra':       return { tipo: 'Comprador',    business_type: 'Venda' }
+    case 'Venda':        return { tipo: 'Vendedor',     business_type: 'Venda' }
+    case 'Arrendatário': return { tipo: 'Arrendatário', business_type: 'Arrendamento' }
+    case 'Arrendador':   return { tipo: 'Senhorio',     business_type: 'Arrendamento' }
+    case 'Trespasse':    return { tipo: 'Vendedor',     business_type: 'Trespasse' }
+    case 'Outro':        return { tipo: 'Outro',        business_type: null }
+    default:             return { tipo: legacy ?? null, business_type: null }
+  }
+}
 
 export const NEGOCIO_ESTADOS = [
   'Aberto',

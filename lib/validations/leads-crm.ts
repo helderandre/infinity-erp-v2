@@ -95,9 +95,14 @@ export const updateEntrySchema = z.object({
 const pipelineTypes = ['comprador', 'vendedor', 'arrendatario', 'arrendador'] as const
 
 // Uses actual `negocios` table column names
+//
+// 2026-06-XX: `tipo` is now perspective only (Comprador/Vendedor/Arrendatário/
+// Senhorio/Outro). The deal type lives in `business_type`. Both fields accept
+// transitional aliases server-side.
 export const createNegocioSchema = z.object({
   lead_id: z.string().uuid('ID do contacto invalido'),
   entry_id: z.string().uuid('ID da entrada invalido').nullable().optional(),
+  business_type: z.enum(['Venda', 'Arrendamento', 'Trespasse']).nullable().optional(),
   tipo: z.string().min(1, 'Tipo de negocio obrigatorio'),
   pipeline_stage_id: z.string().uuid('ID da fase invalido'),
   assigned_consultant_id: z.string().uuid().nullable().optional(),
@@ -166,7 +171,21 @@ export const createActivitySchema = z.object({
   subject: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  occurred_at: z.string().datetime({ offset: true }).nullable().optional(),
+  is_pinned: z.boolean().optional(),
 })
+
+export const updateActivitySchema = z.object({
+  subject: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  occurred_at: z.string().datetime({ offset: true }).nullable().optional(),
+  is_pinned: z.boolean().optional(),
+  activity_type: z.enum(activityTypes).optional(),
+  direction: z.enum(activityDirections).nullable().optional(),
+  negocio_id: z.string().uuid().nullable().optional(),
+})
+
+export type UpdateActivityInput = z.infer<typeof updateActivitySchema>
 
 // =============================================================================
 // Referral

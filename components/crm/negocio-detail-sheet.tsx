@@ -97,6 +97,8 @@ import {
 import { VisitForm } from '@/components/visits/visit-form'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { SendPropertiesDialog } from '@/components/negocios/send-properties-dialog'
+import { ObservationComposer } from '@/components/leads/observation-composer'
+import { ObservationItem, type ObservationActivity } from '@/components/leads/observation-item'
 import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
 import { Calendar } from '@/components/ui/calendar'
 import { CalendarMonthGrid } from '@/components/calendar/calendar-month-grid'
@@ -147,7 +149,7 @@ interface NegocioDetailSheetProps {
   onChanged?: () => void
 }
 
-type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao'
+type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao' | 'observacoes'
 
 const TEMP_COLORS: Record<string, string> = {
   Frio: '#3b82f6',
@@ -307,8 +309,9 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   )
 
   const tipo = (form.tipo as string) || negocio?.tipo || ''
-  const isBuyerType = ['Compra', 'Arrendatário'].includes(tipo)
-  const isSellerType = ['Venda', 'Arrendador'].includes(tipo)
+  // 2026-06-XX: tipo post-refactor = perspective only; accept legacy + new
+  const isBuyerType = ['Comprador', 'Compra', 'Arrendatário'].includes(tipo)
+  const isSellerType = ['Vendedor', 'Venda', 'Senhorio', 'Arrendador'].includes(tipo)
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
     // Read-only mode (referrer viewing a referenced négocio): collapse to
@@ -324,6 +327,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
         { key: 'interessados', label: 'Interessados', icon: Users },
         { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
         { key: 'angariacao', label: 'Angariação', icon: Briefcase },
+        { key: 'observacoes', label: 'Observações', icon: StickyNote },
       ]
     }
     // Compra / Arrendatário (e Compra-e-Venda — perspectiva de comprador)
@@ -333,6 +337,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
       { key: 'propostas', label: 'Propostas', icon: FileText },
       { key: 'fecho', label: 'Fecho', icon: Briefcase },
+      { key: 'observacoes', label: 'Observações', icon: StickyNote },
     ]
   }, [isBuyerType, isSellerType, readOnly])
 
@@ -528,6 +533,13 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
               )}
               {activeTab === 'angariacao' && negocio.id && (
                 <AngariacaoTab negocioId={negocio.id} negocio={negocio} />
+              )}
+              {activeTab === 'observacoes' && negocio.id && leadId && (
+                <NegocioObservacoesTab
+                  negocioId={negocio.id}
+                  contactId={leadId}
+                  negocioRef={negocio.tipo ? `${negocio.tipo}${negocio.localizacao ? ` · ${negocio.localizacao}` : ''}` : 'Negócio'}
+                />
               )}
             </div>
           </div>
@@ -862,7 +874,7 @@ function DetalhesTab({
   const observacoes = (form.observacoes as string | null) ?? null
 
   const isArrendatario = tipo === 'Arrendatário'
-  const isArrendador = tipo === 'Arrendador'
+  const isArrendador = tipo === 'Senhorio' || tipo === 'Arrendador'
 
   const priceLabel = isArrendatario
     ? 'Renda máxima'
@@ -953,7 +965,7 @@ function DetalhesTab({
   const enabledAmenities = AMENITY_ITEMS.filter((a) => !!form[a.field])
   const hasFeatures = enabledAmenities.length > 0
 
-  const sectionLabel = isArrendador || tipo === 'Venda' ? 'Imóvel' : 'O que procura'
+  const sectionLabel = isArrendador || tipo === 'Vendedor' || tipo === 'Venda' ? 'Imóvel' : 'O que procura'
 
 
   return (
@@ -1139,8 +1151,8 @@ function DetalhesTab({
             )
           })()}
 
-          {/* Estudos de mercado — só em angariação (Venda / Arrendador) */}
-          {(tipo === 'Venda' || tipo === 'Arrendador') && negocio.id && (
+          {/* Estudos de mercado — só em angariação (perspectiva Vendedor / Senhorio) */}
+          {(tipo === 'Vendedor' || tipo === 'Venda' || tipo === 'Senhorio' || tipo === 'Arrendador') && negocio.id && (
             <>
               <CardDivider />
               <MarketStudiesCard negocioId={negocio.id} />
@@ -3365,6 +3377,83 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
           router.push(`/dashboard/processos/${procInstanceId}`)
         }}
       />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Observações tab — observações scoped ao negocio que TAMBÉM aparecem no
+// histórico do contacto (mesma row em leads_activities, com negocio_id set).
+// ─────────────────────────────────────────────────────────────────────────
+
+function NegocioObservacoesTab({
+  negocioId,
+  contactId,
+  negocioRef,
+}: {
+  negocioId: string
+  contactId: string
+  negocioRef: string
+}) {
+  const [activities, setActivities] = useState<ObservationActivity[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/leads/${contactId}/activities?negocio_id=${negocioId}`)
+      if (!res.ok) throw new Error()
+      const json = await res.json()
+      setActivities(json.data ?? [])
+    } catch {
+      setActivities([])
+    } finally {
+      setLoading(false)
+    }
+  }, [contactId, negocioId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl bg-blue-500/5 border border-blue-500/20 px-4 py-2.5 flex items-start gap-2.5">
+        <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+        <div className="text-xs text-foreground/80 leading-relaxed">
+          As observações registadas aqui ficam <span className="font-medium">também no histórico do contacto</span>, com a etiqueta deste negócio. Permite à IA ter contexto cruzado entre todos os negócios desta pessoa.
+        </div>
+      </div>
+
+      <ObservationComposer
+        contactId={contactId}
+        negocioId={negocioId}
+        negocioLabel={`Negócio: ${negocioRef}`}
+        onSaved={load}
+      />
+
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
+        </div>
+      ) : activities.length === 0 ? (
+        <div className="rounded-2xl border border-dashed py-10 text-center">
+          <p className="text-sm text-muted-foreground">Sem observações para este negócio</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Use o campo acima para registar a primeira</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activities.map((act) => (
+            <ObservationItem
+              key={act.id}
+              activity={act}
+              contactId={contactId}
+              hideNegocioBadge
+              onChanged={load}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

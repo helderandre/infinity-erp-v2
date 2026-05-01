@@ -373,16 +373,17 @@ export function LeadDataCard({
                   <SelectField icon="💬" label="Meio de Contacto Preferencial" value={val('meio_contacto_preferencial')} options={LEAD_MEIOS_CONTACTO} onChange={(v) => onFieldChange('meio_contacto_preferencial', v)} isEditing />
                   <ToggleField icon="✅" label="Consentimento de Contacto" checked={boolVal('consentimento_contacto')} onChange={(v) => onFieldChange('consentimento_contacto', v)} isEditing />
                   <ToggleField icon="📣" label="Consentimento WebMarketing" checked={boolVal('consentimento_webmarketing')} onChange={(v) => onFieldChange('consentimento_webmarketing', v)} isEditing />
-                  <div className="col-span-full rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm px-4 py-3">
-                    <p className="text-xs text-muted-foreground mb-1">📝 Observações</p>
-                    <Textarea
-                      value={val('observacoes')}
-                      onChange={(e) => onFieldChange('observacoes', e.target.value)}
-                      placeholder="Sem observações..."
-                      rows={3}
-                      className="border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium resize-y"
-                    />
-                  </div>
+                  {/* Observações legadas — read-only, só aparece se ainda tem conteúdo.
+                      Novos registos via Histórico → tab Actividades. */}
+                  {val('observacoes')?.trim() && (
+                    <div className="col-span-full rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs text-muted-foreground">📝 Observações</p>
+                        <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Legado · use Histórico</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{val('observacoes')}</p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -392,7 +393,9 @@ export function LeadDataCard({
                   <DisplayField icon="💬" label="Meio de Contacto Preferencial" value={val('meio_contacto_preferencial')} />
                   <ToggleField icon="✅" label="Consentimento de Contacto" checked={boolVal('consentimento_contacto')} onChange={() => {}} isEditing={false} />
                   <ToggleField icon="📣" label="Consentimento WebMarketing" checked={boolVal('consentimento_webmarketing')} onChange={() => {}} isEditing={false} />
-                  <DisplayField icon="📝" label="Observações" value={val('observacoes')} fullWidth />
+                  {val('observacoes')?.trim() && (
+                    <DisplayField icon="📝" label="Observações (legado)" value={val('observacoes')} fullWidth />
+                  )}
                 </>
               )}
             </div>

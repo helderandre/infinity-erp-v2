@@ -133,7 +133,7 @@ export function KanbanCard({
   // formula used by /api/crm/kanban totals: gross × commission_factor × pct.
   const tipoForFactor = tipo ?? ''
   const isRentalCard =
-    tipoForFactor === 'Arrendatário' || tipoForFactor === 'Arrendador'
+    tipoForFactor === 'Arrendatário' || tipoForFactor === 'Senhorio' || tipoForFactor === 'Arrendador'
   const commissionFactor = isRentalCard ? 1.5 * 0.5 : 0.05 * 0.5
   const grossForCommission = Number.isFinite(Number(expectedValue))
     ? Number(expectedValue)
@@ -143,7 +143,7 @@ export function KanbanCard({
       ? grossForCommission * commissionFactor * (referralPct / 100)
       : null
 
-  const isBuyer = tipo === 'Compra' || tipo === 'Arrendatário'
+  const isBuyer = tipo === 'Comprador' || tipo === 'Compra' || tipo === 'Arrendatário'
   const displayValue = isBuyer
     ? (orcamentoMax ?? orcamento ?? expectedValue ?? null)
     : (expectedValue ?? negocio.preco_venda ?? null)

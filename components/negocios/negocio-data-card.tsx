@@ -329,10 +329,11 @@ export function NegocioDataCard({
   const numVal = (field: string) => form[field] as number | null
   const boolVal = (field: string) => !!form[field]
 
-  const isCompra = tipo === 'Compra'
-  const isVenda = tipo === 'Venda'
+  // 2026-06-XX: tipo post-refactor = perspective only; accept legacy too
+  const isCompra = tipo === 'Comprador' || tipo === 'Compra'
+  const isVenda = tipo === 'Vendedor' || tipo === 'Venda'
   const isArrendatario = tipo === 'Arrendatário'
-  const isArrendador = tipo === 'Arrendador'
+  const isArrendador = tipo === 'Senhorio' || tipo === 'Arrendador'
 
   const handleSaveAndExit = async () => {
     await onSave()

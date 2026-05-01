@@ -20,13 +20,12 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Send, Loader2 } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,6 +39,8 @@ import {
 } from '@/components/ui/select'
 import { useUser } from '@/hooks/use-user'
 import { invalidateAfterReferral } from '@/lib/crm/invalidator'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 const DEFAULT_PCT = 25
 
@@ -160,89 +161,113 @@ export function ReferenciarDialog({
   }
 
   const subjectLabel = SUBJECT_LABEL[subject.kind]
+  const isMobile = useIsMobile()
+
+  const description =
+    subject.kind === 'negocio'
+      ? 'O negócio passa para o consultor escolhido. Tu manténs a tua percentagem da comissão neste negócio e em qualquer outro que ele venha a fazer com este contacto.'
+      : subject.kind === 'lead_entry'
+        ? 'A lead aparece na caixa de entrada do consultor. Qualquer negócio que ele faça com este contacto te paga a tua percentagem da comissão.'
+        : 'Fica registado um acordo de referência. Qualquer negócio que o consultor venha a fazer com este contacto te paga a tua percentagem da comissão.'
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
+          isMobile
+            ? 'data-[side=bottom]:h-[90dvh] rounded-t-3xl'
+            : 'w-full sm:max-w-[520px] sm:rounded-l-3xl',
+        )}
+      >
+        {isMobile && (
+          <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+        )}
+
+        <SheetHeader
+          className={cn(
+            'px-6 pb-4 border-b border-border/40 shrink-0',
+            isMobile ? 'pt-8' : 'pt-6',
+          )}
+        >
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <Send className="h-5 w-5" />
             Referenciar {subjectLabel}
-          </DialogTitle>
-          <DialogDescription>
-            {subject.kind === 'negocio'
-              ? 'O negócio passa para o consultor escolhido. Tu manténs a tua percentagem da comissão neste negócio e em qualquer outro que ele venha a fazer com este contacto.'
-              : subject.kind === 'lead_entry'
-              ? 'A lead aparece na caixa de entrada do consultor. Qualquer negócio que ele faça com este contacto te paga a tua percentagem da comissão.'
-              : 'Fica registado um acordo de referência. Qualquer negócio que o consultor venha a fazer com este contacto te paga a tua percentagem da comissão.'}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetTitle>
+          <SheetDescription className="text-[12px]">
+            {description}
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="referral-recipient">Consultor</Label>
-            <Select value={recipientId} onValueChange={setRecipientId} disabled={submitting}>
-              <SelectTrigger id="referral-recipient">
-                <SelectValue placeholder="Escolher consultor…" />
-              </SelectTrigger>
-              <SelectContent>
-                {consultants.length === 0 ? (
-                  <SelectItem value="__none__" disabled>
-                    Sem consultores disponíveis
-                  </SelectItem>
-                ) : (
-                  consultants.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.commercial_name || 'Sem nome'}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="referral-recipient">Consultor</Label>
+              <Select value={recipientId} onValueChange={setRecipientId} disabled={submitting}>
+                <SelectTrigger id="referral-recipient">
+                  <SelectValue placeholder="Escolher consultor…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {consultants.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      Sem consultores disponíveis
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                  ) : (
+                    consultants.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.commercial_name || 'Sem nome'}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="referral-pct">Percentagem da comissão (%)</Label>
-            <Input
-              id="referral-pct"
-              type="number"
-              min={1}
-              max={100}
-              step={1}
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              disabled={submitting}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Predefinido em 25% (mínimo 1%). Tanto tu como o consultor podem
-              cancelar este acordo a qualquer altura — o cancelamento só afecta
-              negócios futuros, os já registados continuam a pagar a tua percentagem.
-            </p>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="referral-pct">Percentagem da comissão (%)</Label>
+              <Input
+                id="referral-pct"
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                value={pct}
+                onChange={(e) => setPct(e.target.value)}
+                disabled={submitting}
+              />
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Predefinido em 25% (mínimo 1%). Tanto tu como o consultor podem
+                cancelar este acordo a qualquer altura — o cancelamento só afecta
+                negócios futuros, os já registados continuam a pagar a tua percentagem.
+              </p>
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="referral-notes">Notas (opcional)</Label>
-            <Textarea
-              id="referral-notes"
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={submitting}
-              placeholder="Algum contexto que ajude o consultor que vai receber…"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="referral-notes">Notas (opcional)</Label>
+              <Textarea
+                id="referral-notes"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={submitting}
+                placeholder="Algum contexto que ajude o consultor que vai receber…"
+              />
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-end gap-2">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
+            size="sm"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
             Cancelar
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={submitting}>
+          <Button type="button" size="sm" onClick={handleSubmit} disabled={submitting} className="min-w-[140px]">
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -255,8 +280,8 @@ export function ReferenciarDialog({
               </>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }

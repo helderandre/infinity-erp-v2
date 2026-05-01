@@ -178,10 +178,12 @@ const amenityFields = [
 ]
 
 export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
-  const isCompra = tipo === 'Compra'
-  const isVenda = tipo === 'Venda'
+  // 2026-06-XX: `tipo` post-refactor holds perspective only. Accept both
+  // new + legacy values defensively for transitional safety.
+  const isCompra = tipo === 'Comprador' || tipo === 'Compra'
+  const isVenda = tipo === 'Vendedor' || tipo === 'Venda'
   const isArrendatario = tipo === 'Arrendatário'
-  const isArrendador = tipo === 'Arrendador'
+  const isArrendador = tipo === 'Senhorio' || tipo === 'Arrendador'
 
   return (
     <div className="space-y-6">

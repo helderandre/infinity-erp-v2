@@ -53,15 +53,15 @@ export async function GET(request: Request) {
       .range(from, to)
 
     if (pipeline_type) {
-      // Map pipeline_type to the `tipo` column values in the negocios table
+      // 2026-06-XX: `tipo` is now perspective-only post-refactor
       if (pipeline_type === 'comprador') {
-        query = query.eq('tipo', 'Compra')
+        query = query.eq('tipo', 'Comprador')
       } else if (pipeline_type === 'vendedor') {
-        query = query.eq('tipo', 'Venda')
+        query = query.eq('tipo', 'Vendedor')
       } else if (pipeline_type === 'arrendatario') {
         query = query.eq('tipo', 'Arrendatário')
       } else if (pipeline_type === 'arrendador') {
-        query = query.eq('tipo', 'Arrendador')
+        query = query.eq('tipo', 'Senhorio')
       }
     }
     if (assigned_consultant_id) query = query.eq('assigned_consultant_id', assigned_consultant_id)

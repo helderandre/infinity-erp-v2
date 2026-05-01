@@ -58,8 +58,9 @@ export function NegocioSidebar({
   onQuickFillApply,
   onStartAcquisition,
 }: NegocioSidebarProps) {
-  const showAcquisitionButton = tipo === 'Venda'
-  const showAcompanhamentoButton = tipo === 'Compra'
+  // 2026-06-XX: tipo post-refactor = perspective only; accept legacy + new
+  const showAcquisitionButton = tipo === 'Vendedor' || tipo === 'Venda'
+  const showAcompanhamentoButton = tipo === 'Comprador' || tipo === 'Compra'
   const isInAcompanhamento = estado === 'Em Acompanhamento'
   return (
     <Card className="w-full">

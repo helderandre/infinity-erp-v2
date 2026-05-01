@@ -106,11 +106,12 @@ const ESTADO_HEX: Record<string, string> = {
 }
 const DEFAULT_ESTADO_HEX = '#64748b'
 
+// 2026-06-XX: tipo post-refactor = perspective values
 const QUALIF_TAGS: { tipo: string; label: string; class: string }[] = [
-  { tipo: 'Compra', label: 'QC', class: 'bg-blue-500/10 text-blue-600' },
-  { tipo: 'Venda', label: 'QV', class: 'bg-emerald-500/10 text-emerald-600' },
+  { tipo: 'Comprador',    label: 'QC',   class: 'bg-blue-500/10 text-blue-600' },
+  { tipo: 'Vendedor',     label: 'QV',   class: 'bg-emerald-500/10 text-emerald-600' },
   { tipo: 'Arrendatário', label: 'QA-P', class: 'bg-violet-500/10 text-violet-600' },
-  { tipo: 'Arrendador', label: 'QA-A', class: 'bg-amber-500/10 text-amber-600' },
+  { tipo: 'Senhorio',     label: 'QA-A', class: 'bg-amber-500/10 text-amber-600' },
 ]
 
 function LeadsPageContent() {

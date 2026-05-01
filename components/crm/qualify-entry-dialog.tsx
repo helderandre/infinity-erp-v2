@@ -41,18 +41,28 @@ const SECTOR_TO_PIPELINE: Record<string, string> = {
   real_estate_landlord: 'arrendador',
 }
 
+// Maps pipeline types to perspectives. After the 2026 split:
+//   negocios.tipo holds the perspective only (Comprador/Vendedor/Arrendatário/Senhorio).
+//   negocios.business_type holds the deal type (Venda/Arrendamento/Trespasse).
 const PIPELINE_TO_TIPO: Record<string, string[]> = {
-  comprador: ['Compra'],
-  vendedor: ['Venda'],
+  comprador:    ['Comprador'],
+  vendedor:     ['Vendedor'],
   arrendatario: ['Arrendatário'],
-  arrendador: ['Arrendador'],
+  arrendador:   ['Senhorio'],
+}
+
+const PIPELINE_TO_BUSINESS_TYPE: Record<string, 'Venda' | 'Arrendamento' | 'Trespasse'> = {
+  comprador:    'Venda',
+  vendedor:     'Venda',
+  arrendatario: 'Arrendamento',
+  arrendador:   'Arrendamento',
 }
 
 const TIPO_LABELS: Record<string, string> = {
-  Compra: 'Compra',
-  Venda: 'Venda',
-  'Arrendatário': 'Arrendamento (procura)',
-  'Arrendador': 'Arrendamento (proprietário)',
+  Comprador:    'Comprador',
+  Vendedor:     'Vendedor',
+  'Arrendatário': 'Arrendatário',
+  Senhorio:     'Senhorio',
 }
 
 const PROPERTY_TYPES = [
@@ -96,8 +106,10 @@ export function QualifyEntryDialog({
   const detectedPipeline = entry?.sector ? SECTOR_TO_PIPELINE[entry.sector] : null
   const pipelineType = pipelineTypeProp || detectedPipeline || 'comprador'
 
-  const defaultTipo = PIPELINE_TO_TIPO[pipelineType]?.[0] || 'Compra'
+  const defaultTipo = PIPELINE_TO_TIPO[pipelineType]?.[0] || 'Comprador'
+  const defaultBT = PIPELINE_TO_BUSINESS_TYPE[pipelineType] || 'Venda'
   const [form, setForm] = useState({
+    business_type: defaultBT as 'Venda' | 'Arrendamento' | 'Trespasse',
     tipo: defaultTipo,
     tipo_imovel: '',
     localizacao: '',
@@ -111,7 +123,8 @@ export function QualifyEntryDialog({
     if (entry) {
       const pt = entry.sector ? SECTOR_TO_PIPELINE[entry.sector] : pipelineType
       setForm({
-        tipo: PIPELINE_TO_TIPO[pt || pipelineType]?.[0] || 'Compra',
+        business_type: PIPELINE_TO_BUSINESS_TYPE[pt || pipelineType] || 'Venda',
+        tipo: PIPELINE_TO_TIPO[pt || pipelineType]?.[0] || 'Comprador',
         tipo_imovel: '',
         localizacao: '',
         quartos_min: '',
@@ -257,6 +270,7 @@ export function QualifyEntryDialog({
       const payload: Record<string, any> = {
         lead_id: contactId,
         entry_id: entry.id,
+        business_type: form.business_type,
         tipo: form.tipo,
         pipeline_stage_id: stageId,
         assigned_consultant_id: entry.assigned_consultant?.id || contact?.agent_id || null,
@@ -420,16 +434,46 @@ export function QualifyEntryDialog({
             </div>
           )}
 
-          {/* Deal type */}
+          {/* Tipo de negócio (Step 1) */}
           <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Negócio</Label>
-            <div className="grid grid-cols-4 gap-1.5 mt-1.5">
-              {[
-                { key: 'Compra', label: 'Compra' },
-                { key: 'Venda', label: 'Venda' },
-                { key: 'Arrendatário', label: 'Arrendatário' },
-                { key: 'Arrendador', label: 'Senhorio' },
-              ].map((t) => (
+            <Label className="text-[11px] text-muted-foreground font-medium">Tipo de negócio</Label>
+            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+              {(['Venda', 'Arrendamento', 'Trespasse'] as const).map((bt) => (
+                <button
+                  key={bt}
+                  type="button"
+                  onClick={() => {
+                    // Switching business type → reset tipo if no longer compatible
+                    const allowed = bt === 'Arrendamento'
+                      ? ['Arrendatário', 'Senhorio']
+                      : ['Comprador', 'Vendedor']
+                    setForm((p) => ({
+                      ...p,
+                      business_type: bt,
+                      tipo: allowed.includes(p.tipo) ? p.tipo : allowed[0],
+                    }))
+                  }}
+                  className={cn(
+                    'rounded-lg py-2 text-[11px] font-medium transition-all text-center',
+                    form.business_type === bt
+                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                  )}
+                >
+                  {bt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Perspectiva (Step 2) */}
+          <div>
+            <Label className="text-[11px] text-muted-foreground font-medium">Perspectiva</Label>
+            <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+              {(form.business_type === 'Arrendamento'
+                ? [{ key: 'Arrendatário' }, { key: 'Senhorio' }]
+                : [{ key: 'Comprador' }, { key: 'Vendedor' }]
+              ).map((t) => (
                 <button
                   key={t.key}
                   type="button"
@@ -438,10 +482,10 @@ export function QualifyEntryDialog({
                     'rounded-lg py-2 text-[11px] font-medium transition-all text-center',
                     form.tipo === t.key
                       ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted',
                   )}
                 >
-                  {t.label}
+                  {t.key}
                 </button>
               ))}
             </div>

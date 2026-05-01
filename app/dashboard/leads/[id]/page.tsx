@@ -7,6 +7,12 @@ import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -15,13 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +32,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   ArrowLeft,
   Plus,
@@ -42,23 +40,39 @@ import {
   FileText,
   Phone,
   Mail,
-  MessageCircle,
   CalendarDays,
   Zap,
-  Database,
-  Workflow,
   Clock,
-  Send,
+  Inbox,
+  IdCard,
+  StickyNote,
+  Pencil,
+  MessageSquare,
+  Smartphone,
+  ChevronDown,
+  CheckSquare,
+  CalendarPlus,
+  Sparkles,
 } from 'lucide-react'
-import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { formatDate, formatCurrency, NEGOCIO_TIPOS_PICKER, LEAD_ESTADOS, LEAD_TEMPERATURAS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-import { LeadDataCard } from '@/components/leads/lead-data-card'
+import { LeadDataSheet } from '@/components/leads/lead-data-sheet'
 import { LeadDocumentsFoldersView } from '@/components/leads/lead-documents-folders-view'
-import { LeadsEntryCards } from '@/components/leads/leads-entry-cards'
+import { LeadEntriesSheet } from '@/components/leads/lead-entries-sheet'
+import { ObservationComposer } from '@/components/leads/observation-composer'
+import { ObservationItem, type ObservationActivity } from '@/components/leads/observation-item'
+import { ClientProfileSheet } from '@/components/leads/client-profile-sheet'
+import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
+import { NewNegocioSheet } from '@/components/leads/new-negocio-sheet'
+import { LeadCalendarTab } from '@/components/leads/lead-calendar-tab'
 import { NegocioListItem, type NegocioListItemData } from '@/components/negocios/negocio-list-item'
-import { ContactAutomationsList } from '@/components/crm/contact-automations-list'
+import { LeadAutomationsSheet } from '@/components/leads/lead-automations-sheet'
+import { LeadEditSheet } from '@/components/leads/lead-edit-sheet'
+import { WhatsAppIcon } from '@/components/shared/whatsapp-icon'
+import { TaskForm } from '@/components/tasks/task-form'
+import { CalendarEventForm } from '@/components/calendar/calendar-event-form'
+import type { CalendarEventFormData } from '@/lib/validations/calendar'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
@@ -106,7 +120,10 @@ export default function LeadDetailPage() {
   const [newNegocioOpen, setNewNegocioOpen] = useState(false)
   const [negocioToDelete, setNegocioToDelete] = useState<string | null>(null)
   const [deletingNegocio, setDeletingNegocio] = useState(false)
+  const [newNegocioBusinessType, setNewNegocioBusinessType] = useState<'Venda' | 'Arrendamento' | 'Trespasse' | ''>('')
   const [newNegocioTipo, setNewNegocioTipo] = useState('')
+  const [newNegocioTipologia, setNewNegocioTipologia] = useState<'T0' | 'T1' | 'T2' | 'T3' | 'T4' | 'T5+' | null>(null)
+  const [newNegocioValor, setNewNegocioValor] = useState<string>('')
   const [creatingNegocio, setCreatingNegocio] = useState(false)
   const [attachments, setAttachments] = useState<LeadAttachment[]>([])
   const [cpLoading, setCpLoading] = useState(false)
@@ -118,7 +135,18 @@ export default function LeadDetailPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
   const [entriesLoading, setEntriesLoading] = useState(false)
-  const [historicoSubtab, setHistoricoSubtab] = useState<'actividades' | 'entradas' | 'anexos'>('actividades')
+  const [historicoSubtab, setHistoricoSubtab] = useState<'entradas' | 'anexos'>('entradas')
+  const [dataSheetOpen, setDataSheetOpen] = useState(false)
+  const [entriesSheetOpen, setEntriesSheetOpen] = useState(false)
+  const [automationsSheetOpen, setAutomationsSheetOpen] = useState(false)
+  const [editSheetOpen, setEditSheetOpen] = useState(false)
+  const [profileInvalidateKey, setProfileInvalidateKey] = useState(0)
+  const [taskFormOpen, setTaskFormOpen] = useState(false)
+  const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false)
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false)
+  const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl || 'negocios')
 
   const loadLead = useCallback(async () => {
     setIsLoading(true)
@@ -196,6 +224,31 @@ export default function LeadDetailPage() {
 
   useEffect(() => { loadLead(); loadPendingLeads(); loadEntries() }, [loadLead, loadPendingLeads, loadEntries])
 
+  // Load consultants once for the Task + Event forms
+  useEffect(() => {
+    fetch('/api/users/consultants')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setConsultants(j?.data ?? j ?? []))
+      .catch(() => {})
+  }, [])
+
+  async function handleEventSubmit(data: CalendarEventFormData) {
+    try {
+      const payload = { ...data, lead_id: id }
+      const res = await fetch('/api/calendar/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Evento criado')
+      setEventFormOpen(false)
+    } catch {
+      toast.error('Erro ao criar evento')
+      throw new Error('falha')
+    }
+  }
+
   const updateField = (field: string, value: unknown) => setForm((prev) => ({ ...prev, [field]: value }))
 
   const saveFields = async (fields: string[]) => {
@@ -266,15 +319,51 @@ export default function LeadDetailPage() {
   }
 
   const handleCreateNegocio = async () => {
-    if (!newNegocioTipo) return
+    if (!newNegocioTipo || !newNegocioBusinessType) return
     setCreatingNegocio(true)
     try {
-      const res = await fetch('/api/negocios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lead_id: id, tipo: newNegocioTipo }) })
+      const body: Record<string, unknown> = {
+        lead_id: id,
+        business_type: newNegocioBusinessType,
+        tipo: newNegocioTipo,
+      }
+
+      // Tipologia → quartos (T0=0, T1=1, ..., T5+=5)
+      if (newNegocioTipologia) {
+        const n = newNegocioTipologia === 'T5+' ? 5 : parseInt(newNegocioTipologia.slice(1), 10)
+        if (!Number.isNaN(n)) {
+          // For buyer/tenant intent, the field is the minimum (quartos_min);
+          // for seller/landlord, it's the property's actual rooms (quartos).
+          if (newNegocioTipo === 'Comprador' || newNegocioTipo === 'Arrendatário') {
+            body.quartos_min = n
+          } else {
+            body.quartos = n
+          }
+        }
+      }
+
+      // Valor → maps to the right column based on tipo
+      const valorNum = newNegocioValor.trim() ? parseFloat(newNegocioValor) : null
+      if (valorNum && !Number.isNaN(valorNum) && valorNum > 0) {
+        if (newNegocioTipo === 'Comprador') body.orcamento_max = valorNum
+        else if (newNegocioTipo === 'Arrendatário') body.renda_max_mensal = valorNum
+        else if (newNegocioTipo === 'Vendedor') body.preco_venda = valorNum
+        else if (newNegocioTipo === 'Senhorio') body.renda_pretendida = valorNum
+      }
+
+      const res = await fetch('/api/negocios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       if (!res.ok) throw new Error()
       const data = await res.json()
       toast.success('Oportunidade criada com sucesso')
       setNewNegocioOpen(false)
+      setNewNegocioBusinessType('')
       setNewNegocioTipo('')
+      setNewNegocioTipologia(null)
+      setNewNegocioValor('')
       loadNegocios()
       openNegocioSheet(data.id)
     } catch { toast.error('Erro ao criar oportunidade') }
@@ -324,15 +413,149 @@ export default function LeadDetailPage() {
   }
   const accentBar = TEMP_STYLES[temperaturaValue]?.accent ?? 'bg-muted-foreground/30'
 
+  // Tabs list — rendered twice: above the carousel on mobile (`lg:hidden`)
+  // and inside the right-pane tabs row on desktop (`hidden lg:flex`).
+  const TABS_CONFIG = [
+    { key: 'negocios', label: 'Oportunidades', icon: Briefcase },
+    { key: 'notas', label: 'Notas', icon: StickyNote },
+    { key: 'calendario', label: 'Calendário', icon: CalendarDays },
+    { key: 'historico', label: 'Histórico', icon: Clock },
+  ] as const
+
+  const tabsListJsx = (
+    <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
+      {TABS_CONFIG.map((tab) => {
+        const Icon = tab.icon
+        return (
+          <TabsTrigger
+            key={tab.key}
+            value={tab.key}
+            className={cn(
+              'group inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300',
+              'data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm',
+              'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40',
+            )}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            {/* Label: mobile shows only the active tab's label; desktop (lg+) shows all. */}
+            <span
+              className={cn(
+                'hidden truncate',
+                'group-data-[state=active]:inline',
+                'lg:inline',
+              )}
+            >
+              {tab.label}
+            </span>
+          </TabsTrigger>
+        )
+      })}
+    </TabsList>
+  )
+
+  // Context-action cluster (Referenciar / Dados / Leads / Automatismos / Editar).
+  // Rendered twice: above the carousel on mobile (`lg:hidden`) and inside the
+  // right-pane tabs row on desktop (`hidden lg:flex`).
+  const contextActionsCluster = (
+    <>
+      <button
+        type="button"
+        onClick={() => setDataSheetOpen(true)}
+        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70"
+        title="Ver dados completos do contacto"
+        aria-label="Ver dados completos"
+      >
+        <span className="h-7 w-7 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors group-hover:bg-slate-500/15">
+          <IdCard className="h-3.5 w-3.5" />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setEntriesSheetOpen(true)}
+        className="group relative inline-flex items-center justify-center h-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70 px-1"
+        title="Ver vezes que mostrou interesse"
+        aria-label="Leads"
+      >
+        <span className="h-7 w-7 rounded-full bg-blue-700/10 text-blue-700 dark:text-blue-300 flex items-center justify-center transition-colors group-hover:bg-blue-700/15">
+          <Inbox className="h-3.5 w-3.5" />
+        </span>
+        {entries.length > 0 && (
+          <span className="ml-1 mr-1.5 inline-flex items-center justify-center h-4 min-w-4 rounded-full bg-muted text-foreground/70 text-[10px] font-semibold px-1">
+            {entries.length}
+          </span>
+        )}
+        {pendingLeads.length > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background"
+            aria-label={`${pendingLeads.length} novos`}
+          />
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setAutomationsSheetOpen(true)}
+        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70"
+        title="Automatismos do contacto"
+        aria-label="Automatismos"
+      >
+        <span className="h-7 w-7 rounded-full bg-amber-700/10 text-amber-700 dark:text-amber-400 flex items-center justify-center transition-colors group-hover:bg-amber-700/15">
+          <Zap className="h-3.5 w-3.5" />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setEditSheetOpen(true)}
+        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70"
+        title="Edição rápida"
+        aria-label="Edição rápida"
+      >
+        <span className="h-7 w-7 rounded-full bg-stone-500/10 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors group-hover:bg-stone-500/15">
+          <Pencil className="h-3.5 w-3.5" />
+        </span>
+      </button>
+    </>
+  )
+
   return (
     <>
+    <Tabs
+      value={activeTab}
+      onValueChange={(tab) => {
+        setActiveTab(tab)
+        if (tab === 'negocios') loadNegocios()
+        if (tab === 'notas') loadActivities()
+        if (tab === 'historico') { loadAttachments(); loadEntries() }
+      }}
+    >
+    {/* Mobile-only header row: Voltar (left) + 5-button cluster (right). */}
+    <div className="lg:hidden flex items-center mb-3">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 rounded-2xl text-muted-foreground hover:text-foreground"
+        onClick={goBack}
+        aria-label="Voltar"
+        title="Voltar"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Button>
+      <div className="ml-auto flex items-center gap-1.5">
+        {contextActionsCluster}
+      </div>
+    </div>
     <div
       className={cn(
-        // Mobile: horizontal snap carousel, one card at a time.
-        'flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-2 h-[calc(100svh-8rem)]',
-        // Desktop: one continuous rounded shell, natural height.
-        'lg:overflow-x-visible lg:snap-none lg:gap-0 lg:mx-0 lg:px-0 lg:pb-0 lg:h-auto',
-        'lg:rounded-3xl lg:overflow-hidden lg:ring-1 lg:ring-border/50 lg:bg-gradient-to-br lg:from-background/80 lg:to-muted/20 lg:backdrop-blur-sm lg:shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]',
+        // Mobile: horizontal snap carousel, one card at a time. The pt-2 prevents
+        // the rounded top corner of each card from being clipped against the
+        // page edge (the cards have ambient shadow which extends upward).
+        'flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-2 h-[calc(100svh-9rem)]',
+        // Desktop: one continuous rounded shell, natural height. Flat surface
+        // (no gradient, no halo) for a cleaner professional look.
+        'lg:overflow-x-visible lg:snap-none lg:gap-0 lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:h-auto',
+        'lg:rounded-3xl lg:overflow-hidden lg:ring-1 lg:ring-border/50 lg:bg-card',
       )}
     >
       {/* ─── LEFT: profile sidebar / Card 1 in mobile carousel ─── */}
@@ -341,25 +564,28 @@ export default function LeadDetailPage() {
           'relative',
           // Mobile: carousel card — full-width snap, scrolls internally
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-sm',
+          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+          // Ambient halo shadow (sides + top/bottom)
+          'shadow-[0_0_24px_-2px_rgb(0_0_0_/_0.06),0_4px_12px_-3px_rgb(0_0_0_/_0.08)]',
           // Desktop: merged into the outer card
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
           'lg:rounded-none lg:ring-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:border-r lg:border-border/40',
         )}
       >
         <div className="relative px-5 py-5 sm:px-6 sm:py-6 space-y-5">
-          {/* Voltar */}
+          {/* Voltar — desktop only (mobile renders it on the header row above) */}
           <Button
             variant="ghost"
-            size="sm"
-            className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
+            size="icon"
+            className="hidden lg:inline-flex -ml-1 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
             onClick={goBack}
+            aria-label="Voltar"
+            title="Voltar"
           >
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-            Voltar
+            <ArrowLeft className="h-4 w-4" />
           </Button>
 
-          {/* Identity — name + subtitle + estado badge */}
+          {/* Identity — name + subtitle */}
           <div className="flex flex-col items-center text-center gap-1.5 pt-2">
             <h2 className="text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
               {lead.nome}
@@ -375,20 +601,79 @@ export default function LeadDetailPage() {
               <CalendarDays className="h-3 w-3" />
               <span>{formatDate(lead.created_at)}</span>
             </p>
-            {estadoValue && (
-              <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium">
-                {estadoValue === 'Cliente Premium' ? (
-                  <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
-                ) : (
-                  <span className={cn('h-1.5 w-1.5 rounded-full', ESTADO_COLORS[estadoValue] || 'bg-slate-400')} />
-                )}
-                {estadoValue}
-              </span>
-            )}
           </div>
 
-          {/* Contact action buttons — unified glass style with coloured icons */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Estado (tag) + Temperatura (emojis) — same line, dashboard-card style */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {/* Estado as a clickable tag — uses DropdownMenu for full control */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center h-8 gap-1.5 rounded-full border border-border/50 bg-background/60 backdrop-blur-sm px-3 text-xs font-medium shadow-sm hover:bg-background/80 transition-colors cursor-pointer"
+                  aria-label="Alterar estado"
+                >
+                  {estadoValue ? (
+                    <>
+                      {estadoValue === 'Cliente Premium' ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
+                      ) : (
+                        <span className={cn('h-1.5 w-1.5 rounded-full', ESTADO_COLORS[estadoValue] || 'bg-slate-400')} />
+                      )}
+                      <span>{estadoValue}</span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Sem estado</span>
+                  )}
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="rounded-xl">
+                {LEAD_ESTADOS.map((e) => (
+                  <DropdownMenuItem
+                    key={e}
+                    onClick={() => saveSidebarField('estado', e)}
+                    className="text-xs gap-2"
+                  >
+                    {e === 'Cliente Premium' ? (
+                      <span className="h-2 w-2 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
+                    ) : (
+                      <span className={cn('h-2 w-2 rounded-full', ESTADO_COLORS[e] || 'bg-slate-400')} />
+                    )}
+                    {e}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Temperatura — emoji-only on mobile, label visible on @sm+ */}
+            <div className="inline-flex items-center gap-1 rounded-full bg-background/60 backdrop-blur-sm border border-border/50 p-0.5 shadow-sm">
+              {LEAD_TEMPERATURAS.map((t) => {
+                const info = TEMP_STYLES[t.value]
+                const isActive = temperaturaValue === t.value
+                return (
+                  <button
+                    key={t.value}
+                    onClick={() => saveSidebarField('temperatura', t.value)}
+                    title={info?.label || t.label}
+                    className={cn(
+                      'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium transition-all',
+                      'px-2 sm:px-2.5',
+                      isActive
+                        ? (info?.active ?? 'bg-muted text-foreground')
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
+                    )}
+                  >
+                    <span className="text-sm leading-none">{info?.emoji}</span>
+                    <span className="hidden sm:inline">{info?.label || t.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Action buttons — glass-gray container with white icon-only buttons */}
+          <div className="rounded-3xl bg-muted/50 supports-[backdrop-filter]:bg-muted/40 backdrop-blur-md p-1.5 grid grid-cols-3 gap-1.5">
             <button
               type="button"
               disabled={!lead.telemovel}
@@ -397,51 +682,76 @@ export default function LeadDetailPage() {
                 window.location.href = `tel:${lead.telemovel}`
                 setTimeout(() => setCallOutcomeOpen(true), 500)
               }}
-              className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm py-2.5 transition-all hover:bg-background/70 hover:border-border/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-background/40"
+              className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground transition-all hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
               title={lead.telemovel ? `Ligar para ${lead.telemovel}` : 'Sem telemóvel'}
+              aria-label="Ligar"
             >
-              <span className="h-7 w-7 rounded-full bg-sky-500/10 text-sky-600 flex items-center justify-center transition-colors group-hover:bg-sky-500/15">
-                <Phone className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-[10px] font-medium text-foreground/80">Ligar</span>
+              <Phone className="h-4 w-4" />
             </button>
             <button
               type="button"
               disabled={!lead.telemovel}
               onClick={() => lead.telemovel && window.open(`https://wa.me/${lead.telemovel.replace(/\D/g, '')}`, '_blank')}
-              className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm py-2.5 transition-all hover:bg-background/70 hover:border-border/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-background/40"
+              className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground transition-all hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
               title={lead.telemovel ? 'Abrir WhatsApp' : 'Sem telemóvel'}
+              aria-label="WhatsApp"
             >
-              <span className="h-7 w-7 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center transition-colors group-hover:bg-emerald-500/15">
-                <MessageCircle className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-[10px] font-medium text-foreground/80">WhatsApp</span>
+              <WhatsAppIcon className="h-4 w-4" />
             </button>
             <button
               type="button"
               disabled={!lead.email}
               onClick={() => lead.email && (window.location.href = `mailto:${lead.email}`)}
-              className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm py-2.5 transition-all hover:bg-background/70 hover:border-border/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-background/40"
+              className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground transition-all hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
               title={lead.email ? `Email para ${lead.email}` : 'Sem email'}
+              aria-label="Email"
             >
-              <span className="h-7 w-7 rounded-full bg-violet-500/10 text-violet-600 flex items-center justify-center transition-colors group-hover:bg-violet-500/15">
-                <Mail className="h-3.5 w-3.5" />
-              </span>
-              <span className="text-[10px] font-medium text-foreground/80">Email</span>
+              <Mail className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Referenciar — secondary action below the comms row. */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setReferOpen(true)}
-            className="w-full rounded-full border-border/60 h-8 text-[11px] gap-1.5"
-            title="Referenciar este contacto a outro consultor"
-          >
-            <Send className="h-3 w-3" />
-            Referenciar a outro consultor
-          </Button>
+          {/* Quick actions — task / event / oportunidade / nota rápida.
+              Pill style matching the "Perfil do cliente" button. Palette uses
+              deeper, less saturated executive tones (700-level) for a more
+              professional feel. */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTaskFormOpen(true)}
+              className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-teal-700/25 bg-teal-700/8 backdrop-blur-sm px-3 text-xs font-medium text-teal-800 dark:text-teal-300 hover:bg-teal-700/12 transition-colors shadow-sm"
+              title="Criar tarefa para este contacto"
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              Tarefa
+            </button>
+            <button
+              type="button"
+              onClick={() => setEventFormOpen(true)}
+              className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-indigo-700/25 bg-indigo-700/8 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/12 transition-colors shadow-sm"
+              title="Criar evento (reunião, visita, follow-up)"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+              Evento
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewNegocioOpen(true)}
+              className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-slate-600/25 bg-slate-600/8 backdrop-blur-sm px-3 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-600/12 transition-colors shadow-sm"
+              title="Criar nova oportunidade"
+            >
+              <Briefcase className="h-3.5 w-3.5" />
+              Oportunidade
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickNoteOpen(true)}
+              className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-stone-600/25 bg-stone-600/8 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-600/12 transition-colors shadow-sm"
+              title="Nota rápida"
+            >
+              <StickyNote className="h-3.5 w-3.5" />
+              Nota
+            </button>
+          </div>
 
           {/* Contact details card */}
           {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
@@ -469,79 +779,57 @@ export default function LeadDetailPage() {
                   <span className="font-medium text-foreground truncate">{lead.agent.commercial_name}</span>
                 </div>
               )}
+
+              {/* Outros canais — SMS + App. App is gated on a future flag
+                  (`has_mube_app`); shown only when present. */}
+              {(lead.telemovel || (lead as { has_mube_app?: boolean }).has_mube_app) && (
+                <div className="pt-2 border-t border-border/30 flex items-center gap-2">
+                  {lead.telemovel && (
+                    <button
+                      type="button"
+                      onClick={() => lead.telemovel && (window.location.href = `sms:${lead.telemovel}`)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-background/60 border border-border/40 backdrop-blur-sm text-[11px] font-medium text-foreground/90 hover:bg-background/80 transition-colors"
+                      title={`SMS para ${lead.telemovel}`}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Mensagem
+                    </button>
+                  )}
+                  {(lead as { has_mube_app?: boolean }).has_mube_app && (
+                    <button
+                      type="button"
+                      onClick={() => toast.info('Envio pela App em desenvolvimento')}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-violet-500/10 border border-violet-500/30 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/15 transition-colors"
+                      title="Enviar via App Mube"
+                    >
+                      <Smartphone className="h-3.5 w-3.5" />
+                      App
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Estado (editable) */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground/80">Estado</p>
-            <Select value={estadoValue} onValueChange={(v) => saveSidebarField('estado', v)}>
-              <SelectTrigger className="w-full rounded-2xl text-xs h-9 border-border/40 bg-background/40 backdrop-blur-sm">
-                <SelectValue placeholder="Sem estado" />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_ESTADOS.map((e) => (
-                  <SelectItem key={e} value={e}>
-                    <div className="flex items-center gap-2">
-                      {e === 'Cliente Premium' ? (
-                        <span className="h-2 w-2 rounded-full bg-gradient-to-br from-neutral-300 to-neutral-500" />
-                      ) : (
-                        <span className={cn('h-2 w-2 rounded-full', ESTADO_COLORS[e] || 'bg-slate-400')} />
-                      )}
-                      {e}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Temperatura */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground/80">Temperatura</p>
-            <div className="grid grid-cols-3 gap-1">
-              {LEAD_TEMPERATURAS.map((t) => {
-                const info = TEMP_STYLES[t.value]
-                const isActive = temperaturaValue === t.value
-                return (
-                  <button
-                    key={t.value}
-                    onClick={() => saveSidebarField('temperatura', t.value)}
-                    className={cn(
-                      'flex items-center justify-center gap-1 px-2 py-1.5 rounded-full text-[11px] font-medium transition-all border',
-                      isActive
-                        ? (info?.active ?? 'bg-muted text-foreground border-border/60')
-                        : 'border-border/40 bg-background/40 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:border-border/70',
-                    )}
-                  >
-                    <span className="text-xs">{info?.emoji}</span>
-                    {info?.label || t.label}
-                  </button>
-                )
-              })}
+          {/* Observações legadas — só visível se o campo único antigo
+              ainda tem conteúdo (nova captura passou para a tab Histórico).
+              Read-only com CTA para mover ao histórico. */}
+          {(form.observacoes as string)?.trim() && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground/80">Observações</p>
+                <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Legado</span>
+              </div>
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 backdrop-blur-sm p-3">
+                <p className="text-xs text-foreground whitespace-pre-wrap">
+                  {form.observacoes as string}
+                </p>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Use a tab <span className="font-medium">Histórico</span> para registar novas observações com data.
+                </p>
+              </div>
             </div>
-          </div>
-
-          {/* Observações — notas livres persistentes sobre o contacto,
-              save-on-blur via o mesmo saveSidebarField dos outros campos. */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground/80">Observações</p>
-            <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-1">
-              <Textarea
-                value={(form.observacoes as string) ?? ''}
-                onChange={(e) => updateField('observacoes', e.target.value)}
-                onBlur={(e) => {
-                  const next = e.target.value
-                  if (next !== (lead?.observacoes ?? '')) {
-                    saveSidebarField('observacoes', next)
-                  }
-                }}
-                placeholder="Notas pessoais sobre este contacto…"
-                rows={4}
-                className="text-xs resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:outline-none"
-              />
-            </div>
-          </div>
+          )}
         </div>
       </aside>
 
@@ -550,97 +838,29 @@ export default function LeadDetailPage() {
         className={cn(
           // Mobile: second carousel card — own styling, scrolls internally
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-sm p-5',
+          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-[0_0_24px_-2px_rgb(0_0_0_/_0.06),0_4px_12px_-3px_rgb(0_0_0_/_0.08)] p-5',
           // Desktop: merges into the outer card
           'lg:w-auto lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
           'lg:rounded-none lg:ring-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:p-6',
         )}
       >
-          <Tabs
-            defaultValue={tabFromUrl || (pendingLeads.length > 0 ? 'leads' : 'dados')}
-            onValueChange={(tab) => {
-              if (tab === 'leads') loadEntries()
-              if (tab === 'negocios') loadNegocios()
-              if (tab === 'automatismos') loadNegocios()
-              if (tab === 'historico') { loadAttachments(); loadActivities(); loadEntries() }
-            }}
-          >
-            {/* Pill tabs — responsive: icon-only on narrow containers,
-                active-only label at md, all labels at lg (container queries). */}
-            <div className="@container mb-4">
-              <TabsList className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 h-auto w-auto max-w-full overflow-x-auto scrollbar-hide">
-                {[
-                  { key: 'leads', label: 'Leads', icon: Zap, count: pendingLeads.length || undefined },
-                  { key: 'negocios', label: 'Oportunidades', icon: Briefcase },
-                  { key: 'dados', label: 'Dados', icon: Database },
-                  { key: 'automatismos', label: 'Automatismos', icon: Workflow },
-                  { key: 'historico', label: 'Histórico', icon: Clock },
-                ].map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <TabsTrigger
-                      key={tab.key}
-                      value={tab.key}
-                      className={cn(
-                        'group inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300',
-                        'data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm',
-                        'data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40',
-                      )}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      {/* Label: always visible for the active tab; others reveal at @lg. */}
-                      <span
-                        className={cn(
-                          'hidden truncate',
-                          'group-data-[state=active]:inline',
-                          '@lg:inline',
-                        )}
-                      >
-                        {tab.label}
-                      </span>
-                      {'count' in tab && tab.count ? (
-                        <span className="inline-flex items-center justify-center h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1">
-                          {tab.count}
-                        </span>
-                      ) : null}
-                    </TabsTrigger>
-                  )
-                })}
-              </TabsList>
+          {/* Mobile: tabs row centred at the top of the right pane card */}
+          <div className="lg:hidden mb-3 flex items-center justify-center">
+            {tabsListJsx}
+          </div>
+
+          {/* Desktop only: tabs (left) + 5 context-action buttons (right) */}
+          <div className="mb-4 hidden lg:flex items-center gap-2">
+            {tabsListJsx}
+
+            <div className="ml-auto flex items-center gap-1.5">
+              {contextActionsCluster}
             </div>
-
-            {/* Leads Tab */}
-            <TabsContent value="leads" className="mt-0 space-y-4">
-              <LeadsEntryCards
-                entries={entries}
-                loading={entriesLoading}
-                contactId={id}
-                onQualified={() => { loadEntries(); loadNegocios(); loadPendingLeads() }}
-              />
-            </TabsContent>
-
-            {/* Dados Tab */}
-            <TabsContent value="dados" className="mt-0">
-              <LeadDataCard
-                lead={lead}
-                form={form}
-                onFieldChange={updateField}
-                onSave={saveFields}
-                isSaving={isSaving}
-                attachments={attachments}
-                onDeleteAttachment={(attId) => setDeleteAttachmentId(attId)}
-                onDocumentAnalysisApply={handleDocumentAnalysisApply}
-                cpLoading={cpLoading}
-                onPostalCodeLookup={handlePostalCodeLookup}
-                nipcLoading={nipcLoading}
-                onNipcLookup={handleNipcLookup}
-              />
-            </TabsContent>
+          </div>
 
             {/* Negocios Tab */}
             <TabsContent value="negocios" className="mt-0 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Oportunidades</h3>
+              <div className="flex items-center justify-end">
                 <Button size="sm" onClick={() => setNewNegocioOpen(true)} className="rounded-full">
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   Nova Oportunidade
@@ -679,36 +899,21 @@ export default function LeadDetailPage() {
                 </div>
               )}
 
-              {/* New negocio dialog */}
-              <Dialog open={newNegocioOpen} onOpenChange={setNewNegocioOpen}>
-                <DialogContent className="rounded-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Nova Oportunidade</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Tipo de Oportunidade *</Label>
-                      <Select value={newNegocioTipo} onValueChange={setNewNegocioTipo}>
-                        <SelectTrigger className="rounded-full">
-                          <SelectValue placeholder="Seleccionar tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {NEGOCIO_TIPOS_PICKER.map((t) => (
-                            <SelectItem key={t} value={t}>{t}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setNewNegocioOpen(false)} className="rounded-full">Cancelar</Button>
-                    <Button onClick={handleCreateNegocio} disabled={!newNegocioTipo || creatingNegocio} className="rounded-full">
-                      {creatingNegocio && <Spinner variant="infinite" size={16} className="mr-2" />}
-                      Criar
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              {/* Nova Oportunidade sheet — replaces the previous Dialog */}
+              <NewNegocioSheet
+                open={newNegocioOpen}
+                onOpenChange={setNewNegocioOpen}
+                businessType={newNegocioBusinessType}
+                onBusinessTypeChange={setNewNegocioBusinessType}
+                tipo={newNegocioTipo}
+                onTipoChange={setNewNegocioTipo}
+                tipologia={newNegocioTipologia}
+                onTipologiaChange={setNewNegocioTipologia}
+                valor={newNegocioValor}
+                onValorChange={setNewNegocioValor}
+                onSubmit={handleCreateNegocio}
+                submitting={creatingNegocio}
+              />
 
               {/* Delete negocio confirmation */}
               <AlertDialog open={!!negocioToDelete} onOpenChange={(open) => !open && setNegocioToDelete(null)}>
@@ -727,21 +932,97 @@ export default function LeadDetailPage() {
               </AlertDialog>
             </TabsContent>
 
-            {/* Automatismos Tab */}
-            <TabsContent value="automatismos" className="mt-0">
-              <ContactAutomationsList
+            {/* Notas Tab — composer + AI profile + observation timeline */}
+            <TabsContent value="notas" className="mt-0 space-y-3">
+              {/* Legacy observacoes migration banner */}
+              {(form.observacoes as string)?.trim() && (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
+                  <StickyNote className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">Observação antiga sem data</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      {form.observacoes as string}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full text-xs h-7 px-3 shrink-0"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/leads/${id}/migrate-observacoes`, { method: 'POST' })
+                        if (!res.ok) throw new Error()
+                        updateField('observacoes', '')
+                        setLead((prev) => (prev ? { ...prev, observacoes: null } : prev))
+                        loadActivities()
+                        toast.success('Observação movida para o histórico')
+                      } catch {
+                        toast.error('Erro ao mover observação')
+                      }
+                    }}
+                  >
+                    Mover para o histórico
+                  </Button>
+                </div>
+              )}
+
+              {/* AI client profile — small button that opens a sheet */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setProfileSheetOpen(true)}
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-indigo-700/25 bg-indigo-700/8 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/12 transition-colors shadow-sm"
+                  title="Ver perfil IA do cliente"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Perfil do cliente
+                </button>
+              </div>
+
+              {/* Composer */}
+              <ObservationComposer
                 contactId={id}
-                contactBirthday={(lead?.data_nascimento as string | null | undefined) ?? null}
-                hasDeals={negocios.length > 0}
+                onSaved={() => {
+                  loadActivities()
+                  setProfileInvalidateKey((k) => k + 1)
+                }}
+              />
+
+              {activitiesLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+                </div>
+              ) : activities.length > 0 ? (
+                <div className="space-y-2">
+                  {activities.map((act) => (
+                    <ObservationItem
+                      key={act.id}
+                      activity={act as ObservationActivity}
+                      contactId={id}
+                      onChanged={() => {
+                        loadActivities()
+                        setProfileInvalidateKey((k) => k + 1)
+                      }}
+                      onNegocioClick={openNegocioSheet}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </TabsContent>
+
+            {/* Calendário Tab — visits + manual events linked to this contact */}
+            <TabsContent value="calendario" className="mt-0">
+              <LeadCalendarTab
+                contactId={id}
+                onCreateEvent={() => setEventFormOpen(true)}
               />
             </TabsContent>
 
-            {/* Historico Tab */}
+            {/* Histórico Tab — passive record: entradas + anexos */}
             <TabsContent value="historico" className="mt-0 space-y-4">
               {/* Subtabs */}
               <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit border border-border/30">
                 {([
-                  { key: 'actividades' as const, label: 'Actividades', count: activities.length },
                   { key: 'entradas' as const, label: 'Entradas', count: entries.length },
                   { key: 'anexos' as const, label: 'Anexos', count: attachments.length },
                 ]).map((sub) => (
@@ -769,51 +1050,6 @@ export default function LeadDetailPage() {
                   </button>
                 ))}
               </div>
-
-              {/* Actividades subtab */}
-              {historicoSubtab === 'actividades' && (
-                <div className="space-y-2">
-                  {activitiesLoading ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
-                    </div>
-                  ) : activities.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-12 text-center">
-                      <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                        <CalendarDays className="h-7 w-7 text-muted-foreground/30" />
-                      </div>
-                      <p className="text-muted-foreground text-sm">Sem actividades registadas</p>
-                      <p className="text-muted-foreground/60 text-xs mt-1">Chamadas, visitas, emails e outras interacções aparecerão aqui</p>
-                    </div>
-                  ) : (
-                    activities.map((act) => {
-                      const typeIcons: Record<string, typeof Phone> = { call: Phone, email: Mail, whatsapp: MessageCircle, sms: MessageCircle, visit: CalendarDays, note: FileText, stage_change: Zap, assignment: Briefcase }
-                      const TypeIcon = typeIcons[act.activity_type] || Zap
-                      const typeLabels: Record<string, string> = { call: 'Chamada', email: 'Email', whatsapp: 'WhatsApp', sms: 'SMS', visit: 'Visita', note: 'Nota', stage_change: 'Mudança de fase', assignment: 'Atribuição', system: 'Sistema', lifecycle_change: 'Ciclo de vida' }
-                      return (
-                        <div key={act.id} className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm px-4 py-3 flex items-start gap-3 transition-all hover:bg-card/80">
-                          <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5', act.direction === 'outbound' ? 'bg-blue-500/10 text-blue-600' : act.direction === 'inbound' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground')}>
-                            <TypeIcon className="h-3.5 w-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">{typeLabels[act.activity_type] || act.activity_type}</span>
-                              {act.direction && (
-                                <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full', act.direction === 'outbound' ? 'bg-blue-500/10 text-blue-600' : 'bg-emerald-500/10 text-emerald-600')}>
-                                  {act.direction === 'outbound' ? 'Enviado' : 'Recebido'}
-                                </span>
-                              )}
-                            </div>
-                            {act.subject && <p className="text-sm text-foreground mt-0.5">{act.subject}</p>}
-                            {act.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{act.description}</p>}
-                            <p className="text-[10px] text-muted-foreground/60 mt-1">{formatDate(act.created_at)}</p>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              )}
 
               {/* Entradas subtab — inbound leads from forms/campaigns */}
               {historicoSubtab === 'entradas' && (
@@ -867,9 +1103,9 @@ export default function LeadDetailPage() {
               )}
 
             </TabsContent>
-          </Tabs>
         </div>
       </div>
+    </Tabs>
 
       {/* Call outcome dialog, WhatsApp + email bubbles (overlays, out of flow) */}
       {lead && (
@@ -931,6 +1167,117 @@ export default function LeadDetailPage() {
         onChanged={() => {
           loadNegocios()
           loadLead()
+        }}
+      />
+
+      {/* Dados sheet — substitui o tab "Dados" */}
+      <LeadDataSheet
+        open={dataSheetOpen}
+        onOpenChange={setDataSheetOpen}
+        lead={lead}
+        form={form}
+        onFieldChange={updateField}
+        onSave={saveFields}
+        isSaving={isSaving}
+        attachments={attachments}
+        onDeleteAttachment={async (attId) => {
+          try {
+            const res = await fetch(`/api/leads/attachments/${attId}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error()
+            loadAttachments()
+            toast.success('Anexo eliminado')
+          } catch {
+            toast.error('Erro ao eliminar anexo')
+          }
+        }}
+        onDocumentAnalysisApply={handleDocumentAnalysisApply}
+        cpLoading={cpLoading}
+        onPostalCodeLookup={handlePostalCodeLookup}
+        nipcLoading={nipcLoading}
+        onNipcLookup={handleNipcLookup}
+      />
+
+      {/* Leads sheet — substitui o tab "Leads" */}
+      <LeadEntriesSheet
+        open={entriesSheetOpen}
+        onOpenChange={setEntriesSheetOpen}
+        contactId={id}
+        entries={entries}
+        loading={entriesLoading}
+        pendingCount={pendingLeads.length}
+        onQualified={() => { loadEntries(); loadNegocios(); loadPendingLeads() }}
+        onMarkedSeen={loadPendingLeads}
+      />
+
+      {/* Automatismos sheet — substitui o tab "Automatismos" */}
+      <LeadAutomationsSheet
+        open={automationsSheetOpen}
+        onOpenChange={setAutomationsSheetOpen}
+        contactId={id}
+        contactBirthday={(lead?.data_nascimento as string | null | undefined) ?? null}
+        hasDeals={negocios.length > 0}
+      />
+
+      {/* Edit sheet — quick edit for basic info (name/email/phone) */}
+      <LeadEditSheet
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        lead={lead}
+        onSaved={(next) => {
+          // Optimistic merge to avoid an extra fetch
+          setLead((prev) => (prev ? { ...prev, ...next } : prev))
+          setForm((prev) => ({ ...prev, ...next }))
+        }}
+        onReferenciar={() => {
+          setEditSheetOpen(false)
+          setReferOpen(true)
+        }}
+      />
+
+      {/* AI client profile sheet */}
+      <ClientProfileSheet
+        open={profileSheetOpen}
+        onOpenChange={setProfileSheetOpen}
+        contactId={id}
+        invalidateKey={profileInvalidateKey}
+      />
+
+      {/* Quick action: nota rápida — composer in a sheet */}
+      <QuickNoteSheet
+        open={quickNoteOpen}
+        onOpenChange={setQuickNoteOpen}
+        contactId={id}
+        onSaved={() => {
+          loadActivities()
+          setProfileInvalidateKey((k) => k + 1)
+        }}
+      />
+
+      {/* Quick action: create task pre-linked to this contact */}
+      <TaskForm
+        open={taskFormOpen}
+        onOpenChange={setTaskFormOpen}
+        onSuccess={() => {
+          setTaskFormOpen(false)
+          toast.success('Tarefa criada')
+        }}
+        consultants={consultants}
+        defaultValues={{
+          entity_type: 'lead',
+          entity_id: id,
+          title: lead.nome ? `${lead.nome} — ` : '',
+        }}
+      />
+
+      {/* Quick action: create event linked to this contact */}
+      <CalendarEventForm
+        open={eventFormOpen}
+        onClose={() => setEventFormOpen(false)}
+        onSubmit={handleEventSubmit}
+        users={consultants.map((c) => ({ id: c.id, name: c.commercial_name }))}
+        initialData={{
+          lead_id: id,
+          title: lead.nome ? `Com ${lead.nome}` : '',
         }}
       />
     </>

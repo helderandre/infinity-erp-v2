@@ -72,9 +72,21 @@ export const updateLeadSchema = z.object({
 })
 
 // Schema de criacao de negocio
+//
+// 2026-06-XX: split `tipo` into 2 fields. `business_type` is the deal type
+// (Venda/Arrendamento/Trespasse), `tipo` is now the perspective only
+// (Comprador/Vendedor/Arrendatário/Senhorio/Outro). Old enum values
+// ('Compra'/'Venda'/'Arrendador'/'Trespasse') are accepted as aliases for
+// transitional period and normalised by the API.
 export const createNegocioSchema = z.object({
   lead_id: z.string().uuid('Lead ID inválido'),
-  tipo: z.enum(['Compra', 'Venda', 'Arrendatário', 'Arrendador', 'Outro']),
+  business_type: z.enum(['Venda', 'Arrendamento', 'Trespasse']).nullable().optional(),
+  tipo: z.enum([
+    // New perspective values (preferred)
+    'Comprador', 'Vendedor', 'Arrendatário', 'Senhorio', 'Outro',
+    // Legacy values (transitional — auto-mapped server-side)
+    'Compra', 'Venda', 'Arrendador', 'Trespasse',
+  ]),
   // When omitted, the POST handler auto-resolves to the first non-terminal
   // stage of the matching pipeline so the negócio always lands in the kanban.
   pipeline_stage_id: z.string().uuid().optional().nullable(),

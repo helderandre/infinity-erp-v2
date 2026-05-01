@@ -27,11 +27,17 @@ const fmt = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 0,
 })
 
+// Tipo (perspective) tag — accepts both new and legacy values for safety
 const TIPO_TAG: Record<string, { color: string; label: string }> = {
-  'Compra': { color: '#3b82f6', label: 'Compra' },
-  'Venda': { color: '#10b981', label: 'Venda' },
-  'Arrendatário': { color: '#f59e0b', label: 'Arrendatário' },
-  'Arrendador': { color: '#fb923c', label: 'Senhorio' },
+  Comprador:    { color: '#3b82f6', label: 'Comprador' },
+  Vendedor:     { color: '#10b981', label: 'Vendedor' },
+  Arrendatário: { color: '#f59e0b', label: 'Arrendatário' },
+  Senhorio:     { color: '#fb923c', label: 'Senhorio' },
+  // Legacy fallbacks (rows from before the 2026 split won't appear post-backfill,
+  // but kept defensive)
+  Compra:       { color: '#3b82f6', label: 'Comprador' },
+  Venda:        { color: '#10b981', label: 'Vendedor' },
+  Arrendador:   { color: '#fb923c', label: 'Senhorio' },
 }
 
 const TEMP_TAG: Record<string, { color: string; emoji: string; label: string }> = {

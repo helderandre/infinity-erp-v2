@@ -51,13 +51,28 @@ const LEAD_ORIGENS_OPTIONS = [
   'Presencial', 'Chamada', 'Redes Sociais', 'Parceiro', 'Outro',
 ]
 
-const NEGOCIO_TYPES = [
-  { value: 'Compra', label: 'Comprador', icon: ShoppingCart },
-  { value: 'Venda', label: 'Vendedor', icon: Store },
-  { value: 'Arrendatário', label: 'Arrendatário', icon: Key },
-  { value: 'Arrendador', label: 'Senhorio', icon: Building2 },
-  { value: 'Trespasse', label: 'Trespasse', icon: Briefcase },
-]
+// 2026-06-XX: split into 2 fields. business_type (Venda/Arrendamento/Trespasse)
+// + perspectiva (Comprador/Vendedor/Arrendatário/Senhorio).
+const BUSINESS_TYPE_OPTIONS = [
+  { value: 'Venda',        label: 'Venda',        icon: Store },
+  { value: 'Arrendamento', label: 'Arrendamento', icon: Key },
+  { value: 'Trespasse',    label: 'Trespasse',    icon: Briefcase },
+] as const
+
+const PERSPECTIVAS_BY_BT: Record<string, Array<{ value: string; label: string; icon: React.ElementType }>> = {
+  Venda: [
+    { value: 'Comprador', label: 'Comprador', icon: ShoppingCart },
+    { value: 'Vendedor',  label: 'Vendedor',  icon: Store },
+  ],
+  Arrendamento: [
+    { value: 'Arrendatário', label: 'Arrendatário', icon: Key },
+    { value: 'Senhorio',     label: 'Senhorio',     icon: Building2 },
+  ],
+  Trespasse: [
+    { value: 'Comprador', label: 'Comprador', icon: ShoppingCart },
+    { value: 'Vendedor',  label: 'Vendedor',  icon: Store },
+  ],
+}
 
 const PROPERTY_TYPES = [
   'Apartamento', 'Moradia', 'Quinta', 'Prédio',
@@ -90,7 +105,8 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
     if (user?.id && !form.agent_id) setForm((p) => ({ ...p, agent_id: user.id }))
   }, [user?.id])
 
-  // Negócio inline (required: at least tipo)
+  // Negócio inline (required: at least business_type + tipo)
+  const [negocioBusinessType, setNegocioBusinessType] = useState<string>(initialValues?.negocio_business_type || '')
   const [negocioTipo, setNegocioTipo] = useState<string>(initialValues?.negocio_tipo || '')
   const [negocioFields, setNegocioFields] = useState({
     tipo_imovel: initialValues?.tipo_imovel || '',
@@ -128,8 +144,24 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
       telemovel: lockedFieldsRef.current.telemovel ? p.telemovel : (fields.telemovel || fields.phone || p.telemovel),
       observacoes: fields.observacoes ? (p.observacoes ? p.observacoes + '\n' + fields.observacoes : fields.observacoes) : p.observacoes,
     }))
-    if (fields.negocio_tipo && ['Compra', 'Venda', 'Arrendatário', 'Arrendador', 'Trespasse'].includes(fields.negocio_tipo)) {
-      setNegocioTipo(fields.negocio_tipo)
+    // Map legacy AI-extracted values to the new (business_type, tipo) pair
+    if (fields.negocio_tipo) {
+      const LEGACY_MAP: Record<string, { bt: string; tipo: string }> = {
+        Compra:        { bt: 'Venda',        tipo: 'Comprador' },
+        Venda:         { bt: 'Venda',        tipo: 'Vendedor' },
+        Arrendatário:  { bt: 'Arrendamento', tipo: 'Arrendatário' },
+        Arrendador:    { bt: 'Arrendamento', tipo: 'Senhorio' },
+        Trespasse:     { bt: 'Trespasse',    tipo: 'Vendedor' },
+        // New values pass through
+        Comprador:     { bt: 'Venda',        tipo: 'Comprador' },
+        Vendedor:      { bt: 'Venda',        tipo: 'Vendedor' },
+        Senhorio:      { bt: 'Arrendamento', tipo: 'Senhorio' },
+      }
+      const mapped = LEGACY_MAP[fields.negocio_tipo as string]
+      if (mapped) {
+        setNegocioBusinessType(mapped.bt)
+        setNegocioTipo(mapped.tipo)
+      }
     }
     if (fields.localizacao) setNegocioFields((p) => ({ ...p, localizacao: fields.localizacao }))
     if (fields.quartos_min || fields.quartos) setNegocioFields((p) => ({ ...p, quartos_min: String(fields.quartos_min || fields.quartos) }))
@@ -216,13 +248,13 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
 
   const handleSubmit = async () => {
     if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return }
-    if (!negocioTipo) { toast.error('Seleccione o tipo de negócio (compra, venda, etc.)'); return }
+    if (!negocioBusinessType || !negocioTipo) { toast.error('Seleccione o tipo de negócio e a perspectiva'); return }
 
     // Mandatory negócio fields — same rule as the CRM "Novo negócio" dialog.
     if (!negocioFields.localizacao.trim()) { toast.error('Localização é obrigatória'); return }
     const orcMin = parseFloat(negocioFields.orcamento)
     const orcMax = parseFloat(negocioFields.orcamento_max)
-    const isBuyer = negocioTipo === 'Compra' || negocioTipo === 'Outro'
+    const isBuyer = negocioTipo === 'Comprador' || negocioTipo === 'Arrendatário' || negocioTipo === 'Outro'
     if (!negocioFields.orcamento || !Number.isFinite(orcMin) || orcMin <= 0) {
       toast.error(isBuyer ? 'Orçamento mínimo é obrigatório' : 'Valor é obrigatório')
       return
@@ -266,8 +298,10 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
 
       // 2. Create negócio (qualification)
       const pipelineMap: Record<string, string> = {
-        Compra: 'comprador', Venda: 'vendedor',
-        'Arrendatário': 'arrendatario', 'Arrendador': 'arrendador',
+        Comprador:    'comprador',
+        Vendedor:     'vendedor',
+        'Arrendatário': 'arrendatario',
+        Senhorio:     'arrendador',
       }
       const pt = pipelineMap[negocioTipo] || 'comprador'
 
@@ -285,6 +319,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
       if (stageId) {
         const negPayload: Record<string, any> = {
           lead_id: contactId,
+          business_type: negocioBusinessType,
           tipo: negocioTipo,
           pipeline_stage_id: stageId,
           assigned_consultant_id: form.agent_id || null,
@@ -332,7 +367,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
     }
   }
 
-  const isBuyer = negocioTipo === 'Compra' || negocioTipo === 'Arrendatário'
+  const isBuyer = negocioTipo === 'Comprador' || negocioTipo === 'Arrendatário'
 
   return (
     <div className="flex flex-col max-h-[85vh]">
@@ -406,22 +441,32 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
           </div>
         )}
 
-        {/* Tipo de negócio (required) */}
+        {/* Tipo de negócio — Step 1 (required) */}
         <div>
-          <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Negócio *</Label>
-          <div className="grid grid-cols-4 gap-1.5 mt-1.5">
-            {NEGOCIO_TYPES.map((t) => {
-              const isActive = negocioTipo === t.value
+          <Label className="text-[11px] text-muted-foreground font-medium">Tipo de negócio *</Label>
+          <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+            {BUSINESS_TYPE_OPTIONS.map((t) => {
+              const isActive = negocioBusinessType === t.value
               return (
                 <button
                   key={t.value}
                   type="button"
-                  onClick={() => setNegocioTipo(isActive ? '' : t.value)}
+                  onClick={() => {
+                    if (isActive) {
+                      setNegocioBusinessType('')
+                      setNegocioTipo('')
+                      return
+                    }
+                    setNegocioBusinessType(t.value)
+                    // Reset perspectiva if not valid for new business_type
+                    const allowed = PERSPECTIVAS_BY_BT[t.value]?.map((p) => p.value) ?? []
+                    if (!allowed.includes(negocioTipo)) setNegocioTipo('')
+                  }}
                   className={cn(
                     'rounded-lg py-2 text-[11px] font-medium transition-all text-center',
                     isActive
                       ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted',
                   )}
                 >
                   {t.label}
@@ -430,6 +475,33 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
             })}
           </div>
         </div>
+
+        {/* Perspectiva — Step 2 */}
+        {negocioBusinessType && (
+          <div className="animate-in fade-in slide-in-from-top-1">
+            <Label className="text-[11px] text-muted-foreground font-medium">Perspectiva *</Label>
+            <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+              {(PERSPECTIVAS_BY_BT[negocioBusinessType] ?? []).map((t) => {
+                const isActive = negocioTipo === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setNegocioTipo(isActive ? '' : t.value)}
+                    className={cn(
+                      'rounded-lg py-2 text-[11px] font-medium transition-all text-center',
+                      isActive
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Contact fields */}
         <div>

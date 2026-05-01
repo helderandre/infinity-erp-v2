@@ -95,7 +95,7 @@ export function ContactAutomationsList({ contactId, contactBirthday, hasDeals }:
             Aniversário de fecho e festividades personalizadas (os 3 eventos fixos estão agora na secção acima).
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {items.length > 0 && (
             <Button
               size="sm"
@@ -103,7 +103,7 @@ export function ContactAutomationsList({ contactId, contactBirthday, hasDeals }:
               onClick={() => setShowCalendar((v) => !v)}
             >
               <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-              {showCalendar ? "Ocultar calendário" : "Calendário"}
+              {showCalendar ? "Ocultar" : "Calendário"}
             </Button>
           )}
           {items.some((a) => a.status === "scheduled") && (
@@ -116,7 +116,7 @@ export function ContactAutomationsList({ contactId, contactBirthday, hasDeals }:
             </Button>
           )}
           <Button size="sm" onClick={() => setWizardOpen(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Criar automatismo
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Criar
           </Button>
         </div>
       </div>
