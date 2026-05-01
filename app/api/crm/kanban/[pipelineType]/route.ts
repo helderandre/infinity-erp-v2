@@ -86,8 +86,8 @@ export async function GET(
          referrer_consultant_id, assigned_consultant_id,
          temperatura, observacoes, origem,
          leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
-         dev_users!assigned_consultant_id(id, commercial_name),
-         referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name),
+         dev_users!assigned_consultant_id(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
+         referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
          leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days)`
       )
 
