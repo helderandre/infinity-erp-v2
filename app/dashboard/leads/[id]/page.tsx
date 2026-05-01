@@ -65,14 +65,13 @@ import { ObservationItem, type ObservationActivity } from '@/components/leads/ob
 import { ClientProfileSheet } from '@/components/leads/client-profile-sheet'
 import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
 import { NewNegocioSheet } from '@/components/leads/new-negocio-sheet'
-import { LeadCalendarTab } from '@/components/leads/lead-calendar-tab'
+import { LeadAgendaTab } from '@/components/leads/lead-agenda-tab'
 import { NegocioListItem, type NegocioListItemData } from '@/components/negocios/negocio-list-item'
 import { LeadAutomationsSheet } from '@/components/leads/lead-automations-sheet'
 import { LeadEditSheet } from '@/components/leads/lead-edit-sheet'
 import { WhatsAppIcon } from '@/components/shared/whatsapp-icon'
 import { TaskForm } from '@/components/tasks/task-form'
-import { CalendarEventForm } from '@/components/calendar/calendar-event-form'
-import type { CalendarEventFormData } from '@/lib/validations/calendar'
+import { QuickEventSheet } from '@/components/leads/quick-event-sheet'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
@@ -146,7 +145,10 @@ export default function LeadDetailPage() {
   const [profileSheetOpen, setProfileSheetOpen] = useState(false)
   const [quickNoteOpen, setQuickNoteOpen] = useState(false)
   const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
-  const [activeTab, setActiveTab] = useState<string>(tabFromUrl || 'negocios')
+  const [activeTab, setActiveTab] = useState<string>(
+    // Back-compat: old URLs used `?tab=calendario` before the rename to `agenda`.
+    tabFromUrl === 'calendario' ? 'agenda' : (tabFromUrl || 'negocios'),
+  )
 
   const loadLead = useCallback(async () => {
     setIsLoading(true)
@@ -231,23 +233,6 @@ export default function LeadDetailPage() {
       .then((j) => setConsultants(j?.data ?? j ?? []))
       .catch(() => {})
   }, [])
-
-  async function handleEventSubmit(data: CalendarEventFormData) {
-    try {
-      const payload = { ...data, lead_id: id }
-      const res = await fetch('/api/calendar/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error()
-      toast.success('Evento criado')
-      setEventFormOpen(false)
-    } catch {
-      toast.error('Erro ao criar evento')
-      throw new Error('falha')
-    }
-  }
 
   const updateField = (field: string, value: unknown) => setForm((prev) => ({ ...prev, [field]: value }))
 
@@ -418,7 +403,7 @@ export default function LeadDetailPage() {
   const TABS_CONFIG = [
     { key: 'negocios', label: 'Oportunidades', icon: Briefcase },
     { key: 'notas', label: 'Notas', icon: StickyNote },
-    { key: 'calendario', label: 'Calendário', icon: CalendarDays },
+    { key: 'agenda', label: 'Agenda', icon: CalendarDays },
     { key: 'historico', label: 'Histórico', icon: Clock },
   ] as const
 
@@ -528,6 +513,8 @@ export default function LeadDetailPage() {
         if (tab === 'negocios') loadNegocios()
         if (tab === 'notas') loadActivities()
         if (tab === 'historico') { loadAttachments(); loadEntries() }
+        // Agenda → tasks subtab needs the lead's negocios to fetch their tasks
+        if (tab === 'agenda') loadNegocios()
       }}
     >
     {/* Mobile-only header row: Voltar (left) + 5-button cluster (right). */}
@@ -1010,11 +997,13 @@ export default function LeadDetailPage() {
               ) : null}
             </TabsContent>
 
-            {/* Calendário Tab — visits + manual events linked to this contact */}
-            <TabsContent value="calendario" className="mt-0">
-              <LeadCalendarTab
+            {/* Agenda Tab — sub-tabs: calendar (events) + tasks linked to this contact */}
+            <TabsContent value="agenda" className="mt-0">
+              <LeadAgendaTab
                 contactId={id}
+                negocioIds={(negocios as Array<{ id?: string }>).map((n) => n.id).filter((nid): nid is string => !!nid)}
                 onCreateEvent={() => setEventFormOpen(true)}
+                onCreateTask={() => setTaskFormOpen(true)}
               />
             </TabsContent>
 
@@ -1269,16 +1258,12 @@ export default function LeadDetailPage() {
         }}
       />
 
-      {/* Quick action: create event linked to this contact */}
-      <CalendarEventForm
+      {/* Quick action: create event linked to this contact (simplified sheet) */}
+      <QuickEventSheet
         open={eventFormOpen}
-        onClose={() => setEventFormOpen(false)}
-        onSubmit={handleEventSubmit}
-        users={consultants.map((c) => ({ id: c.id, name: c.commercial_name }))}
-        initialData={{
-          lead_id: id,
-          title: lead.nome ? `Com ${lead.nome}` : '',
-        }}
+        onOpenChange={setEventFormOpen}
+        contactId={id}
+        contactName={lead.nome ?? null}
       />
     </>
   )
