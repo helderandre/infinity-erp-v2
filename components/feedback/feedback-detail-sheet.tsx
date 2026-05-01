@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import {
   Bug, Lightbulb, Loader2, Trash2, User, Image as ImageIcon, Sparkles,
+  MessageCircle, Send, Forward,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -12,6 +13,8 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -22,6 +25,17 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { FEEDBACK_STATUS_MAP, FEEDBACK_TYPE_LABELS, FEEDBACK_PAGE_LABELS } from '@/types/feedback'
 import { TASK_PRIORITY_MAP } from '@/types/task'
 import type { FeedbackWithRelations, FeedbackStatus } from '@/types/feedback'
+
+interface FeedbackComment {
+  id: string
+  content: string
+  sent_to_chat: boolean
+  sent_to_chat_at: string | null
+  chat_recipient_id: string | null
+  created_at: string
+  author: { id: string; commercial_name: string } | null
+  chat_recipient: { id: string; commercial_name: string } | null
+}
 
 interface FeedbackDetailSheetProps {
   item: FeedbackWithRelations | null
@@ -55,6 +69,50 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
   const [isSaving, setIsSaving] = useState(false)
   const [pendingField, setPendingField] = useState<string | null>(null)
 
+  // ─── Comments state ────────────────────────────────────────────
+  const [comments, setComments] = useState<FeedbackComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [sendViaChat, setSendViaChat] = useState(false)
+  // Default recipient = submitter; broker pode mudar para reencaminhar.
+  const [chatRecipientId, setChatRecipientId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const itemId = item?.id
+
+  const loadComments = useCallback(async (id: string) => {
+    setCommentsLoading(true)
+    try {
+      const res = await fetch(`/api/feedback/${id}/comments`)
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setComments(Array.isArray(data) ? data : [])
+    } catch {
+      // silent — secção fica vazia se falhar
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open && itemId) {
+      void loadComments(itemId)
+    }
+    if (!open) {
+      // Reset form ao fechar para não persistir draft entre items.
+      setDraft('')
+      setSendViaChat(false)
+      setChatRecipientId(null)
+      setComments([])
+    }
+  }, [open, itemId, loadComments])
+
+  // Quando muda o item dentro do mesmo open (broker navega entre rows),
+  // reset do recipient para alinhar com o novo submitter.
+  useEffect(() => {
+    if (item) setChatRecipientId(item.submitted_by || null)
+  }, [item?.id, item?.submitted_by])
+
   if (!item) return null
 
   const theme = TYPE_THEME[item.type as keyof typeof TYPE_THEME] ?? TYPE_THEME.ticket
@@ -79,6 +137,51 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
     } finally {
       setIsSaving(false)
       setPendingField(null)
+    }
+  }
+
+  const handleSubmitComment = async () => {
+    if (!item) return
+    const content = draft.trim()
+    if (!content) {
+      toast.error('Comentário vazio')
+      return
+    }
+    if (sendViaChat && !chatRecipientId) {
+      toast.error('Escolhe um destinatário para o chat')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/feedback/${item.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          send_via_chat: sendViaChat,
+          chat_recipient_id: sendViaChat ? chatRecipientId : null,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body?.error || 'Erro ao gravar comentário')
+      }
+      // Optimistic-ish: prepend ao local (server devolve o row hidratado).
+      if (body.comment) {
+        setComments((prev) => [...prev, body.comment])
+      }
+      setDraft('')
+      // Mantemos o toggle no estado anterior para fluxos repetidos
+      // (broker que comenta + chata a múltiplos colegas em série).
+      if (body.chat_warning) {
+        toast.warning(`Comentário guardado, mas o envio por chat falhou: ${body.chat_warning}`)
+      } else {
+        toast.success(sendViaChat ? 'Comentário guardado e enviado via chat' : 'Comentário guardado')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao gravar')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -367,6 +470,148 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* ─── Comentários ───
+              Mini-timeline + form com toggle "Enviar via chat" e picker de
+              destinatário (default: submitter; broker pode escolher outro
+              colega para reencaminhar / pedir input). O comentário é gravado
+              sempre, independente do envio do chat. */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider inline-flex items-center gap-1.5">
+                <MessageCircle className="h-3 w-3" />
+                Comentários
+              </p>
+              {comments.length > 0 && (
+                <span className="text-[10px] text-muted-foreground/60">{comments.length}</span>
+              )}
+              {commentsLoading && (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            {comments.length > 0 && (
+              <ul className="space-y-2.5">
+                {comments.map((c) => {
+                  const authorName = c.author?.commercial_name || 'Utilizador'
+                  const initials = authorName.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+                  const ago = c.created_at
+                    ? formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pt })
+                    : ''
+                  return (
+                    <li
+                      key={c.id}
+                      className="rounded-2xl border border-border/40 bg-card/60 px-3.5 py-2.5"
+                    >
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-medium">
+                          {initials || <User className="h-2.5 w-2.5" />}
+                        </span>
+                        <span className="font-medium text-foreground">{authorName}</span>
+                        <span className="text-muted-foreground/60">·</span>
+                        <span className="text-muted-foreground">{ago}</span>
+                        {c.sent_to_chat && c.chat_recipient && (
+                          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-medium">
+                            <Send className="h-2.5 w-2.5" />
+                            chat → {c.chat_recipient.commercial_name?.split(' ')[0] || 'colega'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-sm whitespace-pre-wrap leading-relaxed">
+                        {c.content}
+                      </p>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            {/* Form */}
+            <div className="rounded-2xl border border-border/40 bg-background/60 p-3 space-y-2">
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Deixa um comentário…"
+                rows={3}
+                className="rounded-xl bg-background/80 border-border/40 focus-visible:ring-1 resize-none"
+                disabled={submitting}
+              />
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="flex items-center gap-2 mr-auto">
+                  <Switch
+                    id="feedback-send-chat"
+                    checked={sendViaChat}
+                    onCheckedChange={setSendViaChat}
+                    disabled={submitting}
+                  />
+                  <Label htmlFor="feedback-send-chat" className="text-[11px] font-medium cursor-pointer">
+                    Enviar via chat
+                  </Label>
+                </div>
+
+                {sendViaChat && (
+                  <Select
+                    value={chatRecipientId || '_none'}
+                    onValueChange={(v) => setChatRecipientId(v === '_none' ? null : v)}
+                    disabled={submitting}
+                  >
+                    <SelectTrigger className="rounded-full h-8 text-xs px-3 bg-background/80 w-auto min-w-[180px]">
+                      <SelectValue placeholder="Escolher destinatário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {item.submitted_by && (() => {
+                        const submitterUser = consultants.find((c) => c.id === item.submitted_by)
+                        const submitterDisplay = submitterUser?.commercial_name || 'Autor'
+                        return (
+                          <SelectItem value={item.submitted_by}>
+                            <span className="flex items-center gap-2">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span>{submitterDisplay}</span>
+                              <span className="text-[10px] text-muted-foreground">(autor)</span>
+                            </span>
+                          </SelectItem>
+                        )
+                      })()}
+                      {consultants
+                        .filter((c) => c.id !== item.submitted_by)
+                        .map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <span className="flex items-center gap-2">
+                              <Forward className="h-3 w-3 text-muted-foreground" />
+                              {c.commercial_name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <Button
+                  size="sm"
+                  className={cn(
+                    'rounded-full h-8 px-3 gap-1.5',
+                    sendViaChat && 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                  )}
+                  onClick={handleSubmitComment}
+                  disabled={submitting || !draft.trim() || (sendViaChat && !chatRecipientId)}
+                >
+                  {submitting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : sendViaChat ? (
+                    <Send className="h-3.5 w-3.5" />
+                  ) : null}
+                  {sendViaChat ? 'Enviar' : 'Comentar'}
+                </Button>
+              </div>
+
+              {sendViaChat && (
+                <p className="text-[10px] text-muted-foreground/80 leading-snug pt-0.5">
+                  Vais enviar o pedido original + este comentário via chat. O comentário fica também guardado aqui.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* ─── Notas Técnicas ─── */}
