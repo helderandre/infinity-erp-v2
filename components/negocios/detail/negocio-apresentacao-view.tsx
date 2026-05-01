@@ -20,6 +20,7 @@ import {
   ImageIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { parseObservations } from '@/components/crm/observations-dialog'
 import { format, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -242,16 +243,36 @@ export function NegocioApresentacaoView({ data, photos, onOpenMomentos }: Props)
           {section === 'descricao' && (
             <div className="rounded-2xl border bg-card p-5 space-y-3">
               <h3 className="text-sm font-semibold">Sobre esta oportunidade</h3>
-              {photos[0]?.caption ? (
-                <p className="text-sm leading-relaxed whitespace-pre-line">{photos[0].caption}</p>
-              ) : data.observacoes ? (
-                <p className="text-sm leading-relaxed whitespace-pre-line">{data.observacoes}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Sem descrição. Adiciona observações no resumo, ou captura um momento de marketing
-                  para gerar uma legenda automática.
-                </p>
-              )}
+              {(() => {
+                if (photos[0]?.caption) {
+                  return (
+                    <p className="text-sm leading-relaxed whitespace-pre-line">
+                      {photos[0].caption}
+                    </p>
+                  )
+                }
+                const obsList = parseObservations(data.observacoes)
+                if (obsList.length > 0) {
+                  return (
+                    <div className="space-y-2">
+                      {obsList.map((o) => (
+                        <p
+                          key={o.id}
+                          className="text-sm leading-relaxed whitespace-pre-line"
+                        >
+                          {o.text}
+                        </p>
+                      ))}
+                    </div>
+                  )
+                }
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    Sem descrição. Adiciona observações no resumo, ou captura um momento de marketing
+                    para gerar uma legenda automática.
+                  </p>
+                )
+              })()}
             </div>
           )}
 

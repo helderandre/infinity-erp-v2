@@ -81,7 +81,7 @@ import {
   type Temperatura,
 } from '@/components/negocios/temperatura-selector'
 import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
-import { ObservationsButton } from '@/components/crm/observations-dialog'
+import { ObservationsButton, parseObservations } from '@/components/crm/observations-dialog'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
 import {
@@ -1101,17 +1101,43 @@ function DetalhesTab({
           )}
 
           {/* Observações */}
-          {observacoes && (
-            <>
-              <CardDivider />
-              <section>
-                <SectionLabel icon={StickyNote}>Observações</SectionLabel>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 mt-0.5">
-                  {observacoes}
-                </p>
-              </section>
-            </>
-          )}
+          {(() => {
+            const obsList = parseObservations(observacoes)
+            if (obsList.length === 0) return null
+            return (
+              <>
+                <CardDivider />
+                <section>
+                  <SectionLabel icon={StickyNote}>Observações</SectionLabel>
+                  <div className="mt-1 space-y-2">
+                    {obsList.map((o) => {
+                      let when = ''
+                      if (o.created_at !== new Date(0).toISOString()) {
+                        try {
+                          when = format(parseISO(o.created_at), "d MMM yyyy 'às' HH:mm", { locale: pt })
+                        } catch {
+                          when = ''
+                        }
+                      }
+                      return (
+                        <div
+                          key={o.id}
+                          className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2"
+                        >
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                            {o.text}
+                          </p>
+                          {when && (
+                            <p className="text-[10px] text-muted-foreground mt-1">{when}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              </>
+            )
+          })()}
 
           {/* Estudos de mercado — só em angariação (Venda / Arrendador) */}
           {(tipo === 'Venda' || tipo === 'Arrendador') && negocio.id && (
