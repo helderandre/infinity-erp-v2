@@ -49,6 +49,17 @@ export const calendarEventSchema = z.object({
    * detalhes. Default false (= profissional, visível normalmente).
    */
   is_private: z.boolean().default(false),
+
+  /**
+   * Notificação a despachar para os destinatários do evento DEPOIS do
+   * insert. Só é considerada quando o evento não é privado (visibility
+   * !== 'private'). 'none' (default) não notifica ninguém. 'push' envia
+   * web-push aos utilizadores resolvidos pela visibilidade. 'chat' posta
+   * uma mensagem no canal global de chat interno (watercooler).
+   */
+  notify_mode: z.enum(['none', 'push', 'chat']).default('none'),
+  /** Texto editável da mensagem para `notify_mode='chat'`. */
+  notify_message: z.string().max(2000).optional().nullable().transform((v) => v || null),
 })
 
 export type CalendarEventFormData = z.infer<typeof calendarEventSchema>

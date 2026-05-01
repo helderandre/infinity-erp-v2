@@ -48,7 +48,10 @@ import {
   Plus,
   Trash2,
   Bell,
+  BellOff,
+  BellRing,
   ClipboardCheck,
+  MessageCircle,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -58,6 +61,8 @@ import { useImageCompress } from '@/hooks/use-image-compress'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { CalendarRichEditor } from './calendar-rich-editor'
 import { EventLocationPicker } from './event-location-picker'
+import { buildDefaultChatMessage } from '@/lib/calendar/notify'
+import { Textarea } from '@/components/ui/textarea'
 
 interface CalendarEventFormProps {
   open: boolean
@@ -137,6 +142,8 @@ export function CalendarEventForm({
       requires_rsvp: false,
       priority: 4,
       is_private: false,
+      notify_mode: 'none',
+      notify_message: null,
       ...initialData,
     },
   })
@@ -156,6 +163,7 @@ export function CalendarEventForm({
   const isRecurring = watch('is_recurring')
   const startDate = watch('start_date')
   const endDate = watch('end_date')
+  const visibility = watch('visibility')
   const visibilityMode = watch('visibility_mode')
   const visibilityUserIds = watch('visibility_user_ids') ?? []
   const visibilityRoleNames = watch('visibility_role_names') ?? []
@@ -163,6 +171,26 @@ export function CalendarEventForm({
   const coverImageUrl = watch('cover_image_url')
   const description = watch('description')
   const isPrivate = watch('is_private') ?? false
+  const title = watch('title')
+  const location = watch('location')
+  const notifyMode = watch('notify_mode') ?? 'none'
+  const notifyMessage = watch('notify_message') ?? ''
+  // Não mostramos o bloco quando o evento é só para o próprio nem em tasks
+  // (tasks não têm audiência partilhada).
+  const showNotifySection = itemType === 'event' && visibility !== 'private'
+  // Mensagem padrão recomputada quando título/data/local mudam — só usada
+  // quando o utilizador ainda não editou o textarea (notify_message ainda
+  // vazia). Assim o criador pode escrever em cima sem ser sobrescrito.
+  const defaultChatMessage =
+    title && startDate
+      ? buildDefaultChatMessage({
+          title,
+          start_date: startDate,
+          end_date: endDate ?? null,
+          all_day: allDay,
+          location: location ?? null,
+        })
+      : ''
 
   useEffect(() => {
     if (open) {
@@ -180,6 +208,8 @@ export function CalendarEventForm({
         requires_rsvp: false,
         priority: 4,
         is_private: false,
+        notify_mode: 'none',
+        notify_message: null,
         ...initialData,
       })
     }
@@ -865,6 +895,61 @@ export function CalendarEventForm({
                             )}
                           </>
                         )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Notificar destinatários — só para eventos partilhados.
+                    O criador escolhe se quer disparar push ou postar no
+                    canal global de chat (ou nenhuma). Default: nenhuma. */}
+                {showNotifySection && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Notificar destinatários
+                    </Label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(
+                        [
+                          { value: 'none', label: 'Nenhuma', Icon: BellOff },
+                          { value: 'push', label: 'Push', Icon: BellRing },
+                          { value: 'chat', label: 'Chat geral', Icon: MessageCircle },
+                        ] as const
+                      ).map(({ value, label, Icon }) => {
+                        const active = notifyMode === value
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setValue('notify_mode', value)}
+                            className={cn(
+                              'flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors',
+                              active
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background/50 text-muted-foreground border-border/40 hover:border-border/70',
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {notifyMode === 'chat' && (
+                      <div className="space-y-1.5 rounded-xl border border-border/40 bg-background/40 p-3 backdrop-blur-sm">
+                        <Label className="text-[11px] text-muted-foreground">
+                          Mensagem para o canal geral
+                        </Label>
+                        <Textarea
+                          rows={5}
+                          value={notifyMessage || defaultChatMessage}
+                          onChange={(e) => setValue('notify_message', e.target.value)}
+                          placeholder={defaultChatMessage || 'Escreve a mensagem…'}
+                          className="resize-none text-sm"
+                        />
+                        <p className="text-[10.5px] text-muted-foreground">
+                          Vai ser publicada no canal geral imediatamente após guardar o evento.
+                        </p>
                       </div>
                     )}
                   </div>

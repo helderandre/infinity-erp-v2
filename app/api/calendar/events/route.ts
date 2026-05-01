@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { calendarEventSchema } from '@/lib/validations/calendar'
 import { isManagementRole, MANAGEMENT_ROLES } from '@/lib/auth/roles'
 import type { CalendarEvent, CalendarCategory } from '@/types/calendar'
+import { resolveEventAudience, buildDefaultChatMessage } from '@/lib/calendar/notify'
+import { sendPushToUser } from '@/lib/crm/send-push'
+import { INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
 // Color mapping by category
@@ -651,11 +654,15 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient() as any
 
-    // `priority` lives on the schema for the shared form (events ↔ tasks)
-    // but `calendar_events` has no such column — drop it before insert,
-    // otherwise PostgREST rejects the row with "Could not find the
-    // 'priority' column of 'calendar_events' in the schema cache".
-    const { priority: _priority, ...eventInsert } = parsed.data
+    // `priority` é só do form (calendar_events não tem coluna). `notify_*`
+    // também não são colunas — usamos para despachar push/chat depois do
+    // insert. Strip antes do PostgREST.
+    const {
+      priority: _priority,
+      notify_mode = 'none',
+      notify_message,
+      ...eventInsert
+    } = parsed.data
     void _priority
 
     // Consultores não podem criar eventos visíveis para outros utilizadores.
@@ -664,7 +671,7 @@ export async function POST(request: Request) {
     // para impedir bypass via curl.
     const { data: ud } = await admin
       .from('dev_users')
-      .select('user_roles!user_roles_user_id_fkey(role:roles(name))')
+      .select('commercial_name, user_roles!user_roles_user_id_fkey(role:roles(name))')
       .eq('id', user.id)
       .single()
     const callerRoleNames = ((ud?.user_roles as any) || [])
@@ -689,6 +696,73 @@ export async function POST(request: Request) {
     if (error) {
       console.error('[calendar/events POST]', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Notificação opcional ao criar — só faz sentido para eventos
+    // partilhados (visibility !== 'private'). Falhas são isoladas em
+    // try/catch para não reverterem o evento já criado.
+    if (notify_mode !== 'none' && (data?.visibility ?? 'private') !== 'private') {
+      try {
+        const creatorName = (ud as any)?.commercial_name ?? null
+
+        if (notify_mode === 'push') {
+          const audience = await resolveEventAudience(admin, {
+            id: data.id,
+            title: data.title,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            all_day: data.all_day,
+            location: data.location,
+            visibility: data.visibility,
+            visibility_mode: data.visibility_mode,
+            visibility_user_ids: data.visibility_user_ids,
+            visibility_role_names: data.visibility_role_names,
+            created_by: data.created_by,
+          })
+          const dateLine = data.all_day
+            ? new Date(data.start_date).toLocaleDateString('pt-PT', {
+                day: '2-digit', month: 'short',
+              })
+            : new Date(data.start_date).toLocaleString('pt-PT', {
+                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+              })
+          const pushBody = data.location
+            ? `${dateLine} · ${data.location}`
+            : dateLine
+          await Promise.all(
+            Array.from(audience).map((uid) =>
+              sendPushToUser(admin, uid, {
+                title: data.title,
+                body: pushBody,
+                url: `/dashboard/calendario?event=${data.id}`,
+                tag: `cal-event-${data.id}`,
+              }),
+            ),
+          )
+        } else if (notify_mode === 'chat') {
+          // Mensagem editada pelo criador, com fallback para a default.
+          const content =
+            (notify_message && notify_message.trim()) ||
+            buildDefaultChatMessage(
+              {
+                title: data.title,
+                start_date: data.start_date,
+                end_date: data.end_date,
+                all_day: data.all_day,
+                location: data.location,
+              },
+              creatorName,
+            )
+          await admin.from('internal_chat_messages').insert({
+            channel_id: INTERNAL_CHAT_CHANNEL_ID,
+            sender_id: user.id,
+            content,
+            mentions: [],
+          })
+        }
+      } catch (notifyErr) {
+        console.error('[calendar/events POST] Falha ao notificar:', notifyErr)
+      }
     }
 
     return NextResponse.json({ data }, { status: 201 })
