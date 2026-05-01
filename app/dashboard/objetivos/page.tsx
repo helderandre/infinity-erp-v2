@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { GitBranch, LayoutDashboard, FileText, Pencil } from 'lucide-react'
+import { GitBranch, LayoutDashboard, FileText, Pencil, Target } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUser } from '@/hooks/use-user'
 import { useGoals } from '@/hooks/use-goals'
@@ -16,11 +16,12 @@ import { CadenceHeatmap } from '@/components/goals/cadence-heatmap'
 import { DiagnosticCards } from '@/components/goals/diagnostic-cards'
 import { FunnelRadialChart } from '@/components/goals/funnel-radial-chart'
 import { WeeklyReportSheet } from '@/components/goals/weekly-report-sheet'
+import { AgentGoalPlanView } from '@/components/goals/v2/agent-goal-plan-view'
 
-type ObjetivosTab = 'funil' | 'dashboard'
+type ObjetivosTab = 'funil' | 'dashboard' | 'plano'
 
 function isValidTab(v: string | null): v is ObjetivosTab {
-  return v === 'funil' || v === 'dashboard'
+  return v === 'funil' || v === 'dashboard' || v === 'plano'
 }
 
 function ObjetivosPageInner() {
@@ -83,6 +84,13 @@ function ObjetivosPageInner() {
               <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
               Dashboard
             </TabsTrigger>
+            <TabsTrigger
+              value="plano"
+              className="inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40"
+            >
+              <Target className="h-3.5 w-3.5 shrink-0" />
+              Plano
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -124,6 +132,10 @@ function ObjetivosPageInner() {
             <FunnelRadialChart key={`radial-${refreshTick}`} consultantId={user?.id ?? null} />
             <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="plano" className="space-y-4">
+          <AgentGoalPlanView />
         </TabsContent>
       </Tabs>
 
