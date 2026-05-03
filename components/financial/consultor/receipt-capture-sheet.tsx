@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { DEFAULT_PERSONAL_EXPENSE_CATEGORIES } from '@/lib/financial/personal-expense-categories'
+import { CategorySelect } from './category-select'
 import type { ReceiptScanResult } from '@/types/personal-expense'
 import { cn } from '@/lib/utils'
 
@@ -407,14 +407,10 @@ export function ReceiptCaptureSheet({ open, onOpenChange, onSaved }: ReceiptCapt
                         onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
                     </Field>
                     <Field label="Categoria">
-                      <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {DEFAULT_PERSONAL_EXPENSE_CATEGORIES.map((c) => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <CategorySelect
+                        value={form.category}
+                        onChange={(v) => setForm({ ...form, category: v })}
+                      />
                     </Field>
                   </div>
 
