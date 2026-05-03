@@ -1,16 +1,27 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createOrderSchema } from '@/lib/validations/marketing'
+import { requireAuth } from '@/lib/auth/permissions'
 
+// GET — listagem de encomendas.
+//
+// Scope: gestão (permissions.users) vê tudo + pode filtrar por agent_id;
+// consultor só vê as suas (filtro forçado).
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient() as any
+    const canSeeAll = auth.permissions.users === true
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get('status')
-    const agent_id = searchParams.get('agent_id')
+    const agent_id_param = searchParams.get('agent_id')
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100)
     const offset = Number(searchParams.get('offset')) || 0
+
+    const effectiveAgentId = canSeeAll ? agent_id_param : auth.user.id
 
     let query = supabase
       .from('marketing_orders')
@@ -24,7 +35,7 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (status) query = query.eq('status', status)
-    if (agent_id) query = query.eq('agent_id', agent_id)
+    if (effectiveAgentId) query = query.eq('agent_id', effectiveAgentId)
 
     const { data, error, count } = await query
 

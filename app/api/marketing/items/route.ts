@@ -1,20 +1,32 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth/permissions'
 
-// Returns all individual order items with their parent order info, grouped by type
+// Returns individual order items with their parent order info, grouped by type.
+//
+// Scope:
+// - Gestão (permissions.users === true): vê todas as compras de todos os
+//   consultores — vista global da loja.
+// - Consultor: scoped às suas próprias compras (filter por agent_id em
+//   marketing_orders, temp_requisitions e marketing_campaigns).
 export async function GET() {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient() as any
+    const canSeeAll = auth.permissions.users === true
+    const selfAgentId = auth.user.id
 
     // Fetch service/property items from marketing_order_items + parent order
-    const { data: serviceItems, error: svcErr } = await supabase
+    let svcQuery = supabase
       .from('marketing_order_items')
       .select(`
         id, name, price, status, quantity, used_count,
         catalog_item_id, pack_id,
         confirmed_date, confirmed_time, proposed_dates, notes, cancelled_reason,
         order:marketing_orders!inner(
-          id, status, property_id, address, city, parish, postal_code,
+          id, status, agent_id, property_id, address, city, parish, postal_code,
           preferred_date, preferred_time, alternative_date, alternative_time,
           confirmed_date, confirmed_time, created_at, checkout_group_id,
           contact_is_agent, contact_name, contact_phone,
@@ -24,6 +36,12 @@ export async function GET() {
         )
       `)
       .order('order(created_at)', { ascending: false })
+
+    if (!canSeeAll) {
+      svcQuery = svcQuery.eq('order.agent_id', selfAgentId)
+    }
+
+    const { data: serviceItems, error: svcErr } = await svcQuery
 
     if (svcErr) {
       return NextResponse.json({ error: svcErr.message }, { status: 500 })
@@ -43,18 +61,24 @@ export async function GET() {
     }
 
     // Fetch material requisition items
-    const { data: materialItems, error: matErr } = await supabase
+    let matQuery = supabase
       .from('temp_requisition_items')
       .select(`
         id, quantity, unit_price, subtotal, status, notes, personalization_data,
         supplier_order_id, supplier_order_ref,
         product:temp_products(id, name, category_id, thumbnail_url, supplier_id, category:temp_product_categories(id, name)),
         requisition:temp_requisitions!inner(
-          id, status, checkout_group_id, delivery_type, payment_method, created_at,
+          id, status, agent_id, checkout_group_id, delivery_type, payment_method, created_at,
           agent:dev_users!temp_requisitions_agent_id_fkey(id, commercial_name)
         )
       `)
       .order('requisition(created_at)', { ascending: false })
+
+    if (!canSeeAll) {
+      matQuery = matQuery.eq('requisition.agent_id', selfAgentId)
+    }
+
+    const { data: materialItems } = await matQuery
 
     // Flatten product category name, thumbnail and supplier_id for frontend
     const flattenedMaterials = (materialItems || []).map((item: any) => ({
@@ -69,7 +93,7 @@ export async function GET() {
     }))
 
     // Fetch campaigns
-    const { data: campaigns, error: campErr } = await supabase
+    let campQuery = supabase
       .from('marketing_campaigns')
       .select(`
         *,
@@ -77,6 +101,12 @@ export async function GET() {
         property:dev_properties!marketing_campaigns_property_id_fkey(id, title, slug)
       `)
       .order('created_at', { ascending: false })
+
+    if (!canSeeAll) {
+      campQuery = campQuery.eq('agent_id', selfAgentId)
+    }
+
+    const { data: campaigns } = await campQuery
 
     // Classify service items
     const propertyItems: any[] = []

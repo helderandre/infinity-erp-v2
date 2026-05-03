@@ -141,7 +141,7 @@ export function RecurringPaymentsSheet({ open, onOpenChange, onChanged }: Props)
                 </p>
                 <Badge variant="outline" className="text-[10px]">{subscriptionItems.length}</Badge>
                 <a
-                  href="/dashboard/encomendas/minhas"
+                  href="/dashboard/marketing/loja"
                   className="ml-auto text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                 >
                   Encomendas <ExternalLink className="h-2.5 w-2.5" />
@@ -241,7 +241,7 @@ export function RecurringPaymentsSheet({ open, onOpenChange, onChanged }: Props)
                             </Button>
                           )}
                           <a
-                            href="/dashboard/encomendas/minhas"
+                            href="/dashboard/marketing/loja"
                             className="inline-flex items-center gap-1 h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground rounded-md"
                           >
                             <Pencil className="h-3 w-3 mr-0.5" />

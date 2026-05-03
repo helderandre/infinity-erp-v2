@@ -1,22 +1,28 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth/permissions'
 
-// GET: list marketing requests (for marketing team: all; for agents: their own)
+// GET: list marketing requests
+//
+// Scope: gestão (permissions.users) vê tudo + pode filtrar por agent_id;
+// consultor só vê os seus (filtro forçado, ignora ?agent_id de outros).
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient() as any
+    const canSeeAll = auth.permissions.users === true
     const { searchParams } = new URL(request.url)
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    }
-
     const status = searchParams.get('status')
-    const agent_id = searchParams.get('agent_id')
+    const agent_id_param = searchParams.get('agent_id')
     const property_id = searchParams.get('property_id')
     const from_date = searchParams.get('from')
     const to_date = searchParams.get('to')
+
+    // Scope: consultor → forçado a self; gestão → respeita ?agent_id se passado
+    const effectiveAgentId = canSeeAll ? agent_id_param : auth.user.id
 
     let query = supabase
       .from('marketing_requests')
@@ -31,7 +37,7 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
 
     if (status) query = query.eq('status', status)
-    if (agent_id) query = query.eq('agent_id', agent_id)
+    if (effectiveAgentId) query = query.eq('agent_id', effectiveAgentId)
     if (property_id) query = query.eq('property_id', property_id)
     if (from_date) query = query.gte('preferred_date', from_date)
     if (to_date) query = query.lte('preferred_date', to_date)

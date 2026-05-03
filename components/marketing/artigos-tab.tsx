@@ -5,6 +5,7 @@ import {
   MARKETING_ORDER_STATUS, CAMPAIGN_OBJECTIVES,
   formatCurrency, formatDate,
 } from '@/lib/constants'
+import { usePermissions } from '@/hooks/use-permissions'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -167,6 +168,11 @@ function FormBoolBadge({ value, label }: { value: boolean; label: string }) {
 // ─── Component ──────────────────────────────────────────────────────────
 
 export function ArtigosTab() {
+  // Gestão (permissions.users) vê coluna "Consultor" em todas as tabelas;
+  // consultor não vê (a listagem já vem scoped pelo backend ao próprio).
+  const { hasPermission } = usePermissions()
+  const canSeeAllAgents = hasPermission('users')
+
   const [subTab, setSubTab] = useState<SubTab>('property')
   const [data, setData] = useState<{ property: ServiceItem[]; services: ServiceItem[]; materials: MaterialItem[]; campaigns: CampaignItem[] }>({ property: [], services: [], materials: [], campaigns: [] })
   const [loading, setLoading] = useState(true)
@@ -446,7 +452,7 @@ export function ArtigosTab() {
       ) : (
         <div className="rounded-xl border overflow-hidden">
           <Table><TableHeader><TableRow className="bg-muted/30">
-            <TableHead>Serviço</TableHead><TableHead>Consultor</TableHead><TableHead>Imóvel / Morada</TableHead>
+            <TableHead>Serviço</TableHead>{canSeeAllAgents && <TableHead>Consultor</TableHead>}<TableHead>Imóvel / Morada</TableHead>
             <TableHead>Data Confirmada</TableHead><TableHead className="text-right">Preço</TableHead><TableHead>Estado</TableHead>
           </TableRow></TableHeader>
           <TableBody>{filteredProperty.map(item => {
@@ -456,7 +462,7 @@ export function ArtigosTab() {
             return (
               <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setSelectedItem(item); setSheetTab('resumo') }}>
                 <TableCell><div className="flex items-center gap-2"><CatIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-sm font-medium">{item.name}</span></div></TableCell>
-                <TableCell className="text-sm">{item.order.agent?.commercial_name || '—'}</TableCell>
+                {canSeeAllAgents && <TableCell className="text-sm">{item.order.agent?.commercial_name || '—'}</TableCell>}
                 <TableCell><span className="text-sm truncate max-w-[200px] block">{address}</span></TableCell>
                 <TableCell>{item.confirmed_date ? (
                   <span className="inline-flex items-center gap-1 text-xs"><CheckCircle2 className="h-3 w-3 text-emerald-500" />{formatDate(item.confirmed_date)}{item.confirmed_time && <span className="text-muted-foreground">· {TIME_SLOTS[item.confirmed_time] || item.confirmed_time}</span>}</span>
@@ -477,7 +483,7 @@ export function ArtigosTab() {
       ) : (
         <div className="rounded-xl border overflow-hidden">
           <Table><TableHeader><TableRow className="bg-muted/30">
-            <TableHead>Serviço</TableHead><TableHead>Consultor</TableHead><TableHead className="text-right">Preço</TableHead>
+            <TableHead>Serviço</TableHead>{canSeeAllAgents && <TableHead>Consultor</TableHead>}<TableHead className="text-right">Preço</TableHead>
             <TableHead>Data Compra</TableHead><TableHead>Estado</TableHead>
           </TableRow></TableHeader>
           <TableBody>{filteredServices.map(item => {
@@ -485,7 +491,7 @@ export function ArtigosTab() {
             return (
               <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setSelectedItem(item); setSheetTab('resumo') }}>
                 <TableCell><div className="flex items-center gap-2"><CatIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-sm font-medium">{item.name}</span></div></TableCell>
-                <TableCell className="text-sm">{item.order.agent?.commercial_name || '—'}</TableCell>
+                {canSeeAllAgents && <TableCell className="text-sm">{item.order.agent?.commercial_name || '—'}</TableCell>}
                 <TableCell className="text-right font-medium text-sm">{formatCurrency(item.price)}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{formatDate(item.order.created_at)}</TableCell>
                 <TableCell><StatusBadge status={item.status} /></TableCell>
@@ -530,7 +536,7 @@ export function ArtigosTab() {
                   {selectedMaterialIds.size > 0 ? <CheckSquare className="h-3.5 w-3.5 text-primary" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </TableHead>
-              <TableHead>Produto</TableHead><TableHead>Consultor</TableHead><TableHead>Pagamento</TableHead><TableHead className="text-center">Qtd.</TableHead>
+              <TableHead>Produto</TableHead>{canSeeAllAgents && <TableHead>Consultor</TableHead>}<TableHead>Pagamento</TableHead><TableHead className="text-center">Qtd.</TableHead>
               <TableHead className="text-right">Subtotal</TableHead><TableHead>Carrinho</TableHead><TableHead>Encomenda</TableHead><TableHead>Data</TableHead>
             </TableRow></TableHeader>
             <TableBody>{data.materials.map(item => {
@@ -547,7 +553,7 @@ export function ArtigosTab() {
                     ) : <span className="h-4 w-4" />}
                   </TableCell>
                   <TableCell className="cursor-pointer" onClick={() => setSelectedMaterial(item)}><div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-sm font-medium">{item.product?.name || 'Produto'}</span></div></TableCell>
-                  <TableCell className="text-sm">{item.requisition.agent?.commercial_name || '—'}</TableCell>
+                  {canSeeAllAgents && <TableCell className="text-sm">{item.requisition.agent?.commercial_name || '—'}</TableCell>}
                   <TableCell>
                     {item.requisition.payment_method ? (
                       <span className={cn(
@@ -611,7 +617,7 @@ export function ArtigosTab() {
                       {order.supplier && (
                         <span className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-white/10 px-2.5 py-0.5 text-[10px] font-medium">{order.supplier.name}</span>
                       )}
-                      {order.agent && (
+                      {canSeeAllAgents && order.agent && (
                         <span className="inline-flex items-center rounded-full bg-neutral-100 dark:bg-white/10 px-2.5 py-0.5 text-[10px] text-muted-foreground">{order.agent.commercial_name}</span>
                       )}
                       {order.payment_method && (
@@ -698,7 +704,7 @@ export function ArtigosTab() {
       {subTab === 'campaigns' && (data.campaigns.length === 0 ? <EmptyState icon={Target} title="Sem campanhas" description="As campanhas aparecerão aqui." /> : (
         <div className="rounded-xl border overflow-hidden">
           <Table><TableHeader><TableRow className="bg-muted/30">
-            <TableHead>Objectivo</TableHead><TableHead>Consultor</TableHead><TableHead>Imóvel / URL</TableHead>
+            <TableHead>Objectivo</TableHead>{canSeeAllAgents && <TableHead>Consultor</TableHead>}<TableHead>Imóvel / URL</TableHead>
             <TableHead>Duração</TableHead><TableHead className="text-right">Investimento</TableHead><TableHead>Estado</TableHead>
           </TableRow></TableHeader>
           <TableBody>{data.campaigns.map(item => {
@@ -706,7 +712,7 @@ export function ArtigosTab() {
             return (
               <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedCampaign(item)}>
                 <TableCell><div className="flex items-center gap-2"><Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-sm font-medium">{objLabel}</span></div></TableCell>
-                <TableCell className="text-sm">{item.agent?.commercial_name || '—'}</TableCell>
+                {canSeeAllAgents && <TableCell className="text-sm">{item.agent?.commercial_name || '—'}</TableCell>}
                 <TableCell><span className="text-sm truncate max-w-[180px] block">{item.property?.title || item.promote_url || '—'}</span></TableCell>
                 <TableCell className="text-sm">{item.duration_days} dias</TableCell>
                 <TableCell className="text-right font-medium text-sm">{formatCurrency(item.total_cost)}</TableCell>

@@ -1,5 +1,10 @@
 'use client'
 
+// Legacy daily popup — preserved for agents who haven't set up the v2 goal
+// (agent_goals row absent). Reads from /api/goals/my-daily which is backed by
+// temp_consultant_goals + the legacy funnel_events. The router in
+// goal-daily-popup.tsx picks this when no v2 goal exists.
+
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -13,9 +18,9 @@ import {
 import {
   Target,
   Phone,
-  Eye,
-  FileSignature,
-  FileText,
+  MapPin,
+  MessageSquare,
+  RotateCcw,
   ArrowRight,
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -23,30 +28,34 @@ import {
   Clock,
   ListTodo,
   Loader2,
-  Tag,
-  ShoppingCart,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
-import { useAgentGoal } from '@/hooks/use-agent-goal'
-import { useFunnelAggregates } from '@/hooks/use-funnel-aggregates'
-import { computeAgentGoalTargets } from '@/lib/goals/v2/compute-targets'
-import { isoMondayOf, endOfWeek } from '@/lib/goals/v2/week-utils'
-import { LegacyGoalDailyPopup } from './goal-daily-popup-legacy'
+import type { GoalStatus } from '@/types/goal'
 import type { CalendarEvent } from '@/types/calendar'
 import { CalendarEventDetail } from '@/components/calendar/calendar-event-detail'
 import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet'
 
-type ActionStatus = 'green' | 'amber' | 'red'
-
 interface DailyAction {
-  key: 'contactos' | 'estudos' | 'visitas' | 'propostas'
+  key: string
   label: string
-  Icon: typeof Phone
   target: number
   done: number
+  status: GoalStatus
+}
+
+interface DailyGoalData {
+  hasGoal: boolean
+  goalId?: string
+  dailyRevenue?: number
+  weeklyRevenue?: number
+  annualTarget?: number
+  realizedToday?: number
+  overallStatus?: GoalStatus
+  projectionMessage?: string
+  actions?: DailyAction[]
 }
 
 interface AgendaTask {
@@ -67,58 +76,29 @@ interface AgendaEvent {
   item_type: 'event' | 'task' | null
 }
 
-const STATUS_BAR: Record<ActionStatus, string> = {
-  green: 'bg-emerald-500',
-  amber: 'bg-amber-500',
-  red: 'bg-red-500',
+const ACTION_ICONS: Record<string, React.ElementType> = {
+  leads: MessageSquare,
+  calls: Phone,
+  visits: MapPin,
+  follow_ups: RotateCcw,
 }
 
-function statusFor(done: number, target: number): ActionStatus {
-  if (target <= 0) return 'green'
-  const pct = done / target
-  if (pct >= 1) return 'green'
-  if (pct >= 0.5) return 'amber'
-  return 'red'
+const STATUS_STYLES: Record<GoalStatus, { dot: string; bar: string }> = {
+  green: { dot: 'bg-emerald-500', bar: 'bg-emerald-500' },
+  orange: { dot: 'bg-amber-500', bar: 'bg-amber-500' },
+  red: { dot: 'bg-red-500', bar: 'bg-red-500' },
 }
 
 const SESSION_KEY = 'goal-daily-popup-dismissed'
 
 type TabKey = 'objetivos' | 'agenda'
-type ObjPeriod = 'diario' | 'semanal'
 
-function startOfTodayIso(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
-function endOfTodayIso(): string {
-  const d = new Date()
-  d.setHours(23, 59, 59, 999)
-  return d.toISOString()
-}
-
-// Router: agents with the new agent_goals row see V2; agents who only have
-// the legacy temp_consultant_goals see the original popup.
-export function GoalDailyPopup() {
-  const { user } = useUser()
-  const year = new Date().getFullYear()
-  const { goal, isLoading } = useAgentGoal({ year, agentId: user?.id ?? null })
-
-  if (!user?.id) return null
-  if (isLoading) return null
-  if (goal) return <V2GoalDailyPopup />
-  return <LegacyGoalDailyPopup />
-}
-
-function V2GoalDailyPopup() {
+export function LegacyGoalDailyPopup() {
   const isMobile = useIsMobile()
   const { user } = useUser()
-  const year = new Date().getFullYear()
-
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<TabKey>('objetivos')
-  const [objPeriod, setObjPeriod] = useState<ObjPeriod>('diario')
+  const [data, setData] = useState<DailyGoalData | null>(null)
   const [tasks, setTasks] = useState<AgendaTask[]>([])
   const [overdueTasks, setOverdueTasks] = useState<AgendaTask[]>([])
   const [events, setEvents] = useState<AgendaEvent[]>([])
@@ -127,70 +107,28 @@ function V2GoalDailyPopup() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
-  // v2 goal + period-scoped realized counts (today vs week-to-date)
-  const { goal: agentGoal, isLoading: goalLoading } = useAgentGoal({
-    year,
-    agentId: user?.id ?? null,
-  })
-  const { since, until } = useMemo(() => {
-    if (objPeriod === 'semanal') {
-      const monday = isoMondayOf(new Date())
-      return { since: monday.toISOString(), until: endOfWeek(monday).toISOString() }
-    }
-    return { since: startOfTodayIso(), until: endOfTodayIso() }
-  }, [objPeriod])
-  const { data: periodAggregates } = useFunnelAggregates({
-    agentId: user?.id ?? null,
-    since,
-    until,
-  })
-
-  const dailyData = useMemo(() => {
-    if (!agentGoal) return null
-    const { id: _id, created_at: _ca, updated_at: _ua, targets: _t, ...input } = agentGoal
-    const targets = computeAgentGoalTargets(input as never)
-    const weeks = Math.max(1, agentGoal.working_weeks_per_year)
-    const days = Math.max(1, agentGoal.working_days_per_week)
-    const workingDays = weeks * days
-
-    const dailyRevenue = agentGoal.annual_revenue_target_eur / workingDays
-    const weeklyRevenue = agentGoal.annual_revenue_target_eur / weeks
-
-    // Divisor scales annual targets to the active period
-    const divisor = objPeriod === 'semanal' ? weeks : workingDays
-
-    const v = periodAggregates?.counts.vendedor ?? {}
-    const c = periodAggregates?.counts.comprador ?? {}
-
-    const vendedorAll: DailyAction[] = [
-      { key: 'contactos', label: 'Contactos',          Icon: Phone,         target: targets.vend_target_contactos / divisor, done: v.contacto?.total ?? 0 },
-      { key: 'estudos',   label: 'Estudos de mercado', Icon: FileText,      target: targets.vend_target_estudos / divisor,   done: v.estudo?.total ?? 0 },
-      { key: 'visitas',   label: 'Visitas',            Icon: Eye,           target: targets.vend_target_visitas / divisor,   done: v.visita?.total ?? 0 },
-      { key: 'propostas', label: 'Propostas',          Icon: FileSignature, target: targets.vend_target_propostas / divisor, done: v.proposta?.total ?? 0 },
-    ]
-    const compradorAll: DailyAction[] = [
-      { key: 'contactos', label: 'Contactos',          Icon: Phone,         target: targets.comp_target_contactos / divisor, done: c.contacto?.total ?? 0 },
-      { key: 'visitas',   label: 'Visitas',            Icon: Eye,           target: targets.comp_target_visitas / divisor,   done: c.visita?.total ?? 0 },
-      { key: 'propostas', label: 'Propostas',          Icon: FileSignature, target: targets.comp_target_propostas / divisor, done: c.proposta?.total ?? 0 },
-    ]
-    const vendedorActions = vendedorAll.filter((a) => a.target > 0)
-    const compradorActions = compradorAll.filter((a) => a.target > 0)
-
-    return { dailyRevenue, weeklyRevenue, vendedorActions, compradorActions }
-  }, [agentGoal, periodAggregates, objPeriod])
-
-  // Auto-open once per day if there's a goal with at least one action target
   useEffect(() => {
-    if (goalLoading || !dailyData) return
-    if (dailyData.vendedorActions.length === 0 && dailyData.compradorActions.length === 0) return
     const dismissed = sessionStorage.getItem(SESSION_KEY)
     const today = new Date().toISOString().split('T')[0]
     if (dismissed === today) return
-    const t = setTimeout(() => setOpen(true), 800)
-    return () => clearTimeout(t)
-  }, [goalLoading, dailyData])
 
-  // Lazy-load the agenda when the user picks that tab
+    async function fetchDaily() {
+      try {
+        const res = await fetch('/api/goals/my-daily')
+        if (!res.ok) return
+        const json: DailyGoalData = await res.json()
+        if (json.hasGoal && json.actions && json.actions.length > 0) {
+          setData(json)
+          setTimeout(() => setOpen(true), 800)
+        }
+      } catch {
+        // silently fail
+      }
+    }
+
+    fetchDaily()
+  }, [])
+
   useEffect(() => {
     if (tab !== 'agenda' || agendaLoaded || !user?.id) return
     let cancelled = false
@@ -290,7 +228,7 @@ function V2GoalDailyPopup() {
       })
   }, [overdueTasks])
 
-  if (!dailyData) return null
+  if (!data || !data.hasGoal) return null
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) handleDismiss() }}>
@@ -307,7 +245,6 @@ function V2GoalDailyPopup() {
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
         )}
 
-        {/* Header */}
         <SheetHeader className={cn('shrink-0 px-6 pb-4', isMobile ? 'pt-8' : 'pt-10')}>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-foreground/5">
@@ -323,7 +260,6 @@ function V2GoalDailyPopup() {
             </div>
           </div>
 
-          {/* Pill tabs */}
           <div className="mt-4 inline-flex w-fit p-0.5 rounded-full bg-muted/60 border border-border/30">
             <button
               type="button"
@@ -354,10 +290,9 @@ function V2GoalDailyPopup() {
           </div>
         </SheetHeader>
 
-        {/* Content */}
         <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-2">
           {tab === 'objetivos' ? (
-            <ObjetivosTab data={dailyData} period={objPeriod} setPeriod={setObjPeriod} />
+            <ObjetivosTab data={data} />
           ) : (
             <AgendaTab
               loading={agendaLoading}
@@ -375,15 +310,14 @@ function V2GoalDailyPopup() {
           )}
         </div>
 
-        {/* Footer */}
         <div className="shrink-0 px-6 py-3 border-t flex items-center justify-between gap-2">
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={handleDismiss}>
             Fechar
           </Button>
           {tab === 'objetivos' ? (
             <Button size="sm" className="rounded-full bg-foreground text-background hover:opacity-90" asChild onClick={handleDismiss}>
-              <Link href="/dashboard/objetivos?tab=plano">
-                Ver plano
+              <Link href={data.goalId ? `/dashboard/objetivos/${data.goalId}` : '/dashboard/objetivos'}>
+                Ver Dashboard
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -414,130 +348,67 @@ function V2GoalDailyPopup() {
   )
 }
 
-// ─── Tabs ────────────────────────────────────────────────────────────────────
-
-function ObjetivosTab({
-  data,
-  period,
-  setPeriod,
-}: {
-  data: {
-    dailyRevenue: number
-    weeklyRevenue: number
-    vendedorActions: DailyAction[]
-    compradorActions: DailyAction[]
-  }
-  period: ObjPeriod
-  setPeriod: (p: ObjPeriod) => void
-}) {
-  const isWeekly = period === 'semanal'
-  const primaryLabel = isWeekly ? 'Objetivo semanal' : 'Objetivo diário'
-  const primaryValue = isWeekly ? data.weeklyRevenue : data.dailyRevenue
-  const secondaryLabel = isWeekly ? 'Diário' : 'Semanal'
-  const secondaryValue = isWeekly ? data.dailyRevenue : data.weeklyRevenue
-
+function ObjetivosTab({ data }: { data: DailyGoalData }) {
   return (
     <div className="space-y-4 py-2">
-      {/* Period toggle */}
-      <div className="flex justify-center">
-        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/30">
-          {(['diario', 'semanal'] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={cn(
-                'px-3 h-6 rounded-full text-[11px] font-medium transition-colors',
-                period === p
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {p === 'diario' ? 'Diário' : 'Semanal'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Revenue summary */}
       <div className="rounded-2xl border border-border/40 bg-muted/20 px-4 py-3 flex items-end justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{primaryLabel}</p>
-          <p className="text-2xl font-bold tabular-nums">{formatCurrency(primaryValue)}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Objetivo diário</p>
+          <p className="text-2xl font-bold tabular-nums">{formatCurrency(data.dailyRevenue || 0)}</p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{secondaryLabel}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Semanal</p>
           <p className="text-sm font-semibold text-muted-foreground tabular-nums">
-            {formatCurrency(secondaryValue)}
+            {formatCurrency(data.weeklyRevenue || 0)}
           </p>
         </div>
       </div>
 
-      {/* Per-side action checklists */}
-      <SideActionsBlock
-        title="Lado vendedor"
-        Icon={Tag}
-        actions={data.vendedorActions}
-      />
-      <SideActionsBlock
-        title="Lado comprador"
-        Icon={ShoppingCart}
-        actions={data.compradorActions}
-      />
-    </div>
-  )
-}
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+          Ações necessárias hoje
+        </p>
+        {data.actions?.map((action) => {
+          const Icon = ACTION_ICONS[action.key] || MessageSquare
+          const style = STATUS_STYLES[action.status]
+          const pct = action.target > 0 ? Math.min((action.done / action.target) * 100, 100) : 0
+          const isDone = action.done >= action.target
 
-function SideActionsBlock({
-  title,
-  Icon,
-  actions,
-}: {
-  title: string
-  Icon: typeof Phone
-  actions: DailyAction[]
-}) {
-  if (actions.length === 0) return null
-  return (
-    <div className="space-y-2">
-      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
-        <Icon className="h-3 w-3" />
-        {title}
-      </p>
-      {actions.map((action) => {
-        const status = statusFor(action.done, action.target)
-        const targetRounded = Math.max(1, Math.round(action.target))
-        const pct = Math.min((action.done / targetRounded) * 100, 100)
-        const isDone = action.done >= targetRounded
-
-        return (
-          <div key={action.key} className="rounded-xl border border-border/40 bg-card px-3 py-2.5 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={cn(
-                    'flex h-7 w-7 items-center justify-center rounded-lg',
-                    isDone ? 'bg-emerald-500/15' : 'bg-muted/50',
-                  )}
-                >
-                  <action.Icon className={cn('h-3.5 w-3.5', isDone ? 'text-emerald-600' : 'text-muted-foreground')} />
+          return (
+            <div key={action.key} className="rounded-xl border border-border/40 bg-card px-3 py-2.5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={cn(
+                      'flex h-7 w-7 items-center justify-center rounded-lg',
+                      isDone ? 'bg-emerald-500/15' : 'bg-muted/50',
+                    )}
+                  >
+                    <Icon className={cn('h-3.5 w-3.5', isDone ? 'text-emerald-600' : 'text-muted-foreground')} />
+                  </div>
+                  <span className="text-sm font-medium">{action.label}</span>
                 </div>
-                <span className="text-sm font-medium">{action.label}</span>
+                <span className="text-sm tabular-nums font-bold">
+                  {action.done}
+                  <span className="text-muted-foreground font-normal">/{action.target}</span>
+                </span>
               </div>
-              <span className="text-sm tabular-nums font-bold">
-                {action.done}
-                <span className="text-muted-foreground font-normal">/{targetRounded}</span>
-              </span>
+              <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-500', style.bar)}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
-              <div
-                className={cn('h-full rounded-full transition-all duration-500', STATUS_BAR[status])}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
+
+      {data.projectionMessage && (
+        <p className="rounded-xl border border-dashed border-border/30 bg-muted/10 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+          {data.projectionMessage}
+        </p>
+      )}
     </div>
   )
 }
@@ -577,7 +448,6 @@ function AgendaTab({
 
   return (
     <div className="space-y-4 py-2">
-      {/* Hoje */}
       {items.length > 0 ? (
         <div className="space-y-1.5">
           <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground px-1">
@@ -597,7 +467,6 @@ function AgendaTab({
         </p>
       )}
 
-      {/* Por fazer (atrasadas) */}
       {overdueItems.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between px-1">
