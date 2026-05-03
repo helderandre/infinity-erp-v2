@@ -1,8 +1,9 @@
 'use client'
 
-import { Clock, Hourglass } from 'lucide-react'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Clock, Wallet } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { FinanceiroSheet } from '@/components/financial/sheets/financeiro-sheet'
 import { cn } from '@/lib/utils'
 
 interface UpcomingEntry {
@@ -29,68 +30,82 @@ const fmtDate = (d: string | null) =>
 
 export function UpcomingEntriesSheet({ open, onOpenChange, entries, totalAmount }: Props) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className={cn(
-          'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
-          'w-full sm:max-w-[480px] rounded-l-3xl sm:rounded-l-3xl',
-        )}
-      >
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/40 shrink-0">
-          <SheetTitle className="flex items-center gap-2 text-base">
-            <Hourglass className="h-5 w-5" />
-            Próximas entradas
-          </SheetTitle>
-          <SheetDescription className="text-xs">
-            Comissões já assinadas mas ainda não recebidas — total {fmtCurrency(totalAmount)}.
-          </SheetDescription>
-        </SheetHeader>
+    <FinanceiroSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="A receber"
+      accent={
+        <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" />
+      }
+      subtitle={
+        <span className="inline-flex items-center gap-1.5 flex-wrap">
+          <span>Pendente · cumulativo</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span>Comissões assinadas pendentes de recebimento</span>
+        </span>
+      }
+      size="wide"
+      footer={
+        <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full">
+          Fechar
+        </Button>
+      }
+    >
+      {/* Total tile */}
+      <div className="rounded-2xl ring-1 ring-border/40 p-5 bg-gradient-to-br from-amber-500/15 to-transparent">
+        <p className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground">
+          Total
+        </p>
+        <p className="text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums mt-1">
+          {fmtCurrency(totalAmount)}
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          {entries.length === 0
+            ? 'Sem entradas no período.'
+            : `${entries.length} pagamento${entries.length === 1 ? '' : 's'} assinado${entries.length === 1 ? '' : 's'}`}
+        </p>
+      </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-          {entries.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/40 p-8 text-center">
-              <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Sem comissões pendentes de recebimento.
-              </p>
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {entries.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-card border border-border/40 px-3 py-2.5 transition-colors hover:border-border min-w-0"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="rounded-full p-2 bg-amber-500/10 shrink-0">
-                      <Clock className="h-3.5 w-3.5 text-amber-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {p.payment_moment ?? 'Pagamento'}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground">
-                          Assinado {fmtDate(p.signed_date)}
-                        </span>
-                        {p.kind === 'split' && (
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-indigo-500/10 text-indigo-700 border-indigo-500/30">
-                            Partilha
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
+      {/* Entries list */}
+      <div className="space-y-2">
+        {entries.length === 0 ? (
+          <div className="rounded-2xl ring-1 ring-border/40 bg-background/60 py-12 text-center text-sm text-muted-foreground">
+            <Wallet className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            Sem entradas para listar.
+          </div>
+        ) : (
+          entries.map((p) => (
+            <div
+              key={p.id}
+              className="rounded-2xl ring-1 ring-border/40 bg-background/60 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl p-2 bg-amber-500/10 text-amber-600 shrink-0">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-medium truncate">
+                      {p.payment_moment ?? 'Pagamento'}
+                    </p>
+                    {p.kind === 'split' && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-indigo-500/10 text-indigo-700 border-indigo-500/30">
+                        Partilha
+                      </Badge>
+                    )}
                   </div>
-                  <span className="text-sm font-semibold tabular-nums shrink-0 whitespace-nowrap text-amber-700">
-                    {fmtCurrency(p.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Assinado {fmtDate(p.signed_date)}
+                  </p>
+                </div>
+                <span className="text-base font-semibold tabular-nums shrink-0 whitespace-nowrap text-amber-700">
+                  {fmtCurrency(p.amount)}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </FinanceiroSheet>
   )
 }

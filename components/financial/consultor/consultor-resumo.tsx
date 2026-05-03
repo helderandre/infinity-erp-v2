@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { ReceiptCaptureSheet } from './receipt-capture-sheet'
 import { UnifiedLedger } from './unified-ledger'
 import { UpcomingEntriesSheet } from './upcoming-entries-sheet'
-import { KpiDetailSheet } from './kpi-detail-sheet'
+import { KpiDetailSheet, type KpiTone } from './kpi-detail-sheet'
 import { RecurringPaymentsSheet } from './recurring-payments-sheet'
 import type { UnifiedFilter } from '@/lib/financial/unified-entry'
 
@@ -37,6 +37,7 @@ interface KpiSheetSpec {
   subtitle: string
   filter: UnifiedFilter
   totalAmount: number
+  tone: KpiTone
 }
 
 function monthRange(): { from: string; to: string } {
@@ -207,6 +208,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   subtitle: 'Comissões registadas neste mês',
                   filter: { source: 'company', types: ['commission'], ...monthRange() },
                   totalAmount: kpis.comissoes_mes,
+                  tone: 'positive',
                 })}
               />
               <KpiCard
@@ -219,6 +221,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   subtitle: 'Comissões registadas no ano corrente',
                   filter: { source: 'company', types: ['commission'], ...ytdRange() },
                   totalAmount: kpis.comissoes_ytd,
+                  tone: 'info',
                 })}
               />
               <KpiCard
@@ -231,7 +234,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                     ? `${proximas_entradas.length} pagamento(s) assinado(s)`
                     : 'Sem pagamentos pendentes'
                 }
-                onClick={proximas_entradas.length > 0 ? () => setUpcomingOpen(true) : undefined}
+                onClick={() => setUpcomingOpen(true)}
               />
             </div>
           </section>
@@ -251,6 +254,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   subtitle: 'Compras na loja institucional',
                   filter: { source: 'company', types: ['shop'], ...monthRange() },
                   totalAmount: kpis.loja_mes,
+                  tone: 'negative',
                 })}
               />
               <KpiCard
@@ -268,6 +272,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   subtitle: 'Recibos pessoais arquivados neste mês',
                   filter: { source: 'personal', ...monthRange() },
                   totalAmount: pessoaisMes,
+                  tone: 'negative',
                 })}
               />
             </div>
@@ -305,6 +310,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   subtitle: 'Movimentos da empresa (sem despesas pessoais)',
                   filter: { source: 'company' },
                   totalAmount: kpis.saldo_cc,
+                  tone: kpis.saldo_cc < 0 ? 'warning' : 'neutral',
                 })}
               />
               <KpiCard
@@ -317,6 +323,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   subtitle: 'Todos os movimentos do mês (empresa + pessoais)',
                   filter: { ...monthRange() },
                   totalAmount: liquidoMesReal,
+                  tone: liquidoMesReal >= 0 ? 'positive' : 'negative',
                 })}
               />
             </div>
@@ -405,14 +412,30 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                 Conta corrente unificada — empresa e pessoais num só sítio
               </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setCaptureOpen(true)}
-              className="rounded-full shrink-0"
-            >
-              <Camera className="h-3.5 w-3.5 mr-1" />
-              Tirar foto de recibo
-            </Button>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRecurringOpen(true)}
+                className="rounded-full"
+              >
+                <RefreshCcw className="h-3.5 w-3.5 mr-1" />
+                Pagamentos mensais
+                {recurrences.data.length > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
+                    {recurrences.data.length}
+                  </Badge>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setCaptureOpen(true)}
+                className="rounded-full"
+              >
+                <Camera className="h-3.5 w-3.5 mr-1" />
+                Registar despesa
+              </Button>
+            </div>
           </div>
 
           {/* 3 KPIs sumário */}
@@ -427,6 +450,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                 subtitle: 'Comissões e ajustes positivos do mês',
                 filter: { source: 'company', side: 'in', ...monthRange() },
                 totalAmount: ganhosMes,
+                tone: 'positive',
               })}
             />
             <KpiCard
@@ -440,6 +464,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                 subtitle: 'Loja institucional + despesas pessoais do mês',
                 filter: { side: 'out', ...monthRange() },
                 totalAmount: despesasMes,
+                tone: 'negative',
               })}
             />
             <KpiCard
@@ -452,31 +477,10 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                   ? `${proximas_entradas.length} pagamento(s) — ver lista`
                   : 'Sem pagamentos pendentes'
               }
-              onClick={proximas_entradas.length > 0 ? () => setUpcomingOpen(true) : undefined}
+              onClick={() => setUpcomingOpen(true)}
             />
           </div>
 
-          {/* Botão de gestão de pagamentos mensais */}
-          <button
-            type="button"
-            onClick={() => setRecurringOpen(true)}
-            className="w-full flex items-center justify-between gap-3 rounded-2xl bg-background/60 ring-1 ring-border/40 px-4 py-3 hover:ring-border/70 hover:bg-muted/30 transition-colors text-left"
-          >
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-violet-500/10 p-2 shrink-0">
-                <RefreshCcw className="h-4 w-4 text-violet-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium">Pagamentos mensais</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {recurrences.data.length > 0
-                    ? `${recurrences.data.length} regra(s) activa(s) — gerir, adicionar ou pausar`
-                    : 'Configura subscrições e débitos mensais'}
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          </button>
 
           {/* Timeline unificada */}
           {agentId && (
@@ -512,6 +516,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
           agentId={agentId}
           title={kpiSheet?.title ?? ''}
           subtitle={kpiSheet?.subtitle}
+          tone={kpiSheet?.tone ?? 'neutral'}
           filter={kpiSheet?.filter ?? {}}
           totalAmount={kpiSheet?.totalAmount ?? 0}
           onPersonalChanged={handleSaved}
