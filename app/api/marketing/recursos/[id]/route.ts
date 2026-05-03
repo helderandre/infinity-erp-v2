@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { createClient } from '@/lib/supabase/server'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth, requirePermission } from '@/lib/auth/permissions'
 import { getR2Client, R2_BUCKET } from '@/lib/r2/client'
 
 type MarketingResourceRow = {
@@ -14,6 +14,8 @@ type MarketingResourceRow = {
   file_url: string | null
   mime_type: string | null
   file_size: number | null
+  scope: 'global' | 'personal'
+  owner_id: string | null
 }
 
 const patchSchema = z.object({
@@ -22,18 +24,55 @@ const patchSchema = z.object({
 })
 
 /**
+ * Load the row + authorize the caller. For personal rows the caller must be
+ * the owner; for global rows we require the `marketing` permission.
+ *
+ * Returns either { row, userId } or a NextResponse to short-circuit.
+ */
+async function loadAndAuthorize(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('marketing_resources' as any)
+    .select('id, scope, owner_id, is_folder, file_path, parent_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) {
+    return { error: NextResponse.json({ error: error.message }, { status: 500 }) }
+  }
+  if (!data) {
+    return { error: NextResponse.json({ error: 'Não encontrado' }, { status: 404 }) }
+  }
+  const row = data as unknown as MarketingResourceRow
+
+  if (row.scope === 'personal') {
+    const auth = await requireAuth()
+    if (!auth.authorized) return { error: auth.response }
+    if (row.owner_id !== auth.user.id) {
+      return { error: NextResponse.json({ error: 'Sem permissão' }, { status: 403 }) }
+    }
+    return { row, supabase, userId: auth.user.id }
+  }
+
+  const auth = await requirePermission('marketing')
+  if (!auth.authorized) return { error: auth.response }
+  return { row, supabase, userId: auth.user.id }
+}
+
+/**
  * PATCH /api/marketing/recursos/[id]
  * Body: { name?: string; parent_id?: uuid|null }
- * Renames or moves a folder/file.
+ * Renames or moves a folder/file. Personal items can only be moved within
+ * the caller's own tree; global items can only be moved within the global tree.
  */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requirePermission('marketing')
-  if (!auth.authorized) return auth.response
-
   const { id } = await params
+  const ctx = await loadAndAuthorize(id)
+  if ('error' in ctx) return ctx.error
+  const { row, supabase } = ctx
+
   let body: unknown
   try {
     body = await request.json()
@@ -55,9 +94,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Sem alterações' }, { status: 400 })
   }
 
-  const supabase = await createClient()
-
-  // Prevent moving a folder into itself or any of its descendants.
+  // Prevent moving a folder into itself or any of its descendants, and
+  // ensure the new parent is in the same scope/owner.
   if (updates.parent_id !== undefined && updates.parent_id !== null) {
     const target = String(updates.parent_id)
     if (target === id) {
@@ -75,12 +113,21 @@ export async function PATCH(
           { status: 400 },
         )
       }
-      const { data: parentData, error: pErr } = await supabase
+      let pq = supabase
         .from('marketing_resources' as any)
-        .select('id, parent_id, is_folder')
+        .select('id, parent_id, is_folder, scope, owner_id')
         .eq('id', cursor)
-        .single()
-      if (pErr || !parentData) break
+        .eq('scope', row.scope)
+      if (row.scope === 'personal' && row.owner_id) {
+        pq = pq.eq('owner_id', row.owner_id)
+      }
+      const { data: parentData, error: pErr } = await pq.maybeSingle()
+      if (pErr || !parentData) {
+        return NextResponse.json(
+          { error: 'Pasta-pai não encontrada no mesmo âmbito' },
+          { status: 400 },
+        )
+      }
       const parent = parentData as unknown as Pick<
         MarketingResourceRow,
         'id' | 'parent_id' | 'is_folder'
@@ -117,11 +164,10 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requirePermission('marketing')
-  if (!auth.authorized) return auth.response
-
   const { id } = await params
-  const supabase = await createClient()
+  const ctx = await loadAndAuthorize(id)
+  if ('error' in ctx) return ctx.error
+  const { supabase } = ctx
 
   // Walk the subtree to collect R2 keys (BFS, capped at 5000 nodes).
   const r2Keys: string[] = []
@@ -134,7 +180,7 @@ export async function DELETE(
       .from('marketing_resources' as any)
       .select('id, is_folder, file_path')
       .eq('id', current)
-      .single()
+      .maybeSingle()
     if (!rowData) continue
     const row = rowData as unknown as Pick<
       MarketingResourceRow,

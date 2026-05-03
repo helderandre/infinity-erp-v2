@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth, requirePermission } from '@/lib/auth/permissions'
 
 type MarketingResourceRow = {
   id: string
@@ -12,23 +12,48 @@ type MarketingResourceRow = {
   file_url: string | null
   mime_type: string | null
   file_size: number | null
+  scope: 'global' | 'personal'
+  owner_id: string | null
   sort_order: number
   created_by: string | null
   created_at: string
   updated_at: string
 }
 
+type Scope = 'global' | 'personal'
+
+function parseScope(raw: string | null): Scope {
+  return raw === 'personal' ? 'personal' : 'global'
+}
+
 /**
- * GET /api/marketing/recursos?parent_id=<uuid|null>
+ * Authorize the caller for the given scope.
+ *  - global   → requires `marketing` permission for mutations; reads for any authenticated user.
+ *  - personal → only authentication required; the caller can only act on their own rows.
+ *
+ * Returns the auth result, or an error response.
+ */
+async function authorizeForScope(scope: Scope, mutating: boolean) {
+  if (scope === 'personal') {
+    return await requireAuth()
+  }
+  return mutating
+    ? await requirePermission('marketing')
+    : await requireAuth()
+}
+
+/**
+ * GET /api/marketing/recursos?parent_id=<uuid|null>&scope=<global|personal>
  *
  * Lists the immediate children of a folder (or the root when parent_id is
- * null/missing). Returns folders first, then files, alphabetically sorted.
+ * null/missing). For scope=personal the caller's own owner_id is enforced.
  */
 export async function GET(request: Request) {
-  const auth = await requirePermission('marketing')
+  const { searchParams } = new URL(request.url)
+  const scope = parseScope(searchParams.get('scope'))
+  const auth = await authorizeForScope(scope, false)
   if (!auth.authorized) return auth.response
 
-  const { searchParams } = new URL(request.url)
   const rawParent = searchParams.get('parent_id')
   const parentId = rawParent && rawParent !== 'null' ? rawParent : null
 
@@ -36,8 +61,13 @@ export async function GET(request: Request) {
   let q = supabase
     .from('marketing_resources' as any)
     .select('*')
+    .eq('scope', scope)
     .order('is_folder', { ascending: false })
     .order('name', { ascending: true })
+
+  if (scope === 'personal') {
+    q = q.eq('owner_id', auth.user.id)
+  }
 
   q = parentId === null ? q.is('parent_id', null) : q.eq('parent_id', parentId)
 
@@ -46,17 +76,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Resolve breadcrumbs (path from root to current folder).
+  // Resolve breadcrumbs (path from root to current folder), constrained to the
+  // current scope (and owner, for personal) so a malicious parent_id cannot
+  // leak names from someone else's tree.
   const breadcrumbs: { id: string; name: string }[] = []
   let cursor: string | null = parentId
-  // Cap at 32 levels to avoid pathological loops (shouldn't happen — CASCADE
-  // FK + no app-level cycle creation — but defence in depth).
   for (let i = 0; cursor && i < 32; i++) {
-    const { data: rowData, error: bcErr } = await supabase
+    let bcQuery = supabase
       .from('marketing_resources' as any)
-      .select('id, name, parent_id')
+      .select('id, name, parent_id, scope, owner_id')
       .eq('id', cursor)
-      .single()
+      .eq('scope', scope)
+    if (scope === 'personal') {
+      bcQuery = bcQuery.eq('owner_id', auth.user.id)
+    }
+    const { data: rowData, error: bcErr } = await bcQuery.maybeSingle()
     if (bcErr || !rowData) break
     const row = rowData as unknown as Pick<MarketingResourceRow, 'id' | 'name' | 'parent_id'>
     breadcrumbs.unshift({ id: row.id, name: row.name })
@@ -69,17 +103,16 @@ export async function GET(request: Request) {
 const createFolderSchema = z.object({
   name: z.string().trim().min(1).max(120),
   parent_id: z.string().uuid().nullable().optional(),
+  scope: z.enum(['global', 'personal']).optional(),
 })
 
 /**
  * POST /api/marketing/recursos
- * Body: { name, parent_id?: uuid|null }
- * Creates a folder (`is_folder=true`) under the given parent.
+ * Body: { name, parent_id?: uuid|null, scope?: 'global'|'personal' }
+ * Creates a folder under the given parent. Personal folders are owned by
+ * the caller; global folders require the `marketing` permission.
  */
 export async function POST(request: Request) {
-  const auth = await requirePermission('marketing')
-  if (!auth.authorized) return auth.response
-
   let body: unknown
   try {
     body = await request.json()
@@ -94,15 +127,24 @@ export async function POST(request: Request) {
     )
   }
 
+  const scope: Scope = parsed.data.scope ?? 'global'
+  const auth = await authorizeForScope(scope, true)
+  if (!auth.authorized) return auth.response
+
   const supabase = await createClient()
 
-  // Validate parent exists & is a folder (if provided)
+  // Validate parent exists, is a folder, and belongs to the same scope (and
+  // owner, for personal).
   if (parsed.data.parent_id) {
-    const { data: parentData, error: pErr } = await supabase
+    let parentQuery = supabase
       .from('marketing_resources' as any)
-      .select('id, is_folder')
+      .select('id, is_folder, scope, owner_id')
       .eq('id', parsed.data.parent_id)
-      .single()
+      .eq('scope', scope)
+    if (scope === 'personal') {
+      parentQuery = parentQuery.eq('owner_id', auth.user.id)
+    }
+    const { data: parentData, error: pErr } = await parentQuery.maybeSingle()
     if (pErr || !parentData) {
       return NextResponse.json({ error: 'Pasta-pai não encontrada' }, { status: 404 })
     }
@@ -121,6 +163,8 @@ export async function POST(request: Request) {
       name: parsed.data.name,
       parent_id: parsed.data.parent_id ?? null,
       is_folder: true,
+      scope,
+      owner_id: scope === 'personal' ? auth.user.id : null,
       created_by: auth.user.id,
     })
     .select()

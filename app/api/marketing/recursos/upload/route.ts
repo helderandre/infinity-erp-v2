@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { createClient } from '@/lib/supabase/server'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth, requirePermission } from '@/lib/auth/permissions'
 import { getR2Client, R2_BUCKET, R2_PUBLIC_DOMAIN } from '@/lib/r2/client'
 import { sanitizeFileName } from '@/lib/r2/documents'
+import { PERSONAL_DRIVE_LIMIT_BYTES } from '@/lib/marketing/personal-drive'
 
 type MarketingResourceRow = {
   id: string
@@ -14,9 +15,17 @@ type MarketingResourceRow = {
   file_url: string | null
   mime_type: string | null
   file_size: number | null
+  scope: 'global' | 'personal'
+  owner_id: string | null
 }
 
-const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
+const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB per single file (both scopes)
+
+type Scope = 'global' | 'personal'
+
+function parseScope(raw: string | null): Scope {
+  return raw === 'personal' ? 'personal' : 'global'
+}
 
 /**
  * POST /api/marketing/recursos/upload
@@ -24,14 +33,16 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50 MB
  * multipart form-data:
  *   file:      File (required)
  *   parent_id: uuid | "" (optional — empty/missing = upload to root)
+ *   scope:     'global' | 'personal' (default 'global')
  *
- * Stores the file in R2 under marketing-recursos/<resource_id>-<safe_name>
- * and inserts a row in `marketing_resources`. Returns the inserted row.
+ * Stores the file in R2:
+ *   global:   marketing-recursos/<id>-<safe_name>
+ *   personal: marketing-recursos/personal/<owner_id>/<id>-<safe_name>
+ *
+ * Personal scope enforces a 500 MB total quota per owner — clients should
+ * compress images before upload (server stores bytes as received).
  */
 export async function POST(request: Request) {
-  const auth = await requirePermission('marketing')
-  if (!auth.authorized) return auth.response
-
   if (!R2_PUBLIC_DOMAIN) {
     return NextResponse.json(
       { error: 'R2_PUBLIC_DOMAIN não configurado no servidor' },
@@ -54,6 +65,10 @@ export async function POST(request: Request) {
     )
   }
 
+  const scope = parseScope(typeof form.get('scope') === 'string' ? (form.get('scope') as string) : null)
+  const auth = scope === 'personal' ? await requireAuth() : await requirePermission('marketing')
+  if (!auth.authorized) return auth.response
+
   const rawParent = form.get('parent_id')
   const parentId =
     typeof rawParent === 'string' && rawParent.length > 0 && rawParent !== 'null'
@@ -62,13 +77,17 @@ export async function POST(request: Request) {
 
   const supabase = await createClient()
 
-  // Validate parent if given
+  // Validate parent (must exist, be a folder, same scope and owner)
   if (parentId) {
-    const { data: parentData, error: pErr } = await supabase
+    let parentQuery = supabase
       .from('marketing_resources' as any)
-      .select('id, is_folder')
+      .select('id, is_folder, scope, owner_id')
       .eq('id', parentId)
-      .single()
+      .eq('scope', scope)
+    if (scope === 'personal') {
+      parentQuery = parentQuery.eq('owner_id', auth.user.id)
+    }
+    const { data: parentData, error: pErr } = await parentQuery.maybeSingle()
     if (pErr || !parentData) {
       return NextResponse.json({ error: 'Pasta-pai não encontrada' }, { status: 404 })
     }
@@ -81,8 +100,39 @@ export async function POST(request: Request) {
     }
   }
 
-  // Insert placeholder row first to get a stable id we can put in the R2 key.
-  // We update file_path/file_url after the upload succeeds.
+  // Quota gate for personal scope
+  if (scope === 'personal') {
+    const { data: usageRows, error: usageErr } = await supabase
+      .from('marketing_resources' as any)
+      .select('file_size')
+      .eq('scope', 'personal')
+      .eq('owner_id', auth.user.id)
+      .eq('is_folder', false)
+    if (usageErr) {
+      return NextResponse.json(
+        { error: 'Erro ao calcular utilização' },
+        { status: 500 },
+      )
+    }
+    const usedBytes = ((usageRows as unknown as Array<{ file_size: number | null }> | null) ?? []).reduce<number>(
+      (sum, r) => sum + Number(r.file_size ?? 0),
+      0,
+    )
+    if (usedBytes + file.size > PERSONAL_DRIVE_LIMIT_BYTES) {
+      const limitMb = Math.round(PERSONAL_DRIVE_LIMIT_BYTES / 1024 / 1024)
+      const usedMb = (usedBytes / 1024 / 1024).toFixed(1)
+      return NextResponse.json(
+        {
+          error: `Limite excedido. Já usou ${usedMb}MB de ${limitMb}MB. Liberte espaço antes de carregar este ficheiro.`,
+          used_bytes: usedBytes,
+          limit_bytes: PERSONAL_DRIVE_LIMIT_BYTES,
+          file_size: file.size,
+        },
+        { status: 413 },
+      )
+    }
+  }
+
   const sanitized = sanitizeFileName(file.name)
   const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -98,6 +148,8 @@ export async function POST(request: Request) {
       name: file.name,
       parent_id: parentId,
       is_folder: false,
+      scope,
+      owner_id: scope === 'personal' ? auth.user.id : null,
       file_path: tempPath,
       file_url: tempUrl,
       mime_type: file.type || null,
@@ -115,7 +167,10 @@ export async function POST(request: Request) {
   }
   const row = insertedData as unknown as MarketingResourceRow
 
-  const finalKey = `marketing-recursos/${row.id}-${sanitized}`
+  const finalKey =
+    scope === 'personal'
+      ? `marketing-recursos/personal/${auth.user.id}/${row.id}-${sanitized}`
+      : `marketing-recursos/${row.id}-${sanitized}`
   const finalUrl = `${R2_PUBLIC_DOMAIN}/${finalKey}`
 
   try {

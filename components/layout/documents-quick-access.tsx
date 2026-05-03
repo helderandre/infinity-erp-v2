@@ -9,6 +9,7 @@ import {
   Search,
   MapPin,
   ImageIcon,
+  HardDrive,
 } from 'lucide-react'
 import {
   Sheet,
@@ -26,6 +27,9 @@ import { useUser } from '@/hooks/use-user'
 import { useDebounce } from '@/hooks/use-debounce'
 import { PropertyDocumentsFoldersView } from '@/components/properties/property-documents-folders-view'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
+import { PersonalDriveBrowser } from '@/components/marketing/personal-drive/personal-drive-browser'
+
+type Tab = 'imoveis' | 'negocios' | 'drive'
 
 type SelectedItem =
   | { kind: 'property'; id: string; label: string; subtitle: string | null }
@@ -34,7 +38,7 @@ type SelectedItem =
 
 export function DocumentsQuickAccess() {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<'imoveis' | 'negocios'>('imoveis')
+  const [tab, setTab] = useState<Tab>('imoveis')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<SelectedItem>(null)
 
@@ -92,14 +96,16 @@ export function DocumentsQuickAccess() {
 // ─────────────────────────────────────────────────────────────────────────
 
 interface ListViewProps {
-  tab: 'imoveis' | 'negocios'
-  onTabChange: (v: 'imoveis' | 'negocios') => void
+  tab: Tab
+  onTabChange: (v: Tab) => void
   query: string
   onQueryChange: (v: string) => void
   onSelect: (item: SelectedItem) => void
 }
 
 function ListView({ tab, onTabChange, query, onQueryChange, onSelect }: ListViewProps) {
+  const showSearch = tab !== 'drive'
+
   return (
     <>
       <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/40 shrink-0">
@@ -108,39 +114,50 @@ function ListView({ tab, onTabChange, query, onQueryChange, onSelect }: ListView
           Documentos
         </SheetTitle>
         <SheetDescription>
-          Aceda aos documentos dos seus imóveis e negócios
+          Documentos dos seus imóveis, negócios e o seu drive pessoal
         </SheetDescription>
       </SheetHeader>
 
       <Tabs
         value={tab}
-        onValueChange={(v) => onTabChange(v as 'imoveis' | 'negocios')}
+        onValueChange={(v) => onTabChange(v as Tab)}
         className="flex-1 min-h-0 flex flex-col"
       >
         <div className="px-6 pt-4 shrink-0 space-y-3">
-          <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="imoveis" className="gap-2">
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="imoveis" className="gap-1.5">
               <Building2 className="h-4 w-4" />
-              Imóveis
+              <span className="hidden sm:inline">Imóveis</span>
+              <span className="sm:hidden">Imóv.</span>
             </TabsTrigger>
-            <TabsTrigger value="negocios" className="gap-2">
+            <TabsTrigger value="negocios" className="gap-1.5">
               <Briefcase className="h-4 w-4" />
-              Negócios
+              <span className="hidden sm:inline">Negócios</span>
+              <span className="sm:hidden">Neg.</span>
+            </TabsTrigger>
+            <TabsTrigger value="drive" className="gap-1.5">
+              <HardDrive className="h-4 w-4" />
+              <span className="hidden sm:inline">O meu drive</span>
+              <span className="sm:hidden">Drive</span>
             </TabsTrigger>
           </TabsList>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              placeholder={
-                tab === 'imoveis' ? 'Pesquisar por título, ref. ou cidade...' : 'Pesquisar por localização ou observações...'
-              }
-              className="pl-9"
-              autoComplete="off"
-            />
-          </div>
+          {showSearch && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                placeholder={
+                  tab === 'imoveis'
+                    ? 'Pesquisar por título, ref. ou cidade...'
+                    : 'Pesquisar por localização ou observações...'
+                }
+                className="pl-9"
+                autoComplete="off"
+              />
+            </div>
+          )}
         </div>
 
         <TabsContent
@@ -166,6 +183,12 @@ function ListView({ tab, onTabChange, query, onQueryChange, onSelect }: ListView
               onSelect({ kind: 'negocio', id, label, subtitle })
             }
           />
+        </TabsContent>
+        <TabsContent
+          value="drive"
+          className="flex-1 min-h-0 overflow-y-auto px-6 py-4 mt-0 data-[state=inactive]:hidden"
+        >
+          <PersonalDriveBrowser />
         </TabsContent>
       </Tabs>
     </>
