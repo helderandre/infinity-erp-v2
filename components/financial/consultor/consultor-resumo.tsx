@@ -24,6 +24,7 @@ import { UpcomingEntriesSheet } from './upcoming-entries-sheet'
 import { KpiDetailSheet, type KpiTone } from './kpi-detail-sheet'
 import { RecurringPaymentsSheet } from './recurring-payments-sheet'
 import { ExpensesByCategoryWidget } from './expenses-by-category-widget'
+import { PeriodPicker, type PeriodValue } from './period-picker'
 import type { UnifiedFilter } from '@/lib/financial/unified-entry'
 
 const fmtCurrency = (v: number) =>
@@ -119,6 +120,8 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
   const [upcomingOpen, setUpcomingOpen] = useState(false)
   const [recurringOpen, setRecurringOpen] = useState(false)
   const [kpiSheet, setKpiSheet] = useState<KpiSheetSpec | null>(null)
+  // Period partilhado entre o donut e o timeline na Tab 2.
+  const [tab2Period, setTab2Period] = useState<PeriodValue>({ preset: 'month' })
 
   const ccUsage = useMemo(() => {
     if (!data?.kpis.credit_limit || data.kpis.credit_limit === 0) return null
@@ -485,11 +488,30 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
             />
           </div>
 
-          {/* Timeline unificada */}
+          {/* Period picker partilhado — controla donut + timeline */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">
+              Período
+            </p>
+            <PeriodPicker value={tab2Period} onChange={setTab2Period} />
+          </div>
+
+          {/* Donut: despesas por categoria (mesmo período do timeline) */}
+          {agentId && (
+            <ExpensesByCategoryWidget
+              agentId={agentId}
+              period={tab2Period}
+              onPeriodChange={setTab2Period}
+              hideSubtitle
+            />
+          )}
+
+          {/* Timeline unificada (controlado pelo período acima) */}
           {agentId && (
             <UnifiedLedger
               agentId={agentId}
               onPersonalChanged={handleSaved}
+              externalPeriod={tab2Period}
             />
           )}
         </Card>

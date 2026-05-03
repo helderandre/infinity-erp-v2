@@ -14,13 +14,14 @@ import {
   applyUnifiedFilter,
   type UnifiedEntry,
 } from '@/lib/financial/unified-entry'
+import { rangeForPeriod, type PeriodValue } from './period-picker'
 import type { PersonalExpense } from '@/types/personal-expense'
 import { cn } from '@/lib/utils'
 
 type FilterKind = 'all' | 'company' | 'personal'
-type Period = 'month' | 'last3' | 'ytd' | 'all'
+type LegacyPeriod = 'month' | 'last3' | 'ytd' | 'all'
 
-function rangeFor(period: Period): { from?: string; to?: string } {
+function rangeForLegacy(period: LegacyPeriod): { from?: string; to?: string } {
   const now = new Date()
   const today = now.toISOString().slice(0, 10)
   if (period === 'all') return {}
@@ -41,15 +42,21 @@ interface Props {
   agentId: string
   initialLimit?: number
   onPersonalChanged?: () => void
+  /** Quando fornecido, period é controlled pelo parent e o Select interno é escondido. */
+  externalPeriod?: PeriodValue
 }
 
-export function UnifiedLedger({ agentId, initialLimit = 30, onPersonalChanged }: Props) {
-  const [period, setPeriod] = useState<Period>('month')
+export function UnifiedLedger({ agentId, initialLimit = 30, onPersonalChanged, externalPeriod }: Props) {
+  const isControlled = externalPeriod !== undefined
+  const [legacyPeriod, setLegacyPeriod] = useState<LegacyPeriod>('month')
   const [filter, setFilter] = useState<FilterKind>('all')
   const [limit, setLimit] = useState(initialLimit)
   const [selectedPersonal, setSelectedPersonal] = useState<PersonalExpense | null>(null)
 
-  const range = useMemo(() => rangeFor(period), [period])
+  const range = useMemo(() => {
+    if (isControlled) return rangeForPeriod(externalPeriod!)
+    return rangeForLegacy(legacyPeriod)
+  }, [isControlled, externalPeriod, legacyPeriod])
 
   const ledger = useLedger({ scope: { kind: 'agent', agentId }, range })
   const personal = usePersonalExpenses({ ...range, limit: 100 })
@@ -83,17 +90,19 @@ export function UnifiedLedger({ agentId, initialLimit = 30, onPersonalChanged }:
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-              <SelectTrigger className="h-8 text-xs w-auto rounded-full bg-muted/50 border-border/30">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="month">Este mês</SelectItem>
-                <SelectItem value="last3">Últimos 3 meses</SelectItem>
-                <SelectItem value="ytd">Ano corrente</SelectItem>
-                <SelectItem value="all">Tudo</SelectItem>
-              </SelectContent>
-            </Select>
+            {!isControlled && (
+              <Select value={legacyPeriod} onValueChange={(v) => setLegacyPeriod(v as LegacyPeriod)}>
+                <SelectTrigger className="h-8 text-xs w-auto rounded-full bg-muted/50 border-border/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="month">Este mês</SelectItem>
+                  <SelectItem value="last3">Últimos 3 meses</SelectItem>
+                  <SelectItem value="ytd">Ano corrente</SelectItem>
+                  <SelectItem value="all">Tudo</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <FilterChips value={filter} onChange={setFilter} />
           </div>
         </div>

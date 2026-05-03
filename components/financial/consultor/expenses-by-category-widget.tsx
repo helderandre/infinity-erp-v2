@@ -8,6 +8,12 @@ import { PeriodPicker, rangeForPeriod, type PeriodValue } from './period-picker'
 
 interface Props {
   agentId: string
+  /** Quando fornecido, opera em modo controlled e NÃO renderiza o picker
+   *  (assume-se que o parent já o renderiza noutro lado e partilha o estado). */
+  period?: PeriodValue
+  onPeriodChange?: (value: PeriodValue) => void
+  /** Esconde o subtítulo (útil quando o parent já tem contexto). */
+  hideSubtitle?: boolean
 }
 
 /**
@@ -15,9 +21,20 @@ interface Props {
  * - Period picker (Esta semana / Este mês / Este ano / Personalizado)
  * - Fetcha conta corrente + summary das despesas pessoais para o range
  * - Compõe slices: loja institucional (1 fatia) + categorias pessoais
+ *
+ * Modos:
+ * - Uncontrolled (sem `period` prop): owns o estado e renderiza o picker.
+ * - Controlled (`period` + `onPeriodChange`): parent gere o estado; o
+ *   picker NÃO é renderizado aqui (parent renderiza-o externamente).
  */
-export function ExpensesByCategoryWidget({ agentId }: Props) {
-  const [period, setPeriod] = useState<PeriodValue>({ preset: 'month' })
+export function ExpensesByCategoryWidget({ agentId, period: controlledPeriod, onPeriodChange, hideSubtitle }: Props) {
+  const isControlled = controlledPeriod !== undefined
+  const [internalPeriod, setInternalPeriod] = useState<PeriodValue>({ preset: 'month' })
+  const period = isControlled ? controlledPeriod! : internalPeriod
+  const setPeriod = (v: PeriodValue) => {
+    if (isControlled) onPeriodChange?.(v)
+    else setInternalPeriod(v)
+  }
 
   const range = useMemo(() => rangeForPeriod(period), [period])
 
@@ -50,10 +67,12 @@ export function ExpensesByCategoryWidget({ agentId }: Props) {
   return (
     <ExpensesDonut
       title="Despesas por categoria"
-      subtitle={subtitle}
+      subtitle={hideSubtitle ? undefined : subtitle}
       data={slices}
       loading={(ledger.loading || personal.loading) && slices.length === 0}
-      rightAction={<PeriodPicker value={period} onChange={setPeriod} />}
+      rightAction={
+        isControlled ? undefined : <PeriodPicker value={period} onChange={setPeriod} />
+      }
       emptyText="Sem despesas registadas neste período."
     />
   )
