@@ -7,18 +7,13 @@ import {
 } from 'recharts'
 import {
   TrendingUp, Wallet, Hourglass, ShoppingBag, Banknote, Camera,
-  AlertCircle, ArrowUpRight, ArrowDownRight, Receipt, Pause, Play, Trash2, RefreshCcw, ChevronRight,
+  AlertCircle, ArrowUpRight, ArrowDownRight, Receipt, RefreshCcw, ChevronRight,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
-import { toast } from 'sonner'
 import { useConsultorSummary } from '@/hooks/use-consultor-summary'
 import { usePersonalExpensesSummary } from '@/hooks/use-personal-expenses'
 import { usePersonalExpenseRecurrences } from '@/hooks/use-personal-expense-recurrences'
@@ -26,13 +21,34 @@ import { cn } from '@/lib/utils'
 import { ReceiptCaptureSheet } from './receipt-capture-sheet'
 import { UnifiedLedger } from './unified-ledger'
 import { UpcomingEntriesSheet } from './upcoming-entries-sheet'
-import type { PersonalExpenseRecurrence } from '@/types/personal-expense'
+import { KpiDetailSheet } from './kpi-detail-sheet'
+import { RecurringPaymentsSheet } from './recurring-payments-sheet'
+import type { UnifiedFilter } from '@/lib/financial/unified-entry'
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
 const fmtMonth = (key: string) => {
   const [y, m] = key.split('-').map(Number)
   return new Date(y, m - 1, 1).toLocaleDateString('pt-PT', { month: 'short' })
+}
+
+interface KpiSheetSpec {
+  title: string
+  subtitle: string
+  filter: UnifiedFilter
+  totalAmount: number
+}
+
+function monthRange(): { from: string; to: string } {
+  const now = new Date()
+  return {
+    from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`,
+    to: now.toISOString().slice(0, 10),
+  }
+}
+function ytdRange(): { from: string; to: string } {
+  const now = new Date()
+  return { from: `${now.getFullYear()}-01-01`, to: now.toISOString().slice(0, 10) }
 }
 
 function KpiCard({
@@ -99,6 +115,8 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
 
   const [captureOpen, setCaptureOpen] = useState(false)
   const [upcomingOpen, setUpcomingOpen] = useState(false)
+  const [recurringOpen, setRecurringOpen] = useState(false)
+  const [kpiSheet, setKpiSheet] = useState<KpiSheetSpec | null>(null)
 
   const ccUsage = useMemo(() => {
     if (!data?.kpis.credit_limit || data.kpis.credit_limit === 0) return null
@@ -132,6 +150,9 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
   const pessoaisMes = personalSummary.data?.month_amount ?? 0
   const ganhosMes = kpis.comissoes_mes
   const despesasMes = kpis.loja_mes + pessoaisMes
+  // Rendimento líquido real do consultor — inclui despesas pessoais.
+  // (kpis.liquido_mes vem do backend = comissões − loja − ajustes; subtraímos pessoais aqui)
+  const liquidoMesReal = kpis.liquido_mes - pessoaisMes
 
   const handleSaved = () => {
     refetch()
@@ -181,12 +202,24 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                 value={fmtCurrency(kpis.comissoes_mes)}
                 icon={TrendingUp}
                 tone="positive"
+                onClick={() => setKpiSheet({
+                  title: 'Comissões — mês',
+                  subtitle: 'Comissões registadas neste mês',
+                  filter: { source: 'company', types: ['commission'], ...monthRange() },
+                  totalAmount: kpis.comissoes_mes,
+                })}
               />
               <KpiCard
                 label="Comissões (ano)"
                 value={fmtCurrency(kpis.comissoes_ytd)}
                 icon={Banknote}
                 tone="info"
+                onClick={() => setKpiSheet({
+                  title: 'Comissões — ano',
+                  subtitle: 'Comissões registadas no ano corrente',
+                  filter: { source: 'company', types: ['commission'], ...ytdRange() },
+                  totalAmount: kpis.comissoes_ytd,
+                })}
               />
               <KpiCard
                 label="A receber"
@@ -198,6 +231,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                     ? `${proximas_entradas.length} pagamento(s) assinado(s)`
                     : 'Sem pagamentos pendentes'
                 }
+                onClick={proximas_entradas.length > 0 ? () => setUpcomingOpen(true) : undefined}
               />
             </div>
           </section>
@@ -212,6 +246,12 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                 icon={ShoppingBag}
                 tone="negative"
                 hint="Compras institucionais"
+                onClick={() => setKpiSheet({
+                  title: 'Loja — mês',
+                  subtitle: 'Compras na loja institucional',
+                  filter: { source: 'company', types: ['shop'], ...monthRange() },
+                  totalAmount: kpis.loja_mes,
+                })}
               />
               <KpiCard
                 label="Pessoais (mês)"
@@ -223,6 +263,12 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                     ? `${personalSummary.data.count} recibo(s) arquivado(s)`
                     : 'Despesas de actividade'
                 }
+                onClick={() => setKpiSheet({
+                  title: 'Despesas pessoais — mês',
+                  subtitle: 'Recibos pessoais arquivados neste mês',
+                  filter: { source: 'personal', ...monthRange() },
+                  totalAmount: pessoaisMes,
+                })}
               />
             </div>
           </section>
@@ -254,13 +300,24 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
                     </span>
                   )
                 }
+                onClick={() => setKpiSheet({
+                  title: 'Conta corrente',
+                  subtitle: 'Movimentos da empresa (sem despesas pessoais)',
+                  filter: { source: 'company' },
+                  totalAmount: kpis.saldo_cc,
+                })}
               />
               <KpiCard
                 label="Líquido (mês)"
-                value={fmtCurrency(kpis.liquido_mes)}
-                icon={kpis.liquido_mes >= 0 ? ArrowUpRight : ArrowDownRight}
-                tone={kpis.liquido_mes >= 0 ? 'positive' : 'negative'}
-                hint="Comissões − loja − ajustes (não inclui despesas pessoais)"
+                value={fmtCurrency(liquidoMesReal)}
+                icon={liquidoMesReal >= 0 ? ArrowUpRight : ArrowDownRight}
+                tone={liquidoMesReal >= 0 ? 'positive' : 'negative'}
+                onClick={() => setKpiSheet({
+                  title: 'Líquido — mês',
+                  subtitle: 'Todos os movimentos do mês (empresa + pessoais)',
+                  filter: { ...monthRange() },
+                  totalAmount: liquidoMesReal,
+                })}
               />
             </div>
           </section>
@@ -365,6 +422,12 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               value={fmtCurrency(ganhosMes)}
               icon={TrendingUp}
               tone="positive"
+              onClick={() => setKpiSheet({
+                title: 'Ganhos — mês',
+                subtitle: 'Comissões e ajustes positivos do mês',
+                filter: { source: 'company', side: 'in', ...monthRange() },
+                totalAmount: ganhosMes,
+              })}
             />
             <KpiCard
               label="Despesas (mês)"
@@ -372,6 +435,12 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               icon={ArrowDownRight}
               tone="negative"
               hint={`Loja ${fmtCurrency(kpis.loja_mes)} · Pessoais ${fmtCurrency(pessoaisMes)}`}
+              onClick={() => setKpiSheet({
+                title: 'Despesas — mês',
+                subtitle: 'Loja institucional + despesas pessoais do mês',
+                filter: { side: 'out', ...monthRange() },
+                totalAmount: despesasMes,
+              })}
             />
             <KpiCard
               label="A receber"
@@ -387,10 +456,27 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
             />
           </div>
 
-          {/* Recorrências */}
-          {recurrences.data.length > 0 && (
-            <RecurringSection items={recurrences.data} onChanged={handleSaved} />
-          )}
+          {/* Botão de gestão de pagamentos mensais */}
+          <button
+            type="button"
+            onClick={() => setRecurringOpen(true)}
+            className="w-full flex items-center justify-between gap-3 rounded-2xl bg-background/60 ring-1 ring-border/40 px-4 py-3 hover:ring-border/70 hover:bg-muted/30 transition-colors text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-violet-500/10 p-2 shrink-0">
+                <RefreshCcw className="h-4 w-4 text-violet-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Pagamentos mensais</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {recurrences.data.length > 0
+                    ? `${recurrences.data.length} regra(s) activa(s) — gerir, adicionar ou pausar`
+                    : 'Configura subscrições e débitos mensais'}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </button>
 
           {/* Timeline unificada */}
           {agentId && (
@@ -414,114 +500,23 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
         entries={proximas_entradas as any}
         totalAmount={kpis.a_receber}
       />
+      <RecurringPaymentsSheet
+        open={recurringOpen}
+        onOpenChange={setRecurringOpen}
+        onChanged={handleSaved}
+      />
+      {agentId && (
+        <KpiDetailSheet
+          open={!!kpiSheet}
+          onOpenChange={(o) => { if (!o) setKpiSheet(null) }}
+          agentId={agentId}
+          title={kpiSheet?.title ?? ''}
+          subtitle={kpiSheet?.subtitle}
+          filter={kpiSheet?.filter ?? {}}
+          totalAmount={kpiSheet?.totalAmount ?? 0}
+          onPersonalChanged={handleSaved}
+        />
+      )}
     </Tabs>
-  )
-}
-
-// ─── Recorrências (pagamentos mensais activos) ─────────────────────────────
-
-function RecurringSection({
-  items, onChanged,
-}: {
-  items: PersonalExpenseRecurrence[]
-  onChanged: () => void
-}) {
-  const [busyId, setBusyId] = useState<string | null>(null)
-
-  const togglePause = async (rec: PersonalExpenseRecurrence) => {
-    setBusyId(rec.id)
-    try {
-      const res = await fetch(`/api/agent-personal-expense-recurrences/${rec.id}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ is_active: !rec.is_active }),
-      })
-      if (!res.ok) throw new Error()
-      toast.success(rec.is_active ? 'Recorrência pausada.' : 'Recorrência reactivada.')
-      onChanged()
-    } catch {
-      toast.error('Erro a actualizar recorrência.')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const handleDelete = async (rec: PersonalExpenseRecurrence) => {
-    setBusyId(rec.id)
-    try {
-      const res = await fetch(`/api/agent-personal-expense-recurrences/${rec.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
-      toast.success('Recorrência removida.')
-      onChanged()
-    } catch {
-      toast.error('Erro a remover recorrência.')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  return (
-    <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 sm:p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <RefreshCcw className="h-3.5 w-3.5 text-muted-foreground" />
-        <p className="text-xs font-semibold tracking-tight">Pagamentos mensais</p>
-        <Badge variant="outline" className="text-[10px]">{items.length}</Badge>
-      </div>
-      <ul className="space-y-1.5">
-        {items.map((r) => (
-          <li
-            key={r.id}
-            className="flex items-center gap-2 rounded-lg bg-card border border-border/40 px-3 py-2"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {r.vendor_name || r.description || r.category}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                Dia {r.day_of_month} · {r.category}
-              </p>
-            </div>
-            <span className="text-sm font-semibold tabular-nums text-red-600 shrink-0">
-              {fmtCurrency(Number(r.amount_gross))}
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 shrink-0"
-              onClick={() => togglePause(r)}
-              disabled={busyId === r.id}
-              title={r.is_active ? 'Pausar' : 'Reactivar'}
-            >
-              {r.is_active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 w-7 p-0 shrink-0 text-red-600"
-                  disabled={busyId === r.id}
-                  title="Remover"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remover pagamento mensal?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Deixa de gerar despesas todos os meses. As despesas já criadas mantêm-se.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleDelete(r)}>Remover</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </li>
-        ))}
-      </ul>
-    </div>
   )
 }
