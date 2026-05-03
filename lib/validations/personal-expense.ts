@@ -19,6 +19,7 @@ export const personalExpenseCreateSchema = z.object({
   ocr_confidence: z.number().min(0).max(1).optional().nullable(),
   ocr_field_confidences: z.record(z.string(), z.number()).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
+  recurrence_id: z.string().uuid().optional().nullable(),
 })
 
 export const personalExpenseUpdateSchema = personalExpenseCreateSchema.partial()

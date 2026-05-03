@@ -28,14 +28,28 @@ export async function GET(request: Request) {
 
     const admin = createAdminClient() as any
 
-    const today = new Date()
-    const todayIso = today.toISOString().slice(0, 10)
-    const todayDay = today.getUTCDate()
-    const lastDayThisMonth = new Date(
-      Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0)
-    ).getUTCDate()
+    // Datas em horário de Portugal (Europe/Lisbon) — robusto a qualquer
+    // hora UTC em que o Coolify dispare o cron. Cobre verão/inverno.
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Lisbon',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    const parts = Object.fromEntries(
+      fmt.formatToParts(new Date()).map((p) => [p.type, p.value])
+    ) as { year: string; month: string; day: string }
 
-    const monthStart = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-01`
+    const todayIso = `${parts.year}-${parts.month}-${parts.day}`
+    const todayDay = Number(parts.day)
+    const todayYear = Number(parts.year)
+    const todayMonth = Number(parts.month)
+
+    // Último dia do mês corrente (em PT) — usa Date UTC apenas como aritmética
+    // de calendário, sem depender de fuso (mês 0..11; dia 0 = último do mês anterior).
+    const lastDayThisMonth = new Date(Date.UTC(todayYear, todayMonth, 0)).getUTCDate()
+
+    const monthStart = `${parts.year}-${parts.month}-01`
 
     // Busca todas as recorrências activas e filtra em JS (volume é baixo).
     const { data: rules, error: rulesErr } = await admin

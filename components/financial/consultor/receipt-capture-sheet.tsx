@@ -187,7 +187,43 @@ export function ReceiptCaptureSheet({ open, onOpenChange, onSaved }: ReceiptCapt
     }
     setSaving(true)
     try {
-      // Despesa
+      // 1. Recorrência primeiro (se for recurring) — para podermos linkar
+      //    a despesa manual deste mês à regra criada.
+      let recurrenceId: string | null = null
+      if (form.is_recurring) {
+        const recBody = {
+          category: form.category || 'Outras',
+          description: form.description || null,
+          vendor_name: form.vendor_name || null,
+          vendor_nif: form.vendor_nif || null,
+          amount_gross: Number(form.amount_gross),
+          amount_net: form.amount_net ? Number(form.amount_net) : null,
+          vat_amount: form.vat_amount ? Number(form.vat_amount) : null,
+          vat_pct: form.vat_pct ? Number(form.vat_pct) : null,
+          invoice_number: null,
+          notes: form.notes || null,
+          frequency: 'monthly' as const,
+          day_of_month: Number(form.day_of_month),
+          start_date: form.expense_date,
+          is_active: true,
+          // Marca como "já gerada este mês" para o cron não duplicar.
+          last_generated_at: form.expense_date,
+        }
+        const rRes = await fetch('/api/agent-personal-expense-recurrences', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(recBody),
+        })
+        if (!rRes.ok) {
+          // Falha não bloqueia — a despesa será guardada sem recorrência.
+          toast.error('Falhou criar pagamento mensal. Despesa será guardada sem recorrência.')
+        } else {
+          const created = await rRes.json()
+          recurrenceId = created.id ?? null
+        }
+      }
+
+      // 2. Despesa (com recurrence_id se aplicável)
       const expenseBody = {
         expense_date: form.expense_date,
         category: form.category || 'Outras',
@@ -205,6 +241,7 @@ export function ReceiptCaptureSheet({ open, onOpenChange, onSaved }: ReceiptCapt
         receipt_size_bytes: receipt.size_bytes || null,
         ocr_confidence: scan?.confidence ?? null,
         ocr_field_confidences: scan?.field_confidences ?? null,
+        recurrence_id: recurrenceId,
       }
       const res = await fetch('/api/agent-personal-expenses', {
         method: 'POST',
@@ -216,44 +253,11 @@ export function ReceiptCaptureSheet({ open, onOpenChange, onSaved }: ReceiptCapt
         throw new Error(j?.error ?? 'Erro a guardar despesa')
       }
 
-      // Recorrência (opcional)
-      if (form.is_recurring) {
-        const recBody = {
-          category: form.category || 'Outras',
-          description: form.description || null,
-          vendor_name: form.vendor_name || null,
-          vendor_nif: form.vendor_nif || null,
-          amount_gross: Number(form.amount_gross),
-          amount_net: form.amount_net ? Number(form.amount_net) : null,
-          vat_amount: form.vat_amount ? Number(form.vat_amount) : null,
-          vat_pct: form.vat_pct ? Number(form.vat_pct) : null,
-          invoice_number: null,
-          notes: form.notes || null,
-          frequency: 'monthly' as const,
-          day_of_month: Number(form.day_of_month),
-          start_date: form.expense_date,
-          is_active: true,
-          // Marca como "já gerada este mês" para o cron não duplicar a
-          // despesa que acabámos de criar manualmente.
-          last_generated_at: form.expense_date,
-        }
-        const rRes = await fetch('/api/agent-personal-expense-recurrences', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(recBody),
-        })
-        if (!rRes.ok) {
-          // Despesa já foi guardada; recorrência é opcional. Notificar mas continuar.
-          toast.error('Despesa guardada, mas falhou a configurar pagamento mensal.')
-          onSaved()
-          onOpenChange(false)
-          return
-        }
-        toast.success('Despesa registada e marcada como pagamento mensal.')
-      } else {
-        toast.success('Despesa registada.')
-      }
-
+      toast.success(
+        recurrenceId
+          ? 'Despesa registada e marcada como pagamento mensal.'
+          : 'Despesa registada.'
+      )
       onSaved()
       onOpenChange(false)
     } catch (e: any) {
