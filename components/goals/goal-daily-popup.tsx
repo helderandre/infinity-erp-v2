@@ -13,9 +13,9 @@ import {
 import {
   Target,
   Phone,
-  MapPin,
-  MessageSquare,
-  RotateCcw,
+  Eye,
+  FileSignature,
+  FileText,
   ArrowRight,
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -28,29 +28,21 @@ import { formatCurrency } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
-import type { GoalStatus } from '@/types/goal'
+import { useAgentGoal } from '@/hooks/use-agent-goal'
+import { useFunnelAggregates } from '@/hooks/use-funnel-aggregates'
+import { computeAgentGoalTargets } from '@/lib/goals/v2/compute-targets'
 import type { CalendarEvent } from '@/types/calendar'
 import { CalendarEventDetail } from '@/components/calendar/calendar-event-detail'
 import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet'
 
+type ActionStatus = 'green' | 'amber' | 'red'
+
 interface DailyAction {
-  key: string
+  key: 'contactos' | 'estudos' | 'visitas' | 'propostas'
   label: string
+  Icon: typeof Phone
   target: number
   done: number
-  status: GoalStatus
-}
-
-interface DailyGoalData {
-  hasGoal: boolean
-  goalId?: string
-  dailyRevenue?: number
-  weeklyRevenue?: number
-  annualTarget?: number
-  realizedToday?: number
-  overallStatus?: GoalStatus
-  projectionMessage?: string
-  actions?: DailyAction[]
 }
 
 interface AgendaTask {
@@ -71,29 +63,43 @@ interface AgendaEvent {
   item_type: 'event' | 'task' | null
 }
 
-const ACTION_ICONS: Record<string, React.ElementType> = {
-  leads: MessageSquare,
-  calls: Phone,
-  visits: MapPin,
-  follow_ups: RotateCcw,
+const STATUS_BAR: Record<ActionStatus, string> = {
+  green: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  red: 'bg-red-500',
 }
 
-const STATUS_STYLES: Record<GoalStatus, { dot: string; bar: string }> = {
-  green: { dot: 'bg-emerald-500', bar: 'bg-emerald-500' },
-  orange: { dot: 'bg-amber-500', bar: 'bg-amber-500' },
-  red: { dot: 'bg-red-500', bar: 'bg-red-500' },
+function statusFor(done: number, target: number): ActionStatus {
+  if (target <= 0) return 'green'
+  const pct = done / target
+  if (pct >= 1) return 'green'
+  if (pct >= 0.5) return 'amber'
+  return 'red'
 }
 
 const SESSION_KEY = 'goal-daily-popup-dismissed'
 
 type TabKey = 'objetivos' | 'agenda'
 
+function startOfTodayIso(): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
+}
+
+function endOfTodayIso(): string {
+  const d = new Date()
+  d.setHours(23, 59, 59, 999)
+  return d.toISOString()
+}
+
 export function GoalDailyPopup() {
   const isMobile = useIsMobile()
   const { user } = useUser()
+  const year = new Date().getFullYear()
+
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<TabKey>('objetivos')
-  const [data, setData] = useState<DailyGoalData | null>(null)
   const [tasks, setTasks] = useState<AgendaTask[]>([])
   const [overdueTasks, setOverdueTasks] = useState<AgendaTask[]>([])
   const [events, setEvents] = useState<AgendaEvent[]>([])
@@ -102,27 +108,67 @@ export function GoalDailyPopup() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
+  // v2 goal + today's realized counts
+  const { goal: agentGoal, isLoading: goalLoading } = useAgentGoal({
+    year,
+    agentId: user?.id ?? null,
+  })
+  const { data: todayAggregates } = useFunnelAggregates({
+    agentId: user?.id ?? null,
+    since: startOfTodayIso(),
+    until: endOfTodayIso(),
+  })
+
+  const dailyData = useMemo(() => {
+    if (!agentGoal) return null
+    const { id: _id, created_at: _ca, updated_at: _ua, targets: _t, ...input } = agentGoal
+    const targets = computeAgentGoalTargets(input as never)
+    const weeks = Math.max(1, agentGoal.working_weeks_per_year)
+    const days = Math.max(1, agentGoal.working_days_per_week)
+    const workingDays = weeks * days
+
+    const dailyRevenue = agentGoal.annual_revenue_target_eur / workingDays
+    const weeklyRevenue = agentGoal.annual_revenue_target_eur / weeks
+
+    // Combined daily targets (vendedor + comprador) for the action checklist.
+    const sumDaily = (vend: number, comp: number) => (vend + comp) / workingDays
+    const targetByStage = {
+      contactos: sumDaily(targets.vend_target_contactos, targets.comp_target_contactos),
+      estudos:   targets.vend_target_estudos / workingDays,         // vendedor-only
+      visitas:   sumDaily(targets.vend_target_visitas, targets.comp_target_visitas),
+      propostas: sumDaily(targets.vend_target_propostas, targets.comp_target_propostas),
+    }
+
+    const v = todayAggregates?.counts.vendedor ?? {}
+    const c = todayAggregates?.counts.comprador ?? {}
+    const doneByStage = {
+      contactos: (v.contacto?.total ?? 0) + (c.contacto?.total ?? 0),
+      estudos:   (v.estudo?.total ?? 0),
+      visitas:   (v.visita?.total ?? 0) + (c.visita?.total ?? 0),
+      propostas: (v.proposta?.total ?? 0) + (c.proposta?.total ?? 0),
+    }
+
+    const allActions: DailyAction[] = [
+      { key: 'contactos', label: 'Contactos',          Icon: Phone,         target: targetByStage.contactos, done: doneByStage.contactos },
+      { key: 'estudos',   label: 'Estudos de mercado', Icon: FileText,      target: targetByStage.estudos,   done: doneByStage.estudos },
+      { key: 'visitas',   label: 'Visitas',            Icon: Eye,           target: targetByStage.visitas,   done: doneByStage.visitas },
+      { key: 'propostas', label: 'Propostas',          Icon: FileSignature, target: targetByStage.propostas, done: doneByStage.propostas },
+    ]
+    const actions = allActions.filter((a) => a.target > 0)
+
+    return { dailyRevenue, weeklyRevenue, actions }
+  }, [agentGoal, todayAggregates])
+
+  // Auto-open once per day if there's a goal with at least one action target
   useEffect(() => {
+    if (goalLoading || !dailyData) return
+    if (dailyData.actions.length === 0) return
     const dismissed = sessionStorage.getItem(SESSION_KEY)
     const today = new Date().toISOString().split('T')[0]
     if (dismissed === today) return
-
-    async function fetchDaily() {
-      try {
-        const res = await fetch('/api/goals/my-daily')
-        if (!res.ok) return
-        const json: DailyGoalData = await res.json()
-        if (json.hasGoal && json.actions && json.actions.length > 0) {
-          setData(json)
-          setTimeout(() => setOpen(true), 800)
-        }
-      } catch {
-        // silently fail
-      }
-    }
-
-    fetchDaily()
-  }, [])
+    const t = setTimeout(() => setOpen(true), 800)
+    return () => clearTimeout(t)
+  }, [goalLoading, dailyData])
 
   // Lazy-load the agenda when the user picks that tab
   useEffect(() => {
@@ -142,8 +188,6 @@ export function GoalDailyPopup() {
       is_completed: 'false',
       per_page: '50',
     })
-    // Pending work that isn't planned for today — overdue tasks (due_date in
-    // the past, still open). Surfaced as a "Por fazer" group below today.
     const overdueParams = new URLSearchParams({
       assigned_to: user.id,
       overdue: 'true',
@@ -163,24 +207,18 @@ export function GoalDailyPopup() {
       .then(([tasksRes, overdueRes, eventsRes]) => {
         if (cancelled) return
         setTasks(tasksRes.data || [])
-        // Drop any overdue rows that are also in today's list (defensive — the
-        // overdue filter excludes today by definition, but APIs may shift).
         const todayIds = new Set<string>((tasksRes.data || []).map((t: AgendaTask) => t.id))
         setOverdueTasks(((overdueRes.data || []) as AgendaTask[]).filter((t) => !todayIds.has(t.id)))
         setEvents(eventsRes.data || [])
       })
-      .catch(() => {
-        if (cancelled) return
-      })
+      .catch(() => { if (cancelled) return })
       .finally(() => {
         if (cancelled) return
         setAgendaLoading(false)
         setAgendaLoaded(true)
       })
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [tab, agendaLoaded, user?.id])
 
   function handleDismiss() {
@@ -189,8 +227,6 @@ export function GoalDailyPopup() {
     setOpen(false)
   }
 
-  // Sort agenda chronologically (events by start, tasks by due_date), tasks
-  // without a time go to the end.
   const agendaItems = useMemo(() => {
     const eventItems = events.map((e) => ({
       kind: 'event' as const,
@@ -217,8 +253,6 @@ export function GoalDailyPopup() {
     })
   }, [events, tasks])
 
-  // Overdue items shown as a "Por fazer" section below today's list. Sorted
-  // by oldest first so the most-stale gets the user's attention.
   const overdueItems = useMemo(() => {
     return overdueTasks
       .filter((t) => !t.is_completed)
@@ -236,7 +270,7 @@ export function GoalDailyPopup() {
       })
   }, [overdueTasks])
 
-  if (!data || !data.hasGoal) return null
+  if (!dailyData) return null
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) handleDismiss() }}>
@@ -303,7 +337,7 @@ export function GoalDailyPopup() {
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-2">
           {tab === 'objetivos' ? (
-            <ObjetivosTab data={data} />
+            <ObjetivosTab data={dailyData} />
           ) : (
             <AgendaTab
               loading={agendaLoading}
@@ -328,8 +362,8 @@ export function GoalDailyPopup() {
           </Button>
           {tab === 'objetivos' ? (
             <Button size="sm" className="rounded-full bg-foreground text-background hover:opacity-90" asChild onClick={handleDismiss}>
-              <Link href={`/dashboard/objetivos/${data.goalId}`}>
-                Ver Dashboard
+              <Link href="/dashboard/objetivos?tab=plano">
+                Ver plano
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -344,7 +378,6 @@ export function GoalDailyPopup() {
         </div>
       </SheetContent>
 
-      {/* Nested sheets — open over the popup when an agenda item is clicked. */}
       <CalendarEventDetail
         event={selectedEvent}
         open={selectedEvent !== null}
@@ -354,6 +387,8 @@ export function GoalDailyPopup() {
         taskId={selectedTaskId}
         open={selectedTaskId !== null}
         onOpenChange={(o) => { if (!o) setSelectedTaskId(null) }}
+        onRefresh={() => {}}
+        onCreateSubTask={() => {}}
       />
     </Sheet>
   )
@@ -361,19 +396,19 @@ export function GoalDailyPopup() {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-function ObjetivosTab({ data }: { data: DailyGoalData }) {
+function ObjetivosTab({ data }: { data: { dailyRevenue: number; weeklyRevenue: number; actions: DailyAction[] } }) {
   return (
     <div className="space-y-4 py-2">
       {/* Revenue summary */}
       <div className="rounded-2xl border border-border/40 bg-muted/20 px-4 py-3 flex items-end justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Objetivo diário</p>
-          <p className="text-2xl font-bold tabular-nums">{formatCurrency(data.dailyRevenue || 0)}</p>
+          <p className="text-2xl font-bold tabular-nums">{formatCurrency(data.dailyRevenue)}</p>
         </div>
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Semanal</p>
           <p className="text-sm font-semibold text-muted-foreground tabular-nums">
-            {formatCurrency(data.weeklyRevenue || 0)}
+            {formatCurrency(data.weeklyRevenue)}
           </p>
         </div>
       </div>
@@ -383,11 +418,11 @@ function ObjetivosTab({ data }: { data: DailyGoalData }) {
         <p className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
           Ações necessárias hoje
         </p>
-        {data.actions?.map((action) => {
-          const Icon = ACTION_ICONS[action.key] || MessageSquare
-          const style = STATUS_STYLES[action.status]
-          const pct = action.target > 0 ? Math.min((action.done / action.target) * 100, 100) : 0
-          const isDone = action.done >= action.target
+        {data.actions.map((action) => {
+          const status = statusFor(action.done, action.target)
+          const targetRounded = Math.max(1, Math.round(action.target))
+          const pct = Math.min((action.done / targetRounded) * 100, 100)
+          const isDone = action.done >= targetRounded
 
           return (
             <div key={action.key} className="rounded-xl border border-border/40 bg-card px-3 py-2.5 space-y-1.5">
@@ -399,18 +434,18 @@ function ObjetivosTab({ data }: { data: DailyGoalData }) {
                       isDone ? 'bg-emerald-500/15' : 'bg-muted/50',
                     )}
                   >
-                    <Icon className={cn('h-3.5 w-3.5', isDone ? 'text-emerald-600' : 'text-muted-foreground')} />
+                    <action.Icon className={cn('h-3.5 w-3.5', isDone ? 'text-emerald-600' : 'text-muted-foreground')} />
                   </div>
                   <span className="text-sm font-medium">{action.label}</span>
                 </div>
                 <span className="text-sm tabular-nums font-bold">
                   {action.done}
-                  <span className="text-muted-foreground font-normal">/{action.target}</span>
+                  <span className="text-muted-foreground font-normal">/{targetRounded}</span>
                 </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
                 <div
-                  className={cn('h-full rounded-full transition-all duration-500', style.bar)}
+                  className={cn('h-full rounded-full transition-all duration-500', STATUS_BAR[status])}
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -418,12 +453,6 @@ function ObjetivosTab({ data }: { data: DailyGoalData }) {
           )
         })}
       </div>
-
-      {data.projectionMessage && (
-        <p className="rounded-xl border border-dashed border-border/30 bg-muted/10 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
-          {data.projectionMessage}
-        </p>
-      )}
     </div>
   )
 }

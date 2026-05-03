@@ -10,6 +10,7 @@ import {
   Boxes,
   GraduationCap,
   MoreHorizontal,
+  ShoppingBag,
 } from 'lucide-react'
 
 /**
@@ -43,6 +44,7 @@ export const PERSONAL_EXPENSE_CATEGORY_GROUPS: Array<{
     items: [
       { name: 'Telemóvel & dados', icon: Smartphone },
       { name: 'Marketing pessoal', icon: Megaphone },
+      { name: 'Loja institucional', icon: ShoppingBag },
     ],
   },
   {

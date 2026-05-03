@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useConsultorSummary } from '@/hooks/use-consultor-summary'
 import { usePersonalExpensesSummary } from '@/hooks/use-personal-expenses'
 import { usePersonalExpenseRecurrences } from '@/hooks/use-personal-expense-recurrences'
+import { useMarketingSubscriptions } from '@/hooks/use-marketing-subscriptions'
 import { cn } from '@/lib/utils'
 import { ReceiptCaptureSheet } from './receipt-capture-sheet'
 import { UnifiedLedger } from './unified-ledger'
@@ -115,6 +116,9 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
   const { data, loading, error, refetch } = useConsultorSummary(agentId)
   const personalSummary = usePersonalExpensesSummary({})
   const recurrences = usePersonalExpenseRecurrences({ activeOnly: true })
+  const marketingSubs = useMarketingSubscriptions()
+  const activeSubsCount = marketingSubs.subscriptions.filter((s) => s.status === 'active').length
+  const totalRecurringCount = recurrences.data.length + activeSubsCount
 
   const [captureOpen, setCaptureOpen] = useState(false)
   const [upcomingOpen, setUpcomingOpen] = useState(false)
@@ -163,6 +167,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
     refetch()
     personalSummary.refetch()
     recurrences.refetch()
+    marketingSubs.refetch()
   }
 
   return (
@@ -428,9 +433,9 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               >
                 <RefreshCcw className="h-3.5 w-3.5 mr-1" />
                 <span className="truncate">Pagamentos mensais</span>
-                {recurrences.data.length > 0 && (
+                {totalRecurringCount > 0 && (
                   <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
-                    {recurrences.data.length}
+                    {totalRecurringCount}
                   </Badge>
                 )}
               </Button>
