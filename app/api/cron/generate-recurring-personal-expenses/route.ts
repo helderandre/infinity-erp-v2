@@ -55,11 +55,15 @@ export async function GET(request: Request) {
       // Não correr para regras com end_date no passado
       if (rule.end_date && rule.end_date < todayIso) continue
 
-      // Dia efectivo hoje: se day_of_month > último dia do mês, usa o último.
+      // Dia efectivo deste mês: clamp ao último dia se day_of_month for maior
+      // (ex: day_of_month=31 em Fevereiro usa o dia 28 ou 29).
       const effectiveDay = Math.min(rule.day_of_month, lastDayThisMonth)
-      if (effectiveDay !== todayDay) continue
 
-      // Já gerada este mês?
+      // Ainda não chegou o dia efectivo deste mês — espera.
+      if (todayDay < effectiveDay) continue
+
+      // Já gerada este mês? (catchup-friendly: se o cron falhou um dia, a
+      // próxima execução ainda gera enquanto for o mesmo mês.)
       if (rule.last_generated_at && rule.last_generated_at >= monthStart) continue
 
       // Insert despesa

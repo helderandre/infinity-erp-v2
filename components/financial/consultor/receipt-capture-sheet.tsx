@@ -233,6 +233,9 @@ export function ReceiptCaptureSheet({ open, onOpenChange, onSaved }: ReceiptCapt
           day_of_month: Number(form.day_of_month),
           start_date: form.expense_date,
           is_active: true,
+          // Marca como "já gerada este mês" para o cron não duplicar a
+          // despesa que acabámos de criar manualmente.
+          last_generated_at: form.expense_date,
         }
         const rRes = await fetch('/api/agent-personal-expense-recurrences', {
           method: 'POST',

@@ -39,6 +39,9 @@ export const personalExpenseRecurrenceCreateSchema = z.object({
   start_date: isoDate,
   end_date: isoDate.optional().nullable(),
   is_active: z.boolean().optional().default(true),
+  // Quando o consultor cria a regra junto com a despesa manual deste mês,
+  // a UI passa hoje aqui para o cron não regenerar uma 2ª despesa hoje.
+  last_generated_at: isoDate.optional().nullable(),
 })
 
 export const personalExpenseRecurrenceUpdateSchema =
