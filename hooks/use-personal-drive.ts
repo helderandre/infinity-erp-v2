@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useImageCompress } from './use-image-compress'
+import { compressPdfLossless } from '@/lib/pdf/compress-pdf-lossless'
 
 export interface PersonalDriveItem {
   id: string
@@ -110,14 +111,21 @@ export function usePersonalDrive(parentId: string | null) {
       let failed = 0
       const toastId = toast.loading(`A preparar ${files.length} ficheiro${files.length === 1 ? '' : 's'}...`)
 
-      // Compress images upfront (parallel up to 2 at a time inside the hook).
+      // Compress upfront — images via WebP encoder, PDFs losslessly via
+      // pdf-lib (re-save with object streams; embedded image quality is
+      // preserved). Fallback to original on any failure.
       const prepared: File[] = []
       for (const f of files) {
         if (f.type.startsWith('image/')) {
           try {
             prepared.push(await compressImage(f))
           } catch {
-            // If compression fails, fall back to the original file.
+            prepared.push(f)
+          }
+        } else if (f.type === 'application/pdf') {
+          try {
+            prepared.push(await compressPdfLossless(f))
+          } catch {
             prepared.push(f)
           }
         } else {

@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/hooks/use-user'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { PropertyDocumentsFoldersView } from '@/components/properties/property-documents-folders-view'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { PersonalDriveBrowser } from '@/components/marketing/personal-drive/personal-drive-browser'
@@ -37,6 +38,7 @@ type SelectedItem =
   | null
 
 export function DocumentsQuickAccess() {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('imoveis')
   const [query, setQuery] = useState('')
@@ -68,12 +70,18 @@ export function DocumentsQuickAccess() {
 
       <Sheet open={open} onOpenChange={handleOpenChange}>
         <SheetContent
-          side="right"
+          side={isMobile ? 'bottom' : 'right'}
           className={cn(
-            'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
-            'w-full sm:max-w-3xl rounded-l-3xl sm:rounded-l-3xl',
+            'p-0 flex flex-col gap-0 overflow-hidden border-border/40 shadow-2xl',
+            'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+            isMobile
+              ? 'data-[side=bottom]:h-[88dvh] rounded-t-3xl'
+              : 'w-full data-[side=right]:sm:max-w-[720px] sm:rounded-l-3xl',
           )}
         >
+          {isMobile && (
+            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25" />
+          )}
           {selected ? (
             <DetailView selected={selected} onBack={() => setSelected(null)} />
           ) : (

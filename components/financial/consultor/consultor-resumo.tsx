@@ -23,6 +23,7 @@ import { UnifiedLedger } from './unified-ledger'
 import { UpcomingEntriesSheet } from './upcoming-entries-sheet'
 import { KpiDetailSheet, type KpiTone } from './kpi-detail-sheet'
 import { RecurringPaymentsSheet } from './recurring-payments-sheet'
+import { ExpensesDonut, LOJA_CATEGORY, type ExpenseSlice } from './expenses-donut'
 import type { UnifiedFilter } from '@/lib/financial/unified-entry'
 
 const fmtCurrency = (v: number) =>
@@ -77,8 +78,8 @@ function KpiCard({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent text-left',
-        'ring-1 ring-border/40 p-4 transition-all duration-300',
+        'group relative overflow-hidden rounded-2xl bg-gradient-to-br to-transparent text-left w-full',
+        'ring-1 ring-border/40 p-3 sm:p-4 transition-all duration-300',
         'hover:ring-border/70 hover:shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08)]',
         toneMap.from,
         onClick && 'cursor-pointer',
@@ -86,17 +87,17 @@ function KpiCard({
     >
       <span className={cn('absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full', toneMap.accent)} />
 
-      <div className="flex items-center gap-2">
-        <Icon className={cn('h-4 w-4 shrink-0', toneMap.icon)} />
-        <p className="text-[11px] text-muted-foreground font-medium leading-tight flex-1">{label}</p>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0', toneMap.icon)} />
+        <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium leading-tight flex-1 truncate">{label}</p>
         {onClick && (
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-foreground transition-colors" />
+          <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0" />
         )}
       </div>
-      <p className="text-base sm:text-2xl font-semibold tracking-tight tabular-nums mt-2.5 text-foreground break-words">
+      <p className="text-base sm:text-2xl font-semibold tracking-tight tabular-nums mt-2 sm:mt-2.5 text-foreground break-words">
         {value}
       </p>
-      {hint && <div className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground">{hint}</div>}
+      {hint && <div className="mt-1 text-[10px] sm:text-[11px] text-muted-foreground line-clamp-2">{hint}</div>}
     </Wrapper>
   )
 }
@@ -112,6 +113,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function ConsultorResumo({ agentId }: { agentId?: string }) {
   const { data, loading, error, refetch } = useConsultorSummary(agentId)
   const personalSummary = usePersonalExpensesSummary({})
+  const personalSummaryYtd = usePersonalExpensesSummary({ from: ytdRange().from })
+  const personalSummaryMonth = usePersonalExpensesSummary({ from: monthRange().from })
   const recurrences = usePersonalExpenseRecurrences({ activeOnly: true })
 
   const [captureOpen, setCaptureOpen] = useState(false)
@@ -147,7 +150,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
     )
   }
 
-  const { kpis, monthly_series, proximas_entradas } = data
+  const { kpis, monthly_series, proximas_entradas, loja_breakdown } = data
   const pessoaisMes = personalSummary.data?.month_amount ?? 0
   const ganhosMes = kpis.comissoes_mes
   const despesasMes = kpis.loja_mes + pessoaisMes
@@ -155,15 +158,34 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
   // (kpis.liquido_mes vem do backend = comissões − loja − ajustes; subtraímos pessoais aqui)
   const liquidoMesReal = kpis.liquido_mes - pessoaisMes
 
+  // Slices para os donuts: loja institucional como uma fatia + cada categoria pessoal
+  const lojaTotal = (loja_breakdown ?? []).reduce((s, b) => s + b.amount, 0)
+  const ytdSlices: ExpenseSlice[] = [
+    ...(lojaTotal > 0 ? [{ category: LOJA_CATEGORY, amount: lojaTotal }] : []),
+    ...(personalSummaryYtd.data?.by_category ?? []).map((c) => ({
+      category: c.category,
+      amount: c.amount,
+    })),
+  ]
+  const monthSlices: ExpenseSlice[] = [
+    ...(kpis.loja_mes > 0 ? [{ category: LOJA_CATEGORY, amount: kpis.loja_mes }] : []),
+    ...(personalSummaryMonth.data?.by_category ?? []).map((c) => ({
+      category: c.category,
+      amount: c.amount,
+    })),
+  ]
+
   const handleSaved = () => {
     refetch()
     personalSummary.refetch()
+    personalSummaryYtd.refetch()
+    personalSummaryMonth.refetch()
     recurrences.refetch()
   }
 
   return (
     <Tabs defaultValue="visao" className="space-y-5">
-      <div className="overflow-x-auto -mx-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex justify-center sm:justify-start overflow-x-auto -mx-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
           <TabsList className="bg-transparent p-0 h-auto">
             <TabsTrigger
@@ -197,7 +219,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
           {/* Receitas */}
           <section>
             <SectionLabel>Receitas</SectionLabel>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
               <KpiCard
                 label="Comissões (mês)"
                 value={fmtCurrency(kpis.comissoes_mes)}
@@ -242,7 +264,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
           {/* Despesas */}
           <section>
             <SectionLabel>Despesas</SectionLabel>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <div className="grid gap-3 grid-cols-2">
               <KpiCard
                 label="Loja (mês)"
                 value={fmtCurrency(kpis.loja_mes)}
@@ -281,7 +303,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
           {/* Saldo */}
           <section>
             <SectionLabel>Saldo</SectionLabel>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <div className="grid gap-3 grid-cols-2">
               <KpiCard
                 label="Conta corrente"
                 value={fmtCurrency(kpis.saldo_cc)}
@@ -328,6 +350,15 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               />
             </div>
           </section>
+
+          {/* Donut: despesas por categoria (YTD) */}
+          <ExpensesDonut
+            title="Despesas por categoria"
+            subtitle={`Distribuição do ano ${new Date().getFullYear()} — loja institucional + pessoais`}
+            data={ytdSlices}
+            loading={personalSummaryYtd.loading && ytdSlices.length === 0}
+            emptyText="Sem despesas registadas no ano."
+          />
 
           {/* Evolução 12 meses */}
           <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 sm:p-5 min-w-0 overflow-hidden">
@@ -405,22 +436,22 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
       {/* ─── Tab 2: Ganhos e despesas — KPIs + timeline + recorrências ──── */}
       <TabsContent value="ganhos" className="m-0">
         <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-4 sm:p-6 space-y-6 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
-          <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-start sm:justify-between sm:gap-2">
             <div className="min-w-0">
               <h3 className="text-base font-semibold tracking-tight">Ganhos e despesas</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 Conta corrente unificada — empresa e pessoais num só sítio
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:shrink-0">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setRecurringOpen(true)}
-                className="rounded-full"
+                className="rounded-full w-full sm:w-auto"
               >
                 <RefreshCcw className="h-3.5 w-3.5 mr-1" />
-                Pagamentos mensais
+                <span className="truncate">Pagamentos mensais</span>
                 {recurrences.data.length > 0 && (
                   <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
                     {recurrences.data.length}
@@ -430,16 +461,16 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               <Button
                 size="sm"
                 onClick={() => setCaptureOpen(true)}
-                className="rounded-full"
+                className="rounded-full w-full sm:w-auto"
               >
                 <Camera className="h-3.5 w-3.5 mr-1" />
-                Registar despesa
+                <span className="truncate">Registar despesa</span>
               </Button>
             </div>
           </div>
 
           {/* 3 KPIs sumário */}
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
             <KpiCard
               label="Ganhos (mês)"
               value={fmtCurrency(ganhosMes)}
@@ -481,6 +512,14 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
             />
           </div>
 
+          {/* Donut: despesas por categoria (mês corrente) */}
+          <ExpensesDonut
+            title="Despesas por categoria"
+            subtitle="Distribuição do mês corrente — loja institucional + pessoais"
+            data={monthSlices}
+            loading={personalSummaryMonth.loading && monthSlices.length === 0}
+            emptyText="Sem despesas registadas neste mês."
+          />
 
           {/* Timeline unificada */}
           {agentId && (

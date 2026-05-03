@@ -241,7 +241,7 @@ export function PersonalDriveBrowser() {
           }}
         />
         <p className="text-[10px] text-muted-foreground ml-auto">
-          As imagens são comprimidas (até 1920px, WebP)
+          Imagens convertidas para WebP · PDF comprimido sem perda
         </p>
       </div>
 
@@ -496,23 +496,20 @@ function FileCard({
       className="group relative rounded-lg border bg-card hover:border-primary hover:shadow-sm transition-all overflow-hidden cursor-pointer flex flex-col"
       onClick={onOpen}
     >
-      <div className="relative aspect-square bg-muted overflow-hidden">
+      <div className="relative aspect-square bg-muted overflow-hidden flex items-center justify-center">
         {isImage && file.file_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={file.file_url}
             alt={file.name}
-            className="absolute inset-0 h-full w-full object-contain p-1"
+            className="max-h-full max-w-full object-contain p-1"
+            style={{ objectPosition: 'center' }}
             loading="lazy"
           />
+        ) : isPdfMime(file.mime_type) ? (
+          <FileText className="h-8 w-8 text-muted-foreground/40" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            {isPdfMime(file.mime_type) ? (
-              <FileText className="h-8 w-8 text-muted-foreground/40" />
-            ) : (
-              <FileIcon className="h-8 w-8 text-muted-foreground/40" />
-            )}
-          </div>
+          <FileIcon className="h-8 w-8 text-muted-foreground/40" />
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -611,19 +608,20 @@ function FilePreviewDialog({
             </Button>
           </div>
         </DialogHeader>
-        <div className="bg-muted/40 min-h-[60vh] flex items-center justify-center p-4">
+        <div className="bg-muted/40 h-[70vh] flex items-center justify-center p-4">
           {item && isImage && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.file_url || ''}
               alt={item.name}
-              className="max-w-full max-h-[70vh] object-contain"
+              className="max-h-full max-w-full object-contain"
+              style={{ objectPosition: 'center' }}
             />
           )}
           {item && isPdf && (
             <iframe
               src={item.file_url || ''}
-              className="w-full h-[70vh] rounded border"
+              className="w-full h-full rounded border"
               title={item.name}
             />
           )}
