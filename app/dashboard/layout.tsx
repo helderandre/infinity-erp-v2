@@ -25,6 +25,10 @@ const QuickActions = dynamic(
   () => import('@/components/layout/quick-actions').then((m) => m.QuickActions),
   { ssr: false }
 )
+const DocumentsQuickAccess = dynamic(
+  () => import('@/components/layout/documents-quick-access').then((m) => m.DocumentsQuickAccess),
+  { ssr: false }
+)
 const NotificationPopover = dynamic(
   () => import('@/components/notifications/notification-popover').then((m) => m.NotificationPopover),
   { ssr: false }
@@ -165,6 +169,7 @@ export default function DashboardLayout({
                 <span className="sr-only">Assistente de voz</span>
               </button>
               <AiAgentChat />
+              <DocumentsQuickAccess />
               <QuickActions />
               <NotificationPopover />
             </div>

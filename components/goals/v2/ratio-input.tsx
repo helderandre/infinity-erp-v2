@@ -2,11 +2,12 @@
 
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { ArrowRight } from 'lucide-react'
 
 interface RatioInputProps {
-  /** "Para cada 1 [outputLabel]" */
+  /** The downstream stage (singular) */
   outputLabel: string
-  /** "preciso de [N] [inputLabel]" */
+  /** The upstream stage (plural) */
   inputLabel: string
   value: number
   onChange: (value: number) => void
@@ -15,7 +16,7 @@ interface RatioInputProps {
   disabled?: boolean
 }
 
-// Inline composite control: "Para cada 1 X, preciso de [N] Y"
+// Inline control: "A cada [N] [inputLabel] → 1 [outputLabel]"
 export function RatioInput({
   outputLabel,
   inputLabel,
@@ -33,9 +34,7 @@ export function RatioInput({
         'transition-colors hover:border-border/60'
       )}
     >
-      <span className="text-muted-foreground">Para cada</span>
-      <span className="font-semibold text-foreground">1 {outputLabel}</span>
-      <span className="text-muted-foreground">, preciso de</span>
+      <span className="text-muted-foreground">A cada</span>
       <Input
         type="number"
         inputMode="decimal"
@@ -50,6 +49,8 @@ export function RatioInput({
         className="h-8 w-20 text-center font-medium"
       />
       <span className="text-muted-foreground">{inputLabel}</span>
+      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+      <span className="font-semibold text-foreground">1 {outputLabel}</span>
     </div>
   )
 }

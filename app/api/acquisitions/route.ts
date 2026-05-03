@@ -4,6 +4,7 @@ import { acquisitionSchema } from '@/lib/validations/acquisition'
 import { notificationService } from '@/lib/notifications/service'
 import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
+import { autoActivateProcess } from '@/lib/processes/auto-activate'
 
 export async function POST(request: Request) {
   try {
@@ -277,13 +278,18 @@ export async function POST(request: Request) {
       }
     }
 
-    // 6. Criar instância de processo (SEM template — será seleccionado na aprovação)
+    // 6. Criar instância de processo + auto-activar.
+    //
+    // Decisão (2026-06-03): só existe um template activo de angariação, pelo
+    // que o passo de "aprovação manual" foi descontinuado. O proc_instance
+    // nasce já em current_status='active', com tarefas populadas e o
+    // imóvel marcado como in_process.
     const { data: procInstance, error: procError } = await supabase
       .from('proc_instances')
       .insert({
         property_id: property.id,
-        tpl_process_id: null,
-        current_status: 'pending_approval',
+        tpl_process_id: null, // resolvido a seguir por autoActivateProcess
+        current_status: 'pending_approval', // transitório — auto-activado abaixo
         process_type: 'angariacao',
         requested_by: auth.user.id,
         percent_complete: 0,
@@ -298,7 +304,24 @@ export async function POST(request: Request) {
       )
     }
 
-    // Notificar Gestora Processual + Broker/CEO (evento #1)
+    let activated: { tpl_process_id: string; template_name: string } | null = null
+    try {
+      activated = await autoActivateProcess({
+        instanceId: procInstance.id,
+        processType: 'angariacao',
+        approverId: auth.user.id,
+        propertyId: property.id,
+        markCompleted: false,
+      })
+    } catch (activateErr) {
+      console.error('[Acquisitions] Erro ao auto-activar processo:', activateErr)
+      // Soft-fail: o proc_instance fica em pending_approval. Como o
+      // endpoint manual de aprovação foi removido (2026-06-03), recuperar
+      // implica intervenção via SQL ou via re-corrida do helper.
+    }
+
+    // Notificar Gestora Processual + Broker/CEO — agora como FYI ("nova
+    // angariação criada"), não como pedido de aprovação.
     try {
       const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
       if (approverIds.length > 0) {
@@ -307,10 +330,12 @@ export async function POST(request: Request) {
           notificationType: 'process_created',
           entityType: 'proc_instance',
           entityId: procInstance.id,
-          title: 'Nova angariação submetida',
-          body: `${data.title} — aguarda aprovação`,
+          title: 'Nova angariação criada',
+          body: activated
+            ? `${data.title} — processo activo (${activated.template_name})`
+            : `${data.title} — processo criado`,
           actionUrl: `/dashboard/processos/${procInstance.id}`,
-          metadata: { property_title: data.title },
+          metadata: { property_title: data.title, auto_activated: !!activated },
         })
       }
     } catch (notifError) {

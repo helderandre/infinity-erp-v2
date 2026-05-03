@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -290,12 +291,18 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
                           </a>
                         )}
                         {selectedEntry.raw_phone && (
-                          <a href={`tel:${selectedEntry.raw_phone}`} className="flex items-center gap-3 text-sm hover:text-primary transition-colors">
+                          <CallContactButton
+                            phone={selectedEntry.raw_phone}
+                            contactName={selectedEntry.raw_name ?? null}
+                            sourceRefType="lead_entry"
+                            sourceRefId={selectedEntry.id ?? null}
+                            className="flex items-center gap-3 text-sm hover:text-primary transition-colors"
+                          >
                             <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
                               <Phone className="h-4 w-4 text-muted-foreground" />
                             </div>
                             <span>{selectedEntry.raw_phone}</span>
-                          </a>
+                          </CallContactButton>
                         )}
                       </div>
                     </div>

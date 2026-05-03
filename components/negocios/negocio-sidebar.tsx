@@ -3,6 +3,7 @@
 import { Phone, Mail, Building2, UserCheck } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import {
   Select,
   SelectContent,
@@ -81,12 +82,23 @@ export function NegocioSidebar({
         {/* Quick action buttons */}
         <div className="flex justify-center gap-4">
           {phone ? (
-            <a href={`tel:${phone}`} className="flex flex-col items-center gap-1">
+            <CallContactButton
+              phone={phone}
+              contactName={leadName}
+              defaultSide={
+                ['Vendedor','Senhorio','Arrendador','Venda'].includes(tipo) ? 'vendedor'
+                : ['Comprador','Arrendatário','Compra'].includes(tipo) ? 'comprador'
+                : undefined
+              }
+              sourceRefType="negocio"
+              sourceRefId={null}
+              className="flex flex-col items-center gap-1"
+            >
               <div className="w-11 h-11 rounded-full bg-green-50 flex items-center justify-center text-green-600 hover:bg-green-100 transition-colors">
                 <Phone className="h-5 w-5" />
               </div>
               <span className="text-[11px] text-muted-foreground">Ligar</span>
-            </a>
+            </CallContactButton>
           ) : (
             <div className="flex flex-col items-center gap-1 opacity-40">
               <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">

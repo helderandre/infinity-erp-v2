@@ -72,9 +72,9 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 import { PageSidebar } from '@/components/shared/page-sidebar'
 import type { PageSidebarItem } from '@/components/shared/page-sidebar'
-import { ProcessReviewSection } from '@/components/processes/process-review-section'
 import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
+import { ProcessStageMobileView } from '@/components/processes/process-stage-mobile-view'
 import { ProcessFocusView } from '@/components/processes/process-focus-view'
 import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
 import { ProcessListView } from '@/components/processes/process-list-view'
@@ -133,6 +133,13 @@ export default function ProcessoDetailPage() {
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [filterAssignee, setFilterAssignee] = useState<string>('all')
   const [filterRole, setFilterRole] = useState<string>('all')
+
+  // Foco view selection (mirror of ProcessPipelinePanel)
+  const [focusStageId, setFocusStageId] = useState<string | null>(null)
+  const [focusTaskId, setFocusTaskId] = useState<string | null>(null)
+  const handleFocusTaskChange = useCallback((taskId: string) => {
+    setFocusTaskId(taskId)
+  }, [])
 
   // Bypass dialog
   const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
@@ -219,83 +226,6 @@ export default function ProcessoDetailPage() {
       router.push('/dashboard/processos')
     } finally {
       if (!silent) setIsLoading(false)
-    }
-  }
-
-  const handleApprove = async (tplProcessId?: string) => {
-    try {
-      const response = await fetch(`/api/processes/${params.id}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tplProcessId ? { tpl_process_id: tplProcessId } : {}),
-      })
-
-      if (!response.ok) {
-        const responseText = await response.text()
-        let errorMessage = 'Erro ao aprovar processo'
-        if (responseText) {
-          try {
-            const errorData = JSON.parse(responseText)
-            errorMessage = errorData.error || errorMessage
-          } catch {
-            errorMessage = `Erro ${response.status}: ${responseText}`
-          }
-        }
-        throw new Error(errorMessage)
-      }
-
-      const result = await response.json()
-      toast.success(
-        result.template_name
-          ? `Processo aprovado com template "${result.template_name}"!`
-          : 'Processo aprovado com sucesso!'
-      )
-      loadProcess(true)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao aprovar processo'
-      toast.error(message)
-    }
-  }
-
-  const handleReturn = async (reason: string) => {
-    try {
-      const response = await fetch(`/api/processes/${params.id}/return`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Erro ao devolver processo')
-      }
-
-      toast.success('Processo devolvido com sucesso!')
-      loadProcess(true)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao devolver processo'
-      toast.error(message)
-    }
-  }
-
-  const handleReject = async (reason: string) => {
-    try {
-      const response = await fetch(`/api/processes/${params.id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Erro ao rejeitar processo')
-      }
-
-      toast.success('Processo rejeitado com sucesso!')
-      loadProcess(true)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao rejeitar processo'
-      toast.error(message)
     }
   }
 
@@ -662,6 +592,41 @@ export default function ProcessoDetailPage() {
 
   const progressPercent = totalTasks > 0 ? Math.round((completedWeight / totalTasks) * 100) : 0
 
+  // ── Foco view derivations: pick a stage + active task within that stage.
+  const sortedFocoStages = useMemo(
+    () => [...filteredStages].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+    [filteredStages],
+  )
+  const focusStage = useMemo(() => {
+    if (focusStageId) {
+      const found = sortedFocoStages.find((s) => s.id === focusStageId)
+      if (found) return found
+    }
+    return (
+      sortedFocoStages.find((s) =>
+        s.tasks.some((t) => t.status !== 'completed' && t.status !== 'skipped'),
+      ) ?? sortedFocoStages[0] ?? null
+    )
+  }, [sortedFocoStages, focusStageId])
+  const sortedFocoTasks = useMemo(() => {
+    if (!focusStage) return [] as ProcessTask[]
+    return [...focusStage.tasks].sort(
+      (a, b) => ((a as unknown as { order_index?: number }).order_index ?? 0) -
+        ((b as unknown as { order_index?: number }).order_index ?? 0),
+    )
+  }, [focusStage])
+  const focusTask = useMemo(() => {
+    if (sortedFocoTasks.length === 0) return null
+    if (focusTaskId) {
+      const found = sortedFocoTasks.find((t) => t.id === focusTaskId)
+      if (found) return found
+    }
+    return (
+      sortedFocoTasks.find((t) => t.status !== 'completed' && t.status !== 'skipped') ??
+      sortedFocoTasks[0] ?? null
+    )
+  }, [sortedFocoTasks, focusTaskId])
+
   // Determine if process is pending (locks sidebar to 'detalhes' only)
   const isPending = process?.instance
     ? ['pending_approval', 'returned'].includes(process.instance.current_status)
@@ -963,19 +928,6 @@ export default function ProcessoDetailPage() {
           {/* ── DETALHES section ── */}
           {activeSection === 'detalhes' && (
             <div className="space-y-4">
-              {/* Review section (pending / returned) */}
-              {isPending && (
-                <ProcessReviewSection
-                  process={instance}
-                  property={property}
-                  owners={owners}
-                  documents={documents}
-                  onApprove={handleApprove}
-                  onReturn={handleReturn}
-                  onReject={handleReject}
-                />
-              )}
-
               {isNegocio && deal && (
                 <ProcessDealBento
                   deal={deal}
@@ -1076,8 +1028,28 @@ export default function ProcessoDetailPage() {
             <div className="space-y-4">
               {isActive && stages && stages.length > 0 ? (
                 <>
-                  {/* Filters + view toggle */}
-                  <div className="flex items-center gap-2">
+                  {/* Mobile/tablet view: stage pill selector + accordion of pendentes/concluídos */}
+                  <div className="lg:hidden">
+                    <ProcessStageMobileView
+                      stages={filteredStages}
+                      instance={instance}
+                      property={instance.property}
+                      owners={owners}
+                      documents={documents}
+                      deal={deal}
+                      isProcessing={isProcessing}
+                      canDeleteAdhoc={canDeleteAdhoc}
+                      onTaskAction={handleTaskAction}
+                      onTaskBypass={handleBypassOpen}
+                      onTaskAssign={handleAssignOpen}
+                      onTaskDelete={(task) => setDeleteTaskTarget(task)}
+                      onStageComplete={handleStageCompleteOpen}
+                      onTaskUpdate={silentRefresh}
+                    />
+                  </div>
+
+                  {/* Desktop: filters + view toggle */}
+                  <div className="hidden lg:flex items-center gap-2">
                     <MobileFilterSheet activeCount={
                       (filterStatus !== 'all' ? 1 : 0) +
                       (filterPriority !== 'all' ? 1 : 0) +
@@ -1174,34 +1146,111 @@ export default function ProcessoDetailPage() {
                     </div>
                   </div>
 
-                  {/* Views */}
-                  {viewMode === 'foco' ? (
-                    <ProcessFocusView stages={filteredStages} onOpenTask={handleTaskClick} />
-                  ) : viewMode === 'kanban' ? (
-                    <ProcessKanbanView
-                      stages={filteredStages}
-                      isProcessing={isProcessing}
-                      canDeleteAdhoc={canDeleteAdhoc}
-                      onTaskAction={handleTaskAction}
-                      onTaskBypass={handleBypassOpen}
-                      onTaskAssign={handleAssignOpen}
-                      onTaskClick={handleTaskClick}
-                      onTaskDelete={(task) => setDeleteTaskTarget(task)}
-                      onStageComplete={handleStageCompleteOpen}
-                    />
-                  ) : (
-                    <ProcessTimelineView
-                      activities={processActivities}
-                      isLoading={isLoadingActivities}
-                    />
-                  )}
+                  {/* Views — desktop only (mobile uses ProcessStageMobileView above) */}
+                  <div className="hidden lg:block space-y-4">
+                    {viewMode === 'foco' ? (
+                      <>
+                        {/* Stage picker for Foco view */}
+                        {sortedFocoStages.length > 1 && focusStage && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                              Fase
+                            </span>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-muted transition-colors"
+                                >
+                                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-primary-foreground px-1.5 text-[10px] font-bold">
+                                    {String(sortedFocoStages.findIndex((s) => s.id === focusStage.id) + 1).padStart(2, '0')}
+                                  </span>
+                                  <span className="truncate max-w-[260px]">{focusStage.name}</span>
+                                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                                    {focusStage.tasks_completed}/{focusStage.tasks_total}
+                                  </span>
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-[320px]">
+                                {sortedFocoStages.map((s, i) => {
+                                  const isDone = s.tasks_total > 0 && s.tasks_completed === s.tasks_total
+                                  const isCur = s.is_current && !isDone
+                                  return (
+                                    <DropdownMenuItem
+                                      key={s.id}
+                                      onClick={() => {
+                                        setFocusStageId(s.id)
+                                        setFocusTaskId(null)
+                                      }}
+                                      className={cn('flex items-start gap-2 py-2', s.id === focusStage.id && 'bg-accent')}
+                                    >
+                                      <span
+                                        className={cn(
+                                          'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                                          isDone && 'bg-emerald-500/15 text-emerald-700',
+                                          !isDone && isCur && 'bg-primary text-primary-foreground',
+                                          !isDone && !isCur && 'bg-muted text-muted-foreground',
+                                        )}
+                                      >
+                                        {String(i + 1).padStart(2, '0')}
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-sm font-medium truncate">{s.name}</div>
+                                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                                          {isDone ? 'Concluída' : isCur ? 'Em curso' : 'Por iniciar'}
+                                          {s.tasks_total > 0 && ` · ${s.tasks_completed}/${s.tasks_total}`}
+                                        </div>
+                                      </div>
+                                    </DropdownMenuItem>
+                                  )
+                                })}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                        <ProcessFocusView
+                          stage={focusStage}
+                          tasks={sortedFocoTasks}
+                          activeTaskId={focusTask?.id ?? null}
+                          onTaskChange={handleFocusTaskChange}
+                          instance={instance}
+                          property={instance.property}
+                          owners={owners}
+                          documents={documents}
+                          deal={deal}
+                          onTaskUpdate={silentRefresh}
+                        />
+                      </>
+                    ) : viewMode === 'kanban' ? (
+                      <ProcessKanbanView
+                        stages={filteredStages}
+                        isProcessing={isProcessing}
+                        canDeleteAdhoc={canDeleteAdhoc}
+                        onTaskAction={handleTaskAction}
+                        onTaskBypass={handleBypassOpen}
+                        onTaskAssign={handleAssignOpen}
+                        onTaskClick={handleTaskClick}
+                        onTaskDelete={(task) => setDeleteTaskTarget(task)}
+                        onStageComplete={handleStageCompleteOpen}
+                      />
+                    ) : (
+                      <ProcessTimelineView
+                        activities={processActivities}
+                        isLoading={isLoadingActivities}
+                      />
+                    )}
+                  </div>
                 </>
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
                     <Kanban className="h-8 w-8 mx-auto mb-3 opacity-40" />
-                    <p className="text-sm font-medium">Pipeline não disponível</p>
-                    <p className="text-xs mt-1">O processo precisa de ser aprovado antes de ter tarefas.</p>
+                    <p className="text-sm font-medium">Pipeline ainda não disponível</p>
+                    <p className="text-xs mt-1">
+                      {isPending
+                        ? 'Este processo está em revisão e ainda não tem tarefas atribuídas.'
+                        : 'Sem tarefas para mostrar.'}
+                    </p>
                   </CardContent>
                 </Card>
               )}

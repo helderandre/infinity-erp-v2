@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { useUser } from '@/hooks/use-user'
 import {
   Clock, AlertTriangle, Euro, Home, MapPin, Sparkles, Check, Phone, Send,
@@ -284,16 +285,23 @@ export function KanbanCard({
 
         {/* Phone — tap-to-call without triggering the card navigation. */}
         {contact?.telemovel && (
-          <a
-            href={`tel:${contact.telemovel}`}
+          <span
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            draggable={false}
-            className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors tabular-nums"
+            className="mt-0.5 inline-block"
           >
-            <Phone className="h-2.5 w-2.5" />
-            <span>{contact.telemovel}</span>
-          </a>
+            <CallContactButton
+              phone={contact.telemovel}
+              contactName={contact.nome}
+              leadId={contact.id ?? null}
+              sourceRefType="lead"
+              sourceRefId={contact.id ?? null}
+              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors tabular-nums"
+            >
+              <Phone className="h-2.5 w-2.5" />
+              <span>{contact.telemovel}</span>
+            </CallContactButton>
+          </span>
         )}
       </div>
 

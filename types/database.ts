@@ -12775,6 +12775,7 @@ export type Database = {
           deleted_by: string | null
           external_ref: string | null
           id: string
+          is_synthetic: boolean
           last_completed_step: number | null
           negocio_id: string | null
           notes: string | null
@@ -12804,6 +12805,7 @@ export type Database = {
           deleted_by?: string | null
           external_ref?: string | null
           id?: string
+          is_synthetic?: boolean
           last_completed_step?: number | null
           negocio_id?: string | null
           notes?: string | null
@@ -12833,6 +12835,7 @@ export type Database = {
           deleted_by?: string | null
           external_ref?: string | null
           id?: string
+          is_synthetic?: boolean
           last_completed_step?: number | null
           negocio_id?: string | null
           notes?: string | null

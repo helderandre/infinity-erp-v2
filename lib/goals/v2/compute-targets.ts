@@ -1,4 +1,4 @@
-import { CPCV_TO_ESCRITURA_RATE, type AgentGoalInput, type ComputedTargets } from '@/types/agent-goal'
+import { CPCV_TO_ESCRITURA_RATE, DEAL_SIDE_SHARE, type AgentGoalInput, type ComputedTargets } from '@/types/agent-goal'
 
 // Pure function. Given the goal input, returns derived annual + weekly targets.
 // Used both in the live projection panel (client) and after upsert (server).
@@ -6,8 +6,11 @@ export function computeAgentGoalTargets(g: AgentGoalInput): ComputedTargets {
   const vendRevenueTarget = g.annual_revenue_target_eur * (g.pct_vendedores / 100)
   const compRevenueTarget = g.annual_revenue_target_eur * (g.pct_compradores / 100)
 
-  const vendCommissionPerDeal = g.vendedor_avg_sale_value_eur * (g.vendedor_commission_pct / 100)
-  const compCommissionPerDeal = g.comp_avg_purchase_value_eur * (g.comp_commission_pct / 100)
+  // Each deal splits the agency commission between listing side and buyer side.
+  // E.g. 5% of €250k = €12,500 total → €6,250 to the vendedor side, €6,250 to the
+  // comprador side. An agent doing both sides records two entries (one per chain).
+  const vendCommissionPerDeal = g.vendedor_avg_sale_value_eur * (g.vendedor_commission_pct / 100) * DEAL_SIDE_SHARE
+  const compCommissionPerDeal = g.comp_avg_purchase_value_eur * (g.comp_commission_pct / 100) * DEAL_SIDE_SHARE
 
   const vendEscrituras = vendCommissionPerDeal > 0 ? vendRevenueTarget / vendCommissionPerDeal : 0
   const compEscrituras = compCommissionPerDeal > 0 ? compRevenueTarget / compCommissionPerDeal : 0

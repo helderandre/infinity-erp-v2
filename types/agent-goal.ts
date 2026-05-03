@@ -80,7 +80,15 @@ export type AgentGoalInput = Omit<AgentGoal, 'id' | 'created_at' | 'updated_at'>
 // Computed targets without the persisted columns (id, agent_goal_id, computed_at)
 export type ComputedTargets = Omit<AgentGoalTargets, 'id' | 'agent_goal_id' | 'computed_at'>
 
-export const CPCV_TO_ESCRITURA_RATE = 0.95
+// CPCVs are treated 1:1 with escrituras for goal-setting. If a CPCV falls
+// through (financing rejected, legal issue), the agent simply plans for one
+// extra deal — no implicit % loss baked into the math.
+export const CPCV_TO_ESCRITURA_RATE = 1.0
+
+// The share of the agency commission attributed to ONE side of a deal
+// (listing side vs buyer side). A single agent representing both sides
+// counts twice — once in the vendedor side, once in the comprador side.
+export const DEAL_SIDE_SHARE = 0.5
 
 export const AGENT_GOAL_DEFAULTS: Omit<AgentGoalInput, 'agent_id' | 'period_year' | 'annual_revenue_target_eur' | 'pct_vendedores' | 'pct_compradores'> = {
   working_weeks_per_year: 48,

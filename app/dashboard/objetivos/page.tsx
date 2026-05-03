@@ -5,23 +5,18 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { GitBranch, LayoutDashboard, FileText, Pencil, Target } from 'lucide-react'
+import { GitBranch, Pencil, Target } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUser } from '@/hooks/use-user'
 import { useGoals } from '@/hooks/use-goals'
 import { FunnelObjetivosView } from '@/components/goals/funnel/funnel-objetivos-view'
 import { GoalConfigSheet } from '@/components/goals/goal-config-sheet'
-import { TrajectoryHero } from '@/components/goals/trajectory-hero'
-import { CadenceHeatmap } from '@/components/goals/cadence-heatmap'
-import { DiagnosticCards } from '@/components/goals/diagnostic-cards'
-import { FunnelRadialChart } from '@/components/goals/funnel-radial-chart'
-import { WeeklyReportSheet } from '@/components/goals/weekly-report-sheet'
 import { AgentGoalPlanView } from '@/components/goals/v2/agent-goal-plan-view'
 
-type ObjetivosTab = 'funil' | 'dashboard' | 'plano'
+type ObjetivosTab = 'funil' | 'plano'
 
 function isValidTab(v: string | null): v is ObjetivosTab {
-  return v === 'funil' || v === 'dashboard' || v === 'plano'
+  return v === 'funil' || v === 'plano'
 }
 
 function ObjetivosPageInner() {
@@ -33,7 +28,6 @@ function ObjetivosPageInner() {
   const { goals, refetch } = useGoals({ year: currentYear, consultant_id: user?.id })
   const myGoalId = goals[0]?.id ?? null
   const [configOpen, setConfigOpen] = useState(false)
-  const [reportOpen, setReportOpen] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
   const initialTab = searchParams.get('tab')
@@ -78,13 +72,6 @@ function ObjetivosPageInner() {
               Funil
             </TabsTrigger>
             <TabsTrigger
-              value="dashboard"
-              className="inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40"
-            >
-              <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger
               value="plano"
               className="inline-flex items-center justify-center shrink-0 gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-300 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/40"
             >
@@ -94,16 +81,6 @@ function ObjetivosPageInner() {
           </TabsList>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setReportOpen(true)}
-              className="h-8 text-xs gap-1.5"
-            >
-              <FileText className="h-3.5 w-3.5 text-blue-600" />
-              <span className="hidden xs:inline">Relatório semanal</span>
-              <span className="xs:hidden">Relatório</span>
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -121,19 +98,6 @@ function ObjetivosPageInner() {
           <FunnelObjetivosView key={refreshTick} />
         </TabsContent>
 
-        <TabsContent value="dashboard" className="space-y-4">
-          <TrajectoryHero
-            key={`traj-${refreshTick}`}
-            year={currentYear}
-            consultantId={user?.id ?? null}
-          />
-          <DiagnosticCards key={`diag-${refreshTick}`} consultantId={user?.id ?? null} />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-            <FunnelRadialChart key={`radial-${refreshTick}`} consultantId={user?.id ?? null} />
-            <CadenceHeatmap key={`cad-${refreshTick}`} consultantId={user?.id ?? null} weeks={12} />
-          </div>
-        </TabsContent>
-
         <TabsContent value="plano" className="space-y-4">
           <AgentGoalPlanView />
         </TabsContent>
@@ -148,8 +112,6 @@ function ObjetivosPageInner() {
           setRefreshTick((n) => n + 1)
         }}
       />
-
-      <WeeklyReportSheet open={reportOpen} onOpenChange={setReportOpen} />
     </div>
   )
 }

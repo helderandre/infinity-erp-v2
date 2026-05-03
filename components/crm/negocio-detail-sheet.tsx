@@ -72,6 +72,7 @@ import {
 } from '@/components/ui/dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
+import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { cn } from '@/lib/utils'
 import { NEGOCIO_PROPERTY_STATUS, STATUS_COLORS, VISIT_STATUS_COLORS } from '@/lib/constants'
 
@@ -1023,15 +1024,25 @@ function DetalhesTab({
               {(phone || email) && (
                 <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
                   {phone && (
-                    <a
-                      href={`tel:${phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                      title={phone}
-                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-muted/50 hover:bg-muted px-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors max-w-full"
-                    >
-                      <Phone className="h-3 w-3" />
-                      <span className="truncate">{phone}</span>
-                    </a>
+                    <span onClick={(e) => e.stopPropagation()} className="inline-block max-w-full">
+                      <CallContactButton
+                        phone={phone}
+                        contactName={clientName}
+                        defaultSide={
+                          ['Vendedor','Senhorio','Arrendador','Venda'].includes(tipo) ? 'vendedor'
+                          : ['Comprador','Arrendatário','Compra'].includes(tipo) ? 'comprador'
+                          : undefined
+                        }
+                        leadId={lead?.id ?? null}
+                        sourceRefType="lead"
+                        sourceRefId={lead?.id ?? null}
+                        ariaLabel={phone}
+                        className="inline-flex items-center gap-1.5 h-7 rounded-full bg-muted/50 hover:bg-muted px-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors max-w-full"
+                      >
+                        <Phone className="h-3 w-3" />
+                        <span className="truncate">{phone}</span>
+                      </CallContactButton>
+                    </span>
                   )}
                   {email && (
                     <button

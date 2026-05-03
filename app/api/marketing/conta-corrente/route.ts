@@ -1,10 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { manualTransactionSchema } from '@/lib/validations/marketing'
+import { requireAuth } from '@/lib/auth/permissions'
 
 // GET — List transactions (for a specific agent or all)
 export async function GET(request: Request) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient() as any
     const { searchParams } = new URL(request.url)
 
@@ -15,8 +19,21 @@ export async function GET(request: Request) {
     const limit = Math.min(Number(searchParams.get('limit')) || 50, 200)
     const offset = Number(searchParams.get('offset')) || 0
 
+    // Scope enforcement: consultores (sem permissions.users) só podem
+    // ver as suas próprias transacções. O sumário global e a listagem
+    // sem agent_id ficam reservados a gestão.
+    const canSeeAll = auth.permissions.users === true
+    if (!canSeeAll) {
+      if (!agent_id || agent_id !== auth.user.id) {
+        return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+      }
+    }
+
     // If requesting balances summary
     if (searchParams.get('summary') === 'true') {
+      if (!canSeeAll) {
+        return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+      }
       return await getBalancesSummary(supabase)
     }
 

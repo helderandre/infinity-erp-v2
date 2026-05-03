@@ -35,6 +35,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { ProcessFocusView } from '@/components/processes/process-focus-view'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
+import { ProcessStageMobileView } from '@/components/processes/process-stage-mobile-view'
 import { ProcessTimelineView } from '@/components/processes/process-timeline-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
 import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
@@ -438,12 +439,17 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
   if (!process || !instance) return null
 
   if (!isActive || !process.stages || process.stages.length === 0) {
+    const isPending = instance && ['pending_approval', 'returned'].includes(instance.current_status)
     return (
       <Card className={className}>
         <CardContent className="py-12 text-center text-muted-foreground">
           <Kanban className="h-8 w-8 mx-auto mb-3 opacity-40" />
-          <p className="text-sm font-medium">Pipeline não disponível</p>
-          <p className="text-xs mt-1">O processo precisa de ser aprovado antes de ter tarefas.</p>
+          <p className="text-sm font-medium">Pipeline ainda não disponível</p>
+          <p className="text-xs mt-1">
+            {isPending
+              ? 'Este processo está em revisão e ainda não tem tarefas atribuídas.'
+              : 'Sem tarefas para mostrar.'}
+          </p>
         </CardContent>
       </Card>
     )
@@ -594,9 +600,29 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
         ? createPortal(rightToolbar, toolbarElement)
         : null}
 
-      {/* ── Controls row (above progress bar) ──────────────────────── */}
+      {/* ── Mobile/tablet view: stage pill selector + accordion ── */}
+      <div className="lg:hidden">
+        <ProcessStageMobileView
+          stages={filteredStages}
+          instance={instance}
+          property={instance.property}
+          owners={process.owners}
+          documents={process.documents}
+          deal={process.deal}
+          isProcessing={isProcessing}
+          canDeleteAdhoc={canDeleteAdhoc}
+          onTaskAction={handleTaskAction}
+          onTaskBypass={handleBypassOpen}
+          onTaskAssign={handleAssignOpen}
+          onTaskDelete={(task) => setDeleteTaskTarget(task)}
+          onStageComplete={handleStageCompleteOpen}
+          onTaskUpdate={silentRefresh}
+        />
+      </div>
+
+      {/* ── Desktop controls row (above progress bar) ──────────────────────── */}
       {(viewMode === 'foco' && focusStage) || !toolbarElement ? (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="hidden lg:flex items-center gap-2 flex-wrap">
           {/* Stage selector + task pills — only when Foco view is active */}
           {viewMode === 'foco' && focusStage && (
             <>
@@ -692,7 +718,7 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
 
       {/* Progress bar — shown at panel root for Kanban/Timeline; inside the Foco left card otherwise */}
       {totalTasks > 0 && viewMode !== 'foco' && (
-        <div className="flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
               className={cn(
@@ -708,34 +734,37 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
         </div>
       )}
 
-      {viewMode === 'foco' ? (
-        <ProcessFocusView
-          stage={focusStage}
-          tasks={sortedTasks}
-          activeTaskId={focusTask?.id ?? null}
-          onTaskChange={handleFocusTaskChange}
-          instance={instance}
-          property={instance.property}
-          owners={process.owners}
-          documents={process.documents}
-          deal={process.deal}
-          onTaskUpdate={silentRefresh}
-        />
-      ) : viewMode === 'kanban' ? (
-        <ProcessKanbanView
-          stages={filteredStages}
-          isProcessing={isProcessing}
-          canDeleteAdhoc={canDeleteAdhoc}
-          onTaskAction={handleTaskAction}
-          onTaskBypass={handleBypassOpen}
-          onTaskAssign={handleAssignOpen}
-          onTaskClick={handleTaskClick}
-          onTaskDelete={(task) => setDeleteTaskTarget(task)}
-          onStageComplete={handleStageCompleteOpen}
-        />
-      ) : (
-        <ProcessTimelineView activities={processActivities} isLoading={isLoadingActivities} />
-      )}
+      {/* Desktop views (mobile uses ProcessStageMobileView above) */}
+      <div className="hidden lg:block">
+        {viewMode === 'foco' ? (
+          <ProcessFocusView
+            stage={focusStage}
+            tasks={sortedTasks}
+            activeTaskId={focusTask?.id ?? null}
+            onTaskChange={handleFocusTaskChange}
+            instance={instance}
+            property={instance.property}
+            owners={process.owners}
+            documents={process.documents}
+            deal={process.deal}
+            onTaskUpdate={silentRefresh}
+          />
+        ) : viewMode === 'kanban' ? (
+          <ProcessKanbanView
+            stages={filteredStages}
+            isProcessing={isProcessing}
+            canDeleteAdhoc={canDeleteAdhoc}
+            onTaskAction={handleTaskAction}
+            onTaskBypass={handleBypassOpen}
+            onTaskAssign={handleAssignOpen}
+            onTaskClick={handleTaskClick}
+            onTaskDelete={(task) => setDeleteTaskTarget(task)}
+            onStageComplete={handleStageCompleteOpen}
+          />
+        ) : (
+          <ProcessTimelineView activities={processActivities} isLoading={isLoadingActivities} />
+        )}
+      </div>
 
       {user && (
         <FloatingChat

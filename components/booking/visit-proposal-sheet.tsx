@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -334,10 +335,17 @@ export function VisitProposalContent({
             </a>
           )}
           {visit.lead?.telemovel && (
-            <a href={`tel:${visit.lead.telemovel}`} className="flex items-center gap-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <CallContactButton
+              phone={visit.lead.telemovel}
+              contactName={visit.lead.full_name ?? null}
+              leadId={visit.lead.id ?? null}
+              sourceRefType="lead"
+              sourceRefId={visit.lead.id ?? null}
+              className="flex items-center gap-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Phone className="size-3.5 shrink-0" />
               {visit.lead.telemovel}
-            </a>
+            </CallContactButton>
           )}
           {visit.consultant && (
             <div className="text-[11px] text-muted-foreground pt-1 mt-1 border-t border-border/40">

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { propertySchema } from '@/lib/validations/property'
 import { requirePermission } from '@/lib/auth/permissions'
+import { autoActivateProcess } from '@/lib/processes/auto-activate'
 
 export async function GET(request: Request) {
   try {
@@ -322,6 +323,44 @@ export async function POST(request: Request) {
 
       if (internalError) {
         console.error('Erro ao criar dados internos:', internalError)
+      }
+    }
+
+    // Auto-create a synthetic angariação process: when an admin creates an
+    // imóvel directly (skipping the pedido de angariação flow), every imóvel
+    // still ends up with a process — flagged is_synthetic=true so it is
+    // excluded from "tempo médio de processo" metrics. The template is wired
+    // and tasks are populated + marked completed so the Pipeline tab renders
+    // a full 100% process instead of "Pipeline não disponível".
+    const consultantId = (insertData.consultant_id as string | null) ?? auth.user.id
+    const { data: synthInstance, error: synthInsertError } = await supabase
+      .from('proc_instances')
+      .insert({
+        property_id: property.id,
+        process_type: 'angariacao',
+        tpl_process_id: null, // resolvido a seguir por autoActivateProcess
+        current_status: 'pending_approval', // transitório — fast-forwardado abaixo
+        percent_complete: 0,
+        requested_by: consultantId,
+        is_synthetic: true,
+        notes: 'Auto-criado: imóvel inserido directamente (sem pedido de angariação).',
+      })
+      .select('id')
+      .single()
+
+    if (synthInsertError || !synthInstance) {
+      console.error('Erro ao criar processo sintético:', synthInsertError)
+    } else {
+      try {
+        await autoActivateProcess({
+          instanceId: synthInstance.id,
+          processType: 'angariacao',
+          approverId: consultantId,
+          propertyId: property.id,
+          markCompleted: true,
+        })
+      } catch (activateErr) {
+        console.error('[POST /api/properties] Erro ao activar processo sintético:', activateErr)
       }
     }
 

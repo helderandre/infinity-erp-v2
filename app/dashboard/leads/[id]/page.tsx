@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
+import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -747,9 +748,16 @@ export default function LeadDetailPage() {
               {lead.telemovel && (
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="text-[11px] text-muted-foreground">Telemóvel</span>
-                  <a href={`tel:${lead.telemovel}`} className="font-medium text-foreground truncate hover:text-primary transition-colors">
+                  <CallContactButton
+                    phone={lead.telemovel}
+                    contactName={lead.nome}
+                    leadId={lead.id}
+                    sourceRefType="lead"
+                    sourceRefId={lead.id}
+                    className="font-medium text-foreground truncate hover:text-primary transition-colors"
+                  >
                     {lead.telemovel}
-                  </a>
+                  </CallContactButton>
                 </div>
               )}
               {lead.email && (
