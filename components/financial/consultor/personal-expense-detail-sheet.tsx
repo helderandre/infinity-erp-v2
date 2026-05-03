@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { FileText, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { FinanceiroSheet } from '@/components/financial/sheets/financeiro-sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { CategorySelect } from './category-select'
+import { getCategoryIcon } from '@/lib/financial/personal-expense-categories'
 import type { PersonalExpense } from '@/types/personal-expense'
 
 interface Props {
@@ -21,6 +22,9 @@ interface Props {
   onOpenChange: (open: boolean) => void
   onChanged: () => void
 }
+
+const fmtCurrency = (v: number) =>
+  new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
 
 export function PersonalExpenseDetailSheet({ expense, onOpenChange, onChanged }: Props) {
   const open = !!expense
@@ -50,6 +54,7 @@ export function PersonalExpenseDetailSheet({ expense, onOpenChange, onChanged }:
 
   const isImage = expense.receipt_mimetype?.startsWith('image/') ?? false
   const isPdf = expense.receipt_mimetype === 'application/pdf'
+  const Icon = getCategoryIcon(expense.category)
 
   const handleSave = async () => {
     setSaving(true)
@@ -101,120 +106,142 @@ export function PersonalExpenseDetailSheet({ expense, onOpenChange, onChanged }:
     }
   }
 
+  const title = expense.vendor_name || expense.description || expense.category
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{expense.vendor_name || expense.description || 'Despesa'}</SheetTitle>
-          <SheetDescription>
-            {new Date(expense.expense_date).toLocaleDateString('pt-PT')} · {expense.category}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="px-4 sm:px-6 space-y-4 pb-6">
-          {/* Recibo */}
-          {expense.receipt_url && (
-            <div className="rounded-xl ring-1 ring-border/40 overflow-hidden bg-muted/30">
-              {isImage ? (
-                <a href={expense.receipt_url} target="_blank" rel="noopener noreferrer">
-                  <img src={expense.receipt_url} alt="Recibo" className="w-full max-h-[300px] object-contain" />
-                </a>
-              ) : isPdf ? (
-                <a
-                  href={expense.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  <FileText className="h-5 w-5" />
-                  Abrir PDF
-                </a>
-              ) : null}
-            </div>
-          )}
-
-          {/* Form */}
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Data">
-              <Input type="date" value={form.expense_date} onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
-            </Field>
-            <Field label="Categoria">
-              <CategorySelect
-                value={form.category}
-                onChange={(v) => setForm({ ...form, category: v })}
+    <FinanceiroSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      accent={
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      }
+      subtitle={
+        <span className="inline-flex items-center gap-1.5 flex-wrap">
+          <span>{new Date(expense.expense_date).toLocaleDateString('pt-PT')}</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span>{expense.category}</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className="font-semibold text-red-600">{fmtCurrency(Number(expense.amount_gross))}</span>
+        </span>
+      }
+      footer={
+        <>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-red-600 mr-auto">
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminar despesa</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem a certeza? O recibo e o registo serão apagados de forma permanente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full">
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={saving} className="rounded-full">
+            {saving && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+            Guardar
+          </Button>
+        </>
+      }
+    >
+      {/* Recibo (se houver) */}
+      {expense.receipt_url && (
+        <div className="rounded-2xl ring-1 ring-border/40 overflow-hidden bg-muted/30">
+          {isImage ? (
+            <a href={expense.receipt_url} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={expense.receipt_url}
+                alt="Recibo"
+                className="w-full max-h-[280px] object-contain"
+                loading="lazy"
               />
-            </Field>
-          </div>
-
-          <Field label="Entidade">
-            <Input value={form.vendor_name} onChange={(e) => setForm({ ...form, vendor_name: e.target.value })} />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="NIF">
-              <Input value={form.vendor_nif} onChange={(e) => setForm({ ...form, vendor_nif: e.target.value })} />
-            </Field>
-            <Field label="Nº Documento">
-              <Input value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <Field label="Total c/ IVA">
-              <Input type="number" step="0.01" value={form.amount_gross}
-                onChange={(e) => setForm({ ...form, amount_gross: e.target.value })} />
-            </Field>
-            <Field label="Sem IVA">
-              <Input type="number" step="0.01" value={form.amount_net}
-                onChange={(e) => setForm({ ...form, amount_net: e.target.value })} />
-            </Field>
-            <Field label="IVA %">
-              <Input type="number" step="1" value={form.vat_pct}
-                onChange={(e) => setForm({ ...form, vat_pct: e.target.value })} />
-            </Field>
-          </div>
-
-          <Field label="Descrição">
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </Field>
-
-          <Field label="Notas">
-            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          </Field>
-
-          {/* Acções */}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-red-600">
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Eliminar
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Eliminar despesa</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Tem a certeza? O recibo e o registo serão apagados de forma permanente.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} disabled={deleting}>
-                    {deleting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                    Eliminar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-              Guardar
-            </Button>
-          </div>
+            </a>
+          ) : isPdf ? (
+            <a
+              href={expense.receipt_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <FileText className="h-5 w-5" />
+              Abrir PDF
+            </a>
+          ) : null}
         </div>
-      </SheetContent>
-    </Sheet>
+      )}
+
+      {/* Form */}
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Data">
+            <Input type="date" value={form.expense_date}
+              onChange={(e) => setForm({ ...form, expense_date: e.target.value })} />
+          </Field>
+          <Field label="Categoria">
+            <CategorySelect
+              value={form.category}
+              onChange={(v) => setForm({ ...form, category: v })}
+            />
+          </Field>
+        </div>
+
+        <Field label="Entidade">
+          <Input value={form.vendor_name}
+            onChange={(e) => setForm({ ...form, vendor_name: e.target.value })} />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="NIF">
+            <Input value={form.vendor_nif}
+              onChange={(e) => setForm({ ...form, vendor_nif: e.target.value })} />
+          </Field>
+          <Field label="Nº Documento">
+            <Input value={form.invoice_number}
+              onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Total c/ IVA">
+            <Input type="number" step="0.01" value={form.amount_gross}
+              onChange={(e) => setForm({ ...form, amount_gross: e.target.value })} />
+          </Field>
+          <Field label="Sem IVA">
+            <Input type="number" step="0.01" value={form.amount_net}
+              onChange={(e) => setForm({ ...form, amount_net: e.target.value })} />
+          </Field>
+          <Field label="IVA %">
+            <Input type="number" step="1" value={form.vat_pct}
+              onChange={(e) => setForm({ ...form, vat_pct: e.target.value })} />
+          </Field>
+        </div>
+
+        <Field label="Descrição">
+          <Input value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </Field>
+
+        <Field label="Notas">
+          <Textarea rows={2} value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </Field>
+      </div>
+    </FinanceiroSheet>
   )
 }
 

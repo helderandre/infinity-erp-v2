@@ -32,10 +32,12 @@ interface Props {
   loading?: boolean
   emptyText?: string
   className?: string
+  /** Renderizado à direita do título (e.g. PeriodPicker). */
+  rightAction?: React.ReactNode
 }
 
 export function ExpensesDonut({
-  title, subtitle, data, loading, emptyText = 'Sem despesas no período.', className,
+  title, subtitle, data, loading, emptyText = 'Sem despesas no período.', className, rightAction,
 }: Props) {
   const total = useMemo(() => data.reduce((s, d) => s + d.amount, 0), [data])
   const sorted = useMemo(() => [...data].sort((a, b) => b.amount - a.amount), [data])
@@ -45,11 +47,14 @@ export function ExpensesDonut({
       'rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 sm:p-5 min-w-0 overflow-hidden',
       className,
     )}>
-      <div className="mb-3">
-        <p className="text-xs font-semibold tracking-tight">{title}</p>
-        {subtitle && (
-          <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
-        )}
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold tracking-tight">{title}</p>
+          {subtitle && (
+            <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
+          )}
+        </div>
+        {rightAction && <div className="shrink-0">{rightAction}</div>}
       </div>
 
       {loading ? (

@@ -23,7 +23,7 @@ import { UnifiedLedger } from './unified-ledger'
 import { UpcomingEntriesSheet } from './upcoming-entries-sheet'
 import { KpiDetailSheet, type KpiTone } from './kpi-detail-sheet'
 import { RecurringPaymentsSheet } from './recurring-payments-sheet'
-import { ExpensesDonut, LOJA_CATEGORY, type ExpenseSlice } from './expenses-donut'
+import { ExpensesByCategoryWidget } from './expenses-by-category-widget'
 import type { UnifiedFilter } from '@/lib/financial/unified-entry'
 
 const fmtCurrency = (v: number) =>
@@ -113,8 +113,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export function ConsultorResumo({ agentId }: { agentId?: string }) {
   const { data, loading, error, refetch } = useConsultorSummary(agentId)
   const personalSummary = usePersonalExpensesSummary({})
-  const personalSummaryYtd = usePersonalExpensesSummary({ from: ytdRange().from })
-  const personalSummaryMonth = usePersonalExpensesSummary({ from: monthRange().from })
   const recurrences = usePersonalExpenseRecurrences({ activeOnly: true })
 
   const [captureOpen, setCaptureOpen] = useState(false)
@@ -150,7 +148,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
     )
   }
 
-  const { kpis, monthly_series, proximas_entradas, loja_breakdown } = data
+  const { kpis, monthly_series, proximas_entradas } = data
   const pessoaisMes = personalSummary.data?.month_amount ?? 0
   const ganhosMes = kpis.comissoes_mes
   const despesasMes = kpis.loja_mes + pessoaisMes
@@ -158,28 +156,9 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
   // (kpis.liquido_mes vem do backend = comissões − loja − ajustes; subtraímos pessoais aqui)
   const liquidoMesReal = kpis.liquido_mes - pessoaisMes
 
-  // Slices para os donuts: loja institucional como uma fatia + cada categoria pessoal
-  const lojaTotal = (loja_breakdown ?? []).reduce((s, b) => s + b.amount, 0)
-  const ytdSlices: ExpenseSlice[] = [
-    ...(lojaTotal > 0 ? [{ category: LOJA_CATEGORY, amount: lojaTotal }] : []),
-    ...(personalSummaryYtd.data?.by_category ?? []).map((c) => ({
-      category: c.category,
-      amount: c.amount,
-    })),
-  ]
-  const monthSlices: ExpenseSlice[] = [
-    ...(kpis.loja_mes > 0 ? [{ category: LOJA_CATEGORY, amount: kpis.loja_mes }] : []),
-    ...(personalSummaryMonth.data?.by_category ?? []).map((c) => ({
-      category: c.category,
-      amount: c.amount,
-    })),
-  ]
-
   const handleSaved = () => {
     refetch()
     personalSummary.refetch()
-    personalSummaryYtd.refetch()
-    personalSummaryMonth.refetch()
     recurrences.refetch()
   }
 
@@ -199,7 +178,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               value="ganhos"
               className="rounded-full px-4 py-1.5 text-xs font-medium data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900"
             >
-              <span className="sm:hidden">Ganhos</span>
+              <span className="sm:hidden">Balanço</span>
               <span className="hidden sm:inline">Ganhos e despesas</span>
             </TabsTrigger>
           </TabsList>
@@ -351,14 +330,8 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
             </div>
           </section>
 
-          {/* Donut: despesas por categoria (YTD) */}
-          <ExpensesDonut
-            title="Despesas por categoria"
-            subtitle={`Distribuição do ano ${new Date().getFullYear()} — loja institucional + pessoais`}
-            data={ytdSlices}
-            loading={personalSummaryYtd.loading && ytdSlices.length === 0}
-            emptyText="Sem despesas registadas no ano."
-          />
+          {/* Donut: despesas por categoria (com period picker) */}
+          {agentId && <ExpensesByCategoryWidget agentId={agentId} />}
 
           {/* Evolução 12 meses */}
           <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 sm:p-5 min-w-0 overflow-hidden">
@@ -511,15 +484,6 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
               onClick={() => setUpcomingOpen(true)}
             />
           </div>
-
-          {/* Donut: despesas por categoria (mês corrente) */}
-          <ExpensesDonut
-            title="Despesas por categoria"
-            subtitle="Distribuição do mês corrente — loja institucional + pessoais"
-            data={monthSlices}
-            loading={personalSummaryMonth.loading && monthSlices.length === 0}
-            emptyText="Sem despesas registadas neste mês."
-          />
 
           {/* Timeline unificada */}
           {agentId && (

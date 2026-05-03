@@ -75,16 +75,14 @@ export function UnifiedLedger({ agentId, initialLimit = 30, onPersonalChanged }:
   return (
     <>
       <div className="rounded-2xl bg-background/60 ring-1 ring-border/40 p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <div>
-              <p className="text-xs font-semibold tracking-tight">Movimentos</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Todos os ganhos e despesas — empresa e pessoais
-              </p>
-            </div>
+        <div className="space-y-3 mb-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-tight">Movimentos</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Todos os ganhos e despesas — empresa e pessoais
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
               <SelectTrigger className="h-8 text-xs w-auto rounded-full bg-muted/50 border-border/30">
                 <SelectValue />
