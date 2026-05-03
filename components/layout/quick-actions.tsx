@@ -15,6 +15,7 @@ import {
   Briefcase,
   CalendarPlus,
   ChevronRight,
+  Receipt,
 } from 'lucide-react'
 import {
   Sheet,
@@ -36,6 +37,7 @@ import { ContactDialog } from '@/components/leads/contact-dialog'
 import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { CalendarEventForm } from '@/components/calendar/calendar-event-form'
 import type { CalendarEventFormData } from '@/lib/validations/calendar'
+import { ReceiptCaptureSheet } from '@/components/financial/consultor/receipt-capture-sheet'
 
 type RowAction = {
   key: string
@@ -65,6 +67,7 @@ export function QuickActions() {
   const [eventOpen, setEventOpen] = useState(false)
   const [ticketOpen, setTicketOpen] = useState(false)
   const [ideiaOpen, setIdeiaOpen] = useState(false)
+  const [expenseOpen, setExpenseOpen] = useState(false)
   const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
 
   useEffect(() => {
@@ -85,6 +88,7 @@ export function QuickActions() {
       else if (key === 'deal') setFechoOpen(true)
       else if (key === 'task') setTaskOpen(true)
       else if (key === 'event') setEventOpen(true)
+      else if (key === 'expense') setExpenseOpen(true)
     }
     window.addEventListener('open-quick-action', handler)
     return () => window.removeEventListener('open-quick-action', handler)
@@ -199,6 +203,14 @@ export function QuickActions() {
           label: 'Novo Evento',
           description: 'Reunião, visita ou compromisso',
           onClick: () => trigger(() => setEventOpen(true)),
+        },
+        {
+          key: 'expense',
+          icon: Receipt,
+          tint: 'bg-pink-500/15 text-pink-600',
+          label: 'Registar Despesa',
+          description: 'Foto de recibo + extracção automática',
+          onClick: () => trigger(() => setExpenseOpen(true)),
         },
         {
           key: 'documentos',
@@ -374,6 +386,15 @@ export function QuickActions() {
         type="ideia"
         open={ideiaOpen}
         onOpenChange={setIdeiaOpen}
+      />
+
+      <ReceiptCaptureSheet
+        open={expenseOpen}
+        onOpenChange={setExpenseOpen}
+        onSaved={() => {
+          // Notifica painéis montados (e.g. tab "Despesas e entradas") para refetch.
+          window.dispatchEvent(new CustomEvent('personal-expense-saved'))
+        }}
       />
     </>
   )

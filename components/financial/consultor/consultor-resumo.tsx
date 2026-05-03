@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useConsultorSummary } from '@/hooks/use-consultor-summary'
 import { cn } from '@/lib/utils'
+import { PersonalExpensesPanel } from './personal-expenses-panel'
 
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v ?? 0)
@@ -299,7 +300,7 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
         <div>
           <h3 className="text-base font-semibold tracking-tight">Despesas e próximas entradas</h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Distribuição da loja no ano e comissões a receber
+            Loja institucional, comissões a receber e as tuas despesas pessoais
           </p>
         </div>
 
@@ -428,6 +429,9 @@ export function ConsultorResumo({ agentId }: { agentId?: string }) {
             )}
           </div>
         </div>
+
+        {/* Despesas pessoais — silo do consultor, isolado dos books da empresa */}
+        <PersonalExpensesPanel />
       </Card>
       </TabsContent>
 

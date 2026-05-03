@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
-import { requirePermission } from '@/lib/auth/permissions'
+import { requireAuth } from '@/lib/auth/permissions'
 import OpenAI from 'openai'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// Endpoint de OCR de recibos. Permission relaxada de `financial` para
+// `requireAuth()` em 2026-06-07 para permitir uso por qualquer consultor
+// nas despesas pessoais (ver /api/agent-personal-expenses). É stateless
+// (não escreve em DB), pelo que abrir não tem efeitos contabilísticos.
 export async function POST(request: Request) {
   try {
-    const auth = await requirePermission('financial')
+    const auth = await requireAuth()
     if (!auth.authorized) return auth.response
 
     const { image } = await request.json()
