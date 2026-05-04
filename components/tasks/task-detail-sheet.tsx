@@ -314,12 +314,12 @@ export function TaskDetailContent({
               </span>
             )}
             {task.assignee && (
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <Avatar className="size-4">
+              <span className="flex items-center gap-2 font-medium text-foreground/80">
+                <Avatar className="size-6 ring-2 ring-background shadow-sm">
                   <AvatarImage
                     src={(task.assignee as { profile_photo_url?: string | null }).profile_photo_url ?? undefined}
                   />
-                  <AvatarFallback className="text-[8px] font-semibold">
+                  <AvatarFallback className="text-[10px] font-semibold bg-primary/15 text-primary">
                     {task.assignee.commercial_name
                       ?.split(' ')
                       .map((p) => p[0])

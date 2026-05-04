@@ -107,17 +107,17 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
           )}
 
           {/* Chip de assignee — visível só quando a tarefa está atribuída a
-              outro utilizador (delegada). Avatar 14px + primeiro nome. */}
+              outro utilizador (delegada). Avatar 22px com ring + nome. */}
           {showAssigneeChip && (
             <span
-              className="flex items-center gap-1 text-[10.5px] text-muted-foreground/90 shrink-0"
+              className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/80 shrink-0"
               title={`Atribuída a ${task.assignee!.commercial_name}`}
             >
-              <Avatar className="size-3.5">
+              <Avatar className="size-[22px] ring-2 ring-background shadow-sm">
                 <AvatarImage
                   src={(task.assignee as { profile_photo_url?: string | null }).profile_photo_url ?? undefined}
                 />
-                <AvatarFallback className="text-[7px] font-semibold">
+                <AvatarFallback className="text-[9px] font-semibold bg-primary/15 text-primary">
                   {assigneeInitials || '?'}
                 </AvatarFallback>
               </Avatar>
