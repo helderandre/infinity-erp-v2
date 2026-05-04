@@ -55,6 +55,7 @@ export async function GET(
     const only_referenced = searchParams.get('only_referenced') === '1'
     const pipeline_stage_id = searchParams.get('pipeline_stage_id')
     const temperatura = searchParams.get('temperatura')
+    const localizacao = (searchParams.get('localizacao') || '').trim()
     const search = (searchParams.get('search') || '').trim()
 
     // ── 1. Fetch pipeline stages ──────────────────────────────────────────
@@ -123,6 +124,9 @@ export async function GET(
     }
     if (temperatura) {
       negociosQuery = negociosQuery.eq('temperatura', temperatura)
+    }
+    if (localizacao) {
+      negociosQuery = negociosQuery.ilike('localizacao', `%${localizacao}%`)
     }
     if (search) {
       negociosQuery = negociosQuery.ilike('leads.nome', `%${search}%`)

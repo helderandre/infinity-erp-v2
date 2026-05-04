@@ -1251,6 +1251,27 @@ export default function CRMPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Localização</p>
+            <div className="relative">
+              <Input
+                placeholder="Ex.: Lisboa, Cascais…"
+                value={filters.localizacao}
+                onChange={(e) => setFilters((f) => ({ ...f, localizacao: e.target.value }))}
+                className="h-9 rounded-full text-xs pr-7"
+              />
+              {filters.localizacao && (
+                <button
+                  type="button"
+                  onClick={() => setFilters((f) => ({ ...f, localizacao: '' }))}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar localização"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
           {canSeeAllNegocios && (
             <div className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
@@ -1445,9 +1466,9 @@ export default function CRMPage() {
             </div>
           )}
 
-          {/* Centered Pipeline title with chevron → Referências dropdown. */}
+          {/* Centered "Oportunidades" title with chevron → Referências dropdown. */}
           <div className="flex items-center justify-center gap-2">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pipeline</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Oportunidades</h2>
             <Popover>
               <PopoverTrigger asChild>
                 <button

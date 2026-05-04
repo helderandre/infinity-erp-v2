@@ -60,6 +60,11 @@ interface KanbanBoardProps {
     temperatura?: string
     consultantId?: string
     /**
+     * Free-text ILIKE match on negocios.localizacao. Same field surfaced in
+     * the list view; passed through to the kanban API as `?localizacao=…`.
+     */
+    localizacao?: string
+    /**
      * Referências mode: filter négocios where the current user is the
      * referrer (i.e. is owed a commission slice) instead of the assigned
      * consultor. The kanban renders them in their *current owner's* stage
@@ -342,6 +347,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
   const filterConsultant = filters?.consultantId ?? ''
   const filterReferrer = filters?.referrerConsultantId ?? ''
   const filterOnlyReferenced = !!filters?.onlyReferenced
+  const filterLocalizacao = filters?.localizacao ?? ''
 
   const fetchBoard = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -353,6 +359,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
       if (filterOnlyReferenced) params.set('only_referenced', '1')
       if (filterStage) params.set('pipeline_stage_id', filterStage)
       if (filterTemp) params.set('temperatura', filterTemp)
+      if (filterLocalizacao) params.set('localizacao', filterLocalizacao)
       if (filterSearch) params.set('search', filterSearch)
       const url = `/api/crm/kanban/${pipelineType}${params.size > 0 ? `?${params}` : ''}`
       const res = await fetch(url)
@@ -364,7 +371,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
     } finally {
       if (!opts?.silent) setLoading(false)
     }
-  }, [pipelineType, filterSearch, filterStage, filterTemp, filterConsultant, filterReferrer, filterOnlyReferenced])
+  }, [pipelineType, filterSearch, filterStage, filterTemp, filterConsultant, filterReferrer, filterOnlyReferenced, filterLocalizacao])
 
   useEffect(() => {
     fetchBoard()

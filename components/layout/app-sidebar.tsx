@@ -72,7 +72,7 @@ export const bottomItems = [
 ]
 
 export const crmItems = [
-  { title: 'Pipeline', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
+  { title: 'Oportunidades', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
   // Gestão de Leads: triagem do inbox + métricas de SLA — só faz sentido para
   // gestão (Office Manager / Broker / etc.), apesar do `pipeline` ser dado ao
