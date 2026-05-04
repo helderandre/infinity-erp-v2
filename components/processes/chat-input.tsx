@@ -9,6 +9,7 @@ import { CHAT_LABELS, VOICE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { VoiceRecorder } from './voice-recorder'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { ChatMention, ChatMessage } from '@/types/process'
 
 interface ChatInputProps {
@@ -79,6 +80,10 @@ export function ChatInput({
   const [attachments, setAttachments] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Em mobile, Enter insere uma nova linha (não submete) — o envio é
+  // exclusivamente pelo botão de avião. Em desktop mantém o legacy
+  // (Enter submete, Shift+Enter quebra a linha).
+  const isMobile = useIsMobile()
 
   // Quando o parent inicia uma edição, pré-popula o input com o conteúdo
   // actual e cancela qualquer voice-recording em curso. Quando termina
@@ -342,7 +347,8 @@ export function ChatInput({
               a11ySuggestionsListLabel="Utilizadores sugeridos"
               forceSuggestionsAboveCursor
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                // Em mobile não submetemos com Enter — só pelo botão.
+                if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
                   e.preventDefault()
                   handleSubmit()
                 }

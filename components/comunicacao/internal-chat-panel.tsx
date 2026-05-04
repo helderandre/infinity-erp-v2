@@ -11,6 +11,7 @@ import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { useInternalChat } from '@/hooks/use-internal-chat'
 import { useInternalChatPresence } from '@/hooks/use-internal-chat-presence'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { ChatMessageItem } from '@/components/processes/chat-message'
 import { VoiceRecorder } from '@/components/processes/voice-recorder'
 import { InternalForwardDialog } from '@/components/comunicacao/internal-forward-dialog'
@@ -81,6 +82,10 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   } = useInternalChat(channelId, dmRecipientId)
 
   const { onlineUsers, typingUsers, setTyping } = useInternalChatPresence(currentUser)
+  // Em mobile, Enter insere uma nova linha (não submete) — o envio é
+  // exclusivamente pelo botão de avião. Em desktop, Enter submete e
+  // Shift+Enter quebra a linha (mantém o comportamento legacy).
+  const isMobile = useIsMobile()
 
   const [replyTo, setReplyTo] = useState<InternalChatMessage | null>(null)
   const [forwardMessage, setForwardMessage] = useState<InternalChatMessage | null>(null)
@@ -612,7 +617,8 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
                   a11ySuggestionsListLabel="Utilizadores sugeridos"
                   forceSuggestionsAboveCursor
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    // Em mobile não submetemos com Enter — só pelo botão.
+                    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
                       e.preventDefault()
                       handleSubmit()
                     }
