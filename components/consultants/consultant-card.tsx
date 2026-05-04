@@ -55,7 +55,7 @@ export function ConsultantCard({ consultant, onClick }: ConsultantCardProps) {
       onClick={onClick}
     >
       {/* Photo with name overlay */}
-      <div className="relative aspect-[3/4] bg-muted">
+      <div className="relative aspect-[3/4] bg-muted overflow-hidden rounded-t-2xl">
         {photoUrl ? (
           <img
             src={photoUrl}
