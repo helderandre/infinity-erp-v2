@@ -3,11 +3,13 @@
 import {
   RotateCcw, MoreHorizontal, MapPin, ArrowUpRight,
 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
   PriorityCheck, PriorityFlag, DueDateText, buildDueShort,
 } from '@/components/tasks/task-primitives'
+import { useUser } from '@/hooks/use-user'
 import type { TaskWithRelations } from '@/types/task'
 
 interface TaskListItemProps {
@@ -21,6 +23,8 @@ interface TaskListItemProps {
 // ─── Main row ──────────────────────────────────────────────────────────────
 
 export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSelected = false }: TaskListItemProps) {
+  const { user } = useUser()
+
   if (task.source === 'visit_proposal' && !task.is_completed) {
     return <VisitProposalRow task={task} onSelect={onSelect} onRefresh={onRefresh} isSelected={isSelected} />
   }
@@ -34,6 +38,23 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
   // navegar para o detalhe (clique é no-op).
   const isRedacted = (task as any).is_redacted === true
   const isReadOnly = isProcessTask || isVisitProposalRecord || isRedacted
+
+  // Mostra um chip "→ {primeiro nome}" quando a tarefa pertence a outro
+  // utilizador (delegada). Para tarefas que ficam atribuídas ao próprio,
+  // não polui a linha — é o caso default.
+  const showAssigneeChip =
+    !!task.assignee &&
+    !!task.assigned_to &&
+    !!user?.id &&
+    task.assigned_to !== user.id
+  const assigneeFirstName = task.assignee?.commercial_name?.split(' ')[0]
+  const assigneeInitials = task.assignee?.commercial_name
+    ?.split(' ')
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
   return (
     <div
@@ -82,6 +103,25 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
           {isProcessTask && task.process_ref && (
             <span className="text-[10.5px] text-muted-foreground/80 shrink-0 truncate max-w-[120px]">
               #{task.process_ref}
+            </span>
+          )}
+
+          {/* Chip de assignee — visível só quando a tarefa está atribuída a
+              outro utilizador (delegada). Avatar 14px + primeiro nome. */}
+          {showAssigneeChip && (
+            <span
+              className="flex items-center gap-1 text-[10.5px] text-muted-foreground/90 shrink-0"
+              title={`Atribuída a ${task.assignee!.commercial_name}`}
+            >
+              <Avatar className="size-3.5">
+                <AvatarImage
+                  src={(task.assignee as { profile_photo_url?: string | null }).profile_photo_url ?? undefined}
+                />
+                <AvatarFallback className="text-[7px] font-semibold">
+                  {assigneeInitials || '?'}
+                </AvatarFallback>
+              </Avatar>
+              <span className="truncate max-w-[80px]">{assigneeFirstName}</span>
             </span>
           )}
         </div>

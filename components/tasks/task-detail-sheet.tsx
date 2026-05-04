@@ -10,6 +10,7 @@ import {
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -310,6 +311,25 @@ export function TaskDetailContent({
             {task.entity_type && (
               <span className="text-[10.5px] text-muted-foreground/80">
                 @{TASK_ENTITY_LABELS[task.entity_type as TaskEntityType].toLowerCase()}
+              </span>
+            )}
+            {task.assignee && (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <Avatar className="size-4">
+                  <AvatarImage
+                    src={(task.assignee as { profile_photo_url?: string | null }).profile_photo_url ?? undefined}
+                  />
+                  <AvatarFallback className="text-[8px] font-semibold">
+                    {task.assignee.commercial_name
+                      ?.split(' ')
+                      .map((p) => p[0])
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <span>Atribuída a {task.assignee.commercial_name}</span>
               </span>
             )}
           </div>
