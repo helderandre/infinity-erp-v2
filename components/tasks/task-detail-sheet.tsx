@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
 import {
-  Loader2, Paperclip, Plus, RotateCcw, Send, Trash2, X,
+  Loader2, Paperclip, Pencil, Plus, RotateCcw, Send, Trash2, X,
 } from 'lucide-react'
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -35,6 +35,14 @@ interface TaskDetailContentProps {
   onRefresh: () => void
   onCreateSubTask: (parentId: string) => void
   onClose?: () => void
+  /** Quando definido, mostra um botão de lápis no header que chama isto
+   *  com o task carregado. O parent abre o `<TaskForm>` em modo edição. */
+  onEditTask?: (task: TaskWithRelations) => void
+  /** Trigger externo de refetch — quando este número muda, a tarefa,
+   *  comentários e anexos são re-carregados. Útil quando o parent acaba de
+   *  criar uma sub-tarefa via `<TaskForm>` e queremos que ela apareça já
+   *  na lista do detalhe sem re-abrir a sheet. */
+  refreshSignal?: number
 }
 
 export function TaskDetailContent({
@@ -43,6 +51,8 @@ export function TaskDetailContent({
   onRefresh,
   onCreateSubTask,
   onClose,
+  onEditTask,
+  refreshSignal,
 }: TaskDetailContentProps) {
   const [task, setTask] = useState<TaskWithRelations | null>(null)
   const [comments, setComments] = useState<TaskComment[]>([])
@@ -81,6 +91,12 @@ export function TaskDetailContent({
       setAttachments([])
     }
   }, [taskId, fetchTask])
+
+  // Refetch quando o parent dispara um sinal externo (ex.: criou sub-tarefa).
+  useEffect(() => {
+    if (taskId && refreshSignal) fetchTask()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal])
 
   const handleToggle = async () => {
     if (!task) return
@@ -171,11 +187,25 @@ export function TaskDetailContent({
       <h3 className="text-xs font-medium text-muted-foreground/80">
         Tarefa
       </h3>
-      {variant === 'inline' && onClose && (
-        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={onClose}>
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      )}
+      <div className="flex items-center gap-1">
+        {onEditTask && task && !task.is_completed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+            onClick={() => onEditTask(task)}
+            title="Editar tarefa"
+            aria-label="Editar tarefa"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {variant === 'inline' && onClose && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={onClose}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
     </div>
   )
 
@@ -481,9 +511,10 @@ interface TaskDetailSheetProps {
   onOpenChange: (open: boolean) => void
   onRefresh: () => void
   onCreateSubTask: (parentId: string) => void
+  onEditTask?: (task: TaskWithRelations) => void
 }
 
-export function TaskDetailSheet({ taskId, open, onOpenChange, onRefresh, onCreateSubTask }: TaskDetailSheetProps) {
+export function TaskDetailSheet({ taskId, open, onOpenChange, onRefresh, onCreateSubTask, onEditTask }: TaskDetailSheetProps) {
   const isMobile = useIsMobile()
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -509,6 +540,7 @@ export function TaskDetailSheet({ taskId, open, onOpenChange, onRefresh, onCreat
           onRefresh={onRefresh}
           onCreateSubTask={onCreateSubTask}
           onClose={() => onOpenChange(false)}
+          onEditTask={onEditTask}
         />
       </SheetContent>
     </Sheet>

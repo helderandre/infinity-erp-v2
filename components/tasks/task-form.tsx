@@ -54,7 +54,13 @@ interface TaskFormProps {
     task_list_id?: string
     section?: string
     is_private?: boolean
+    is_recurring?: boolean
+    recurrence_rule?: string | null
+    reminders?: Array<{ minutes_before: number }>
   }
+  /** Quando definido, o form entra em modo de edição:
+   *  o submit faz `PUT /api/tasks/{taskId}` em vez de `POST`. */
+  taskId?: string | null
   /** ID do utilizador autenticado — usado como atribuição obrigatória quando
    *  `requireAssignment` é true. */
   currentUserId?: string
@@ -114,25 +120,28 @@ export function TaskForm({
   currentUserId,
   requireAssignment = false,
   canAssignToOthers = true,
+  taskId,
 }: TaskFormProps) {
   const isMobile = useIsMobile()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { createTask } = useTaskMutations()
+  const { createTask, updateTask } = useTaskMutations()
   const customReminderRef = useRef<HTMLInputElement>(null)
+  const isEdit = !!taskId
 
   const buildDefaults = (dv?: TaskFormProps['defaultValues']): FormData => ({
     title: dv?.title || '',
     description: dv?.description || '',
     priority: dv?.priority ?? 4,
-    is_recurring: false,
+    is_recurring: dv?.is_recurring ?? false,
+    recurrence_rule: dv?.recurrence_rule ?? undefined,
     due_date: dv?.due_date || undefined,
-    reminders: [],
+    reminders: dv?.reminders ?? [],
     entity_type: dv?.entity_type || null,
     entity_id: dv?.entity_id || null,
-    assigned_to:
-      dv?.assigned_to ||
-      (!canAssignToOthers ? currentUserId ?? null : null) ||
-      (requireAssignment ? currentUserId ?? null : null),
+    // Default sempre para o próprio utilizador (incluindo leadership). Quem
+    // pode atribuir a outros (`canAssignToOthers`) muda explicitamente no
+    // selector — mas o default nunca é "sem atribuição" nem outra pessoa.
+    assigned_to: dv?.assigned_to || currentUserId || null,
     parent_task_id: dv?.parent_task_id || null,
     task_list_id: dv?.task_list_id || null,
     section: dv?.section || null,
@@ -146,7 +155,8 @@ export function TaskForm({
 
   // Re-seed each time the sheet opens — the parent often reuses the same
   // <TaskForm> instance with different `defaultValues` (entity_id, parent_task_id,
-  // section…) and useForm only reads them on first mount.
+  // section…) and useForm only reads them on first mount. Em modo edição,
+  // re-seed também quando o `taskId` muda (abrir um task diferente).
   useEffect(() => {
     if (open) {
       form.reset(buildDefaults(defaultValues))
@@ -154,10 +164,12 @@ export function TaskForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     open,
+    taskId,
     defaultValues?.entity_id,
     defaultValues?.parent_task_id,
     defaultValues?.section,
     defaultValues?.task_list_id,
+    defaultValues?.title,
   ])
 
   const isRecurring = form.watch('is_recurring')
@@ -173,13 +185,24 @@ export function TaskForm({
         // Consultor (sem permissão de atribuir a outros) é forçado a si próprio.
         assigned_to: !canAssignToOthers ? currentUserId ?? data.assigned_to : data.assigned_to,
       }
-      await createTask(payload)
-      toast.success('Tarefa criada com sucesso')
+      if (isEdit && taskId) {
+        await updateTask(taskId, payload)
+        toast.success('Tarefa actualizada')
+      } else {
+        await createTask(payload)
+        toast.success('Tarefa criada com sucesso')
+      }
       form.reset()
       onOpenChange(false)
       onSuccess()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar tarefa')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : isEdit
+            ? 'Erro ao actualizar tarefa'
+            : 'Erro ao criar tarefa',
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -206,7 +229,11 @@ export function TaskForm({
             {/* Header inline: título + Pessoal/Profissional pill mini */}
             <div className="flex items-center justify-between gap-3 pr-10">
               <SheetTitle className="text-[22px] font-semibold leading-tight tracking-tight">
-                {defaultValues?.parent_task_id ? 'Nova sub-tarefa' : 'Nova tarefa'}
+                {isEdit
+                  ? 'Editar tarefa'
+                  : defaultValues?.parent_task_id
+                    ? 'Nova sub-tarefa'
+                    : 'Nova tarefa'}
               </SheetTitle>
               <FormField
                 control={form.control}
@@ -738,7 +765,7 @@ export function TaskForm({
                 className="rounded-full flex-1"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Criar Tarefa
+                {isEdit ? 'Guardar' : 'Criar Tarefa'}
               </Button>
             </SheetFooter>
           </form>

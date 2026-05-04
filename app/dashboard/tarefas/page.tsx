@@ -74,9 +74,20 @@ function TarefasPageInner() {
         due_date?: string
         task_list_id?: string
         section?: string
+        is_private?: boolean
+        is_recurring?: boolean
+        recurrence_rule?: string | null
+        assigned_to?: string
+        entity_type?: NonNullable<TaskWithRelations['entity_type']>
+        entity_id?: string
+        reminders?: Array<{ minutes_before: number }>
       }
     | undefined
   >()
+  const [editTaskId, setEditTaskId] = useState<string | null>(null)
+  // Bumped depois de criar uma sub-tarefa para forçar refetch do
+  // <TaskDetailContent> aberto e ela aparecer na lista sem re-abrir a sheet.
+  const [detailRefreshSignal, setDetailRefreshSignal] = useState(0)
   const [activeTab, setActiveTab] = useState<TasksTab>('all')
   const [shareOpen, setShareOpen] = useState(false)
 
@@ -283,14 +294,42 @@ function TarefasPageInner() {
   }
 
   const handleCreateSubTask = (parentId: string) => {
+    setEditTaskId(null)
     setFormDefaults({ parent_task_id: parentId })
+    setShowForm(true)
+  }
+
+  const handleEditTask = (task: TaskWithRelations) => {
+    // `is_private` é uma coluna em `tasks` mas não está tipada no `Task` shape;
+    // o endpoint devolve-a via `select('*')`, portanto lemo-la com cast leve.
+    const isPrivate = (task as TaskWithRelations & { is_private?: boolean }).is_private
+    setEditTaskId(task.id)
+    setFormDefaults({
+      title: task.title,
+      description: task.description ?? undefined,
+      priority: task.priority ?? undefined,
+      due_date: task.due_date ?? undefined,
+      assigned_to: task.assigned_to ?? undefined,
+      task_list_id: task.task_list_id ?? undefined,
+      section: task.section ?? undefined,
+      is_private: !!isPrivate,
+      is_recurring: !!task.is_recurring,
+      recurrence_rule: task.recurrence_rule ?? null,
+      entity_type: task.entity_type ?? undefined,
+      entity_id: task.entity_id ?? undefined,
+      reminders: (task.reminders as Array<{ minutes_before: number }>) ?? [],
+    })
     setShowForm(true)
   }
 
   const handleFormSuccess = () => {
     refetch()
     refetchStats()
+    // Se o form foi aberto para criar uma sub-tarefa (ou para editar),
+    // sinaliza ao detalhe aberto para refetch para reflectir a mudança.
+    setDetailRefreshSignal((n) => n + 1)
     setFormDefaults(undefined)
+    setEditTaskId(null)
   }
 
   const handleRefresh = () => {
@@ -312,6 +351,8 @@ function TarefasPageInner() {
               onRefresh={handleRefresh}
               onCreateSubTask={handleCreateSubTask}
               onClose={closeSelection}
+              onEditTask={handleEditTask}
+              refreshSignal={detailRefreshSignal}
             />
           )}
           {selection.kind === 'proc' && (
@@ -599,13 +640,20 @@ function TarefasPageInner() {
       {/* Form dialog */}
       <TaskForm
         open={showForm}
-        onOpenChange={(open) => { setShowForm(open); if (!open) setFormDefaults(undefined) }}
+        onOpenChange={(open) => {
+          setShowForm(open)
+          if (!open) {
+            setFormDefaults(undefined)
+            setEditTaskId(null)
+          }
+        }}
         onSuccess={handleFormSuccess}
         consultants={taskFormConsultants}
         defaultValues={formDefaults}
         currentUserId={user?.id}
         requireAssignment={!isManagement && !(formDefaults?.task_list_id ?? listId)}
         canAssignToOthers={isManagement}
+        taskId={editTaskId}
       />
 
       {/* Mobile detail sheet — em desktop a detail aparece inline no split-view.
@@ -633,6 +681,8 @@ function TarefasPageInner() {
               onRefresh={handleRefresh}
               onCreateSubTask={handleCreateSubTask}
               onClose={closeSelection}
+              onEditTask={(task) => { closeSelection(); handleEditTask(task) }}
+              refreshSignal={detailRefreshSignal}
             />
           )}
           {selection?.kind === 'proc' && (
