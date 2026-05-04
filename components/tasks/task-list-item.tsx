@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import {
   PriorityCheck, PriorityFlag, DueDateText, buildDueShort,
 } from '@/components/tasks/task-primitives'
+import { RecurringCompletePopover } from '@/components/tasks/recurring-complete-popover'
 import { useUser } from '@/hooks/use-user'
 import type { TaskWithRelations } from '@/types/task'
 
@@ -18,11 +19,16 @@ interface TaskListItemProps {
   onSelect: (task: TaskWithRelations) => void
   onRefresh?: () => void
   isSelected?: boolean
+  /** Quando definido e a tarefa é recorrente, o checkbox abre uma popover
+   *  com "Concluir só esta" / "Concluir e parar de repetir". Sem este
+   *  callback, recorrentes comportam-se como qualquer tarefa (1 clique
+   *  conclui + spawn). */
+  onCompleteAndStopRecurrence?: (id: string) => void
 }
 
 // ─── Main row ──────────────────────────────────────────────────────────────
 
-export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSelected = false }: TaskListItemProps) {
+export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSelected = false, onCompleteAndStopRecurrence }: TaskListItemProps) {
   const { user } = useUser()
 
   if (task.source === 'visit_proposal' && !task.is_completed) {
@@ -69,17 +75,31 @@ export function TaskListItem({ task, onToggleComplete, onSelect, onRefresh, isSe
       onClick={() => isRedacted ? undefined : onSelect(task)}
     >
       <div className="mt-[3px]">
-        <PriorityCheck
-          priority={task.priority}
-          checked={task.is_completed}
-          disabled={isReadOnly}
-          onClick={() => !isReadOnly && onToggleComplete(task.id, task.is_completed)}
-          title={
-            isProcessTask ? 'Concluir no detalhe do processo'
-            : isVisitProposalRecord ? 'Gerida no detalhe da visita'
-            : undefined
-          }
-        />
+        {task.is_recurring && !task.is_completed && !isReadOnly && onCompleteAndStopRecurrence ? (
+          <RecurringCompletePopover
+            onCompleteOnly={() => onToggleComplete(task.id, task.is_completed)}
+            onCompleteAndStop={() => onCompleteAndStopRecurrence(task.id)}
+          >
+            <PriorityCheck
+              priority={task.priority}
+              checked={false}
+              onClick={() => {}}
+              title="Tarefa recorrente — escolher o que fazer"
+            />
+          </RecurringCompletePopover>
+        ) : (
+          <PriorityCheck
+            priority={task.priority}
+            checked={task.is_completed}
+            disabled={isReadOnly}
+            onClick={() => !isReadOnly && onToggleComplete(task.id, task.is_completed)}
+            title={
+              isProcessTask ? 'Concluir no detalhe do processo'
+              : isVisitProposalRecord ? 'Gerida no detalhe da visita'
+              : undefined
+            }
+          />
+        )}
       </div>
 
       {/* Content */}

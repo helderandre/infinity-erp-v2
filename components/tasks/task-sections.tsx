@@ -73,6 +73,9 @@ interface TaskSectionsProps {
    * with strikethrough styling. Clicking the check uncompletes them.
    */
   completedToday?: TaskWithRelations[]
+  /** Forwarded para TaskListItem — abre popover Todoist-style em
+   *  recorrentes para o user escolher "concluir só esta" vs "parar". */
+  onCompleteAndStopRecurrence?: (id: string) => void
 }
 
 export function TaskSections({
@@ -82,6 +85,7 @@ export function TaskSections({
   onRefresh,
   isSelected,
   completedToday = [],
+  onCompleteAndStopRecurrence,
 }: TaskSectionsProps) {
   const sections = bucketize(tasks)
   const [collapsed, setCollapsed] = useState<Record<SectionKey | 'completed_today', boolean>>({
@@ -130,6 +134,7 @@ export function TaskSections({
                   onSelect={onSelect}
                   onRefresh={onRefresh}
                   isSelected={isSelected(task)}
+                  onCompleteAndStopRecurrence={onCompleteAndStopRecurrence}
                 />
               ))}
             </div>
@@ -168,6 +173,7 @@ export function TaskSections({
                   onSelect={onSelect}
                   onRefresh={onRefresh}
                   isSelected={isSelected(task)}
+                  onCompleteAndStopRecurrence={onCompleteAndStopRecurrence}
                 />
               ))}
             </div>

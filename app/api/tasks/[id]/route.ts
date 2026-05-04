@@ -112,10 +112,15 @@ export async function PUT(
     const data = validation.data
     const supabase = createAdminClient()
 
-    // Fetch current task for recurring logic and notifications
+    // Fetch current task for recurring logic and notifications.
+    // Inclui campos que o spawn precisa de preservar (description,
+    // priority, task_list_id, section, entity_type/id, is_private) —
+    // antes ficavam a NULL no spawn por omissão.
     const { data: currentTask } = await supabase
       .from('tasks')
-      .select('id, title, is_completed, is_recurring, recurrence_rule, due_date, assigned_to, created_by, task_list_id')
+      .select(
+        'id, title, description, priority, is_completed, is_recurring, recurrence_rule, due_date, assigned_to, created_by, task_list_id, section, entity_type, entity_id, is_private',
+      )
       .eq('id', id)
       .single()
 
@@ -173,25 +178,61 @@ export async function PUT(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Handle recurring: spawn next occurrence when completed
+    // Handle recurring: spawn next occurrence when completed.
+    //
+    // Skipped quando:
+    //  - O caller passa `is_recurring: false` no mesmo PUT (Todoist-style
+    //    "concluir e parar de repetir" — desliga a recorrência neste
+    //    último UPDATE para que nenhum spawn dispare).
+    //  - Já existe uma instância pendente futura com o mesmo título +
+    //    rule + assignee — evita acumular cadeias paralelas (caso
+    //    "Pagar outdoor" onde o utilizador criou recorrências
+    //    duplicadas e cada conclusão gerava ainda mais spawns).
     if (
       data.is_completed === true &&
       !currentTask.is_completed &&
       currentTask.is_recurring &&
+      data.is_recurring !== false &&
       currentTask.recurrence_rule &&
       currentTask.due_date
     ) {
       const nextDue = getNextOccurrence(currentTask.due_date, currentTask.recurrence_rule)
       if (nextDue) {
-        await supabase.from('tasks').insert({
-          title: currentTask.title,
-          assigned_to: currentTask.assigned_to,
-          created_by: currentTask.created_by,
-          priority: data.priority ?? 4,
-          due_date: nextDue,
-          is_recurring: true,
-          recurrence_rule: currentTask.recurrence_rule,
-        })
+        const nowIso = new Date().toISOString()
+        const dedupQuery = supabase
+          .from('tasks')
+          .select('id')
+          .eq('title', currentTask.title)
+          .eq('is_recurring', true)
+          .eq('recurrence_rule', currentTask.recurrence_rule)
+          .eq('is_completed', false)
+          .gt('due_date', nowIso)
+          .limit(1)
+        // Scope por assignee — null e "" tratam-se de igual modo.
+        if (currentTask.assigned_to) {
+          dedupQuery.eq('assigned_to', currentTask.assigned_to)
+        } else {
+          dedupQuery.is('assigned_to', null)
+        }
+        const { data: existingFuture } = await dedupQuery.maybeSingle()
+
+        if (!existingFuture) {
+          await supabase.from('tasks').insert({
+            title: currentTask.title,
+            description: (currentTask as any).description ?? null,
+            assigned_to: currentTask.assigned_to,
+            created_by: currentTask.created_by,
+            priority: (currentTask as any).priority ?? data.priority ?? 4,
+            due_date: nextDue,
+            is_recurring: true,
+            recurrence_rule: currentTask.recurrence_rule,
+            task_list_id: (currentTask as any).task_list_id ?? null,
+            section: (currentTask as any).section ?? null,
+            entity_type: (currentTask as any).entity_type ?? null,
+            entity_id: (currentTask as any).entity_id ?? null,
+            is_private: (currentTask as any).is_private ?? false,
+          })
+        }
       }
     }
 

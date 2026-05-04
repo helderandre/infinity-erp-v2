@@ -187,7 +187,7 @@ function TarefasPageInner() {
         ? personalTab.refetch
         : processTab.refetch
   const { refetch: refetchStats } = useTaskStats()
-  const { toggleComplete } = useTaskMutations()
+  const { toggleComplete, updateTask } = useTaskMutations()
 
   useEffect(() => {
     fetch('/api/users/consultants')
@@ -268,6 +268,46 @@ function TarefasPageInner() {
     } catch {
       toast.error('Erro ao actualizar tarefa')
       // Rollback via refetch — o servidor é a fonte de verdade.
+      refetch()
+      completedTab.refetch()
+    }
+  }
+
+  // "Concluir e parar de repetir" — fluxo Todoist-style para tarefas
+  // recorrentes. Marca como concluída E desliga a recorrência no mesmo
+  // PUT para que o spawn não dispare. UX: mesma optimística que o toggle,
+  // mas o toast e a operação dão a entender que a recorrência terminou.
+  const handleCompleteAndStopRecurrence = async (id: string) => {
+    if (id.startsWith('proc_task:') || id.startsWith('proc_subtask:')) {
+      toast.info('Conclui esta tarefa no detalhe do processo.')
+      return
+    }
+    const allActive = [allTab, personalTab, processTab, listTab, allListsTab]
+    let snapshot: TaskWithRelations | undefined
+    for (const tab of allActive) {
+      const found = tab.tasks.find((t) => t.id === id)
+      if (found) { snapshot = found; break }
+    }
+    const patch: Partial<TaskWithRelations> = {
+      is_completed: true,
+      is_recurring: false,
+      completed_at: new Date().toISOString(),
+    }
+    for (const tab of allActive) {
+      tab.patchTaskLocal(id, patch, { removeIfFiltered: true })
+    }
+    if (snapshot) {
+      completedTab.upsertTaskLocal({ ...snapshot, ...patch })
+    }
+
+    try {
+      await updateTask(id, { is_completed: true, is_recurring: false })
+      toast.success('Concluída — recorrência terminada')
+      refetch()
+      completedTab.refetch()
+      refetchStats()
+    } catch {
+      toast.error('Erro ao actualizar tarefa')
       refetch()
       completedTab.refetch()
     }
@@ -532,6 +572,7 @@ function TarefasPageInner() {
               onRefresh={() => { allTab.refetch(); completedTab.refetch(); refetchStats() }}
               onCreate={() => { setFormDefaults(undefined); setShowForm(true) }}
               emptyMessage="Sem tarefas pendentes."
+              onCompleteAndStopRecurrence={handleCompleteAndStopRecurrence}
               isSelected={isTaskSelected}
             />
             {allTab.total > 0 && (
@@ -584,6 +625,7 @@ function TarefasPageInner() {
               }}
               emptyMessage={listId ? 'Lista vazia. Começa por adicionar uma tarefa em cima.' : 'Todas as tarefas estão em dia!'}
               isSelected={isTaskSelected}
+              onCompleteAndStopRecurrence={handleCompleteAndStopRecurrence}
             />
             {(listId ? listTab.total : personalTab.total) > 0 && (
               <p className="text-xs text-muted-foreground text-center">
@@ -626,6 +668,7 @@ function TarefasPageInner() {
               onCreate={() => { setFormDefaults(undefined); setShowForm(true) }}
               emptyMessage="Sem tarefas de processos pendentes."
               isSelected={isTaskSelected}
+              onCompleteAndStopRecurrence={handleCompleteAndStopRecurrence}
             />
             {processTab.total > 0 && (
               <p className="text-xs text-muted-foreground text-center">
@@ -719,6 +762,7 @@ function TaskList({
   onCreate,
   emptyMessage,
   isSelected,
+  onCompleteAndStopRecurrence,
 }: {
   tasks: TaskWithRelations[]
   completedToday?: TaskWithRelations[]
@@ -730,6 +774,7 @@ function TaskList({
   onCreate: () => void
   emptyMessage: string
   isSelected: (task: TaskWithRelations) => boolean
+  onCompleteAndStopRecurrence?: (id: string) => void
 }) {
   if (isLoading) {
     return (
@@ -772,6 +817,7 @@ function TaskList({
       onSelect={onSelect}
       onRefresh={onRefresh}
       isSelected={isSelected}
+      onCompleteAndStopRecurrence={onCompleteAndStopRecurrence}
     />
   )
 }

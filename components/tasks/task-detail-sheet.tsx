@@ -26,6 +26,7 @@ import { useTaskMutations } from '@/hooks/use-tasks'
 import {
   PriorityCheck, PriorityFlag, DueDateText,
 } from '@/components/tasks/task-primitives'
+import { RecurringCompletePopover } from '@/components/tasks/recurring-complete-popover'
 import { TaskEntityCard } from '@/components/tasks/task-entity-card'
 
 // ─── Shared content (usado tanto em sheet como inline) ──────────────────────
@@ -62,7 +63,7 @@ export function TaskDetailContent({
   const [newComment, setNewComment] = useState('')
   const [isSendingComment, setIsSendingComment] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const { toggleComplete, deleteTask } = useTaskMutations()
+  const { toggleComplete, deleteTask, updateTask } = useTaskMutations()
 
   const fetchTask = useCallback(async () => {
     if (!taskId) return
@@ -104,6 +105,18 @@ export function TaskDetailContent({
     try {
       await toggleComplete(task.id, task.is_completed)
       toast.success(task.is_completed ? 'Tarefa reaberta' : 'Tarefa concluída')
+      fetchTask()
+      onRefresh()
+    } catch {
+      toast.error('Erro ao actualizar tarefa')
+    }
+  }
+
+  const handleCompleteAndStop = async () => {
+    if (!task) return
+    try {
+      await updateTask(task.id, { is_completed: true, is_recurring: false })
+      toast.success('Concluída — recorrência terminada')
       fetchTask()
       onRefresh()
     } catch {
@@ -257,12 +270,27 @@ export function TaskDetailContent({
           {/* Título com checkbox inline à esquerda (mesmo primitivo da lista) */}
           <div className="flex items-start gap-3">
             <div className="mt-1.5">
-              <PriorityCheck
-                priority={task.priority}
-                checked={task.is_completed}
-                onClick={handleToggle}
-                size="md"
-              />
+              {task.is_recurring && !task.is_completed ? (
+                <RecurringCompletePopover
+                  onCompleteOnly={handleToggle}
+                  onCompleteAndStop={handleCompleteAndStop}
+                >
+                  <PriorityCheck
+                    priority={task.priority}
+                    checked={false}
+                    onClick={() => {}}
+                    size="md"
+                    title="Tarefa recorrente — escolher o que fazer"
+                  />
+                </RecurringCompletePopover>
+              ) : (
+                <PriorityCheck
+                  priority={task.priority}
+                  checked={task.is_completed}
+                  onClick={handleToggle}
+                  size="md"
+                />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
