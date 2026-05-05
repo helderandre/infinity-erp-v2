@@ -7,6 +7,7 @@ import { z } from 'zod'
 const updateProfileSchema = z.object({
   user: z.object({
     commercial_name: z.string().min(2, 'Nome comercial é obrigatório').max(200),
+    professional_email: z.string().email('Email inválido').or(z.literal('')).nullable().optional(),
   }).partial().optional(),
   profile: z.object({
     bio: z.string().max(2000).nullable().optional(),
@@ -93,8 +94,21 @@ export async function PUT(request: Request) {
     const { user, profile, private_data } = validation.data
 
     if (user && Object.keys(user).length > 0) {
-      const { error } = await supabase.from('dev_users').update(user).eq('id', userId)
+      const payload: Record<string, unknown> = { ...user }
+      if ('professional_email' in payload) {
+        payload.professional_email =
+          typeof payload.professional_email === 'string' && payload.professional_email.trim() !== ''
+            ? payload.professional_email.trim().toLowerCase()
+            : null
+      }
+      const { error } = await supabase.from('dev_users').update(payload).eq('id', userId)
       if (error) {
+        if ((error as { code?: string }).code === '23505') {
+          return NextResponse.json(
+            { error: 'Este email profissional já está em uso por outro utilizador.' },
+            { status: 409 }
+          )
+        }
         return NextResponse.json({ error: 'Erro ao actualizar dados', details: error.message }, { status: 500 })
       }
     }

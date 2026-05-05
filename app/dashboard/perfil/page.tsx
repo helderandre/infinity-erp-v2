@@ -20,11 +20,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import {
   Camera, Eye, EyeOff, Globe, Instagram, Linkedin, Loader2,
-  Lock, MapPin, Save, User, Users, CalendarClock,
+  Lock, Mail, MapPin, Save, User, Users, CalendarClock,
 } from 'lucide-react'
 import type { ConsultantDetail } from '@/types/consultant'
 import { ConsultantAvailabilityPanel } from '@/components/booking/consultant-availability-panel'
 import { cn } from '@/lib/utils'
+import { createClient as createBrowserSupabase } from '@/lib/supabase/client'
+import { useImageCompress } from '@/hooks/use-image-compress'
 
 const TABS = [
   { key: 'geral' as const, label: 'Geral', icon: User },
@@ -42,6 +44,7 @@ type TabKey = (typeof TABS)[number]['key']
 const generalSchema = z.object({
   commercial_name: z.string().min(2, 'Nome comercial é obrigatório').max(200),
   full_name: z.string().max(200).optional().nullable(),
+  professional_email: z.string().email('Email inválido').or(z.literal('')).optional().nullable(),
   phone_commercial: z.string().max(20).optional().nullable(),
   bio: z.string().max(2000).optional().nullable(),
 })
@@ -102,6 +105,7 @@ export default function PerfilPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('geral')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { compressImage } = useImageCompress()
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -133,10 +137,11 @@ export default function PerfilPage() {
     if (!file) return
 
     setPhotoUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
     try {
+      const compressed = file.type.startsWith('image/') ? await compressImage(file) : file
+      const formData = new FormData()
+      formData.append('file', compressed)
+
       const res = await fetch('/api/perfil/photo', { method: 'POST', body: formData })
       if (!res.ok) {
         const err = await res.json()
@@ -254,9 +259,9 @@ export default function PerfilPage() {
         </div>
       </Card>
 
-      {/* Pill Navigation */}
-      <div className="flex justify-center sm:justify-start">
-        <div className="inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm max-w-full overflow-x-auto">
+      {/* Pill Navigation — selected: text only · others: icon only · centered */}
+      <div className="flex justify-center">
+        <div className="inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
@@ -268,15 +273,17 @@ export default function PerfilPage() {
                 title={tab.label}
                 aria-label={tab.label}
                 className={cn(
-                  'inline-flex items-center justify-center gap-2 h-9 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-300',
-                  isActive ? 'px-4 sm:px-5' : 'w-9 sm:w-auto sm:px-5',
+                  'inline-flex items-center justify-center h-9 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300',
                   isActive
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                    : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    ? 'px-4 bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : 'w-9 bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{tab.label}</span>
+                {isActive ? (
+                  <span>{tab.label}</span>
+                ) : (
+                  <Icon className="h-4 w-4 shrink-0" />
+                )}
               </button>
             )
           })}
@@ -290,6 +297,7 @@ export default function PerfilPage() {
             defaultValues={{
               commercial_name: profile?.commercial_name || '',
               full_name: pd?.full_name || '',
+              professional_email: profile?.professional_email || '',
               phone_commercial: p?.phone_commercial || '',
               bio: p?.bio || '',
             }}
@@ -368,16 +376,22 @@ function GeneralTab({ defaultValues, onSaved }: { defaultValues: GeneralForm; on
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user: { commercial_name: data.commercial_name },
+          user: {
+            commercial_name: data.commercial_name,
+            professional_email: data.professional_email?.trim() || null,
+          },
           profile: { phone_commercial: data.phone_commercial || null, bio: data.bio || null },
           private_data: { full_name: data.full_name || null },
         }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erro ao guardar dados')
+      }
       toast.success('Dados guardados com sucesso')
       onSaved()
-    } catch {
-      toast.error('Erro ao guardar dados')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao guardar dados')
     } finally {
       setSaving(false)
     }
@@ -404,9 +418,26 @@ function GeneralTab({ defaultValues, onSaved }: { defaultValues: GeneralForm; on
               <Input id="full_name" {...register('full_name')} />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone_commercial">Telemovel Profissional</Label>
-            <Input id="phone_commercial" {...register('phone_commercial')} placeholder="+351 9xx xxx xxx" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="professional_email">Email Profissional</Label>
+              <Input
+                id="professional_email"
+                type="email"
+                {...register('professional_email')}
+                placeholder="nome@infinitygroup.pt"
+              />
+              {errors.professional_email && (
+                <p className="text-xs text-destructive">{errors.professional_email.message}</p>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Aparece no website público, em emails de apresentação e nos cartões de contacto. Não é o email de início de sessão.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone_commercial">Telemovel Profissional</Label>
+              <Input id="phone_commercial" {...register('phone_commercial')} placeholder="+351 9xx xxx xxx" />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="bio">Bio / Descricao</Label>
@@ -742,6 +773,7 @@ function SocialTab({ defaultValues, onSaved }: { defaultValues: SocialForm; onSa
 // ─── Tab: Seguranca ─────────────────────────────────────────
 
 function SecurityTab() {
+  const { user } = useUser()
   const [saving, setSaving] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const { register, handleSubmit, formState: { errors }, reset } = useForm<PasswordForm>({
@@ -770,9 +802,12 @@ function SecurityTab() {
   }
 
   return (
-    <Card>
+    <div className="space-y-4">
+      <AuthEmailSection currentEmail={user?.auth_user?.email ?? ''} />
+
+      <Card>
       <CardHeader>
-        <CardTitle>Seguranca</CardTitle>
+        <CardTitle>Palavra-passe</CardTitle>
         <CardDescription>Altere a sua palavra-passe.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -814,6 +849,91 @@ function SecurityTab() {
             <Button type="submit" disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
               Alterar Palavra-passe
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ─── Auth Email Section ─────────────────────────────────────
+
+function AuthEmailSection({ currentEmail }: { currentEmail: string }) {
+  const [newEmail, setNewEmail] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [pending, setPending] = useState(false)
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = newEmail.trim().toLowerCase()
+    if (!trimmed) return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast.error('Email inválido')
+      return
+    }
+    if (trimmed === currentEmail.toLowerCase()) {
+      toast.info('Esse já é o teu email actual')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const supabase = createBrowserSupabase()
+      const redirectTo = typeof window !== 'undefined'
+        ? `${window.location.origin}/api/auth/callback?next=/dashboard/perfil`
+        : undefined
+      const { error } = await supabase.auth.updateUser(
+        { email: trimmed },
+        { emailRedirectTo: redirectTo }
+      )
+      if (error) throw error
+      setPending(true)
+      setNewEmail('')
+      toast.success('Verifica a tua caixa de entrada')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao actualizar email')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Email de autenticação</CardTitle>
+        <CardDescription>O email que usas para iniciar sessão.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="space-y-4 w-full max-w-md">
+          <div className="space-y-2">
+            <Label>Email actual</Label>
+            <Input value={currentEmail} disabled readOnly />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new_auth_email">Novo email</Label>
+            <Input
+              id="new_auth_email"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="novo@email.com"
+              autoComplete="email"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Por segurança, vais receber um link de confirmação no email actual e no novo. A alteração só fica activa depois de confirmares.
+            </p>
+          </div>
+          {pending && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-200">
+              Pedido enviado. Verifica a tua caixa de entrada e clica no link para confirmar.
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button type="submit" disabled={saving || !newEmail.trim()} className="w-full sm:w-auto">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              Actualizar email
             </Button>
           </div>
         </form>
