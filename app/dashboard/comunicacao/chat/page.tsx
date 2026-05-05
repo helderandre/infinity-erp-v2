@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { MessageSquare, ArrowLeft } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useUser } from '@/hooks/use-user'
 import { useProcessChannels } from '@/hooks/use-process-channels'
 import { useInternalChatPresence } from '@/hooks/use-internal-chat-presence'
@@ -14,7 +15,6 @@ import { ProcessChat } from '@/components/processes/process-chat'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { getDmChannelId } from '@/lib/constants'
 import { useChatUnread } from '@/hooks/use-chat-unread'
 
@@ -41,10 +41,11 @@ function ChatPageContent() {
   const pathname = usePathname()
   const dmParam = searchParams.get('dm')
   const geralParam = searchParams.get('geral')
-  const [activeConversation, setActiveConversation] = useState<ConversationType | null>(
-    dmParam ? null : { type: 'internal' }
-  )
-  const [listSheetOpen, setListSheetOpen] = useState(false)
+  // Default agora é null (mostra a lista). Antes default era 'internal'
+  // (Group Geral aberto), o que em mobile fazia o utilizador aterrar
+  // no chat em vez da lista. URL params (?dm=, ?geral=) ainda forçam
+  // abrir directamente a conversa apropriada.
+  const [activeConversation, setActiveConversation] = useState<ConversationType | null>(null)
 
   // Resolve ?dm=<userId> / ?geral=1 params coming from notifications.
   // Runs whenever the query changes (e.g. user clicks a second notification
@@ -93,13 +94,17 @@ function ChatPageContent() {
   const handleSelectConversation = useCallback(
     (conv: ConversationType) => {
       setActiveConversation(conv)
-      setListSheetOpen(false)
       setTimeout(refetchUnread, 1500)
     },
     [refetchUnread]
   )
 
-  const openListSheet = useCallback(() => setListSheetOpen(true), [])
+  // Em mobile, o botão "voltar" no header da conversa volta para a
+  // lista (deselecciona). Em desktop o botão está escondido (md:hidden)
+  // porque ambos os painéis ficam visíveis lado-a-lado.
+  const handleBackToList = useCallback(() => {
+    setActiveConversation(null)
+  }, [])
 
   const currentUser = useMemo(
     () => ({
@@ -153,8 +158,17 @@ function ChatPageContent() {
       className="flex bg-background overflow-hidden"
       style={{ height: 'calc(100% - var(--mobile-nav-height, 0px))' }}
     >
-      {/* Desktop: persistent left sidebar with the conversation list */}
-      <div className="hidden md:flex md:w-80 md:border-r shrink-0 flex-col">
+      {/* Lista de conversas. Em desktop fica fixada à esquerda como
+          sidebar (md:w-80 md:border-r). Em mobile ocupa o ecrã todo
+          quando não há conversa activa, e some quando há (substituída
+          pelo painel da conversa). */}
+      <div
+        className={cn(
+          'flex flex-col shrink-0 min-w-0',
+          'md:w-80 md:border-r md:flex',
+          activeConversation ? 'hidden' : 'flex w-full',
+        )}
+      >
         <ConversationList
           currentUserId={currentUser.id}
           activeConversation={activeConversation}
@@ -169,34 +183,16 @@ function ChatPageContent() {
         />
       </div>
 
-      {/* Mobile: same list in a slide-in Sheet — opened via the header icon */}
-      <Sheet open={listSheetOpen} onOpenChange={setListSheetOpen}>
-        <SheetContent
-          side="left"
-          className="md:hidden p-0 gap-0 flex flex-col data-[side=left]:w-[88vw] data-[side=left]:sm:max-w-sm"
-        >
-          <SheetHeader className="px-4 py-3 border-b shrink-0">
-            <SheetTitle className="text-sm">Conversas</SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 min-h-0 flex flex-col">
-            <ConversationList
-              currentUserId={currentUser.id}
-              activeConversation={activeConversation}
-              onSelect={handleSelectConversation}
-              processChannels={channels}
-              isLoadingChannels={channelsLoading}
-              onSearchChannels={searchChannels}
-              unreadCounts={unreadCounts}
-              lastActivity={chatLastActivity}
-              lastMessage={chatLastMessage}
-              activityHasLoaded={unreadHasLoaded}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Right panel — chat (always visible, even on mobile) */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Painel da conversa. Em desktop ocupa o restante do ecrã sempre
+          (mostra "Seleccione uma conversa" quando vazio). Em mobile só
+          aparece quando há conversa activa, ocupando o ecrã todo. */}
+      <div
+        className={cn(
+          'flex-1 flex-col min-w-0',
+          'md:flex',
+          activeConversation ? 'flex' : 'hidden',
+        )}
+      >
         {!activeConversation ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
             <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
@@ -209,7 +205,7 @@ function ChatPageContent() {
               <InternalChatHeader
                 onlineUsers={onlineUsers}
                 currentUserId={currentUser.id}
-                onBack={openListSheet}
+                onBack={handleBackToList}
               />
             }
           />
@@ -224,7 +220,7 @@ function ChatPageContent() {
                 userName={activeConversation.userName}
                 avatarUrl={activeConversation.avatarUrl}
                 roles={activeConversation.roles}
-                onBack={openListSheet}
+                onBack={handleBackToList}
               />
             }
           />
@@ -234,7 +230,7 @@ function ChatPageContent() {
               processId={activeConversation.processId}
               externalRef={activeProcessChannel?.external_ref || ''}
               propertyTitle={activeProcessChannel?.property_title}
-              onBack={openListSheet}
+              onBack={handleBackToList}
             />
             <div className="flex-1 min-h-0">
               <ProcessChat
