@@ -107,7 +107,12 @@ export function QualifyEntryDialog({
   const pipelineType = pipelineTypeProp || detectedPipeline || 'comprador'
 
   const defaultTipo = PIPELINE_TO_TIPO[pipelineType]?.[0] || 'Comprador'
-  const defaultBT = PIPELINE_TO_BUSINESS_TYPE[pipelineType] || 'Venda'
+  // Se a entry foi criada com business_type explícito (UI nova), respeita-o.
+  // Caso contrário, deriva do pipeline detectado.
+  const entryBT = (entry as { business_type?: string } | null)?.business_type
+  const defaultBT = (entryBT === 'Venda' || entryBT === 'Arrendamento' || entryBT === 'Trespasse')
+    ? entryBT
+    : (PIPELINE_TO_BUSINESS_TYPE[pipelineType] || 'Venda')
   const [form, setForm] = useState({
     business_type: defaultBT as 'Venda' | 'Arrendamento' | 'Trespasse',
     tipo: defaultTipo,
@@ -122,8 +127,13 @@ export function QualifyEntryDialog({
   useEffect(() => {
     if (entry) {
       const pt = entry.sector ? SECTOR_TO_PIPELINE[entry.sector] : pipelineType
+      const bt = (entry as { business_type?: string }).business_type
+      const resolvedBT: 'Venda' | 'Arrendamento' | 'Trespasse' =
+        bt === 'Venda' || bt === 'Arrendamento' || bt === 'Trespasse'
+          ? bt
+          : (PIPELINE_TO_BUSINESS_TYPE[pt || pipelineType] || 'Venda')
       setForm({
-        business_type: PIPELINE_TO_BUSINESS_TYPE[pt || pipelineType] || 'Venda',
+        business_type: resolvedBT,
         tipo: PIPELINE_TO_TIPO[pt || pipelineType]?.[0] || 'Comprador',
         tipo_imovel: '',
         localizacao: '',

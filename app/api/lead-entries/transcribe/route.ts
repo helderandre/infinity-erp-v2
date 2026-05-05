@@ -24,6 +24,7 @@ interface ExtractedFields {
   phone: string | null
   source: string | null
   sector: string | null
+  business_type: string | null
   notes: string | null
   consultant_id: string | null
   consultant_name: string | null
@@ -41,6 +42,8 @@ const SECTORS = [
   'real_estate_buy', 'real_estate_sell', 'real_estate_rent',
   'real_estate_landlord', 'recruitment', 'credit',
 ]
+
+const BUSINESS_TYPES = ['Venda', 'Arrendamento', 'Trespasse'] as const
 
 function buildSystemPrompt(
   consultants: { id: string; name: string }[],
@@ -66,6 +69,7 @@ Devolve este formato exacto:
   "phone": string|null,                  // formato +351 9XX XXX XXX se possível
   "source": ${SOURCES.map((s) => `"${s}"`).join('|')}|null,
   "sector": ${SECTORS.map((s) => `"${s}"`).join('|')}|null,
+  "business_type": ${BUSINESS_TYPES.map((b) => `"${b}"`).join('|')}|null, // só para imobiliário
   "notes": string|null,                  // contexto, interesses, etc.
   "consultant_id": uuid|null,            // só se identificares com confiança um consultor da lista
   "consultant_name": string|null,        // o nome exacto da lista
@@ -78,6 +82,11 @@ REGRAS:
 - Se o utilizador disser "atribui à Joana" ou "é para a Mariana tratar" → faz match contra a lista de consultores abaixo (case-insensitive, primeiro nome ou nome comercial). Devolve consultant_id+consultant_name.
 - Se disser "interessado no apartamento de Cascais" ou "PROP-2024-0123" ou "no T3 da Avenida da Liberdade" → procura nos imóveis abaixo. Match por external_ref tem prioridade. Se não houver certeza, devolve só property_external_ref (texto bruto) e deixa property_id null.
 - "sector" deve ser inferido do contexto (compra/venda/arrendamento/recrutamento/crédito).
+- "business_type" (só sectores imobiliários):
+  · "Venda" — quando se fala de comprar/vender imóvel.
+  · "Arrendamento" — quando se fala de arrendar/alugar.
+  · "Trespasse" — quando se fala de trespassar negócio (café, loja, etc.).
+  · null para recrutamento/crédito/sector indefinido.
 - "source" só se mencionado explicitamente (Meta Ads, Google, walk-in, etc.). Caso contrário, null.
 
 CONSULTORES DISPONÍVEIS (nome → uuid):
@@ -152,6 +161,7 @@ export async function POST(request: Request) {
 
     let extracted: ExtractedFields = {
       name: null, email: null, phone: null, source: null, sector: null,
+      business_type: null,
       notes: text, consultant_id: null, consultant_name: null,
       property_id: null, property_external_ref: null, property_title: null,
     }
@@ -171,6 +181,9 @@ export async function POST(request: Request) {
       // Keep the textual ref (still useful for the gestora to investigate),
       // drop the unverified UUID.
       extracted.property_id = null
+    }
+    if (extracted.business_type && !(BUSINESS_TYPES as readonly string[]).includes(extracted.business_type)) {
+      extracted.business_type = null
     }
 
     return NextResponse.json({ transcription: text, extracted })

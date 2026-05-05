@@ -35,6 +35,7 @@ const bulkEntrySchema = z.object({
   notes: z.string().optional().or(z.literal('')).transform(v => v || null),
   property_external_ref: z.string().optional().or(z.literal('')).transform(v => v || null),
   sector: z.string().optional().or(z.literal('')).transform(v => v || null),
+  business_type: z.enum(['Venda', 'Arrendamento', 'Trespasse']).optional().or(z.literal('')).transform(v => v || null),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional().or(z.literal('')).transform(v => (v || 'medium') as 'low' | 'medium' | 'high' | 'urgent'),
 })
 
@@ -44,6 +45,7 @@ const bulkRequestSchema = z.object({
   default_source: z.string().optional().transform(v => v || 'csv_import'),
   default_priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   default_status: z.enum(['new', 'qualified', 'contacted', 'archived']).default('new'),
+  default_business_type: z.enum(['Venda', 'Arrendamento', 'Trespasse']).optional().or(z.literal('')).transform(v => v || null),
   file_name: z.string().optional(),
   consentimento_contacto: z.boolean().default(true),
 })
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
       default_source,
       default_priority,
       default_status,
+      default_business_type,
       file_name,
       consentimento_contacto,
     } = validation.data
@@ -162,6 +165,7 @@ export async function POST(request: Request) {
             notes: entry.notes || entry.observacoes,
             property_external_ref: entry.property_external_ref,
             sector: entry.sector,
+            business_type: entry.business_type || default_business_type,
             sla_status: 'pending',
             import_batch_id: batchId,
           })

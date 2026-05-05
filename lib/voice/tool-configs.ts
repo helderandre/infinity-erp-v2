@@ -404,6 +404,7 @@ const createLead: ToolConfig = {
         { value: 'Venda', label: 'Venda' },
         { value: 'Arrendatário', label: 'Arrendatário' },
         { value: 'Arrendador', label: 'Arrendador' },
+        { value: 'Trespasse', label: 'Trespasse' },
       ],
     },
     { key: 'tipo_imovel', label: 'Tipo imóvel' },
@@ -505,7 +506,8 @@ const createLead: ToolConfig = {
           if (args.orcamento_max !== undefined && args.orcamento_max !== '') {
             negocioPayload.orcamento_max = Number(args.orcamento_max)
           }
-        } else if (tipo === 'Venda') {
+        } else if (tipo === 'Venda' || tipo === 'Trespasse') {
+          // Trespasse partilha o modelo de preço único da Venda.
           negocioPayload.preco_venda = v
         } else if (tipo === 'Arrendatário') {
           negocioPayload.renda_max_mensal = v

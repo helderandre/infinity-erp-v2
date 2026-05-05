@@ -88,8 +88,8 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
         // Negócio (opcional — inclui apenas se o utilizador referir intenção de negócio)
         negocio_tipo: {
           type: 'string',
-          enum: ['Compra', 'Venda', 'Arrendatário', 'Arrendador'],
-          description: 'Tipo de negócio, se aplicável. "Compra"=comprador, "Venda"=vendedor, "Arrendatário"=quer arrendar, "Arrendador"=senhorio.',
+          enum: ['Compra', 'Venda', 'Arrendatário', 'Arrendador', 'Trespasse'],
+          description: 'Tipo de negócio, se aplicável. "Compra"=comprador, "Venda"=vendedor, "Arrendatário"=quer arrendar, "Arrendador"=senhorio, "Trespasse"=trespassar/comprar trespasse de negócio (café, loja, etc.).',
         },
         tipo_imovel: {
           type: 'string',
@@ -183,9 +183,9 @@ export const VOICE_TOOLS: ChatCompletionTool[] = [
           },
           tipo: {
             type: 'string',
-            enum: ['Compra', 'Venda', 'Arrendatário', 'Arrendador'],
+            enum: ['Compra', 'Venda', 'Arrendatário', 'Arrendador', 'Trespasse'],
             description:
-              'Tipo de negócio. "Compra"=quer comprar, "Venda"=quer vender, "Arrendatário"=quer arrendar, "Arrendador"=senhorio.',
+              'Tipo de negócio. "Compra"=quer comprar, "Venda"=quer vender, "Arrendatário"=quer arrendar, "Arrendador"=senhorio, "Trespasse"=trespassar/adquirir trespasse de negócio.',
           },
           tipo_imovel: {
             type: 'string',

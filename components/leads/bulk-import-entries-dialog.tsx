@@ -44,6 +44,7 @@ interface ParsedEntry {
   utm_medium: string
   utm_campaign: string
   priority: string
+  business_type: string
 }
 
 interface ImportResult {
@@ -67,6 +68,7 @@ const ENTRY_FIELDS = [
   { key: 'utm_medium', label: 'UTM Medium', required: false },
   { key: 'utm_campaign', label: 'UTM Campaign', required: false },
   { key: 'priority', label: 'Prioridade', required: false },
+  { key: 'business_type', label: 'Tipo de Negócio', required: false },
 ] as const
 
 export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: BulkImportEntriesDialogProps) {
@@ -85,6 +87,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
   const [consultantId, setConsultantId] = useState('')
   const [defaultSource, setDefaultSource] = useState('csv_import')
   const [defaultPriority, setDefaultPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium')
+  const [defaultBusinessType, setDefaultBusinessType] = useState<'' | 'Venda' | 'Arrendamento' | 'Trespasse'>('')
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [results, setResults] = useState<ImportResult[]>([])
 
@@ -113,6 +116,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
       setConsultantId('')
       setDefaultSource('csv_import')
       setDefaultPriority('medium')
+      setDefaultBusinessType('')
       setResults([])
       setFileName('')
     }
@@ -161,6 +165,11 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
             if (f.key === 'utm_medium' && n === 'utm_medium') return true
             if (f.key === 'utm_campaign' && n === 'utm_campaign') return true
             if (f.key === 'priority' && (n.includes('prioridade') || n.includes('priority'))) return true
+            if (f.key === 'business_type' && (
+              n.includes('tipo de negocio') || n.includes('tipo negocio') ||
+              n.includes('business_type') || n.includes('business type') ||
+              n === 'tipo' || n === 'negocio'
+            )) return true
             return false
           })
           if (match >= 0) auto[f.key] = headers[match]
@@ -186,6 +195,13 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
         const idx = csvHeaders.indexOf(header)
         return idx >= 0 ? (row[idx] || '').trim() : ''
       }
+      // Normalise business_type CSV value into {Venda|Arrendamento|Trespasse|''}.
+      const rawBT = getVal('business_type').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      let businessType = ''
+      if (rawBT.includes('venda') || rawBT.includes('compra')) businessType = 'Venda'
+      else if (rawBT.includes('arrend') || rawBT.includes('aluguer') || rawBT.includes('aluga')) businessType = 'Arrendamento'
+      else if (rawBT.includes('trespasse') || rawBT.includes('trespass')) businessType = 'Trespasse'
+
       return {
         nome: getVal('nome'),
         email: getVal('email'),
@@ -198,6 +214,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
         utm_medium: getVal('utm_medium'),
         utm_campaign: getVal('utm_campaign'),
         priority: getVal('priority'),
+        business_type: businessType,
       }
     }).filter(e => e.nome)
     setEntries(mapped)
@@ -220,6 +237,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
           assigned_consultant_id: consultantId || undefined,
           default_source: defaultSource || undefined,
           default_priority: defaultPriority,
+          default_business_type: defaultBusinessType || undefined,
           file_name: fileName || undefined,
         }),
       })
@@ -242,7 +260,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
     } finally {
       setImporting(false)
     }
-  }, [entries, consultantId, defaultSource, defaultPriority, fileName])
+  }, [entries, consultantId, defaultSource, defaultPriority, defaultBusinessType, fileName])
 
   const successCount = results.filter(r => r.entry_id).length
   const errCount = results.filter(r => r.error).length
@@ -299,7 +317,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
             <div className="rounded-xl border bg-muted/20 p-4">
               <p className="text-xs font-medium mb-2">Colunas suportadas</p>
               <code className="text-[11px] text-muted-foreground block leading-relaxed">
-                Nome,Email,Telemóvel,Source,UTM Source,UTM Medium,UTM Campaign,Notas,Ref. imóvel,Prioridade
+                Nome,Email,Telemóvel,Source,UTM Source,UTM Medium,UTM Campaign,Notas,Ref. imóvel,Prioridade,Tipo de Negócio
               </code>
             </div>
           </div>
@@ -341,7 +359,7 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
 
         {step === 'preview' && (
           <div className="flex-1 overflow-hidden flex flex-col space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-medium mb-1.5 block">Consultor (todos)</Label>
                 <Select value={consultantId} onValueChange={setConsultantId}>
@@ -376,6 +394,23 @@ export function BulkImportEntriesDialog({ open, onOpenChange, onComplete }: Bulk
                     <SelectItem value="medium">Média</SelectItem>
                     <SelectItem value="high">Alta</SelectItem>
                     <SelectItem value="urgent">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">Tipo de Negócio padrão</Label>
+                <Select
+                  value={defaultBusinessType || '_none'}
+                  onValueChange={(v) => setDefaultBusinessType((v === '_none' ? '' : v) as typeof defaultBusinessType)}
+                >
+                  <SelectTrigger className="rounded-xl text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Não definir —</SelectItem>
+                    <SelectItem value="Venda">Venda</SelectItem>
+                    <SelectItem value="Arrendamento">Arrendamento</SelectItem>
+                    <SelectItem value="Trespasse">Trespasse</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
