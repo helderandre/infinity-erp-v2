@@ -238,10 +238,16 @@ function LeadsPageContent() {
         </span>
       )
     }
-    const dotColor = ESTADO_COLORS[estado] || 'bg-slate-400'
+    // Linear/Notion-style chip: bg tinted (~15%) com texto e dot na cor
+    // sólida do estado. Saturado o suficiente para dar identidade sem
+    // espalhar cor pela row inteira.
+    const hex = ESTADO_HEX[estado] || DEFAULT_ESTADO_HEX
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] font-medium shrink-0">
-        <span className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium shrink-0"
+        style={{ backgroundColor: `${hex}26`, color: hex }}
+      >
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: hex }} />
         {estado}
       </span>
     )
@@ -468,10 +474,11 @@ function LeadsPageContent() {
           })}
         </div>
       ) : (
-        /* Table view — pipeline-style: rounded-3xl wrapper, tinted header,
-           inset estado-colour left bar per row, and a pastel gradient that
-           fades across the first 4 cells (Nome → Estado → Temperatura →
-           Qualif.) using the row's estado colour. */
+        /* Table view — Linear/Notion-style minimal: rounded-3xl wrapper,
+           tinted header, inset estado-colour left bar (3px) per row, e
+           hover discreto da row tintado pelo estado (~6%). Cor concentrada
+           só na barra esquerda + chip do estado, em vez de espalhada pela
+           row via gradient (versão anterior). */
         <div className="rounded-3xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead className="bg-muted/40">
@@ -496,36 +503,26 @@ function LeadsPageContent() {
                 return (
                   <tr
                     key={lead.id}
-                    className="border-b border-border/30 cursor-pointer hover:bg-muted/30 transition-colors"
+                    className="border-b border-border/30 cursor-pointer transition-colors hover:bg-[var(--row-hover)]"
                     onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
-                    style={{ boxShadow: `inset 3px 0 0 0 ${estadoHex}` }}
+                    style={{
+                      boxShadow: `inset 3px 0 0 0 ${estadoHex}`,
+                      // Tailwind arbitrary value lê esta variável no hover
+                      // — assim cada row tem o seu próprio tint subtil sem
+                      // precisarmos de classes geradas dinamicamente.
+                      ['--row-hover' as never]: `${estadoHex}10`,
+                    }}
                   >
-                    <td
-                      className="px-5 py-3 font-medium"
-                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}33, ${estadoHex}28)` }}
-                    >
-                      {lead.nome}
-                    </td>
-                    <td
-                      className="px-4 py-3"
-                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}28, ${estadoHex}1a)` }}
-                    >
-                      {renderEstadoBadge(lead.estado)}
-                    </td>
-                    <td
-                      className="px-4 py-3"
-                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}1a, ${estadoHex}0d)` }}
-                    >
+                    <td className="px-5 py-3 font-medium">{lead.nome}</td>
+                    <td className="px-4 py-3">{renderEstadoBadge(lead.estado)}</td>
+                    <td className="px-4 py-3">
                       {tempInfo ? (
                         <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', tempInfo.class)}>
                           {tempInfo.emoji} {tempInfo.label}
                         </span>
                       ) : '—'}
                     </td>
-                    <td
-                      className="px-4 py-3"
-                      style={{ backgroundImage: `linear-gradient(to right, ${estadoHex}0d, transparent)` }}
-                    >
+                    <td className="px-4 py-3">
                       <div className="flex gap-1">
                         {qualifs?.map((t) => (
                           <span key={t.label} className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold', t.class)}>
