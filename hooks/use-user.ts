@@ -148,6 +148,26 @@ async function doFetchUser(): Promise<UserWithRole | null> {
     })
   }
 
+  // Camada de overrides per-user — RLS permite self-read.
+  try {
+    const { data: overrides } = await supabase
+      .from('user_permission_overrides')
+      .select('module, mode, expires_at')
+      .eq('user_id', authUser.id)
+    const nowMs = Date.now()
+    for (const o of (overrides || []) as Array<{
+      module: string
+      mode: 'grant' | 'deny'
+      expires_at: string | null
+    }>) {
+      if (o.expires_at && new Date(o.expires_at).getTime() <= nowMs) continue
+      if (o.mode === 'grant') mergedPermissions[o.module] = true
+      else if (o.mode === 'deny') mergedPermissions[o.module] = false
+    }
+  } catch {
+    // Ignora — overrides são opcionais.
+  }
+
   const baseRole = userData.user_roles?.[0]?.role || null
   const combinedRole = baseRole
     ? { ...baseRole, permissions: mergedPermissions }

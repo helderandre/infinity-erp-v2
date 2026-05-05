@@ -77,7 +77,7 @@ export async function requireAuth(): Promise<AuthResult | AuthError> {
     .map((ur: any) => ur.role?.name)
     .filter(Boolean) as string[]
 
-  // Merge de permissões (OR lógico)
+  // Merge de permissões (OR lógico) + overrides aplicados por cima
   const isAdmin = userRoles.some((r) =>
     ['admin', 'Broker/CEO'].includes(r)
   )
@@ -96,11 +96,50 @@ export async function requireAuth(): Promise<AuthResult | AuthError> {
     })
   }
 
+  // Camada de overrides per-user (grant/deny). Sobrepõe-se ao merge dos roles
+  // — incluindo o auto-grant de admin/Broker/CEO. Use admin client para
+  // ignorar RLS (o helper precisa de ler overrides do utilizador autenticado
+  // mesmo quando a policy não permite, porque correu como service-role agent
+  // por outras vias).
+  await applyOverrides(user.id, mergedPermissions)
+
   return {
     authorized: true,
     user: { id: user.id, email: user.email },
     roles: userRoles,
     permissions: mergedPermissions,
+  }
+}
+
+/**
+ * Lê overrides activos (não expirados) e mutates `permissions` em-place
+ * aplicando grant/deny. Erros são silenciados — overrides são opcionais e
+ * não devem partir o merge dos roles. Usa admin client porque `requireAuth`
+ * pode correr em contextos onde a policy de leitura self-read não basta.
+ */
+async function applyOverrides(
+  userId: string,
+  permissions: Record<string, boolean>
+): Promise<void> {
+  try {
+    const admin = createAdminClient() as any
+    const { data: overrides } = await admin
+      .from('user_permission_overrides')
+      .select('module, mode, expires_at')
+      .eq('user_id', userId)
+
+    const nowMs = Date.now()
+    for (const o of (overrides || []) as Array<{
+      module: string
+      mode: 'grant' | 'deny'
+      expires_at: string | null
+    }>) {
+      if (o.expires_at && new Date(o.expires_at).getTime() <= nowMs) continue
+      if (o.mode === 'grant') permissions[o.module] = true
+      else if (o.mode === 'deny') permissions[o.module] = false
+    }
+  } catch (err) {
+    console.error('[applyOverrides] failed:', err)
   }
 }
 
@@ -147,6 +186,8 @@ async function loadDevUserAuth(userId: string): Promise<AuthResult | null> {
         }
       })
     }
+
+    await applyOverrides(userId, mergedPermissions)
 
     return {
       authorized: true,

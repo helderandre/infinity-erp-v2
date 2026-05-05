@@ -315,12 +315,20 @@ function DefinicoesPageInner() {
 
         {/* ═══ Roles Tab ═══ */}
         <TabsContent value="roles" className="mt-6 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted-foreground">Gestão de roles e permissões dos utilizadores.</p>
-            <Button className="rounded-full" onClick={() => { setEditingRole(null); setDialogOpen(true) }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Role
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="rounded-full" asChild>
+                <a href="/dashboard/definicoes/utilizadores">
+                  <Users className="mr-2 h-4 w-4" />
+                  Gerir Utilizadores
+                </a>
+              </Button>
+              <Button className="rounded-full" onClick={() => { setEditingRole(null); setDialogOpen(true) }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Role
+              </Button>
+            </div>
           </div>
 
           <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">

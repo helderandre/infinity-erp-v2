@@ -1689,6 +1689,7 @@ export const PERMISSION_MODULES: { key: string; label: string; group: string }[]
   { key: 'users', label: 'Utilizadores', group: 'Pessoas' },
   { key: 'buyers', label: 'Compradores', group: 'Pessoas' },
   { key: 'recruitment', label: 'Recrutamento', group: 'Pessoas' },
+  { key: 'leads_management', label: 'Gestão de Leads', group: 'Pessoas' },
   // Negócio
   { key: 'pipeline', label: 'Pipeline', group: 'Negócio' },
   { key: 'commissions', label: 'Comissões', group: 'Negócio' },
