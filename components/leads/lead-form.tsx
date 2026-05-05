@@ -50,6 +50,7 @@ interface LeadFormProps {
 
 const LEAD_ORIGENS_OPTIONS = [
   'Website', 'Meta Ads', 'Google Ads', 'Landing Page', 'Referência',
+  'Círculo de Influência (CDI)',
   'Presencial', 'Chamada', 'Redes Sociais', 'Parceiro', 'Outro',
 ]
 
@@ -543,7 +544,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
                 </SelectContent>
               </Select>
             </div>
-            <NegocioZonasField value={negocioZonas} onChange={setNegocioZonas} />
+            <NegocioZonasField value={negocioZonas} onChange={setNegocioZonas} tipo={negocioTipo} />
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-[11px] text-muted-foreground font-medium">{isBuyer ? 'Quartos mín.' : 'Quartos'}</Label>
