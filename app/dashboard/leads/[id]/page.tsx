@@ -467,22 +467,9 @@ export default function LeadDetailPage() {
         if (tab === 'agenda') loadNegocios()
       }}
     >
-    {/* Mobile-only header row: Voltar (left) + 5-button cluster (right). */}
-    <div className="lg:hidden flex items-center mb-3">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9 rounded-2xl text-muted-foreground hover:text-foreground"
-        onClick={goBack}
-        aria-label="Voltar"
-        title="Voltar"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </Button>
-      <div className="ml-auto flex items-center gap-1.5">
-        {contextActionsCluster}
-      </div>
-    </div>
+    {/* Em mobile o header (Voltar + cluster) foi movido para dentro
+        do aside (no topo), por cima do Card 1 — fica integrado no
+        glass panel. Desktop continua a render o cluster nas tabs row. */}
     <div
       className={cn(
         // Mobile: horizontal snap carousel, one card at a time. The pt-2 prevents
@@ -505,7 +492,7 @@ export default function LeadDetailPage() {
           // generoso para aspecto iOS widget.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2rem] ring-1 ring-border/30',
-          'bg-gradient-to-br from-neutral-400 via-neutral-300 to-neutral-400',
+          'bg-gradient-to-br from-neutral-300 via-neutral-200 to-neutral-300',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
@@ -521,25 +508,33 @@ export default function LeadDetailPage() {
           aria-hidden
           className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2rem]"
         >
-          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-600/40 dark:bg-neutral-700/55 blur-3xl" />
-          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-500/35 dark:bg-neutral-700/45 blur-3xl" />
-          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-300/40 dark:bg-neutral-800/55 blur-3xl" />
-          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-600/35 dark:bg-neutral-700/50 blur-3xl" />
-          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-400/40 dark:bg-neutral-800/55 blur-3xl" />
-          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-600/40 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-500/40 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/45 blur-3xl" />
+          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-200/45 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-500/35 dark:bg-neutral-700/50 blur-3xl" />
+          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-300/40 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-500/40 dark:bg-neutral-700/55 blur-3xl" />
         </div>
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
-          {/* Voltar — desktop only (mobile renders it on the header row above) */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hidden lg:inline-flex -ml-1 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-            onClick={goBack}
-            aria-label="Voltar"
-            title="Voltar"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {/* Top header — Voltar (left) + 4-button cluster (right).
+              Em mobile vive aqui dentro do aside glass (ficou no topo
+              do gray panel). Em desktop só Voltar é visível — o cluster
+              é render na tabs row do desktop. */}
+          <div className="flex items-center lg:mb-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-ml-1 h-9 w-9 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-white/40 dark:hover:bg-white/10"
+              onClick={goBack}
+              aria-label="Voltar"
+              title="Voltar"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="ml-auto flex items-center gap-1.5 lg:hidden">
+              {contextActionsCluster}
+            </div>
+          </div>
 
           {/* ─── Card 1: identidade + estado/temperatura ──────────────
               Mobile: frosted glass card (translúcido + backdrop-blur)
