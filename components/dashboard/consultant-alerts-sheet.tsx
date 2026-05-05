@@ -76,7 +76,7 @@ const EXPORT_TYPE_LABELS: Record<string, string> = {
 
 const loginChartConfig = {
   count: {
-    label: 'Logins',
+    label: 'Acessos',
     color: 'var(--chart-1)',
   },
 } satisfies ChartConfig
@@ -323,11 +323,11 @@ export function ConsultantAlertsSheet({ consultant, open, onOpenChange, onAcknow
                       <LogIn className={cn('h-4 w-4', severityTokens(consultant.logins.severity).icon)} />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Último login</p>
+                      <p className="text-sm font-medium text-foreground">Última actividade</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {consultant.logins.last_at
                           ? `${fmtDateTime(consultant.logins.last_at)} · há ${consultant.logins.days_since} dia${consultant.logins.days_since === 1 ? '' : 's'}`
-                          : 'Nunca fez login'}
+                          : 'Sem actividade registada'}
                       </p>
                     </div>
                   </div>

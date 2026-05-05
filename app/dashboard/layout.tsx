@@ -61,6 +61,10 @@ const EmailComposerPopup = dynamic(
   () => import('@/components/email/composer/composer-popup').then((m) => m.EmailComposerPopup),
   { ssr: false }
 )
+const ActivityRecorder = dynamic(
+  () => import('@/components/layout/activity-recorder').then((m) => m.ActivityRecorder),
+  { ssr: false }
+)
 
 /** Rotas que usam layout full-bleed (altura fixa 100vh, sem padding no main) */
 const FULL_BLEED_ROUTES = [
@@ -203,6 +207,7 @@ export default function DashboardLayout({
         <MobileBottomNav />
         <AiBatchNotification />
         <AiVoiceAssistant />
+        <ActivityRecorder />
       </SidebarProvider>
       <EmailComposerPopup />
       </EmailComposerProvider>
