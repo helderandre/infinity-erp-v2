@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { useInternalChat } from '@/hooks/use-internal-chat'
 import { useInternalChatPresence } from '@/hooks/use-internal-chat-presence'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { ChatAttachmentPreview } from '@/components/chat/chat-attachment-preview'
 import { ChatMessageItem } from '@/components/processes/chat-message'
 import { VoiceRecorder } from '@/components/processes/voice-recorder'
 import { InternalForwardDialog } from '@/components/comunicacao/internal-forward-dialog'
@@ -595,16 +596,18 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             </div>
           )}
 
+          {/* Imagens mostram thumbnail 80×80; outros tipos mostram chip
+              horizontal. Durante o submit aparece spinner por cima e o
+              X de remover desaparece. */}
           {!isRecording && !editingMessage && attachments.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {attachments.map((file, i) => (
-                <div key={i} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs bg-muted/50">
-                  <Paperclip className="h-3 w-3 text-muted-foreground" />
-                  <span className="truncate max-w-[140px]">{file.name}</span>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}>
-                    <X className="h-2.5 w-2.5" />
-                  </Button>
-                </div>
+                <ChatAttachmentPreview
+                  key={`${file.name}-${i}`}
+                  file={file}
+                  isUploading={isSubmitting}
+                  onRemove={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                />
               ))}
             </div>
           )}

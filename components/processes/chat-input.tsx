@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { VoiceRecorder } from './voice-recorder'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { ChatAttachmentPreview } from '@/components/chat/chat-attachment-preview'
 import type { ChatMention, ChatMessage } from '@/types/process'
 
 interface ChatInputProps {
@@ -332,17 +333,18 @@ export function ChatInput({
       )}
 
       {/* Attachment previews — escondidos em edit mode (não suportamos
-          alterar anexos durante edição). */}
+          alterar anexos durante edição). Imagens mostram thumbnail
+          80×80; outros tipos mostram chip horizontal. Durante o submit
+          aparece spinner por cima e o X de remover desaparece. */}
       {!isRecording && !editingMessage && attachments.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {attachments.map((file, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs bg-muted/50">
-              <Paperclip className="h-3 w-3 text-muted-foreground" />
-              <span className="truncate max-w-[140px]">{file.name}</span>
-              <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}>
-                <X className="h-2.5 w-2.5" />
-              </Button>
-            </div>
+            <ChatAttachmentPreview
+              key={`${file.name}-${i}`}
+              file={file}
+              isUploading={isSubmitting}
+              onRemove={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+            />
           ))}
         </div>
       )}
