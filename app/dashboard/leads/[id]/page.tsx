@@ -499,30 +499,33 @@ export default function LeadDetailPage() {
       <aside
         className={cn(
           'relative',
-          // Mobile: carousel pane com gradient neutro (sem cor) + cards
-          // glassmorphism com backdrop-blur forte. O gradient dá
-          // variação tonal para os cards translúcidos terem algo para
-          // "apanhar" via blur — sensação de vidro real em vez de
-          // branco-em-cinzento plano.
+          // Mobile: carousel pane com gradient mais variado + várias
+          // blobs neutras de tamanhos diferentes. O glass dos cards
+          // por cima precisa de "matéria" tonal para apanhar via
+          // backdrop-blur — sem isso o look fica platinum/uniforme em
+          // vez de vidro fosco real.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-3xl ring-1 ring-border/30',
-          'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
-          'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
+          'bg-gradient-to-br from-neutral-300 via-neutral-100 to-neutral-200',
+          'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-950 dark:to-neutral-900',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
           'lg:rounded-none lg:ring-0 lg:bg-none lg:dark:bg-none lg:border-r lg:border-border/40',
         )}
       >
-        {/* Neutral mesh accents — 2 "blobs" cinzentas em cantos opostos
-            para dar variação tonal mais forte (acentua o efeito glass
-            quando o backdrop-blur dos cards passa por cima). Sem cor. */}
+        {/* Mesh blobs — 4 "ilhas" neutras de tamanhos e posições
+            diferentes para criar irregularidade tonal forte. O blur
+            dos cards por cima vai apanhar valores diferentes em
+            zonas diferentes — efeito glass real (não platinum). */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-3xl"
         >
-          <div className="absolute -top-20 -left-20 h-56 w-56 rounded-full bg-neutral-400/30 dark:bg-neutral-700/40 blur-3xl" />
-          <div className="absolute -bottom-24 -right-20 h-64 w-64 rounded-full bg-neutral-500/25 dark:bg-neutral-700/30 blur-3xl" />
+          <div className="absolute -top-24 -left-16 h-64 w-64 rounded-full bg-neutral-500/35 dark:bg-neutral-700/50 blur-3xl" />
+          <div className="absolute top-1/4 -right-24 h-72 w-72 rounded-full bg-neutral-400/25 dark:bg-neutral-700/40 blur-3xl" />
+          <div className="absolute top-2/3 -left-24 h-72 w-72 rounded-full bg-neutral-300/30 dark:bg-neutral-800/50 blur-3xl" />
+          <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-neutral-500/30 dark:bg-neutral-700/45 blur-3xl" />
         </div>
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
           {/* Voltar — desktop only (mobile renders it on the header row above) */}
@@ -542,7 +545,7 @@ export default function LeadDetailPage() {
               que apanha o gradient + blobs do aside atrás, dando
               profundidade. Desktop: tudo neutralizado (sub-elementos
               do sidebar unificado). */}
-          <div className="rounded-2xl bg-white/45 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08),0_1px_3px_-1px_rgb(0_0_0_/_0.05)] p-4 space-y-4 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0">
+          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-4 space-y-4 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0">
           {/* Identity — name + subtitle */}
           <div className="flex flex-col items-center text-center gap-1.5 pt-2 lg:pt-0">
             <h2 className="text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
@@ -635,7 +638,7 @@ export default function LeadDetailPage() {
 
           {/* ─── Card 2: contact action buttons + quick action buttons ──
               Mobile: frosted glass. Desktop: transparente. */}
-          <div className="rounded-2xl bg-white/45 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08),0_1px_3px_-1px_rgb(0_0_0_/_0.05)] p-3 space-y-2 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0 lg:space-y-5">
+          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0 lg:space-y-5">
           {/* Action buttons — glass-gray container with white icon-only buttons */}
           <div className="rounded-2xl bg-muted/40 p-1.5 grid grid-cols-4 gap-1.5 lg:rounded-3xl lg:bg-muted/50 lg:supports-[backdrop-filter]:bg-muted/40 lg:backdrop-blur-md">
             {lead.telemovel ? (
@@ -741,7 +744,7 @@ export default function LeadDetailPage() {
 
           {/* ─── Card 3: contact info (Telemóvel/Email/Consultor) ──── */}
           {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
-            <div className="rounded-2xl bg-white/45 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08),0_1px_3px_-1px_rgb(0_0_0_/_0.05)] p-3 space-y-2.5 lg:bg-background/40 lg:backdrop-blur-sm lg:border lg:border-border/40 lg:shadow-none">
+            <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2.5 lg:bg-background/40 lg:backdrop-blur-sm lg:border lg:border-border/40 lg:shadow-none">
               <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
               {lead.telemovel && (
                 <div className="flex items-center justify-between gap-2 text-sm">
