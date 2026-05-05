@@ -4,7 +4,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { isToday, parseISO } from 'date-fns'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { CheckSquare, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil, LayoutGrid } from 'lucide-react'
+import { CheckSquare, Workflow, ListChecks, Plus, Hash, Users, UserPlus, MoreHorizontal, Trash2, Pencil, LayoutGrid, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -113,7 +113,7 @@ function TarefasPageInner() {
     { enabled: !!listId },
   )
   const { list, refetch: refetchList } = useTaskList(listId)
-  const { update: updateList, remove: removeList } = useTaskListMutations()
+  const { update: updateList, remove: removeList, removeMember } = useTaskListMutations()
 
   // Lista de candidatos para o selector "Atribuir a" no formulário de nova
   // tarefa. Gestão pode atribuir a qualquer consultor; consultor só pode
@@ -445,6 +445,12 @@ function TarefasPageInner() {
                 toast.success('Lista eliminada')
                 router.push('/dashboard/tarefas')
               }}
+              onLeave={user?.id ? async () => {
+                await removeMember(list.id, user.id)
+                toast.success('Saíste da lista')
+                refetchAllLists()
+                router.push('/dashboard/tarefas')
+              } : undefined}
             />
           )}
         </div>
@@ -830,6 +836,7 @@ function ListInlineActions({
   onRenamed,
   onColorChanged,
   onDeleted,
+  onLeave,
 }: {
   list: {
     id: string
@@ -842,9 +849,11 @@ function ListInlineActions({
   onRenamed: (name: string) => Promise<void>
   onColorChanged: (color: string) => Promise<void>
   onDeleted: () => Promise<void>
+  onLeave?: () => Promise<void>
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
   const [name, setName] = useState(list.name)
   const avatars = (list.members || []).slice(0, 3)
   const memberCount = list.members?.length ?? 0
@@ -877,6 +886,19 @@ function ListInlineActions({
             </div>
           )}
         </div>
+      )}
+
+      {/* Member-only action: leave the list */}
+      {!list.is_owner && onLeave && (
+        <button
+          type="button"
+          onClick={() => setLeaveOpen(true)}
+          className="inline-flex items-center justify-center size-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          title="Sair da lista"
+          aria-label="Sair da lista"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       )}
 
       {/* Owner-only actions */}
@@ -976,6 +998,30 @@ function ListInlineActions({
               onClick={async () => { await onDeleted() }}
             >
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair da lista</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deixas de ver as tarefas de "{list.name}". O criador pode voltar a adicionar-te depois.
+              As tuas tarefas pessoais não são afectadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                try { if (onLeave) await onLeave() }
+                catch (err) { toast.error(err instanceof Error ? err.message : 'Erro ao sair') }
+              }}
+            >
+              Sair
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
