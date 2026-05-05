@@ -810,11 +810,19 @@ export default function LeadDetailPage() {
 
             {/* Negocios Tab */}
             <TabsContent value="negocios" className="mt-0 space-y-4">
-              <div className="flex items-center justify-end">
-                <Button size="sm" onClick={() => setNewNegocioOpen(true)} className="rounded-full">
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {/* Pill style consistente com "Nova nota" (Stone) e "Perfil
+                  do cliente" (Indigo) — agora a "Nova Oportunidade" usa
+                  Emerald. Centrado em todos os ecrãs. */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setNewNegocioOpen(true)}
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-emerald-700/25 bg-emerald-700/8 backdrop-blur-sm px-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-700/12 transition-colors shadow-sm"
+                  title="Criar nova oportunidade"
+                >
+                  <Plus className="h-3.5 w-3.5" />
                   Nova Oportunidade
-                </Button>
+                </button>
               </div>
 
               {negociosLoading ? (
@@ -827,9 +835,13 @@ export default function LeadDetailPage() {
                     <Briefcase className="h-7 w-7 text-muted-foreground/30" />
                   </div>
                   <p className="text-muted-foreground text-sm">Nenhuma oportunidade associada</p>
-                  <Button size="sm" className="mt-3 rounded-full" onClick={() => setNewNegocioOpen(true)}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Criar Oportunidade
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setNewNegocioOpen(true)}
+                    className="group inline-flex items-center gap-2 h-8 mt-3 rounded-full border border-emerald-700/25 bg-emerald-700/8 backdrop-blur-sm px-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-700/12 transition-colors shadow-sm"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Criar Oportunidade
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -976,8 +988,8 @@ export default function LeadDetailPage() {
 
             {/* Histórico Tab — passive record: entradas + anexos */}
             <TabsContent value="historico" className="mt-0 space-y-4">
-              {/* Subtabs */}
-              <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit border border-border/30">
+              {/* Subtabs — centrado com mx-auto. */}
+              <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit mx-auto border border-border/30">
                 {([
                   { key: 'atividade' as const, label: 'Atividade', count: activities.length },
                   { key: 'entradas' as const, label: 'Entradas', count: entries.length },

@@ -30,7 +30,7 @@ export function LeadAgendaTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit border border-border/30">
+      <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit mx-auto border border-border/30">
         {([
           { key: 'calendario' as const, label: 'Calendário', Icon: CalendarIcon },
           { key: 'tarefas' as const, label: 'Tarefas', Icon: ListTodo },
