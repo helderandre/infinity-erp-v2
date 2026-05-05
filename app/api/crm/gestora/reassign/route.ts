@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createCrmAdminClient } from "@/lib/supabase/admin-untyped"
-import { createClient } from "@/lib/supabase/server"
+import { requirePermission } from "@/lib/auth/permissions"
 import { sendPushToUser } from "@/lib/crm/send-push"
 import { z } from "zod"
 
@@ -25,9 +25,8 @@ const pullOverdueSchema = z.object({
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await requirePermission('leads_management')
+    if (!auth.authorized) return auth.response
 
     const body = await req.json()
     const db = createCrmAdminClient()
@@ -63,9 +62,9 @@ export async function POST(req: NextRequest) {
           metadata: {
             entry_id: e.id,
             new_agent_id: target_agent_id,
-            reassigned_by: user.id,
+            reassigned_by: auth.user.id,
           },
-          created_by: user.id,
+          created_by: auth.user.id,
         }))
         await db.from("leads_activities").insert(activities)
       }
@@ -143,10 +142,10 @@ export async function POST(req: NextRequest) {
           entry_id: e.id,
           from_agent_id: agent_id,
           new_agent_id: target_agent_id ?? null,
-          reassigned_by: user.id,
+          reassigned_by: auth.user.id,
           reason: "overdue_pull",
         },
-        created_by: user.id,
+        created_by: auth.user.id,
       }))
       await db.from("leads_activities").insert(activities)
 

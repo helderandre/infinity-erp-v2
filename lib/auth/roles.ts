@@ -24,6 +24,7 @@ export const MANAGEMENT_ROLES = [
   'Gestor Processual',
   'Office Manager',
   'Team Leader',
+  'Gestora de Leads',
 ] as const
 
 /** Helper case-insensitive para detectar se o utilizador é gestão. */
@@ -147,7 +148,7 @@ export const ALL_PERMISSION_MODULES = [
   'consultants', 'owners', 'teams', 'commissions', 'marketing',
   'templates', 'settings', 'goals', 'store', 'users', 'buyers',
   'credit', 'calendar', 'pipeline', 'financial', 'integration', 'recruitment',
-  'training',
+  'training', 'leads_management',
 ] as const
 
 /** Todos os agrupamentos disponíveis (para referência) */

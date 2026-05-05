@@ -74,10 +74,10 @@ export const bottomItems = [
 export const crmItems = [
   { title: 'Oportunidades', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
-  // Gestão de Leads: triagem do inbox + métricas de SLA — só faz sentido para
-  // gestão (Office Manager / Broker / etc.), apesar do `pipeline` ser dado ao
-  // Consultor. `managementOnly: true` é o gate efectivo.
-  { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'pipeline', managementOnly: true },
+  // Gestão de Leads: triagem do inbox + métricas de SLA. Gated pela permissão
+  // `leads_management`, que vem do role "Gestora de Leads" (M:N — pode ser
+  // acumulado com Consultor). Admin/Broker/CEO recebem auto via merge.
+  { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'leads_management' },
   // Automatismos: configuração de eventos custom + cascatas de templates;
   // operacional para gestão, ruído para o consultor (que ainda assim consome
   // os automatismos via leads próprias).

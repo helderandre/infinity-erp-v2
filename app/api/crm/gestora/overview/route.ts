@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createCrmAdminClient } from "@/lib/supabase/admin-untyped"
-import { createClient } from "@/lib/supabase/server"
+import { requirePermission } from "@/lib/auth/permissions"
 
 /**
  * GET /api/crm/gestora/overview
@@ -8,9 +8,8 @@ import { createClient } from "@/lib/supabase/server"
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await requirePermission('leads_management')
+    if (!auth.authorized) return auth.response
 
     const db = createCrmAdminClient()
     const { searchParams } = req.nextUrl
