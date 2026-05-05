@@ -491,13 +491,11 @@ export default function LeadDetailPage() {
           // Mobile: full-width snap card no carousel
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2.25rem] ring-1 ring-border/30',
-          // Profile pane mantém tom mais saturado em mobile para dar
-          // identidade (é o "main card"). Em desktop fica mais claro
-          // — o glass continua, mas com menos peso (cliente pediu).
+          // Mobile: gradient + blobs forte (identidade glassmorphic).
+          // Desktop: flat gray normal (cliente quer menos glass em PC).
           'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
-          'lg:bg-gradient-to-br lg:from-neutral-100 lg:via-neutral-50 lg:to-neutral-100',
-          'lg:dark:bg-gradient-to-br lg:dark:from-neutral-900 lg:dark:via-neutral-950 lg:dark:to-neutral-900',
+          'lg:bg-none lg:bg-neutral-100 lg:dark:bg-neutral-900',
           // Desktop: largura fixa ~340px — compacta mas com espaço
           // suficiente para a Notas section (Card 4) que vive no
           // bottom desta aside; height natural (não estica para
@@ -510,7 +508,7 @@ export default function LeadDetailPage() {
             que a aside é uma standalone card. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2.25rem] lg:opacity-50"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2.25rem] lg:hidden"
         >
           <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
           <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
@@ -523,8 +521,10 @@ export default function LeadDetailPage() {
           {/* Top header — Voltar (left) + 4-button cluster (right).
               Voltar é uma bubble (border + bg + shadow) em todos os
               ecrãs, match com o cluster. Cluster só visível em mobile
-              (em desktop é renderizado na tabs row do right pane). */}
-          <div className="flex items-center lg:mb-0">
+              (em desktop é renderizado na tabs row do right pane).
+              `mb-2` acrescenta espaço extra entre o header e o Card 1
+              (espacing acima do default `space-y-3/5` do parent). */}
+          <div className="flex items-center mb-2 lg:mb-3">
             <button
               type="button"
               onClick={goBack}
@@ -840,9 +840,8 @@ export default function LeadDetailPage() {
           'rounded-[2.25rem] ring-1 ring-border/30',
           'bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
-          // Desktop ainda mais claro — quase white com hint de gray.
-          'lg:bg-gradient-to-br lg:from-neutral-50 lg:via-white lg:to-neutral-50',
-          'lg:dark:bg-gradient-to-br lg:dark:from-neutral-900 lg:dark:via-neutral-950 lg:dark:to-neutral-900',
+          // Desktop: flat light gray, sem gradient — match com aside.
+          'lg:bg-none lg:bg-neutral-50 lg:dark:bg-neutral-900',
           // Desktop: standalone card (75%), mantém glass styles. Height
           // natural — cresce com o conteúdo.
           'lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
