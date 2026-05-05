@@ -879,7 +879,7 @@ export default function LeadDetailPage() {
                 <button
                   type="button"
                   onClick={() => setNewNegocioOpen(true)}
-                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-emerald-700/25 bg-emerald-700/8 backdrop-blur-sm px-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-700/12 transition-colors shadow-sm"
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-emerald-700/40 bg-emerald-700/15 backdrop-blur-sm px-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-700/25 transition-colors shadow-sm"
                   title="Criar nova oportunidade"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -900,7 +900,7 @@ export default function LeadDetailPage() {
                   <button
                     type="button"
                     onClick={() => setNewNegocioOpen(true)}
-                    className="group inline-flex items-center gap-2 h-8 mt-3 rounded-full border border-emerald-700/25 bg-emerald-700/8 backdrop-blur-sm px-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-700/12 transition-colors shadow-sm"
+                    className="group inline-flex items-center gap-2 h-8 mt-3 rounded-full border border-emerald-700/40 bg-emerald-700/15 backdrop-blur-sm px-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:bg-emerald-700/25 transition-colors shadow-sm"
                   >
                     <Plus className="h-3.5 w-3.5" /> Criar Oportunidade
                   </button>
@@ -990,7 +990,7 @@ export default function LeadDetailPage() {
                 <button
                   type="button"
                   onClick={() => setProfileSheetOpen(true)}
-                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-indigo-700/25 bg-indigo-700/8 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/12 transition-colors shadow-sm"
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-indigo-700/40 bg-indigo-700/15 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/25 transition-colors shadow-sm"
                   title="Ver perfil IA do cliente"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
@@ -999,7 +999,7 @@ export default function LeadDetailPage() {
                 <button
                   type="button"
                   onClick={() => setQuickNoteOpen(true)}
-                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-stone-700/25 bg-stone-700/8 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-700/12 transition-colors shadow-sm"
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-stone-700/40 bg-stone-700/15 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-700/25 transition-colors shadow-sm"
                   title="Adicionar nova nota"
                 >
                   <StickyNote className="h-3.5 w-3.5" />

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 export interface NegocioListItemData {
   id: string
   tipo: string | null
+  business_type?: string | null
   tipo_imovel?: string | null
   quartos_min?: number | null
   localizacao?: string | null
@@ -41,6 +42,14 @@ const TEMP_TAG: Record<string, { color: string; emoji: string; label: string }> 
   'Frio': { color: '#3b82f6', emoji: '❄️', label: 'Frio' },
   'Morno': { color: '#f59e0b', emoji: '🌤️', label: 'Morno' },
   'Quente': { color: '#ef4444', emoji: '🔥', label: 'Quente' },
+}
+
+// Business type — operação económica do negócio. Cores escolhidas
+// para distinguir das do tipo (perspective).
+const BIZ_TYPE_TAG: Record<string, { color: string; label: string }> = {
+  'Venda': { color: '#0ea5e9', label: 'Venda' },           // sky-500
+  'Arrendamento': { color: '#a855f7', label: 'Arrendamento' }, // purple-500
+  'Trespasse': { color: '#f97316', label: 'Trespasse' },   // orange-500
 }
 
 interface NegocioListItemProps {
@@ -80,6 +89,8 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
   if (negocio.quartos_min) subjectBits.push(`T${negocio.quartos_min}+`)
   const subject = subjectBits.join(' ')
   const title = subject || tipoTag.label
+
+  const bizType = negocio.business_type ? BIZ_TYPE_TAG[negocio.business_type] : null
 
   const minPrice = negocio.orcamento ?? negocio.preco_venda
   const maxPrice = negocio.orcamento_max
@@ -139,19 +150,44 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
             )}
           </div>
 
-          {/* Meta — tipo / estado / temp via dots monocromáticos */}
+          {/* Stage chip — prominente, na cor da fase. Comunica o
+              estado do negócio com peso visual claro. */}
+          {stageName && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  backgroundColor: `${stageColor}1f`,
+                  color: stageColor,
+                }}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
+                {stageName}
+              </span>
+              {bizType && (
+                <span
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: `${bizType.color}1a`,
+                    color: bizType.color,
+                  }}
+                >
+                  {bizType.label}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Sub-meta — tipo / temp via dots monocromáticos */}
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
             <span className="inline-flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tipoTag.color }} />
               <span>{tipoTag.label}</span>
             </span>
-            {stageName && (
+            {!stageName && bizType && (
               <>
                 <span className="text-muted-foreground/30">·</span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
-                  <span className="truncate">{stageName}</span>
-                </span>
+                <span style={{ color: bizType.color }} className="font-medium">{bizType.label}</span>
               </>
             )}
             {tempTag && (
