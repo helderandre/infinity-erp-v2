@@ -499,17 +499,19 @@ export default function LeadDetailPage() {
       <aside
         className={cn(
           'relative',
-          // Mobile: carousel card — full-width snap, scrolls internally
+          // Mobile: carousel pane com fundo cinzento subtil — pattern
+          // estilo quick-actions sheet, com as secções dentro a virem
+          // como cards brancos individuais (em vez de uma única
+          // superfície branca enorme).
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
-          // Ambient halo shadow (sides + top/bottom)
-          'shadow-[0_0_24px_-2px_rgb(0_0_0_/_0.06),0_4px_12px_-3px_rgb(0_0_0_/_0.08)]',
-          // Desktop: merged into the outer card
+          'rounded-3xl ring-1 ring-border/30 bg-muted/40',
+          // Desktop: merged into the outer card (transparente, sem
+          // grouped cards — mantém a sidebar única).
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
-          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:border-r lg:border-border/40',
+          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:border-r lg:border-border/40',
         )}
       >
-        <div className="relative px-5 py-5 sm:px-6 sm:py-6 space-y-5">
+        <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
           {/* Voltar — desktop only (mobile renders it on the header row above) */}
           <Button
             variant="ghost"
@@ -522,8 +524,12 @@ export default function LeadDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
+          {/* ─── Card 1: identidade + estado/temperatura ──────────────
+              Mobile: card branco com shadow subtil. Desktop: transparent
+              (sub-elementos do sidebar unificado). */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-4 lg:bg-transparent lg:border-0 lg:shadow-none lg:rounded-none lg:p-0">
           {/* Identity — name + subtitle */}
-          <div className="flex flex-col items-center text-center gap-1.5 pt-2">
+          <div className="flex flex-col items-center text-center gap-1.5 pt-2 lg:pt-0">
             <h2 className="text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
               {lead.nome}
             </h2>
@@ -609,8 +615,14 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
+          </div>
+          {/* ─── /Card 1 ───────────────────────────────────────────── */}
+
+          {/* ─── Card 2: contact action buttons + quick action buttons ──
+              Mobile: card branco. Desktop: transparente. */}
+          <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-3 space-y-2 lg:bg-transparent lg:border-0 lg:shadow-none lg:rounded-none lg:p-0 lg:space-y-5">
           {/* Action buttons — glass-gray container with white icon-only buttons */}
-          <div className="rounded-3xl bg-muted/50 supports-[backdrop-filter]:bg-muted/40 backdrop-blur-md p-1.5 grid grid-cols-4 gap-1.5">
+          <div className="rounded-2xl bg-muted/40 p-1.5 grid grid-cols-4 gap-1.5 lg:rounded-3xl lg:bg-muted/50 lg:supports-[backdrop-filter]:bg-muted/40 lg:backdrop-blur-md">
             {lead.telemovel ? (
               <CallContactButton
                 phone={lead.telemovel}
@@ -709,9 +721,12 @@ export default function LeadDetailPage() {
             </button>
           </div>
 
-          {/* Contact details card */}
+          </div>
+          {/* ─── /Card 2 ───────────────────────────────────────────── */}
+
+          {/* ─── Card 3: contact info (Telemóvel/Email/Consultor) ──── */}
           {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
-            <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-3 space-y-2.5">
+            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-3 space-y-2.5 lg:bg-background/40 lg:backdrop-blur-sm lg:border-border/40">
               <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
               {lead.telemovel && (
                 <div className="flex items-center justify-between gap-2 text-sm">
