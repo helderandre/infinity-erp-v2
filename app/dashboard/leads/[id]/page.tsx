@@ -492,7 +492,7 @@ export default function LeadDetailPage() {
           // generoso para aspecto iOS widget.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2.25rem] ring-1 ring-border/30',
-          'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
+          'bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
@@ -508,12 +508,12 @@ export default function LeadDetailPage() {
           aria-hidden
           className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2.25rem]"
         >
-          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
-          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
-          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-100/45 dark:bg-neutral-800/55 blur-3xl" />
-          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-400/35 dark:bg-neutral-700/50 blur-3xl" />
-          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-200/40 dark:bg-neutral-800/55 blur-3xl" />
-          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-300/30 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-200/35 dark:bg-neutral-700/45 blur-3xl" />
+          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-50/50 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-300/30 dark:bg-neutral-700/50 blur-3xl" />
+          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-100/40 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-300/30 dark:bg-neutral-700/55 blur-3xl" />
         </div>
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
           {/* Top header — Voltar (left) + 4-button cluster (right).
@@ -832,7 +832,7 @@ export default function LeadDetailPage() {
           // aside (mesma identidade visual). Cantos extra rounded.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2.25rem] ring-1 ring-border/30',
-          'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
+          'bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merges into the outer card
           'lg:w-auto lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
