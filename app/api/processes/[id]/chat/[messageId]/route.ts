@@ -30,7 +30,28 @@ export async function GET(
       return NextResponse.json({ error: error?.message || 'Mensagem não encontrada' }, { status: 404 })
     }
 
-    return NextResponse.json(data)
+    // Workaround: o inline join `parent_message:!parent_message_id` por
+    // vezes devolve null/array vazio mesmo quando a mensagem-pai existe.
+    // Quando o realtime INSERT dispara este endpoint logo após o POST,
+    // o `upsertMessage` no client substitui a mensagem optimista (que
+    // tinha o parent populado pelo POST) por esta — perdendo o quote.
+    // Lookup explícito quando há parent_message_id mas o embed falhou.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = data as any
+    if (row.parent_message_id) {
+      const embedded = Array.isArray(row.parent_message)
+        ? row.parent_message[0]
+        : row.parent_message
+      if (!embedded || embedded.id !== row.parent_message_id) {
+        const { data: parent } = await (db.from('proc_chat_messages') as ReturnType<typeof supabase.from>)
+          .select('id, content, sender_id, sender:dev_users(id, commercial_name)')
+          .eq('id', row.parent_message_id)
+          .single()
+        row.parent_message = parent || null
+      }
+    }
+
+    return NextResponse.json(row)
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
