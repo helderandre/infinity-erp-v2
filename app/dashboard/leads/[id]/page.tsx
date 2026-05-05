@@ -499,33 +499,34 @@ export default function LeadDetailPage() {
       <aside
         className={cn(
           'relative',
-          // Mobile: carousel pane com gradient mais variado + várias
-          // blobs neutras de tamanhos diferentes. O glass dos cards
-          // por cima precisa de "matéria" tonal para apanhar via
-          // backdrop-blur — sem isso o look fica platinum/uniforme em
-          // vez de vidro fosco real.
+          // Mobile: gradient base mais escuro + 6 mesh blobs (4 nos
+          // cantos + 2 centrais) para cobrir TODA a superfície com
+          // variação tonal — sem áreas planas no meio. Rounded
+          // generoso para aspecto iOS widget.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl ring-1 ring-border/30',
-          'bg-gradient-to-br from-neutral-300 via-neutral-100 to-neutral-200',
-          'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-950 dark:to-neutral-900',
+          'rounded-[2rem] ring-1 ring-border/30',
+          'bg-gradient-to-br from-neutral-400 via-neutral-300 to-neutral-400',
+          'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
           'lg:rounded-none lg:ring-0 lg:bg-none lg:dark:bg-none lg:border-r lg:border-border/40',
         )}
       >
-        {/* Mesh blobs — 4 "ilhas" neutras de tamanhos e posições
-            diferentes para criar irregularidade tonal forte. O blur
-            dos cards por cima vai apanhar valores diferentes em
-            zonas diferentes — efeito glass real (não platinum). */}
+        {/* Mesh blobs — 6 "ilhas" cobrindo toda a superfície
+            (cantos + zona central). O blur dos cards por cima apanha
+            valores diferentes em zonas diferentes, efeito vidro real
+            sem áreas chatas no meio. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-3xl"
+          className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2rem]"
         >
-          <div className="absolute -top-24 -left-16 h-64 w-64 rounded-full bg-neutral-500/35 dark:bg-neutral-700/50 blur-3xl" />
-          <div className="absolute top-1/4 -right-24 h-72 w-72 rounded-full bg-neutral-400/25 dark:bg-neutral-700/40 blur-3xl" />
-          <div className="absolute top-2/3 -left-24 h-72 w-72 rounded-full bg-neutral-300/30 dark:bg-neutral-800/50 blur-3xl" />
-          <div className="absolute -bottom-20 -right-16 h-64 w-64 rounded-full bg-neutral-500/30 dark:bg-neutral-700/45 blur-3xl" />
+          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-600/40 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-500/35 dark:bg-neutral-700/45 blur-3xl" />
+          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-300/40 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-600/35 dark:bg-neutral-700/50 blur-3xl" />
+          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-400/40 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-600/40 dark:bg-neutral-700/55 blur-3xl" />
         </div>
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
           {/* Voltar — desktop only (mobile renders it on the header row above) */}
