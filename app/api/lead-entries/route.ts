@@ -286,6 +286,9 @@ export async function POST(request: Request) {
         assigned_consultant_id: assignedConsultantId,
         notes: input.notes || null,
         sector: input.sector || null,
+        business_type: input.business_type && ['Venda', 'Arrendamento', 'Trespasse'].includes(input.business_type)
+          ? input.business_type
+          : null,
         property_id: input.property_id || null,
         has_referral: input.has_referral || false,
         referral_pct: input.referral_pct ?? null,

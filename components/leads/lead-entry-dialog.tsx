@@ -63,6 +63,20 @@ const IMOB_SECTORS = [
   { value: 'real_estate_landlord', label: 'Senhorio' },
 ]
 
+const BUSINESS_TYPE_OPTIONS = [
+  { value: 'Venda',        label: 'Venda' },
+  { value: 'Arrendamento', label: 'Arrendamento' },
+  { value: 'Trespasse',    label: 'Trespasse' },
+] as const
+
+// Quais perspectivas (sectors) fazem sentido por business_type.
+// Trespasse: comprador/vendedor de negócio.
+const SECTORS_BY_BT: Record<string, string[]> = {
+  Venda:        ['real_estate_buy', 'real_estate_sell'],
+  Arrendamento: ['real_estate_rent', 'real_estate_landlord'],
+  Trespasse:    ['real_estate_buy', 'real_estate_sell'],
+}
+
 const TOP_CATEGORIES: { value: TopCategory; label: string; icon: React.ElementType }[] = [
   { value: 'imobiliario', label: 'Imobiliário', icon: Building2 },
   { value: 'recrutamento', label: 'Recrutamento', icon: UserPlus },
@@ -82,6 +96,7 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
   const [form, setForm] = useState({
     raw_name: '', raw_email: '', raw_phone: '', source: 'other', notes: '',
     sector: '',
+    business_type: '',
     // Assignment + linked angariação (criar mode)
     assigned_consultant_id: '',
     property_id: '',
@@ -159,6 +174,7 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
   const resetForm = () => {
     setForm({
       raw_name: '', raw_email: '', raw_phone: '', source: 'other', notes: '', sector: '',
+      business_type: '',
       assigned_consultant_id: '', property_id: '', property_label: '',
       has_referral: false, referral_pct: '25', referral_consultant_id: '',
       referral_external_name: '', referral_external_phone: '', referral_external_email: '', referral_external_agency: '',
@@ -180,7 +196,14 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
       if (ext.email) next.raw_email = ext.email
       if (ext.phone) next.raw_phone = ext.phone
       if (ext.source && SOURCE_OPTIONS.some((s) => s.value === ext.source)) next.source = ext.source
-      if (ext.sector && IMOB_SECTORS.some((s) => s.value === ext.sector)) next.sector = ext.sector
+      if (ext.business_type && BUSINESS_TYPE_OPTIONS.some((b) => b.value === ext.business_type)) {
+        next.business_type = ext.business_type
+      }
+      if (ext.sector && IMOB_SECTORS.some((s) => s.value === ext.sector)) {
+        // Só aplica se for compatível com o business_type (já existente OU acabado de extrair).
+        const bt = next.business_type
+        if (!bt || (SECTORS_BY_BT[bt] ?? []).includes(ext.sector)) next.sector = ext.sector
+      }
       // Assignment: only trust consultant_id (UUID) — name alone could collide.
       if (ext.consultant_id && consultantsList.some((c) => c.id === ext.consultant_id)) {
         next.assigned_consultant_id = ext.consultant_id
@@ -268,6 +291,7 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
         source: form.source,
         notes: form.notes,
         sector,
+        business_type: category === 'imobiliario' ? (form.business_type || null) : null,
         assigned_consultant_id: form.assigned_consultant_id || null,
         property_id: form.property_id || null,
       }
@@ -451,20 +475,58 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
               </div>
             )}
 
-            {/* ── Tipo de Lead (Imobiliário) ── */}
+            {/* ── Tipo de Negócio (Imobiliário) ── */}
             {category === 'imobiliario' && (
               <div>
-                <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Lead</Label>
-                <div className="grid grid-cols-4 gap-1.5 mt-1.5">
-                  {IMOB_SECTORS.map((opt) => {
-                    const isActive = form.sector === opt.value
+                <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Negócio</Label>
+                <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                  {BUSINESS_TYPE_OPTIONS.map((t) => {
+                    const isActive = form.business_type === t.value
                     return (
-                      <button key={opt.value} type="button" onClick={() => setForm((p) => ({ ...p, sector: isActive ? '' : opt.value }))}
-                        className={cn('rounded-lg py-1.5 text-[11px] font-medium transition-all text-center', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
-                        {opt.label}
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => {
+                          if (isActive) {
+                            setForm((p) => ({ ...p, business_type: '', sector: '' }))
+                            return
+                          }
+                          const allowed = SECTORS_BY_BT[t.value] ?? []
+                          setForm((p) => ({
+                            ...p,
+                            business_type: t.value,
+                            sector: allowed.includes(p.sector) ? p.sector : '',
+                          }))
+                        }}
+                        className={cn(
+                          'rounded-lg py-2 text-[11px] font-medium transition-all text-center',
+                          isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        {t.label}
                       </button>
                     )
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Tipo de Lead (Imobiliário) ── */}
+            {category === 'imobiliario' && (
+              <div className={cn(!form.business_type && 'opacity-50 pointer-events-none')}>
+                <Label className="text-[11px] text-muted-foreground font-medium">Perspectiva</Label>
+                <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+                  {IMOB_SECTORS
+                    .filter((opt) => !form.business_type || (SECTORS_BY_BT[form.business_type] ?? []).includes(opt.value))
+                    .map((opt) => {
+                      const isActive = form.sector === opt.value
+                      return (
+                        <button key={opt.value} type="button" onClick={() => setForm((p) => ({ ...p, sector: isActive ? '' : opt.value }))}
+                          className={cn('rounded-lg py-1.5 text-[11px] font-medium transition-all text-center', isActive ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'bg-muted/50 text-muted-foreground hover:bg-muted')}>
+                          {opt.label}
+                        </button>
+                      )
+                    })}
                 </div>
               </div>
             )}
