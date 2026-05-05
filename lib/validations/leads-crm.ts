@@ -139,6 +139,30 @@ export const createNegocioSchema = z.object({
   referral_external_phone: z.string().nullable().optional(),
   referral_external_email: z.string().nullable().optional(),
   referral_external_agency: z.string().nullable().optional(),
+  // Zonas de interesse — array estruturado consumido pelo trigger
+  // `negocios_recompute_zonas_geom` (PostGIS). Sem este campo, zod strip
+  // silenciosamente o `zonas` do payload e o negócio nasce sem zonas.
+  zonas: z
+    .array(
+      z.discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('admin'),
+          area_id: z.string().uuid(),
+          label: z.string(),
+        }),
+        z.object({
+          kind: z.literal('polygon'),
+          id: z.string(),
+          label: z.string(),
+          geometry: z.object({
+            type: z.literal('Polygon'),
+            coordinates: z.array(z.array(z.array(z.number()))),
+          }),
+        }),
+      ])
+    )
+    .nullable()
+    .optional(),
 })
 
 export const updateNegocioSchema = createNegocioSchema.partial().extend({

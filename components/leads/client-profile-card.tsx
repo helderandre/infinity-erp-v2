@@ -10,6 +10,42 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+/**
+ * Mini renderer markdown — só **negrito**, *itálico* e parágrafos
+ * separados por linhas vazias. Suficiente para os resumos da IA sem
+ * adicionar uma dependência. Sanitização nativa: usamos React text nodes,
+ * nunca dangerouslySetInnerHTML.
+ */
+function renderMarkdown(text: string): React.ReactNode {
+  // Split em parágrafos por linhas vazias (\n\n) ou single \n.
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+  return paragraphs.map((para, pIdx) => (
+    <p key={pIdx} className="leading-relaxed">
+      {renderInline(para)}
+    </p>
+  ))
+}
+
+function renderInline(text: string): React.ReactNode[] {
+  // Token regex — captura **bold**, *italic* (não conflita porque ** vai primeiro)
+  const tokens: React.ReactNode[] = []
+  const re = /\*\*([^*]+)\*\*|\*([^*]+)\*/g
+  let last = 0
+  let m: RegExpExecArray | null
+  let key = 0
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) tokens.push(text.slice(last, m.index))
+    if (m[1] !== undefined) {
+      tokens.push(<strong key={`b-${key++}`} className="font-semibold text-foreground">{m[1]}</strong>)
+    } else if (m[2] !== undefined) {
+      tokens.push(<em key={`i-${key++}`}>{m[2]}</em>)
+    }
+    last = m.index + m[0].length
+  }
+  if (last < text.length) tokens.push(text.slice(last))
+  return tokens
+}
+
 interface AiProfileShape {
   summary_md?: string | null
   traits?: string[]
@@ -204,9 +240,9 @@ export function ClientProfileCard({ contactId, invalidateKey }: ClientProfileCar
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           {summaryMd && (
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {summaryMd}
-            </p>
+            <div className="text-sm text-foreground leading-relaxed space-y-2">
+              {renderMarkdown(summaryMd)}
+            </div>
           )}
 
           {profile?.traits && profile.traits.length > 0 && (

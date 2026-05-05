@@ -61,6 +61,8 @@ export function QuickNoteSheet({ open, onOpenChange, contactId, onSaved }: Quick
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
           <ObservationComposer
             contactId={contactId}
+            hideTypePicker
+            hidePin
             onSaved={() => {
               onSaved?.()
               onOpenChange(false)

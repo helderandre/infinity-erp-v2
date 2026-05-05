@@ -27,6 +27,8 @@ import {
 } from '@/lib/constants'
 import { TagsInput, TagsDisplay } from '@/components/ui/tags-input'
 import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import { AdminAreaAutocomplete } from '@/components/negocios/zonas/admin-area-autocomplete'
+import { adminAreaLabel } from '@/lib/matching'
 import type { NegocioZone } from '@/lib/matching'
 import { MapPin, Pencil as PencilIcon, Building2, Map as MapIcon } from 'lucide-react'
 
@@ -476,14 +478,49 @@ export function NegocioDataCard({
 
       <SectionHeader title="Localização" />
       {/* Sem polígonos — a venda incide num único imóvel/morada concreta.
-          O search por zonas só faz sentido para Compra/Arrendatário que
-          procuram em várias áreas. Mantemos o campo livre + Distrito/
-          Concelho/Freguesia para a localização exacta. */}
+          Picker de admin area único: ao seleccionar, auto-preenche
+          Distrito / Concelho / Freguesia (e a string `localizacao`) via
+          /api/admin-areas/[id]/hierarchy. */}
       {isEditing ? (
         <>
           <div className="col-span-full space-y-1.5">
             <p className="text-xs text-muted-foreground">Localização</p>
-            <TagsInput value={val(vendaLocField)} onChange={(v) => onFieldChange(vendaLocField, v)} placeholder="Zona do imóvel..." suggestions={LOCALIZACOES_PT} />
+            <AdminAreaAutocomplete
+              placeholder="Procurar concelho, freguesia ou distrito..."
+              onSelect={async (r) => {
+                // Optimistic: usa o que já temos no resultado da pesquisa.
+                const optimisticDistrito = r.type === 'distrito' ? r.name : null
+                const optimisticConcelho = r.type === 'concelho' ? r.name : (r.type === 'freguesia' ? r.parent_label : null)
+                if (optimisticDistrito) onFieldChange('distrito', optimisticDistrito)
+                if (optimisticConcelho) onFieldChange('concelho', optimisticConcelho)
+                if (r.type === 'freguesia') onFieldChange('freguesia', r.name)
+                onFieldChange(vendaLocField, adminAreaLabel(r))
+                // Sincroniza `zonas` jsonb com a zona escolhida — single-element
+                // (vendedor = imóvel único). Sem isto, o chip no detail-sheet
+                // ficaria pendurado na zona anterior porque ele lê de `zonas`,
+                // não do texto. Mantém-se único element para reflectir
+                // exactamente a localização do imóvel.
+                onFieldChange('zonas', [
+                  { kind: 'admin', area_id: r.id, label: adminAreaLabel(r) },
+                ])
+                // Cadeia completa via endpoint dedicado (preenche o que faltar).
+                try {
+                  const res = await fetch(`/api/admin-areas/${r.id}/hierarchy`)
+                  if (res.ok) {
+                    const h = await res.json()
+                    if (h.distrito) onFieldChange('distrito', h.distrito)
+                    if (h.concelho) onFieldChange('concelho', h.concelho)
+                    if (h.freguesia) onFieldChange('freguesia', h.freguesia)
+                    if (h.full_label) onFieldChange(vendaLocField, h.full_label)
+                  }
+                } catch {}
+              }}
+            />
+            {val(vendaLocField) && (
+              <p className="text-[11px] text-muted-foreground">
+                Selecionado: <span className="font-medium text-foreground">{val(vendaLocField)}</span>
+              </p>
+            )}
           </div>
           <EditField label="Distrito" value={val('distrito')} onChange={(v) => onFieldChange('distrito', v)} />
           <EditField label="Concelho" value={val('concelho')} onChange={(v) => onFieldChange('concelho', v)} />

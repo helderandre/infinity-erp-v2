@@ -80,6 +80,10 @@ export interface ObservationActivity {
   negocio?: {
     id: string
     tipo?: string | null
+    business_type?: string | null
+    tipo_imovel?: string | null
+    quartos?: number | null
+    quartos_min?: number | null
     estado?: string | null
     localizacao?: string | null
   } | null
@@ -197,15 +201,40 @@ export function ObservationItem({
               )}
               {!hideNegocioBadge && (
                 activity.negocio ? (
-                  <button
-                    type="button"
-                    onClick={() => activity.negocio && onNegocioClick?.(activity.negocio.id)}
-                    className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/15 transition-colors"
-                  >
-                    <Briefcase className="h-2.5 w-2.5" />
-                    {activity.negocio.tipo ?? 'Negócio'}
-                    {activity.negocio.localizacao ? ` · ${activity.negocio.localizacao}` : ''}
-                  </button>
+                  (() => {
+                    // Constrói uma lista de chips: perspectiva, tipo de imóvel,
+                    // tipologia (T2+, T3, etc.). Cada um vai num chip próprio
+                    // para o consultor perceber rapidamente o contexto sem
+                    // abrir o negócio.
+                    const n = activity.negocio
+                    const chips: string[] = []
+                    if (n.tipo) chips.push(n.tipo)
+                    if (n.tipo_imovel) chips.push(n.tipo_imovel)
+                    const isBuyerSide = n.tipo === 'Comprador' || n.tipo === 'Arrendatário' || n.tipo === 'Compra'
+                    const rooms = isBuyerSide ? n.quartos_min : (n.quartos ?? n.quartos_min)
+                    if (rooms != null) chips.push(`T${rooms}${isBuyerSide ? '+' : ''}`)
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => onNegocioClick?.(n.id)}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/15 transition-colors"
+                      >
+                        <Briefcase className="h-2.5 w-2.5 text-blue-700 dark:text-blue-400" />
+                        {chips.length > 0 ? (
+                          chips.map((c, i) => (
+                            <span
+                              key={`${c}-${i}`}
+                              className="text-[10px] font-medium text-blue-700 dark:text-blue-400"
+                            >
+                              {c}{i < chips.length - 1 ? ' ·' : ''}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] font-medium text-blue-700 dark:text-blue-400">Negócio</span>
+                        )}
+                      </button>
+                    )
+                  })()
                 ) : (
                   <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                     <User className="h-2.5 w-2.5" />
@@ -298,13 +327,13 @@ export function ObservationItem({
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions — sempre visíveis no topo do card (não só em hover) */}
           {!editing && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
+                  className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-muted/60 transition-colors"
                   aria-label="Acções"
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />

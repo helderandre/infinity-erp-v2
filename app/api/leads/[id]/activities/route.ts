@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       .select(`
         *,
         created_by_user:dev_users!created_by(id, commercial_name),
-        negocio:negocios(id, tipo, estado, localizacao, preco_venda, orcamento_max, renda_pretendida, renda_max_mensal)
+        negocio:negocios(id, tipo, business_type, tipo_imovel, quartos, quartos_min, estado, localizacao, preco_venda, orcamento_max, renda_pretendida, renda_max_mensal)
       `)
       .eq('contact_id', id)
       .limit(200)
@@ -197,7 +197,7 @@ export async function POST(
       .select(`
         *,
         created_by_user:dev_users!created_by(id, commercial_name),
-        negocio:negocios(id, tipo, estado, localizacao, preco_venda, orcamento_max, renda_pretendida, renda_max_mensal)
+        negocio:negocios(id, tipo, business_type, tipo_imovel, quartos, quartos_min, estado, localizacao, preco_venda, orcamento_max, renda_pretendida, renda_max_mensal)
       `)
       .single()
 

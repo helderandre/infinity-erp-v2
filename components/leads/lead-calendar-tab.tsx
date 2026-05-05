@@ -86,9 +86,13 @@ export function LeadCalendarTab({ contactId, onCreateEvent }: LeadCalendarTabPro
         onDateChange={setCurrentDate}
         onViewChange={(v) => setView(v as CalendarViewMode)}
         onCreateEvent={() => onCreateEvent?.()}
+        hideSubscribe
       />
 
-      <div className="rounded-2xl bg-card/40 ring-1 ring-border/60 overflow-hidden">
+      {/* Altura explícita — sem isto o grid colapsa em rows muito baixas
+          (~40px) já que <CalendarMonthGrid> usa flex-1 + h-full. Damos
+          espaço para os títulos dos eventos respirarem em mobile + desktop. */}
+      <div className="rounded-2xl bg-card/40 ring-1 ring-border/60 overflow-hidden h-[560px] sm:h-[680px]">
         <CalendarView
           events={events}
           tasks={[]}

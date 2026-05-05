@@ -449,12 +449,11 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
                   <div className="space-y-2">
                     <Label className="text-[11px] font-medium">Tipo de Imóvel</Label>
                     <Select
-                      value={negocioFields.tipo_imovel || '_any'}
-                      onValueChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v === '_any' ? '' : v }))}
+                      value={negocioFields.tipo_imovel || undefined}
+                      onValueChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v }))}
                     >
                       <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="_any">Qualquer</SelectItem>
                         {['Apartamento', 'Moradia', 'Quinta', 'Prédio', 'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico'].map((t) => (
                           <SelectItem key={t} value={t}>{t}</SelectItem>
                         ))}
@@ -464,6 +463,7 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
                   <NegocioZonasField
                     value={negocioZonas}
                     onChange={setNegocioZonas}
+                    tipo={negocioTipo}
                   />
                   <div className={cn('grid gap-2', isBuyer ? 'grid-cols-3' : 'grid-cols-2')}>
                     <div className="space-y-2">

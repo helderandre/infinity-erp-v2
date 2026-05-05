@@ -102,7 +102,7 @@ export function LeadTasksSubtab({ contactId, negocioIds, onCreateTask }: LeadTas
     )
     try {
       const res = await fetch(`/api/tasks/${id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_completed: !current }),
       })

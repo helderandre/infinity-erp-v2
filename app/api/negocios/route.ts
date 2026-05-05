@@ -147,6 +147,57 @@ export async function POST(request: Request) {
       }
     }
 
+    // Denormaliza zonas → distrito/concelho/freguesia/localizacao text.
+    // O bloco "Vendedor" do negocio-data-card lê dos campos texto (não das
+    // zonas jsonb). Sem este passo, ao "Ver tudo" o consultor via tudo
+    // vazio mesmo tendo escolhido uma zona no form de criação.
+    {
+      const zonas = (insertPayload as { zonas?: unknown }).zonas
+      const hasZonas = Array.isArray(zonas) && zonas.length > 0
+      const hasLocText =
+        (insertPayload as { localizacao?: string | null }).localizacao ||
+        (insertPayload as { distrito?: string | null }).distrito ||
+        (insertPayload as { concelho?: string | null }).concelho ||
+        (insertPayload as { freguesia?: string | null }).freguesia
+      if (hasZonas && !hasLocText) {
+        const firstAdmin = (zonas as Array<{ kind?: string; area_id?: string; label?: string }>).find(
+          (z) => z?.kind === 'admin' && typeof z?.area_id === 'string',
+        )
+        if (firstAdmin?.area_id) {
+          // Walk up to 3 levels (freguesia → concelho → distrito).
+          let cursor: string | null = firstAdmin.area_id
+          const chain: { type: string; name: string }[] = []
+          for (let i = 0; i < 3 && cursor; i += 1) {
+            const { data } = await (supabase as unknown as {
+              from: (t: 'admin_areas') => {
+                select: (c: string) => {
+                  eq: (c: string, v: string) => {
+                    maybeSingle: () => Promise<{ data: { id: string; type: string; name: string; parent_id: string | null } | null }>
+                  }
+                }
+              }
+            })
+              .from('admin_areas')
+              .select('id, type, name, parent_id')
+              .eq('id', cursor)
+              .maybeSingle()
+            if (!data) break
+            chain.push({ type: data.type, name: data.name })
+            cursor = data.parent_id
+          }
+          const byType: Record<string, string | null> = { distrito: null, concelho: null, freguesia: null }
+          for (const r of chain) byType[r.type] = r.name
+          if (byType.distrito) (insertPayload as Record<string, unknown>).distrito = byType.distrito
+          if (byType.concelho) (insertPayload as Record<string, unknown>).concelho = byType.concelho
+          if (byType.freguesia) (insertPayload as Record<string, unknown>).freguesia = byType.freguesia
+          const fullLabel = [byType.freguesia, byType.concelho, byType.distrito].filter(Boolean).join(', ')
+          if (fullLabel && !(insertPayload as { localizacao?: string }).localizacao) {
+            ;(insertPayload as Record<string, unknown>).localizacao = fullLabel
+          }
+        }
+      }
+    }
+
     // Internal user→user referral inheritance for the legacy create path.
     // Looks up the active referral agreement (contact_id, to_consultant_id)
     // and copies the slice onto the new négocio if one applies.

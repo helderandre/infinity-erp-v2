@@ -554,14 +554,13 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated, presetLeadId }
                           Tipo de Imóvel
                         </Label>
                         <Select
-                          value={tipoImovel || '_any'}
-                          onValueChange={(v) => setTipoImovel(v === '_any' ? '' : v)}
+                          value={tipoImovel || undefined}
+                          onValueChange={(v) => setTipoImovel(v)}
                         >
                           <SelectTrigger className="rounded-full h-9 text-xs">
                             <SelectValue placeholder="Qualquer" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="_any">Qualquer</SelectItem>
                             {['Apartamento', 'Moradia', 'Quinta', 'Prédio', 'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico'].map((t) => (
                               <SelectItem key={t} value={t}>{t}</SelectItem>
                             ))}
@@ -587,6 +586,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated, presetLeadId }
                     <NegocioZonasField
                       value={zonas}
                       onChange={setZonas}
+                      tipo={tipo}
                     />
                   </div>
                 )}

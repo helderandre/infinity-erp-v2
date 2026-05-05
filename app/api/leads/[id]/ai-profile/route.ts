@@ -54,15 +54,21 @@ export async function POST(
     const supabase = await createClient()
 
     // 1. Pull lead row
-    const { data: lead } = await supabase
+    const { data: lead, error: leadErr } = await supabase
       .from('leads')
-      .select('id, nome, email, telemovel, origem, estado, temperatura, observacoes, data_nascimento, profissao, empresa')
+      .select('id, nome, email, telemovel, origem, estado, temperatura, observacoes, data_nascimento, empresa')
       .eq('id', id)
       .single()
 
+    if (leadErr) {
+      console.error('[ai-profile] lead fetch error:', leadErr)
+      return NextResponse.json({ error: leadErr.message }, { status: 500 })
+    }
     if (!lead) return NextResponse.json({ error: 'Contacto não encontrado' }, { status: 404 })
 
-    // 2. Pull activities (CRM + legacy)
+    // 2. Pull notes only — tarefas/eventos/calls são acções operacionais,
+    //    não dão contexto sobre o cliente. A IA só sintetiza a partir de
+    //    observações (`activity_type='note'`) que o consultor registou.
     const { data: crmActs } = await supabase
       .from('leads_activities')
       .select(`
@@ -70,6 +76,7 @@ export async function POST(
         negocio:negocios(id, tipo, estado, localizacao)
       `)
       .eq('contact_id', id)
+      .eq('activity_type', 'note')
       .order('created_at', { ascending: false })
       .limit(200)
 
@@ -77,6 +84,7 @@ export async function POST(
       .from('lead_activities')
       .select('activity_type, description, metadata, created_at')
       .eq('lead_id', id)
+      .eq('activity_type', 'note')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -101,7 +109,7 @@ export async function POST(
       d ? format(parseISO(d), "d 'de' MMM yyyy", { locale: pt }) : '?'
 
     const sections: string[] = []
-    sections.push(`# CONTACTO\n- Nome: ${lead.nome}\n- Email: ${lead.email ?? 's/d'}\n- Telemóvel: ${lead.telemovel ?? 's/d'}\n- Estado: ${lead.estado ?? 's/d'} · Temperatura: ${lead.temperatura ?? 's/d'}\n- Origem: ${lead.origem ?? 's/d'}\n- Profissão: ${lead.profissao ?? 's/d'} · Empresa: ${lead.empresa ?? 's/d'}\n- Data de nascimento: ${lead.data_nascimento ? fmt(lead.data_nascimento) : 's/d'}`)
+    sections.push(`# CONTACTO\n- Nome: ${lead.nome}\n- Email: ${lead.email ?? 's/d'}\n- Telemóvel: ${lead.telemovel ?? 's/d'}\n- Estado: ${lead.estado ?? 's/d'} · Temperatura: ${lead.temperatura ?? 's/d'}\n- Origem: ${lead.origem ?? 's/d'}\n- Empresa: ${lead.empresa ?? 's/d'}\n- Data de nascimento: ${lead.data_nascimento ? fmt(lead.data_nascimento) : 's/d'}`)
 
     if (lead.observacoes) {
       sections.push(`## OBSERVAÇÃO LEGADA (campo único, pré-histórico)\n${lead.observacoes}`)
@@ -137,7 +145,7 @@ export async function POST(
         const desc = a.description ? ` — ${a.description}` : ''
         return `- ${fmt(a.date)} · ${a.type}${dir}${pin}${negCtx}${subj}${desc}`
       })
-      sections.push(`## INTERACÇÕES E OBSERVAÇÕES (${acts.length})\n${lines.join('\n')}`)
+      sections.push(`## OBSERVAÇÕES (${acts.length})\n${lines.join('\n')}`)
     }
 
     if (negocios && negocios.length > 0) {
@@ -167,33 +175,41 @@ export async function POST(
       messages: [
         {
           role: 'system',
-          content: `És um assistente de um consultor imobiliário em Portugal. A partir do dossier abaixo (interacções, negócios, observações ao longo do tempo), produzes um perfil estruturado do cliente em PT-PT. Foca-te em factos accionáveis, não inventes nada que não esteja no dossier.
+          content: `És um analista sénior de CRM imobiliário em Portugal — combinas faro comercial com leitura empática. A partir do dossier abaixo (observações que o consultor anotou ao longo do tempo + negócios e pontos de contacto inicial), produzes um perfil accionável do cliente em PT-PT.
+
+Princípios:
+1. Fala directamente ao consultor, como se fosses o seu colega que leu tudo. Sê concreto.
+2. Lê entre linhas: tom, urgência, objecções implícitas, sinais de hesitação ou pressa, sensibilidade ao preço, motivações emocionais (familia/investimento/status).
+3. Liga pontos: se há incoerências entre observações (ex: orçamento subiu, prazo apertou), aponta-as.
+4. NÃO inventes — se um dado não está no dossier, omite. Não inflaciones.
 
 Devolve APENAS um objecto JSON com esta estrutura:
 {
-  "summary_md": "<3-5 frases em markdown — quem é, o que procura, em que estado está. Tom profissional e telegráfico.>",
-  "traits": ["<traço pessoal/profissional curto>", ...],
-  "preferences": ["<preferência concreta sobre imóvel/negócio>", ...],
-  "concerns": ["<dúvida/objecção/preocupação manifestada>", ...],
-  "opportunities": ["<próxima acção ou oportunidade comercial>", ...],
-  "key_dates": [{"label": "<descrição>", "date": "<YYYY-MM-DD ou texto>"}],
-  "data_quality": "<low|medium|high — quão completo é o dossier>"
+  "summary_md": "<resumo executivo em markdown — 4-7 frases. Começa por quem é o cliente e em que momento está; depois o seu objectivo central; termina com a recomendação de próximo passo. Usa **negrito** para os 2-3 factos mais críticos. Não uses títulos H1/H2.>",
+  "traits": ["<traço pessoal/profissional/comportamental curto e específico>", ...],
+  "preferences": ["<preferência concreta e literal — tipologia, zona, características>", ...],
+  "concerns": ["<dúvida, objecção ou risco manifestado, com nuance>", ...],
+  "opportunities": ["<próxima acção ou alavanca comercial concreta — com VERBO de acção (ex: 'Propor visita ao T2 em Sintra esta semana — alinha com o prazo de Junho')>", ...],
+  "key_dates": [{"label": "<descrição da data — ex: 'Pretende mudar até'>", "date": "<YYYY-MM-DD ou texto interpretativo>"}],
+  "data_quality": "<low|medium|high — quão completo é o dossier para sustentar o perfil>"
 }
 
-Regras:
-- Cada lista pode ter 0-6 itens. Vazia se não houver evidência.
-- Itens curtos (≤120 chars).
-- Não repitas dados já visíveis no header (nome, telefone, email).
-- Se o dossier tem pouca informação, marca data_quality='low' e propõe em opportunities perguntas concretas para fazer ao cliente.
-- summary_md em markdown puro (sem H1/H2, podes usar negrito).`,
+Regras de qualidade:
+- Cada lista 0-6 itens. Vazia quando não há evidência directa.
+- Itens telegráficos mas com substância (≤140 chars). Evita banalidades como "interessado em comprar".
+- Em opportunities, prioriza acções imediatas (esta semana / próxima chamada). Se o dossier é magro, sugere as 2-3 perguntas que deves fazer na próxima conversa para desbloquear.
+- Em concerns, escreve a fricção REAL do cliente — "não confia em prazos" é melhor que "tem dúvidas".
+- Em traits, foge ao genérico. "Decisor analítico, pede dados antes de avançar" > "Profissional".
+- Se o cliente foi rude/difícil, regista factualmente em traits ou concerns sem julgamento moral.
+- summary_md: markdown limpo, parágrafos curtos, sem listas (as listas estão nas outras keys). Usa negrito (**X**) com parcimónia — máximo 3 ocorrências.`,
         },
         {
           role: 'user',
           content: context,
         },
       ],
-      max_tokens: 800,
-      temperature: 0.3,
+      max_tokens: 1500,
+      temperature: 0.4,
     })
 
     const raw = completion.choices[0]?.message?.content

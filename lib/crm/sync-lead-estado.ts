@@ -12,9 +12,12 @@ type SupabaseLike = {
 }
 
 interface NegocioRow {
-  pipeline_type: string | null
+  // `pipeline_type` vive em `leads_pipeline_stages`, não em `negocios`.
+  // Antes selecionávamos `negocios.pipeline_type` directamente — o que
+  // causava `42703 column negocios.pipeline_type does not exist` em
+  // qualquer insert/update de negócio (logado mas silencioso).
   stage:
-    | { name: string | null; is_terminal: boolean | null; terminal_type: string | null }
+    | { pipeline_type: string | null; name: string | null; is_terminal: boolean | null; terminal_type: string | null }
     | null
 }
 
@@ -25,7 +28,7 @@ async function fetchNegociosForLead(
   const { data, error } = await supabase
     .from('negocios')
     .select(
-      'pipeline_type, stage:leads_pipeline_stages!pipeline_stage_id(name, is_terminal, terminal_type)'
+      'stage:leads_pipeline_stages!pipeline_stage_id(pipeline_type, name, is_terminal, terminal_type)'
     )
     .eq('lead_id', leadId)
 
@@ -35,7 +38,7 @@ async function fetchNegociosForLead(
   }
 
   return ((data || []) as NegocioRow[]).map((n) => ({
-    pipeline_type: n.pipeline_type,
+    pipeline_type: n.stage?.pipeline_type ?? null,
     stage_name: n.stage?.name ?? null,
     is_terminal: n.stage?.is_terminal ?? null,
     terminal_type: n.stage?.terminal_type ?? null,

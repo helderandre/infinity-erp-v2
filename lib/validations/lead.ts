@@ -104,6 +104,32 @@ export const createNegocioSchema = z.object({
   quartos_min: z.number().int().min(0).optional(),
   preco_venda: z.number().positive().optional(),
   renda_pretendida: z.number().positive().optional(),
+  // Zonas de interesse — array estruturado consumido pelo trigger
+  // `negocios_recompute_zonas_geom` para popular `zonas_geom` (PostGIS).
+  // Sem isto, a zod strip silenciosamente o campo do payload e o negócio
+  // ficava sem zonas (sintoma: utilizador escolhe zonas no form mas a
+  // oportunidade abre vazia).
+  zonas: z
+    .array(
+      z.discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('admin'),
+          area_id: z.string().uuid(),
+          label: z.string(),
+        }),
+        z.object({
+          kind: z.literal('polygon'),
+          id: z.string(),
+          label: z.string(),
+          geometry: z.object({
+            type: z.literal('Polygon'),
+            coordinates: z.array(z.array(z.array(z.number()))),
+          }),
+        }),
+      ])
+    )
+    .optional()
+    .nullable(),
 })
 
 // Schema de actualizacao de negocio (todos os campos do formulario)

@@ -229,14 +229,13 @@ export function NewNegocioSheet({
                 <div className="space-y-2">
                   <Label className="text-[11px] font-medium">Tipo de Imóvel</Label>
                   <Select
-                    value={tipoImovel || '_any'}
-                    onValueChange={(v) => setTipoImovel(v === '_any' ? '' : v)}
+                    value={tipoImovel || undefined}
+                    onValueChange={(v) => setTipoImovel(v)}
                   >
                     <SelectTrigger className="rounded-xl text-xs">
                       <SelectValue placeholder="Qualquer" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_any">Qualquer</SelectItem>
                       {PROPERTY_TYPES.map((t) => (
                         <SelectItem key={t} value={t}>{t}</SelectItem>
                       ))}
@@ -246,6 +245,7 @@ export function NewNegocioSheet({
                 <NegocioZonasField
                   value={zonas}
                   onChange={setZonas}
+                  tipo={tipo}
                 />
                 <div className={cn('grid gap-2', isBuyer ? 'grid-cols-3' : 'grid-cols-2')}>
                   <div className="space-y-2">

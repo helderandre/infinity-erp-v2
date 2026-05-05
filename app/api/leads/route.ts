@@ -166,6 +166,22 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
+      console.error('Erro ao criar lead:', error)
+      // Unique violation (23505) — o índice `leads_email_unique` impede
+      // duplicados de email. Apresentamos uma mensagem clara em vez de
+      // 500 genérico para o consultor perceber o que aconteceu.
+      if ((error as { code?: string }).code === '23505') {
+        const isEmailDup = /email/i.test(error.message || '')
+        return NextResponse.json(
+          {
+            error: isEmailDup
+              ? 'Já existe um contacto com este email.'
+              : 'Já existe um contacto com estes dados.',
+            details: error.message,
+          },
+          { status: 409 }
+        )
+      }
       return NextResponse.json(
         { error: 'Erro ao criar lead', details: error.message },
         { status: 500 }

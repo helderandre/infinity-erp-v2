@@ -22,9 +22,24 @@ interface NegocioZonasFieldProps {
    * para o ramo de texto contar imediatamente, mesmo antes de guardar.
    */
   localizacao?: string | null
+  /**
+   * Perspectiva do negócio — controla o label do campo:
+   *   • Comprador / Arrendatário → "Zonas de interesse" (onde quer comprar/arrendar)
+   *   • Vendedor / Senhorio       → "Localização do imóvel" (onde fica o imóvel)
+   * Quando ausente cai no default "Zonas de interesse".
+   */
+  tipo?: string | null
 }
 
-export function NegocioZonasField({ value, onChange, negocioId, localizacao }: NegocioZonasFieldProps) {
+function resolveLabel(tipo: string | null | undefined): string {
+  if (tipo === 'Vendedor' || tipo === 'Senhorio' || tipo === 'Arrendador' || tipo === 'Venda') {
+    return 'Localização do imóvel'
+  }
+  return 'Zonas de interesse'
+}
+
+export function NegocioZonasField({ value, onChange, negocioId, localizacao, tipo }: NegocioZonasFieldProps) {
+  const fieldLabel = resolveLabel(tipo)
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const excludeAdminIds = useMemo(
@@ -74,19 +89,26 @@ export function NegocioZonasField({ value, onChange, negocioId, localizacao }: N
   )
 
   // Modo inline: criação dum negócio (sem id ainda) — autocomplete sempre
-  // visível, chips por cima. Não abre sheet nenhum.
+  // visível, chips por cima. Não abre sheet nenhum. Para vendedor/senhorio
+  // (perspectiva de listing) o imóvel é único — esconder o autocomplete
+  // assim que houver uma zona seleccionada para evitar lista de várias.
+  const isSellerSide = tipo === 'Vendedor' || tipo === 'Senhorio' || tipo === 'Arrendador' || tipo === 'Venda'
+  const hideAutocomplete = isSellerSide && value.length >= 1
+
   if (!negocioId) {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-medium">Zonas de interesse</p>
+        <p className="text-sm font-medium">{fieldLabel}</p>
         {value.length > 0 && Chips}
-        <AdminAreaAutocomplete
-          onSelect={(r) =>
-            handleAdd({ kind: 'admin', area_id: r.id, label: adminAreaLabel(r) })
-          }
-          excludeIds={excludeAdminIds}
-          placeholder="Adicionar concelho, freguesia ou distrito..."
-        />
+        {!hideAutocomplete && (
+          <AdminAreaAutocomplete
+            onSelect={(r) =>
+              handleAdd({ kind: 'admin', area_id: r.id, label: adminAreaLabel(r) })
+            }
+            excludeIds={excludeAdminIds}
+            placeholder={isSellerSide ? 'Procurar concelho, freguesia ou distrito...' : 'Adicionar concelho, freguesia ou distrito...'}
+          />
+        )}
       </div>
     )
   }
@@ -96,7 +118,7 @@ export function NegocioZonasField({ value, onChange, negocioId, localizacao }: N
   return (
     <>
       <div className="space-y-2">
-        <p className="text-sm font-medium">Zonas de interesse</p>
+        <p className="text-sm font-medium">{fieldLabel}</p>
 
         {value.length === 0 ? (
           <button

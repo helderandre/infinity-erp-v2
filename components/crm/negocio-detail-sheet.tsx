@@ -122,9 +122,12 @@ import {
   sendOneProperty,
   type PropertyToSend,
 } from '@/lib/negocios/send-properties-whatsapp'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, CheckSquare, CalendarPlus, Landmark } from 'lucide-react'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
 import { EmailChatBubble } from '@/components/email/email-chat-bubble'
+import { TaskForm } from '@/components/tasks/task-form'
+import { QuickEventSheet } from '@/components/leads/quick-event-sheet'
+import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
 
 interface NegocioDetailSheetProps {
   negocioId: string | null
@@ -223,6 +226,27 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
   // through the negócio sheet).
   const [previewPropertyId, setPreviewPropertyId] = useState<string | null>(null)
+  // Quick actions — Tarefa / Evento / Nota partilhadas com a página do contacto.
+  const [taskFormOpen, setTaskFormOpen] = useState(false)
+  const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false)
+  // Bump para forçar refetch das tarefas/actividades em <InicioExtras>
+  // quando o consultor cria algo via quick action.
+  const [inicioRefreshKey, setInicioRefreshKey] = useState(0)
+  const [quickActionsConsultants, setQuickActionsConsultants] = useState<{ id: string; commercial_name: string }[]>([])
+  useEffect(() => {
+    if (!taskFormOpen || quickActionsConsultants.length > 0) return
+    fetch('/api/users/consultants')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return
+        setQuickActionsConsultants((data.data || data || []).map((c: Record<string, unknown>) => ({
+          id: c.id as string,
+          commercial_name: c.commercial_name as string,
+        })))
+      })
+      .catch(() => {})
+  }, [taskFormOpen, quickActionsConsultants.length])
 
   const loadNegocio = useCallback(async () => {
     if (!negocioId) return
@@ -495,6 +519,10 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                     setEditOpen(true)
                   }}
                   onClose={() => onOpenChange(false)}
+                  onCreateTask={() => setTaskFormOpen(true)}
+                  onCreateEvent={() => setEventFormOpen(true)}
+                  onCreateNote={() => setQuickNoteOpen(true)}
+                  inicioRefreshKey={inicioRefreshKey}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -797,6 +825,44 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       open={!!previewPropertyId}
       onOpenChange={(o) => { if (!o) setPreviewPropertyId(null) }}
     />
+
+    {/* Quick action sheets — Tarefa / Evento / Nota linkadas ao contacto. */}
+    {leadId && (
+      <>
+        <TaskForm
+          open={taskFormOpen}
+          onOpenChange={setTaskFormOpen}
+          onSuccess={() => {
+            setTaskFormOpen(false)
+            toast.success('Tarefa criada')
+            setInicioRefreshKey((k) => k + 1)
+          }}
+          consultants={quickActionsConsultants}
+          currentUserId={user?.id}
+          canAssignToOthers={false}
+          // Liga a tarefa ao negócio (não ao lead). É o que faz com que
+          // apareça em "Por fazer" deste negócio — o hook
+          // useNegocioTasks filtra por entity_type='negocio'+entity_id.
+          defaultValues={{
+            entity_type: 'negocio',
+            entity_id: negocio?.id || leadId,
+            title: clientName ? `${clientName} — ` : '',
+          }}
+        />
+        <QuickEventSheet
+          open={eventFormOpen}
+          onOpenChange={setEventFormOpen}
+          contactId={leadId}
+          contactName={clientName ?? null}
+        />
+        <QuickNoteSheet
+          open={quickNoteOpen}
+          onOpenChange={setQuickNoteOpen}
+          contactId={leadId}
+          onSaved={() => setInicioRefreshKey((k) => k + 1)}
+        />
+      </>
+    )}
     </>
   )
 }
@@ -843,6 +909,10 @@ function DetalhesTab({
   onTemperaturaChange,
   onOpenFullEdit,
   onClose,
+  onCreateTask,
+  onCreateEvent,
+  onCreateNote,
+  inicioRefreshKey,
 }: {
   negocio: any
   form: Record<string, unknown>
@@ -856,6 +926,12 @@ function DetalhesTab({
   onOpenFullEdit?: () => void
   /** Fecha o sheet — usado quando se navega para o perfil do lead. */
   onClose?: () => void
+  /** Quick-action handlers — sheets vivem no parent. */
+  onCreateTask?: () => void
+  onCreateEvent?: () => void
+  onCreateNote?: () => void
+  /** Bump para forçar refetch das tarefas/actividades em InicioExtras. */
+  inicioRefreshKey?: number
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -904,8 +980,18 @@ function DetalhesTab({
   const areaExact = (form.area_m2 as number | null) ?? null
   const areaLabel = areaMin != null ? `≥ ${areaMin} m²` : areaExact != null ? `${areaExact} m²` : null
 
-  // Zonas chip list (also supports distrito/concelho/freguesia fallbacks)
+  // Zonas chip list — prioridades:
+  //   1. `form.zonas` (jsonb estruturado, alimentado pelo picker novo)
+  //   2. `form.localizacao` (texto livre legado)
+  //   3. distrito/concelho/freguesia (fallback para vendedor antigo)
   const zones: string[] = (() => {
+    const structured = form.zonas as Array<{ label?: string }> | null | undefined
+    if (Array.isArray(structured) && structured.length > 0) {
+      const labels = structured
+        .map((z) => (typeof z?.label === 'string' ? z.label : null))
+        .filter((s): s is string => !!s && s.trim() !== '')
+      if (labels.length > 0) return labels
+    }
     const raw = (form.localizacao as string | null) ?? ''
     const split = raw.split(',').map((z) => z.trim()).filter(Boolean)
     if (split.length > 0) return split
@@ -918,6 +1004,9 @@ function DetalhesTab({
   const motivacao = (form.motivacao_compra as string | null) ?? null
   const prazo = (form.prazo_compra as string | null) ?? null
   const financiamento = (form.financiamento_necessario as boolean | null) ?? null
+  const capitalProprio = (form.capital_proprio as number | null) ?? null
+  const creditoPreAprovado = (form.credito_pre_aprovado as boolean | null) ?? null
+  const valorCredito = (form.valor_credito as number | null) ?? null
   const situacaoProfissional = (form.situacao_profissional as string | null) ?? null
   const rendimento = (form.rendimento_mensal as number | null) ?? null
   const fiador = (form.tem_fiador as boolean | null) ?? null
@@ -998,9 +1087,10 @@ function DetalhesTab({
 
         {/* Inner content */}
         <div className="p-5 space-y-5">
-          {/* HERO — Nome do cliente (clicável → perfil) + chips de contacto */}
+          {/* HERO — Nome do cliente (clicável → perfil) + chips de contacto.
+              Nome centrado em desktop (sm+); mobile mantém alinhamento à esquerda. */}
           {lead && (
-            <div>
+            <div className="sm:text-center">
               {leadId && !readOnly ? (
                 <Link
                   href={`/dashboard/leads/${leadId}`}
@@ -1025,7 +1115,7 @@ function DetalhesTab({
                 </p>
               )}
               {(phone || email) && (
-                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <div className="flex items-center gap-2 mt-3 flex-wrap sm:justify-center">
                   {phone && (
                     <span onClick={(e) => e.stopPropagation()} className="inline-block max-w-full">
                       <CallContactButton
@@ -1062,10 +1152,45 @@ function DetalhesTab({
             </div>
           )}
 
-          {/* Orçamento — proeminente mas subordinado ao nome do cliente */}
+          {/* Quick actions — Tarefa / Evento / Nota linkadas ao contacto.
+              Mesmo padrão da página do contacto (consistência visual). */}
+          {!readOnly && lead && (
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => onCreateTask?.()}
+                className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-teal-700/25 bg-teal-700/8 backdrop-blur-sm px-3 text-xs font-medium text-teal-800 dark:text-teal-300 hover:bg-teal-700/12 transition-colors shadow-sm"
+                title="Criar tarefa para este contacto"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                Tarefa
+              </button>
+              <button
+                type="button"
+                onClick={() => onCreateEvent?.()}
+                className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-indigo-700/25 bg-indigo-700/8 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/12 transition-colors shadow-sm"
+                title="Criar evento (reunião, visita, follow-up)"
+              >
+                <CalendarPlus className="h-3.5 w-3.5" />
+                Evento
+              </button>
+              <button
+                type="button"
+                onClick={() => onCreateNote?.()}
+                className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-stone-600/25 bg-stone-600/8 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-600/12 transition-colors shadow-sm"
+                title="Nota rápida"
+              >
+                <StickyNote className="h-3.5 w-3.5" />
+                Nota
+              </button>
+            </div>
+          )}
+
+          {/* Orçamento — proeminente mas subordinado ao nome do cliente.
+              Em desktop, label e valor centrados. */}
           <CardDivider />
-          <div>
-            <SectionLabel icon={Euro}>{priceLabel}</SectionLabel>
+          <div className="sm:text-center">
+            <SectionLabel icon={Euro} centerOnDesktop>{priceLabel}</SectionLabel>
             {price ? (
               <p className="text-lg sm:text-xl font-semibold tabular-nums leading-tight">
                 {price}
@@ -1080,33 +1205,85 @@ function DetalhesTab({
           {hasImovelSection && (
             <>
               <CardDivider />
-              <section>
-                <SectionLabel icon={Home}>{sectionLabel}</SectionLabel>
-                {hasZones && (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {zones.slice(0, 4).map((z) => (
-                      <span
-                        key={z}
-                        className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-0.5 text-[11px] text-foreground/80"
-                      >
-                        <MapPin className="h-2.5 w-2.5" />
-                        {z}
-                      </span>
-                    ))}
-                    {zones.length > 4 && (
-                      <span className="inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-                        +{zones.length - 4}
-                      </span>
+              <section className="sm:[&>div:first-child]:text-center">
+                <SectionLabel icon={Home} centerOnDesktop>{sectionLabel}</SectionLabel>
+                {/* Layout 2-col: specs à esquerda, chips de localização à
+                    direita empilhados verticalmente. Em mobile ficam por
+                    cima/baixo. */}
+                <div className={cn(
+                  'flex flex-col gap-3',
+                  (hasProcura && hasZones) && 'sm:flex-row sm:items-start sm:justify-between'
+                )}>
+                  {hasProcura && (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 flex-1 min-w-0">
+                      {procuraItems.slice(0, 6).map((it) => (
+                        <SpecItem key={it.label} label={it.label} value={it.value} />
+                      ))}
+                    </div>
+                  )}
+                  {hasZones && (
+                    <div className="flex flex-col gap-1.5 shrink-0 sm:max-w-[200px] sm:items-end">
+                      {zones.slice(0, 4).map((z) => (
+                        <span
+                          key={z}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-sky-500/12 via-indigo-500/10 to-violet-500/10 dark:from-sky-400/15 dark:via-indigo-400/12 dark:to-violet-400/12 ring-1 ring-inset ring-indigo-500/20 dark:ring-indigo-300/20 px-3 py-1 text-[11px] font-medium text-indigo-900 dark:text-indigo-100 shadow-sm backdrop-blur-sm max-w-full transition-colors hover:from-sky-500/18 hover:via-indigo-500/16 hover:to-violet-500/16"
+                        >
+                          <MapPin className="h-3 w-3 shrink-0 text-indigo-500 dark:text-indigo-300" strokeWidth={2.25} />
+                          <span className="truncate">{z}</span>
+                        </span>
+                      ))}
+                      {zones.length > 4 && (
+                        <span className="inline-flex items-center rounded-full bg-gradient-to-br from-sky-500/8 to-indigo-500/8 ring-1 ring-inset ring-indigo-500/15 px-3 py-1 text-[11px] font-medium text-indigo-700 dark:text-indigo-300">
+                          +{zones.length - 4} zonas
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Financiamento — só relevante para compradores. Capitais
+                    próprios (não necessita financiamento) é mostrado como
+                    badge verde simples; quando precisa de financiamento,
+                    abre uma linha extra com capital próprio + estado de
+                    aprovação + valor de crédito. */}
+                {isBuyerType && financiamento !== null && (
+                  <div className="mt-3 pt-3 border-t border-border/40 sm:text-center">
+                    {financiamento === false ? (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/20 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                        <Landmark className="h-3 w-3" strokeWidth={2.25} />
+                        Capitais próprios
+                      </div>
+                    ) : (
+                      <div className="space-y-2 sm:flex sm:flex-col sm:items-center">
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 ring-1 ring-inset ring-amber-500/25 px-3 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                          <Landmark className="h-3 w-3" strokeWidth={2.25} />
+                          Necessita financiamento
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                          {capitalProprio != null && (
+                            <SpecItem
+                              label="Capital próprio"
+                              value={eur.format(capitalProprio)}
+                            />
+                          )}
+                          {creditoPreAprovado !== null && (
+                            <SpecItem
+                              label="Pré-aprovado"
+                              value={creditoPreAprovado ? 'Sim' : 'Não'}
+                            />
+                          )}
+                          {valorCredito != null && (
+                            <SpecItem
+                              label="Valor crédito"
+                              value={eur.format(valorCredito)}
+                            />
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
-                {hasProcura && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
-                    {procuraItems.slice(0, 4).map((it) => (
-                      <SpecItem key={it.label} label={it.label} value={it.value} />
-                    ))}
-                  </div>
-                )}
+
                 {onOpenFullEdit && (
                   <div className="mt-3 flex justify-end">
                     <Button
@@ -1179,6 +1356,7 @@ function DetalhesTab({
         <InicioExtras
           negocioId={negocio.id}
           leadId={negocio.lead_id ?? null}
+          refreshKey={inicioRefreshKey}
         />
       )}
     </div>
@@ -1224,15 +1402,20 @@ function MiniCard({ children, className }: { children: React.ReactNode; classNam
 function SectionLabel({
   icon: Icon,
   children,
+  centerOnDesktop = false,
 }: {
   icon?: React.ElementType
   children: React.ReactNode
+  /** Em ecrãs sm+ centraliza o label (Orçamento / O que procura / Financiamento). */
+  centerOnDesktop?: boolean
 }) {
   return (
-    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
-      {Icon && <Icon className="h-3 w-3" />}
-      {children}
-    </p>
+    <div className={cn(centerOnDesktop && 'sm:flex sm:justify-center')}>
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
+        {Icon && <Icon className="h-3 w-3" />}
+        {children}
+      </p>
+    </div>
   )
 }
 

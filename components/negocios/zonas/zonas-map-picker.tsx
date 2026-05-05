@@ -146,7 +146,11 @@ export function ZonasMapPicker({
     setHasChanges(!same)
   }, [zones, initialZones, open])
 
-  // Fetch matches whenever zones change
+  // Fetch matches whenever zones change.
+  // strict=true → aplica todos os critérios do negócio (preço, quartos,
+  // área, amenities) para que a lista no mapa só mostre imóveis que
+  // realmente encaixam no orçamento e tipologia. A localização vem das
+  // zonas em rascunho — esse é o que o consultor está a editar.
   useEffect(() => {
     if (!open) return
     const ctrl = new AbortController()
@@ -156,6 +160,7 @@ export function ZonasMapPicker({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         zonas: zones,
+        strict: true,
         localizacao_override: localizacaoOverride ?? null,
       }),
       signal: ctrl.signal,
@@ -172,8 +177,9 @@ export function ZonasMapPicker({
     if (!open) return
     if (!mapContainerRef.current || mapRef.current) return
 
+    const container = mapContainerRef.current
     const map = new maplibregl.Map({
-      container: mapContainerRef.current,
+      container,
       style: TILE_URL,
       center: PT_CENTER,
       zoom: PT_ZOOM,
@@ -182,7 +188,27 @@ export function ZonasMapPicker({
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     mapRef.current = map
 
+    // O Dialog abre com animação (zoom-in / fade-in) — o container só
+    // atinge o tamanho final ~150ms depois. Sem este resize, maplibre
+    // calcula o canvas com 0×0 e o mapa fica em branco até o utilizador
+    // arrastar/zoom. ResizeObserver cobre o caso da animação + qualquer
+    // outra mudança de layout (sidebar collapse, mobile rotation, etc.).
+    const ro = new ResizeObserver(() => {
+      try {
+        map.resize()
+      } catch {}
+    })
+    ro.observe(container)
+    // Também forçamos um resize no próximo frame por segurança.
+    const rafId = requestAnimationFrame(() => {
+      try {
+        map.resize()
+      } catch {}
+    })
+
     return () => {
+      ro.disconnect()
+      cancelAnimationFrame(rafId)
       markersRef.current.forEach((m) => m.marker.remove())
       markersRef.current.clear()
       popupRef.current?.remove()

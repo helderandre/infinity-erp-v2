@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useSmartBack } from '@/hooks/use-previous-pathname'
+import { useUser } from '@/hooks/use-user'
 import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -61,7 +62,6 @@ import { cn } from '@/lib/utils'
 import { LeadDataSheet } from '@/components/leads/lead-data-sheet'
 import { LeadDocumentsFoldersView } from '@/components/leads/lead-documents-folders-view'
 import { LeadEntriesSheet } from '@/components/leads/lead-entries-sheet'
-import { ObservationComposer } from '@/components/leads/observation-composer'
 import { ObservationItem, type ObservationActivity } from '@/components/leads/observation-item'
 import { ClientProfileSheet } from '@/components/leads/client-profile-sheet'
 import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
@@ -82,6 +82,7 @@ import type { LeadWithAgent, LeadAttachment } from '@/types/lead'
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { user } = useUser()
   const goBack = useSmartBack('/dashboard/leads')
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -220,7 +221,7 @@ export default function LeadDetailPage() {
     } catch {}
   }, [id])
 
-  useEffect(() => { loadLead(); loadPendingLeads(); loadEntries() }, [loadLead, loadPendingLeads, loadEntries])
+  useEffect(() => { loadLead(); loadPendingLeads(); loadEntries(); loadNegocios() }, [loadLead, loadPendingLeads, loadEntries, loadNegocios])
 
   // Load consultants once for the Task + Event forms
   useEffect(() => {
@@ -609,21 +610,30 @@ export default function LeadDetailPage() {
           </div>
 
           {/* Action buttons — glass-gray container with white icon-only buttons */}
-          <div className="rounded-3xl bg-muted/50 supports-[backdrop-filter]:bg-muted/40 backdrop-blur-md p-1.5 grid grid-cols-3 gap-1.5">
-            <button
-              type="button"
-              disabled={!lead.telemovel}
-              onClick={() => {
-                if (!lead.telemovel) return
-                window.location.href = `tel:${lead.telemovel}`
-                setTimeout(() => setCallOutcomeOpen(true), 500)
-              }}
-              className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground transition-all hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
-              title={lead.telemovel ? `Ligar para ${lead.telemovel}` : 'Sem telemóvel'}
-              aria-label="Ligar"
-            >
-              <Phone className="h-4 w-4" />
-            </button>
+          <div className="rounded-3xl bg-muted/50 supports-[backdrop-filter]:bg-muted/40 backdrop-blur-md p-1.5 grid grid-cols-4 gap-1.5">
+            {lead.telemovel ? (
+              <CallContactButton
+                phone={lead.telemovel}
+                contactName={lead.nome || ''}
+                leadId={id}
+                sourceRefType="lead"
+                sourceRefId={id}
+                ariaLabel="Ligar"
+                className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground transition-all hover:shadow-md"
+              >
+                <Phone className="h-4 w-4" />
+              </CallContactButton>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground opacity-40 cursor-not-allowed"
+                title="Sem telemóvel"
+                aria-label="Ligar"
+              >
+                <Phone className="h-4 w-4" />
+              </button>
+            )}
             <button
               type="button"
               disabled={!lead.telemovel}
@@ -633,6 +643,16 @@ export default function LeadDetailPage() {
               aria-label="WhatsApp"
             >
               <WhatsAppIcon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              disabled={!lead.telemovel}
+              onClick={() => lead.telemovel && (window.location.href = `sms:${lead.telemovel}`)}
+              className="flex items-center justify-center h-11 rounded-2xl bg-background shadow-sm text-foreground transition-all hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-sm"
+              title={lead.telemovel ? `SMS para ${lead.telemovel}` : 'Sem telemóvel'}
+              aria-label="Mensagem"
+            >
+              <MessageSquare className="h-4 w-4" />
             </button>
             <button
               type="button"
@@ -723,32 +743,19 @@ export default function LeadDetailPage() {
                 </div>
               )}
 
-              {/* Outros canais — SMS + App. App is gated on a future flag
-                  (`has_mube_app`); shown only when present. */}
-              {(lead.telemovel || (lead as { has_mube_app?: boolean }).has_mube_app) && (
+              {/* Canal "App Mube" — gated on `has_mube_app`. SMS subiu para
+                  a row de quick-actions junto a tel/WhatsApp/email. */}
+              {(lead as { has_mube_app?: boolean }).has_mube_app && (
                 <div className="pt-2 border-t border-border/30 flex items-center gap-2">
-                  {lead.telemovel && (
-                    <button
-                      type="button"
-                      onClick={() => lead.telemovel && (window.location.href = `sms:${lead.telemovel}`)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-background/60 border border-border/40 backdrop-blur-sm text-[11px] font-medium text-foreground/90 hover:bg-background/80 transition-colors"
-                      title={`SMS para ${lead.telemovel}`}
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Mensagem
-                    </button>
-                  )}
-                  {(lead as { has_mube_app?: boolean }).has_mube_app && (
-                    <button
-                      type="button"
-                      onClick={() => toast.info('Envio pela App em desenvolvimento')}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-violet-500/10 border border-violet-500/30 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/15 transition-colors"
-                      title="Enviar via App Mube"
-                    >
-                      <Smartphone className="h-3.5 w-3.5" />
-                      App
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => toast.info('Envio pela App em desenvolvimento')}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-violet-500/10 border border-violet-500/30 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/15 transition-colors"
+                    title="Enviar via App Mube"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    App
+                  </button>
                 </div>
               )}
             </div>
@@ -901,8 +908,11 @@ export default function LeadDetailPage() {
                 </div>
               )}
 
-              {/* AI client profile — small button that opens a sheet */}
-              <div className="flex items-center justify-center">
+              {/* Top actions — Perfil IA + Nova nota lado-a-lado.
+                  O composer inline saiu — agora é um sheet (consistência
+                  com o resto do CRM, mais espaço para escrever, e abre
+                  com data já selectionável). */}
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setProfileSheetOpen(true)}
@@ -912,37 +922,46 @@ export default function LeadDetailPage() {
                   <Sparkles className="h-3.5 w-3.5" />
                   Perfil do cliente
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickNoteOpen(true)}
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-stone-700/25 bg-stone-700/8 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-700/12 transition-colors shadow-sm"
+                  title="Adicionar nova nota"
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Nova nota
+                </button>
               </div>
 
-              {/* Composer */}
-              <ObservationComposer
-                contactId={id}
-                onSaved={() => {
-                  loadActivities()
-                  setProfileInvalidateKey((k) => k + 1)
-                }}
-              />
-
-              {activitiesLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
-                </div>
-              ) : activities.length > 0 ? (
-                <div className="space-y-2">
-                  {activities.map((act) => (
-                    <ObservationItem
-                      key={act.id}
-                      activity={act as ObservationActivity}
-                      contactId={id}
-                      onChanged={() => {
-                        loadActivities()
-                        setProfileInvalidateKey((k) => k + 1)
-                      }}
-                      onNegocioClick={openNegocioSheet}
-                    />
-                  ))}
-                </div>
-              ) : null}
+              {(() => {
+                // Notas tab — só observações (activity_type='note'). Tarefas
+                // e eventos vivem no Histórico, não pertencem aqui.
+                const notes = activities.filter((a) => a.activity_type === 'note')
+                if (activitiesLoading) {
+                  return (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+                    </div>
+                  )
+                }
+                if (notes.length === 0) return null
+                return (
+                  <div className="space-y-2">
+                    {notes.map((act) => (
+                      <ObservationItem
+                        key={act.id}
+                        activity={act as ObservationActivity}
+                        contactId={id}
+                        onChanged={() => {
+                          loadActivities()
+                          setProfileInvalidateKey((k) => k + 1)
+                        }}
+                        onNegocioClick={openNegocioSheet}
+                      />
+                    ))}
+                  </div>
+                )
+              })()}
             </TabsContent>
 
             {/* Agenda Tab — sub-tabs: calendar (events) + tasks linked to this contact */}
@@ -1006,10 +1025,30 @@ export default function LeadDetailPage() {
                     </div>
                   ) : (
                     activities.map((act) => {
+                      const isCompleted = act.metadata?.is_completed === true
+                      const startDate = act.metadata?.start_date ? new Date(act.metadata.start_date) : null
+                      const eventInPast = startDate ? startDate.getTime() <= Date.now() : false
                       const meta = (() => {
                         switch (act.activity_type) {
-                          case 'task':          return { Icon: CheckSquare,    label: 'Tarefa',     tint: 'bg-amber-500/10 text-amber-600' }
-                          case 'event':         return { Icon: CalendarDays,   label: 'Evento',     tint: 'bg-violet-500/10 text-violet-600' }
+                          case 'task':          return {
+                            Icon: CheckSquare,
+                            // Distingue "Tarefa criada" (ainda por fazer) de
+                            // "Tarefa concluída" (já feita) — duas linhas
+                            // diferentes no histórico.
+                            label: isCompleted ? 'Tarefa concluída' : 'Tarefa criada',
+                            tint: isCompleted
+                              ? 'bg-emerald-500/10 text-emerald-600'
+                              : 'bg-amber-500/10 text-amber-600',
+                          }
+                          case 'event':         return {
+                            Icon: CalendarDays,
+                            // "Evento agendado" enquanto a data ainda não chegou,
+                            // "Evento ocorrido" depois.
+                            label: eventInPast ? 'Evento ocorrido' : 'Evento agendado',
+                            tint: eventInPast
+                              ? 'bg-purple-500/10 text-purple-600'
+                              : 'bg-violet-500/10 text-violet-600',
+                          }
                           case 'note':          return { Icon: StickyNote,     label: 'Nota',       tint: 'bg-sky-500/10 text-sky-600' }
                           case 'call':          return { Icon: Phone,          label: 'Chamada',    tint: 'bg-emerald-500/10 text-emerald-600' }
                           case 'email':         return { Icon: Mail,           label: 'Email',      tint: 'bg-blue-500/10 text-blue-600' }
@@ -1044,14 +1083,12 @@ export default function LeadDetailPage() {
                               <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0', meta.tint)}>
                                 {meta.label}
                               </span>
-                              {isCompletedTask && (
-                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 shrink-0">Concluída</span>
-                              )}
+                              {/* Concluída/Futuro já estão expressos no label
+                                  principal (Tarefa concluída / Evento agendado).
+                                  Só mantemos "Em atraso" porque transmite
+                                  urgência que o label não cobre. */}
                               {isOverdueTask && (
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 shrink-0">Em atraso</span>
-                              )}
-                              {isFutureEvent && (
-                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 shrink-0">Futuro</span>
                               )}
                             </div>
                             {act.subject && act.description && (
@@ -1272,7 +1309,9 @@ export default function LeadDetailPage() {
         }}
       />
 
-      {/* Quick action: create task pre-linked to this contact */}
+      {/* Quick action: create task pre-linked to this contact.
+          canAssignToOthers=false → tarefa fica sempre atribuída ao
+          consultor que a cria (sem selector "Atribuir a"). */}
       <TaskForm
         open={taskFormOpen}
         onOpenChange={setTaskFormOpen}
@@ -1281,6 +1320,8 @@ export default function LeadDetailPage() {
           toast.success('Tarefa criada')
         }}
         consultants={consultants}
+        currentUserId={user?.id}
+        canAssignToOthers={false}
         defaultValues={{
           entity_type: 'lead',
           entity_id: id,

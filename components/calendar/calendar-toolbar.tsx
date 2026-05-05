@@ -34,6 +34,10 @@ interface CalendarToolbarProps {
   onShowCompanyEvents?: () => void
   isManager?: boolean
   hasLiveEvent?: boolean
+  /** Hide the "subscribe / link calendar" popover. Default: false (shown).
+   *  Used in embedded contexts (lead/negocio Agenda) where the consultor
+   *  is just consuming, not configuring an external calendar feed. */
+  hideSubscribe?: boolean
 }
 
 export function CalendarToolbar({
@@ -47,6 +51,7 @@ export function CalendarToolbar({
   onShowCompanyEvents,
   isManager,
   hasLiveEvent,
+  hideSubscribe,
 }: CalendarToolbarProps) {
   const displayView: ToolbarView = view
 
@@ -170,7 +175,7 @@ export function CalendarToolbar({
             </Button>
           )}
 
-          <CalendarSubscribePopover />
+          {!hideSubscribe && <CalendarSubscribePopover />}
 
           <Button onClick={onCreateEvent} size="icon" className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3">
             <Plus className="h-4 w-4 sm:mr-1.5" />

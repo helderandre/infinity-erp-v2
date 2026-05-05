@@ -48,6 +48,11 @@ interface ObservationComposerProps {
   negocioLabel?: string | null
   onSaved?: () => void
   placeholder?: string
+  /** Esconde o type picker (Nota/Chamada/Email/...) — usado em surfaces
+   *  que só capturam observações puras (ex.: sheet "Nova nota"). */
+  hideTypePicker?: boolean
+  /** Esconde o toggle "Fixar". O consultor pode fixar depois pelo card. */
+  hidePin?: boolean
 }
 
 export function ObservationComposer({
@@ -56,6 +61,8 @@ export function ObservationComposer({
   negocioLabel,
   onSaved,
   placeholder = 'O que aconteceu? (chamada, encontro, observação…)',
+  hideTypePicker = false,
+  hidePin = false,
 }: ObservationComposerProps) {
   const [text, setText] = useState('')
   const [type, setType] = useState<ActivityType>('note')
@@ -172,34 +179,36 @@ export function ObservationComposer({
 
       {/* Bottom row: pills (type, date, pin) + save */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {/* Type picker */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border border-border/40 bg-background/40 hover:bg-background/70 transition-colors"
-            >
-              <SelectedTypeIcon className="h-3 w-3" />
-              {ACTIVITY_TYPE_LABELS[type] ?? type}
-              <ChevronDown className="h-3 w-3 opacity-60" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="rounded-xl">
-            {TYPE_OPTIONS.map((opt) => {
-              const Icon = opt.icon
-              return (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => setType(opt.value)}
-                  className="text-xs gap-2"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {opt.label}
-                </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Type picker — escondido quando o composer é dedicado a notas. */}
+        {!hideTypePicker && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border border-border/40 bg-background/40 hover:bg-background/70 transition-colors"
+              >
+                <SelectedTypeIcon className="h-3 w-3" />
+                {ACTIVITY_TYPE_LABELS[type] ?? type}
+                <ChevronDown className="h-3 w-3 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="rounded-xl">
+              {TYPE_OPTIONS.map((opt) => {
+                const Icon = opt.icon
+                return (
+                  <DropdownMenuItem
+                    key={opt.value}
+                    onClick={() => setType(opt.value)}
+                    className="text-xs gap-2"
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {opt.label}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Date+time picker */}
         <Popover>
@@ -235,21 +244,24 @@ export function ObservationComposer({
           </PopoverContent>
         </Popover>
 
-        {/* Pin toggle */}
-        <button
-          type="button"
-          onClick={() => setPinned(!pinned)}
-          className={cn(
-            'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border transition-colors',
-            pinned
-              ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-              : 'border-border/40 bg-background/40 text-muted-foreground hover:bg-background/70'
-          )}
-          title="Fixar no topo do histórico"
-        >
-          <Pin className={cn('h-3 w-3', pinned && 'fill-current')} />
-          {pinned ? 'Fixado' : 'Fixar'}
-        </button>
+        {/* Pin toggle — escondido quando o composer é dedicado a notas.
+            O consultor fixa depois pelo menu da observação no card. */}
+        {!hidePin && (
+          <button
+            type="button"
+            onClick={() => setPinned(!pinned)}
+            className={cn(
+              'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border transition-colors',
+              pinned
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                : 'border-border/40 bg-background/40 text-muted-foreground hover:bg-background/70'
+            )}
+            title="Fixar no topo do histórico"
+          >
+            <Pin className={cn('h-3 w-3', pinned && 'fill-current')} />
+            {pinned ? 'Fixado' : 'Fixar'}
+          </button>
+        )}
 
         {negocioLabel && (
           <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400">

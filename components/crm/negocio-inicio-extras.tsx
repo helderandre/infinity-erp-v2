@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import {
@@ -26,6 +27,13 @@ interface InicioExtrasProps {
   negocioId: string
   leadId: string | null | undefined
   onCreateTask?: () => void
+  /**
+   * Bump esta key para forçar refetch das tarefas + actividades.
+   * Usado pelo NegocioDetailSheet quando uma nova tarefa/nota acabou de
+   * ser criada via quick action — sem isto a lista "Por fazer" só
+   * actualizava no próximo mount.
+   */
+  refreshKey?: number
 }
 
 /**
@@ -34,9 +42,17 @@ interface InicioExtrasProps {
  *  - "Por fazer" (tarefas pendentes deste negócio com toggle inline)
  *  - "Actividade recente" (leads_activities + tarefas concluídas recentes)
  */
-export function InicioExtras({ negocioId, leadId, onCreateTask }: InicioExtrasProps) {
+export function InicioExtras({ negocioId, leadId, onCreateTask, refreshKey }: InicioExtrasProps) {
   const tasks = useNegocioTasks(negocioId)
   const acts = useNegocioActivities(leadId, negocioId)
+
+  // Refetch quando o parent bump o refreshKey
+  useEffect(() => {
+    if (refreshKey === undefined) return
+    void tasks.refetch()
+    void acts.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey])
 
   // Merge completed tasks into activity feed
   const merged: NegocioActivity[] = mergeActivitiesAndCompletedTasks(
