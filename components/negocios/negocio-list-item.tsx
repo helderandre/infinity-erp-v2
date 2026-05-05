@@ -150,10 +150,12 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
             )}
           </div>
 
-          {/* Stage chip — prominente, na cor da fase. Comunica o
-              estado do negócio com peso visual claro. */}
-          {stageName && (
-            <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Tags row — stage + biz type + perspective + temp em
+              linha única, todos como chips/inline tags. Hierarquia
+              visual: chips coloridos (stage, biz_type) destacam-se;
+              perspective + temp em texto subtil ao lado. */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {stageName && (
               <span
                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                 style={{
@@ -164,37 +166,27 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
                 {stageName}
               </span>
-              {bizType && (
-                <span
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                  style={{
-                    backgroundColor: `${bizType.color}1a`,
-                    color: bizType.color,
-                  }}
-                >
-                  {bizType.label}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Sub-meta — tipo / temp via dots monocromáticos */}
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
-            <span className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tipoTag.color }} />
-              <span>{tipoTag.label}</span>
-            </span>
-            {!stageName && bizType && (
-              <>
-                <span className="text-muted-foreground/30">·</span>
-                <span style={{ color: bizType.color }} className="font-medium">{bizType.label}</span>
-              </>
             )}
+            {bizType && (
+              <span
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{
+                  backgroundColor: `${bizType.color}1a`,
+                  color: bizType.color,
+                }}
+              >
+                {bizType.label}
+              </span>
+            )}
+            <span
+              className="inline-flex items-center gap-1 text-[11px]"
+              style={{ color: tipoTag.color }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tipoTag.color }} />
+              <span className="font-medium">{tipoTag.label}</span>
+            </span>
             {tempTag && (
-              <>
-                <span className="text-muted-foreground/30">·</span>
-                <span aria-hidden>{tempTag.emoji}</span>
-              </>
+              <span aria-hidden className="text-[12px] leading-none">{tempTag.emoji}</span>
             )}
           </div>
 
