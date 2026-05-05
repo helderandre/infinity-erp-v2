@@ -31,6 +31,19 @@ interface ChatInputProps {
    * balão mostrar as imagens — não dependemos só do realtime UPDATE
    * (que pode atrasar ou falhar). */
   onAttachmentsUploaded?: () => void
+  /** Estado de anexos lifted para o parent — necessário para o parent
+   * conseguir mostrar o overlay de preview de imagens (style WhatsApp)
+   * por cima da área das mensagens. Quando não fornecidos, ChatInput
+   * gere o estado localmente (modo legado / standalone). */
+  attachments?: File[]
+  onAttachmentsChange?: React.Dispatch<React.SetStateAction<File[]>>
+  /** Quando true esconde os chips de imagens — assumido que o parent
+   * está a render o overlay. Não-imagens continuam a aparecer aqui. */
+  hideImageChips?: boolean
+  /** Notifica o parent quando o estado interno isSubmitting muda —
+   * permite ao parent (ex.: overlay de imagens) mostrar spinner
+   * durante o submit + upload completos. */
+  onSubmittingChange?: (isSubmitting: boolean) => void
 }
 
 const mentionsInputStyle = {
@@ -78,13 +91,22 @@ export function ChatInput({
   onSubmitEdit,
   onCancelEdit,
   onAttachmentsUploaded,
+  attachments: externalAttachments,
+  onAttachmentsChange: externalSetAttachments,
+  hideImageChips = false,
+  onSubmittingChange,
 }: ChatInputProps) {
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [mentionUsers, setMentionUsers] = useState<{ id: string; display: string }[]>([])
   const [mentionEntities, setMentionEntities] = useState<{ id: string; display: string; type?: string; status?: string; extra?: string }[]>([])
-  const [attachments, setAttachments] = useState<File[]>([])
+  // `attachments` pode ser controlado pelo parent (necessário para o
+  // overlay de preview de imagens). Quando o parent não fornece props,
+  // usamos useState local — comportamento legado.
+  const [internalAttachments, setInternalAttachments] = useState<File[]>([])
+  const attachments = externalAttachments ?? internalAttachments
+  const setAttachments = externalSetAttachments ?? setInternalAttachments
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // Em mobile, Enter insere uma nova linha (não submete) — o envio é
@@ -164,6 +186,13 @@ export function ChatInput({
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     }
   }, [])
+
+  // Propaga isSubmitting para o parent (usado pelo overlay de preview
+  // de imagens para mostrar spinner durante o flow completo de
+  // submit + upload). Disparado em qualquer transição.
+  useEffect(() => {
+    onSubmittingChange?.(isSubmitting)
+  }, [isSubmitting, onSubmittingChange])
 
   // Uploads em paralelo (Promise.allSettled) — cada ficheiro é
   // independente. Devolve `true` se TODOS subiram com sucesso. Erros
@@ -333,21 +362,30 @@ export function ChatInput({
       )}
 
       {/* Attachment previews — escondidos em edit mode (não suportamos
-          alterar anexos durante edição). Imagens mostram thumbnail
-          80×80; outros tipos mostram chip horizontal. Durante o submit
-          aparece spinner por cima e o X de remover desaparece. */}
-      {!isRecording && !editingMessage && attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {attachments.map((file, i) => (
-            <ChatAttachmentPreview
-              key={`${file.name}-${i}`}
-              file={file}
-              isUploading={isSubmitting}
-              onRemove={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-            />
-          ))}
-        </div>
-      )}
+          alterar anexos durante edição). Quando hideImageChips=true
+          (parent está a render o overlay style WhatsApp), mostramos
+          aqui apenas os anexos NÃO-imagem (PDFs, áudios, etc). */}
+      {!isRecording && !editingMessage && (() => {
+        const visible = hideImageChips
+          ? attachments.filter((f) => !f.type.startsWith('image/'))
+          : attachments
+        if (visible.length === 0) return null
+        return (
+          <div className="flex flex-wrap gap-2">
+            {visible.map((file) => {
+              const originalIdx = attachments.indexOf(file)
+              return (
+                <ChatAttachmentPreview
+                  key={`${file.name}-${originalIdx}`}
+                  file={file}
+                  isUploading={isSubmitting}
+                  onRemove={() => setAttachments((prev) => prev.filter((_, idx) => idx !== originalIdx))}
+                />
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* Voice recorder — single instance, always mounted to preserve state.
           When active (recording/preview) it takes full width; when idle it renders just the mic icon. */}

@@ -13,6 +13,7 @@ import { useInternalChat } from '@/hooks/use-internal-chat'
 import { useInternalChatPresence } from '@/hooks/use-internal-chat-presence'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { ChatAttachmentPreview } from '@/components/chat/chat-attachment-preview'
+import { ChatImageComposeOverlay } from '@/components/chat/chat-image-compose-overlay'
 import { ChatMessageItem } from '@/components/processes/chat-message'
 import { VoiceRecorder } from '@/components/processes/voice-recorder'
 import { InternalForwardDialog } from '@/components/comunicacao/internal-forward-dialog'
@@ -97,6 +98,10 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   const [isRecording, setIsRecording] = useState(false)
   const [mentionUsers, setMentionUsers] = useState<{ id: string; display: string }[]>([])
   const [attachments, setAttachments] = useState<File[]>([])
+  const imageAttachments = useMemo(
+    () => attachments.filter((f) => f.type.startsWith('image/')),
+    [attachments],
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Ref ao textarea interno do MentionsInput para conseguir refocus
   // após enviar mensagem — o `disabled={isSubmitting}` durante o submit
@@ -563,6 +568,20 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
           )}
         </button>
       )}
+
+      {imageAttachments.length > 0 && (
+        <ChatImageComposeOverlay
+          images={imageAttachments}
+          isUploading={isSubmitting}
+          onRemove={(idx) => {
+            const target = imageAttachments[idx]
+            setAttachments((prev) => prev.filter((f) => f !== target))
+          }}
+          onClearAll={() => {
+            setAttachments((prev) => prev.filter((f) => !f.type.startsWith('image/')))
+          }}
+        />
+      )}
       </div>
 
       {/* Input */}
@@ -596,21 +615,28 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
             </div>
           )}
 
-          {/* Imagens mostram thumbnail 80×80; outros tipos mostram chip
-              horizontal. Durante o submit aparece spinner por cima e o
-              X de remover desaparece. */}
-          {!isRecording && !editingMessage && attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {attachments.map((file, i) => (
-                <ChatAttachmentPreview
-                  key={`${file.name}-${i}`}
-                  file={file}
-                  isUploading={isSubmitting}
-                  onRemove={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                />
-              ))}
-            </div>
-          )}
+          {/* Não-imagens mostram chip aqui no composer. Imagens vão
+              para o overlay grande (ChatImageComposeOverlay) renderizado
+              por cima da área das mensagens. */}
+          {!isRecording && !editingMessage && (() => {
+            const nonImages = attachments.filter((f) => !f.type.startsWith('image/'))
+            if (nonImages.length === 0) return null
+            return (
+              <div className="flex flex-wrap gap-2">
+                {nonImages.map((file) => {
+                  const originalIdx = attachments.indexOf(file)
+                  return (
+                    <ChatAttachmentPreview
+                      key={`${file.name}-${originalIdx}`}
+                      file={file}
+                      isUploading={isSubmitting}
+                      onRemove={() => setAttachments((prev) => prev.filter((_, idx) => idx !== originalIdx))}
+                    />
+                  )
+                })}
+              </div>
+            )
+          })()}
 
           {isRecording && !editingMessage && (
             <VoiceRecorder

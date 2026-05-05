@@ -8,6 +8,7 @@ import { useChatMessages } from '@/hooks/use-chat-messages'
 import { useChatPresence } from '@/hooks/use-chat-presence'
 import { ChatMessageItem } from './chat-message'
 import { ChatInput } from './chat-input'
+import { ChatImageComposeOverlay } from '@/components/chat/chat-image-compose-overlay'
 import { CHAT_LABELS } from '@/lib/constants'
 import type { ChatMessage, ChatReadReceipt } from '@/types/process'
 import type { ChatEntityData } from './chat-message'
@@ -37,6 +38,16 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null)
   const [entitiesMap, setEntitiesMap] = useState<Map<string, ChatEntityData>>(new Map())
+  // `attachments` lifted aqui (em vez de viver dentro do <ChatInput>)
+  // para podermos render o overlay de preview de imagens (style
+  // WhatsApp) por cima da área das mensagens. ChatInput continua a
+  // gerir tudo o resto (texto, mentions, mic, submit + upload).
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [isSubmittingAttachments, setIsSubmittingAttachments] = useState(false)
+  const imageAttachments = useMemo(
+    () => attachments.filter((f) => f.type.startsWith('image/')),
+    [attachments],
+  )
   const scrollRef = useRef<HTMLDivElement>(null)
   const firstRenderRef = useRef(true)
 
@@ -164,8 +175,11 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
         </div>
       )}
 
-      {/* Body */}
-      <div ref={scrollRef} className={`flex-1 overflow-y-auto px-4 py-4 space-y-4 transition-[filter,opacity] duration-200 ${editingMessage ? 'blur-sm opacity-90' : ''}`}>
+      {/* Body — wrap em container relative para o overlay de preview
+          de imagens (style WhatsApp) poder absolute-fill quando há
+          imagens anexadas no composer. */}
+      <div className="flex-1 relative min-h-0">
+      <div ref={scrollRef} className={`absolute inset-0 overflow-y-auto px-4 py-4 space-y-4 transition-[filter,opacity] duration-200 ${editingMessage ? 'blur-sm opacity-90' : ''}`}>
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className={`flex gap-3 ${i % 2 === 0 ? '' : 'justify-end'}`}>
@@ -217,6 +231,21 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
         )}
       </div>
 
+      {imageAttachments.length > 0 && (
+        <ChatImageComposeOverlay
+          images={imageAttachments}
+          isUploading={isSubmittingAttachments}
+          onRemove={(idx) => {
+            const target = imageAttachments[idx]
+            setAttachments((prev) => prev.filter((f) => f !== target))
+          }}
+          onClearAll={() => {
+            setAttachments((prev) => prev.filter((f) => !f.type.startsWith('image/')))
+          }}
+        />
+      )}
+      </div>
+
       {/* Footer */}
       <div className={`border-t px-4 py-3 shrink-0 transition-colors ${editingMessage ? 'bg-primary/[0.04]' : ''}`}>
         <ChatInput
@@ -238,6 +267,10 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
           onSubmitEdit={handleSubmitEdit}
           onCancelEdit={handleCancelEdit}
           onAttachmentsUploaded={() => refetch()}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
+          hideImageChips
+          onSubmittingChange={setIsSubmittingAttachments}
         />
       </div>
     </div>
