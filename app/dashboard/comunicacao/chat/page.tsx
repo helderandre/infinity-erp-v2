@@ -189,6 +189,7 @@ function ChatPageContent() {
               unreadCounts={unreadCounts}
               lastActivity={chatLastActivity}
               lastMessage={chatLastMessage}
+              activityHasLoaded={unreadHasLoaded}
             />
           </div>
         </SheetContent>
