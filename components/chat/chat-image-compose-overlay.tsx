@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 
@@ -46,16 +46,25 @@ export function ChatImageComposeOverlay({
   isUploading,
 }: ChatImageComposeOverlayProps) {
   const [focusedIdx, setFocusedIdx] = useState(0)
+  const [urls, setUrls] = useState<string[]>([])
 
-  // Gera blob URLs uma vez por File. useMemo + cleanup via useEffect
-  // garante que cada URL é revogado quando o array muda ou o
-  // componente desmonta.
-  const urls = useMemo(() => images.map((f) => URL.createObjectURL(f)), [images])
+  // Geração dos blob URLs feita DENTRO do useEffect (não em useMemo)
+  // por causa do strict mode do React 18 em dev: o cleanup syntético
+  // do primeiro mount revoga os URLs antes do <img> os conseguir
+  // carregar, deixando-os "broken". Com este padrão, o cleanup do
+  // primeiro mount revoga o set antigo e o segundo mount cria um set
+  // novo + setUrls, forçando re-render com URLs válidos.
   useEffect(() => {
-    return () => {
-      urls.forEach((u) => URL.revokeObjectURL(u))
+    if (images.length === 0) {
+      setUrls([])
+      return
     }
-  }, [urls])
+    const next = images.map((f) => URL.createObjectURL(f))
+    setUrls(next)
+    return () => {
+      next.forEach((u) => URL.revokeObjectURL(u))
+    }
+  }, [images])
 
   // Garante que o focus fica num índice válido se a imagem em foco
   // for removida (ou se mais imagens forem adicionadas e o utilizador
@@ -96,15 +105,22 @@ export function ChatImageComposeOverlay({
       </div>
 
       {/* Preview principal — object-contain para nunca cortar a imagem,
-          fundo zinc-950 para fazer a foto destacar. */}
+          fundo zinc-950 para fazer a foto destacar. Só renderiza o
+          <img> quando o blob URL está pronto, para evitar o ícone de
+          imagem partida durante o gap entre primeiro render e a
+          criação dos URLs no useEffect. */}
       <div className="flex-1 flex items-center justify-center min-h-0 px-6 pb-2 relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={focusedUrl}
-          src={focusedUrl}
-          alt={focused.name}
-          className={`max-h-full max-w-full object-contain transition-opacity ${isUploading ? 'opacity-60' : ''}`}
-        />
+        {focusedUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            key={focusedUrl}
+            src={focusedUrl}
+            alt={focused.name}
+            className={`max-h-full max-w-full object-contain transition-opacity ${isUploading ? 'opacity-60' : ''}`}
+          />
+        ) : (
+          <Spinner className="h-6 w-6 text-white/70" />
+        )}
         {isUploading && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="bg-black/60 rounded-full px-4 py-2 flex items-center gap-2 text-white text-sm">
@@ -127,19 +143,21 @@ export function ChatImageComposeOverlay({
                   type="button"
                   onClick={() => setFocusedIdx(i)}
                   disabled={isUploading}
-                  className={`h-14 w-14 rounded-md overflow-hidden border-2 transition-all ${
+                  className={`h-14 w-14 rounded-md overflow-hidden border-2 bg-white/5 transition-all ${
                     isFocused
                       ? 'border-white shadow-lg'
                       : 'border-transparent opacity-60 hover:opacity-100'
                   }`}
                   aria-label={`Pré-visualizar ${file.name}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={urls[i]}
-                    alt={file.name}
-                    className="h-full w-full object-cover"
-                  />
+                  {urls[i] ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={urls[i]}
+                      alt={file.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
                 </button>
                 {!isUploading && (
                   <button
