@@ -79,6 +79,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
     deleteMessage,
     toggleReaction,
     markAsRead,
+    refetch,
   } = useInternalChat(channelId, dmRecipientId)
 
   const { onlineUsers, typingUsers, setTyping } = useInternalChatPresence(currentUser)
@@ -260,24 +261,35 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
     }
   }, [])
 
-  // Upload
-  const uploadAttachments = useCallback(async (messageId: string, files: File[]) => {
-    for (const file of files) {
-      try {
+  // Uploads em paralelo (Promise.allSettled) — cada ficheiro é
+  // independente. Devolve `true` se TODOS subiram com sucesso.
+  const uploadAttachments = useCallback(async (messageId: string, files: File[]): Promise<boolean> => {
+    const results = await Promise.allSettled(
+      files.map(async (file) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('messageId', messageId)
 
         const res = await fetch('/api/chat/internal/upload', { method: 'POST', body: formData })
         if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || INTERNAL_CHAT_LABELS.upload_error)
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || INTERNAL_CHAT_LABELS.upload_error)
         }
+      }),
+    )
+
+    let allOk = true
+    results.forEach((result, i) => {
+      const file = files[i]
+      if (result.status === 'fulfilled') {
         toast.success(`${file.name} — ${INTERNAL_CHAT_LABELS.upload_success}`)
-      } catch (err) {
-        toast.error(`${file.name} — ${err instanceof Error ? err.message : INTERNAL_CHAT_LABELS.upload_error}`)
+      } else {
+        allOk = false
+        const reason = result.reason
+        toast.error(`${file.name} — ${reason instanceof Error ? reason.message : INTERNAL_CHAT_LABELS.upload_error}`)
       }
-    }
+    })
+    return allOk
   }, [])
 
   // Inicia edição WhatsApp-style — passa o conteúdo da mensagem para o
@@ -306,9 +318,18 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
   }, [])
 
   // Submit — quando há `editingMessage`, chama editMessage em vez de
-  // sendMessage. Validação reutilizada (não submete se vazio).
+  // sendMessage. Edição exige texto (não suportamos esvaziar uma
+  // mensagem); envio basta texto OU anexos (imagens podem ir sem
+  // caption — paridade com WhatsApp).
   const handleSubmit = useCallback(async () => {
-    if (!value.trim() || isSubmitting) return
+    const hasText = Boolean(value.trim())
+    const hasAttachments = attachments.length > 0
+    if (isSubmitting) return
+    if (editingMessage) {
+      if (!hasText) return
+    } else if (!hasText && !hasAttachments) {
+      return
+    }
     setIsSubmitting(true)
     setTyping(false)
 
@@ -333,8 +354,15 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
 
       const msg = await sendMessage(value, mentions, replyTo?.id)
 
+      // AGUARDAMOS uploads antes de fechar o submit. Sem await, o
+      // utilizador podia trocar de conversa, fechar o sheet de
+      // conversas em mobile, ou pressionar enviar de novo enquanto a
+      // imagem subia em background, e ela nunca aparecia. Refrescamos
+      // a lista no fim para o balão mostrar a imagem mesmo que o
+      // realtime UPDATE atrase ou falhe.
       if (msg?.id && attachments.length > 0) {
-        uploadAttachments(msg.id, attachments)
+        await uploadAttachments(msg.id, attachments)
+        refetch()
       }
 
       setValue('')
@@ -351,7 +379,7 @@ export function InternalChatPanel({ currentUser, channelId, dmRecipientId, heade
         messageInputRef.current?.focus()
       })
     }
-  }, [value, isSubmitting, sendMessage, editMessage, editingMessage, setTyping, replyTo, attachments, uploadAttachments])
+  }, [value, isSubmitting, sendMessage, editMessage, editingMessage, setTyping, replyTo, attachments, uploadAttachments, refetch])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])

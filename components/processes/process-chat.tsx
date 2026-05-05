@@ -30,6 +30,7 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
     deleteMessage,
     toggleReaction,
     markAsRead,
+    refetch,
   } = useChatMessages(processId)
 
   const { onlineUsers, typingUsers, setTyping } = useChatPresence(processId, currentUser)
@@ -236,6 +237,7 @@ export function ProcessChat({ processId, currentUser, hideHeader, onEntityClick 
           editingMessage={editingMessage ? { id: editingMessage.id, content: editingMessage.content } : null}
           onSubmitEdit={handleSubmitEdit}
           onCancelEdit={handleCancelEdit}
+          onAttachmentsUploaded={() => refetch()}
         />
       </div>
     </div>

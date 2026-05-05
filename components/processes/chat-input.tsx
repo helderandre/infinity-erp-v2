@@ -25,6 +25,11 @@ interface ChatInputProps {
   editingMessage?: { id: string; content: string } | null
   onSubmitEdit?: (messageId: string, content: string) => Promise<void>
   onCancelEdit?: () => void
+  /** Disparado depois dos uploads de anexos terminarem (mesmo que algum
+   * tenha falhado). Permite ao parent forçar refetch da lista para o
+   * balão mostrar as imagens — não dependemos só do realtime UPDATE
+   * (que pode atrasar ou falhar). */
+  onAttachmentsUploaded?: () => void
 }
 
 const mentionsInputStyle = {
@@ -71,6 +76,7 @@ export function ChatInput({
   editingMessage,
   onSubmitEdit,
   onCancelEdit,
+  onAttachmentsUploaded,
 }: ChatInputProps) {
   const [value, setValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -158,9 +164,13 @@ export function ChatInput({
     }
   }, [])
 
-  const uploadAttachments = useCallback(async (messageId: string, files: File[]) => {
-    for (const file of files) {
-      try {
+  // Uploads em paralelo (Promise.allSettled) — cada ficheiro é
+  // independente. Devolve `true` se TODOS subiram com sucesso. Erros
+  // por ficheiro mostram toast individual mas não quebram o lote — o
+  // utilizador pode reenviar manualmente os que falharam.
+  const uploadAttachments = useCallback(async (messageId: string, files: File[]): Promise<boolean> => {
+    const results = await Promise.allSettled(
+      files.map(async (file) => {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('processId', processId)
@@ -168,18 +178,38 @@ export function ChatInput({
 
         const res = await fetch('/api/chat/upload', { method: 'POST', body: formData })
         if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || CHAT_LABELS.upload_error)
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || CHAT_LABELS.upload_error)
         }
+      }),
+    )
+
+    let allOk = true
+    results.forEach((result, i) => {
+      const file = files[i]
+      if (result.status === 'fulfilled') {
         toast.success(`${file.name} — ${CHAT_LABELS.upload_success}`)
-      } catch (err) {
-        toast.error(`${file.name} — ${err instanceof Error ? err.message : CHAT_LABELS.upload_error}`)
+      } else {
+        allOk = false
+        const reason = result.reason
+        toast.error(`${file.name} — ${reason instanceof Error ? reason.message : CHAT_LABELS.upload_error}`)
       }
-    }
+    })
+    return allOk
   }, [processId])
 
   const handleSubmit = useCallback(async () => {
-    if (!value.trim() || isSubmitting) return
+    // Submissão em modo edição requer texto (não suportamos editar para
+    // mensagem vazia). Em modo envio, basta haver texto OU anexos —
+    // imagens podem ir sem caption (paridade com WhatsApp).
+    const hasText = Boolean(value.trim())
+    const hasAttachments = attachments.length > 0
+    if (isSubmitting) return
+    if (editingMessage) {
+      if (!hasText) return
+    } else if (!hasText && !hasAttachments) {
+      return
+    }
 
     setIsSubmitting(true)
     onTypingChange(false)
@@ -205,9 +235,17 @@ export function ChatInput({
 
       const msg = await onSend(value, mentions)
 
-      // Upload attachments with returned message ID
+      // Upload attachments com a mensagem ID — AGUARDAMOS os uploads
+      // antes de fechar o submit. Sem await, o utilizador podia sair da
+      // conversa, minimizar o floating chat ou pressionar enviar de
+      // novo enquanto o upload corria em background, e a imagem nunca
+      // chegava. Com await + spinner no botão, a UX fica equivalente
+      // ao WhatsApp: enviar bloqueia até a imagem subir.
       if (msg?.id && attachments.length > 0) {
-        uploadAttachments(msg.id, attachments)
+        await uploadAttachments(msg.id, attachments)
+        // Refrescamos a lista para o balão mostrar a imagem mesmo que
+        // o realtime UPDATE do Supabase atrase ou não dispare.
+        onAttachmentsUploaded?.()
       }
 
       setValue('')
@@ -217,7 +255,7 @@ export function ChatInput({
     } finally {
       setIsSubmitting(false)
     }
-  }, [value, isSubmitting, onSend, onTypingChange, attachments, uploadAttachments, editingMessage, onSubmitEdit])
+  }, [value, isSubmitting, onSend, onTypingChange, attachments, uploadAttachments, editingMessage, onSubmitEdit, onAttachmentsUploaded])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])

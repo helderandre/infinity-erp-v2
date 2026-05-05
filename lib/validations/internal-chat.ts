@@ -3,9 +3,11 @@ import { z } from 'zod'
 const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
 export const sendInternalMessageSchema = z.object({
-  content: z.string()
-    .min(1, 'Mensagem não pode estar vazia')
-    .max(10000),
+  // Conteúdo pode ser vazio — mensagens só com imagem/anexo têm content=''.
+  // O bubble esconde o bloco de texto quando content é falsy. O
+  // editInternalMessageSchema mantém min(1) — não suportamos editar
+  // uma mensagem para ficar vazia.
+  content: z.string().max(10000).default(''),
   mentions: z.array(
     z.object({
       user_id: z.string().regex(uuidRegex, 'UUID inválido'),
