@@ -88,6 +88,7 @@ import {
   Minimize2,
   Globe,
   Mic,
+  Hash,
 } from 'lucide-react'
 import { motion, LayoutGroup } from 'framer-motion'
 import {
@@ -578,15 +579,39 @@ export default function ImovelDetalhePage() {
     <div className="space-y-5">
       {/* ═══════ UNIFIED LIGHT TOOLBAR (all tabs) ═══════ */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        {/* Row 1 (mobile): Voltar + Edit/Delete inline. On desktop: only Voltar */}
-        <div className="flex items-center justify-between gap-2 lg:justify-start">
-          <button
-            onClick={goBack}
-            className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Voltar
-          </button>
+        {/* Row 1 (mobile): Voltar + Ref + Edit/Delete inline. On desktop: Voltar + Ref */}
+        <div className="flex items-center justify-between gap-2 lg:justify-start lg:gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={goBack}
+              className="inline-flex items-center gap-1.5 bg-muted/50 hover:bg-muted text-foreground px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors w-fit shrink-0"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Voltar
+            </button>
+
+            {property.external_ref && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(property.external_ref!)
+                    toast.success('Referência copiada')
+                  } catch {
+                    toast.error('Não foi possível copiar')
+                  }
+                }}
+                title="Copiar referência"
+                className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-br from-primary/10 to-primary/[0.04] border border-primary/20 hover:from-primary/15 hover:to-primary/[0.07] hover:border-primary/30 transition-all shadow-sm min-w-0"
+              >
+                <Hash className="h-3 w-3 text-primary/60 shrink-0" />
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary/55 hidden sm:inline">Ref</span>
+                <span className="text-[11px] font-mono font-semibold tracking-wide text-primary truncate max-w-[140px] sm:max-w-none">
+                  {property.external_ref}
+                </span>
+              </button>
+            )}
+          </div>
 
           {/* Mobile-only edit/delete — só para owner ou gestão */}
           {canEditProperty && (
