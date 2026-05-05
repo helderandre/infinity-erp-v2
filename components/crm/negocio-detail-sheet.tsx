@@ -1088,9 +1088,9 @@ function DetalhesTab({
         {/* Inner content */}
         <div className="p-5 space-y-5">
           {/* HERO — Nome do cliente (clicável → perfil) + chips de contacto.
-              Nome centrado em desktop (sm+); mobile mantém alinhamento à esquerda. */}
+              Nome centrado em mobile; desktop volta a alinhar à esquerda. */}
           {lead && (
-            <div className="sm:text-center">
+            <div className="text-center sm:text-left">
               {leadId && !readOnly ? (
                 <Link
                   href={`/dashboard/leads/${leadId}`}
@@ -1115,7 +1115,7 @@ function DetalhesTab({
                 </p>
               )}
               {(phone || email) && (
-                <div className="flex items-center gap-2 mt-3 flex-wrap sm:justify-center">
+                <div className="flex items-center gap-2 mt-3 flex-wrap justify-center sm:justify-start">
                   {phone && (
                     <span onClick={(e) => e.stopPropagation()} className="inline-block max-w-full">
                       <CallContactButton
@@ -1187,10 +1187,10 @@ function DetalhesTab({
           )}
 
           {/* Orçamento — proeminente mas subordinado ao nome do cliente.
-              Em desktop, label e valor centrados. */}
+              Em mobile, label e valor centrados. */}
           <CardDivider />
-          <div className="sm:text-center">
-            <SectionLabel icon={Euro} centerOnDesktop>{priceLabel}</SectionLabel>
+          <div className="text-center sm:text-left">
+            <SectionLabel icon={Euro} centerOnMobile>{priceLabel}</SectionLabel>
             {price ? (
               <p className="text-lg sm:text-xl font-semibold tabular-nums leading-tight">
                 {price}
@@ -1205,8 +1205,8 @@ function DetalhesTab({
           {hasImovelSection && (
             <>
               <CardDivider />
-              <section className="sm:[&>div:first-child]:text-center">
-                <SectionLabel icon={Home} centerOnDesktop>{sectionLabel}</SectionLabel>
+              <section>
+                <SectionLabel icon={Home} centerOnMobile>{sectionLabel}</SectionLabel>
                 {/* Layout 2-col: specs à esquerda, chips de localização à
                     direita empilhados verticalmente. Em mobile ficam por
                     cima/baixo. */}
@@ -1247,14 +1247,14 @@ function DetalhesTab({
                     abre uma linha extra com capital próprio + estado de
                     aprovação + valor de crédito. */}
                 {isBuyerType && financiamento !== null && (
-                  <div className="mt-3 pt-3 border-t border-border/40 sm:text-center">
+                  <div className="mt-3 pt-3 border-t border-border/40 text-center sm:text-left">
                     {financiamento === false ? (
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/20 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
                         <Landmark className="h-3 w-3" strokeWidth={2.25} />
                         Capitais próprios
                       </div>
                     ) : (
-                      <div className="space-y-2 sm:flex sm:flex-col sm:items-center">
+                      <div className="flex flex-col items-center gap-2 sm:items-start">
                         <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 ring-1 ring-inset ring-amber-500/25 px-3 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                           <Landmark className="h-3 w-3" strokeWidth={2.25} />
                           Necessita financiamento
@@ -1402,15 +1402,16 @@ function MiniCard({ children, className }: { children: React.ReactNode; classNam
 function SectionLabel({
   icon: Icon,
   children,
-  centerOnDesktop = false,
+  centerOnMobile = false,
 }: {
   icon?: React.ElementType
   children: React.ReactNode
-  /** Em ecrãs sm+ centraliza o label (Orçamento / O que procura / Financiamento). */
-  centerOnDesktop?: boolean
+  /** Em mobile centraliza o label (Orçamento / O que procura / Financiamento).
+   *  Em desktop fica alinhado à esquerda (default). */
+  centerOnMobile?: boolean
 }) {
   return (
-    <div className={cn(centerOnDesktop && 'sm:flex sm:justify-center')}>
+    <div className={cn(centerOnMobile && 'flex justify-center sm:block')}>
       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 inline-flex items-center gap-1.5">
         {Icon && <Icon className="h-3 w-3" />}
         {children}
