@@ -1056,27 +1056,8 @@ export default function CRMPage() {
     [router, pathname, searchParams, negocioParam, bumpRefresh],
   )
 
-  // Fetch the total count of negocios per pipeline (for tab badges).
-  // Refresca quando uma operação cria/move/elimina um negócio (kanbanRefreshKey).
-  useEffect(() => {
-    let cancelled = false
-    Promise.all(
-      PIPELINE_TYPES.map((pt) =>
-        fetch(`/api/crm/negocios?pipeline_type=${pt}&per_page=1&page=1`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((json) => [pt, typeof json?.total === 'number' ? json.total : 0] as const)
-          .catch(() => [pt, 0] as const)
-      )
-    ).then((entries) => {
-      if (cancelled) return
-      const next: Record<PipelineType, number | null> = {
-        comprador: 0, vendedor: 0, arrendatario: 0, arrendador: 0,
-      }
-      for (const [pt, count] of entries) next[pt] = count
-      setPipelineCounts(next)
-    })
-    return () => { cancelled = true }
-  }, [kanbanRefreshKey])
+  // Pipeline counts (tab badges) — moved abaixo da declaração do `filters`
+  // useState porque agora depende dele. Ver ~linha 1180.
 
   // Fetch the count of pending lead-entries (status=new — need to be contacted).
   // Quando uma lead é qualificada, ela deixa o estado 'new' — bumpamos a key
@@ -1124,6 +1105,61 @@ export default function CRMPage() {
   useEffect(() => {
     setFilters((f) => ({ ...f, pipelineStageId: '' }))
   }, [activeTab])
+
+  // Fetch the total count of negocios per pipeline (for tab badges).
+  // Aplica os mesmos filtros que a query principal (excepto pipelineStageId
+  // — esse é pipeline-específico, sem sentido contar com ele em todas as
+  // tabs). Re-corre quando os filtros mudam ou quando uma operação
+  // cria/move/elimina um negócio.
+  useEffect(() => {
+    let cancelled = false
+    const buildParams = (pt: PipelineType) => {
+      const params = new URLSearchParams({
+        pipeline_type: pt,
+        per_page: '1',
+        page: '1',
+      })
+      if (filters.search) params.set('search', filters.search)
+      if (filters.temperatura) params.set('temperatura', filters.temperatura)
+      if (filters.consultantId) params.set('assigned_consultant_id', filters.consultantId)
+      if (filters.onlyReferenced) params.set('only_referenced', '1')
+      if (filters.tipoImovel) params.set('tipo_imovel', filters.tipoImovel)
+      if (filters.localizacao) params.set('localizacao', filters.localizacao)
+      if (filters.orcamentoMin) params.set('orcamento_min', filters.orcamentoMin)
+      if (filters.orcamentoMax) params.set('orcamento_max', filters.orcamentoMax)
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom)
+      if (filters.dateTo) params.set('date_to', filters.dateTo)
+      return params.toString()
+    }
+    Promise.all(
+      PIPELINE_TYPES.map((pt) =>
+        fetch(`/api/crm/negocios?${buildParams(pt)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => [pt, typeof json?.total === 'number' ? json.total : 0] as const)
+          .catch(() => [pt, 0] as const)
+      )
+    ).then((entries) => {
+      if (cancelled) return
+      const next: Record<PipelineType, number | null> = {
+        comprador: 0, vendedor: 0, arrendatario: 0, arrendador: 0,
+      }
+      for (const [pt, count] of entries) next[pt] = count
+      setPipelineCounts(next)
+    })
+    return () => { cancelled = true }
+  }, [
+    kanbanRefreshKey,
+    filters.search,
+    filters.temperatura,
+    filters.consultantId,
+    filters.onlyReferenced,
+    filters.tipoImovel,
+    filters.localizacao,
+    filters.orcamentoMin,
+    filters.orcamentoMax,
+    filters.dateFrom,
+    filters.dateTo,
+  ])
 
   // Load stages for the active pipeline
   useEffect(() => {
