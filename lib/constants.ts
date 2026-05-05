@@ -1063,6 +1063,7 @@ export const LEAD_ORIGENS = [
   'Casa Sapo',
   'Website',
   'Referência',
+  'Círculo de Influência (CDI)',
   'Walk-in',
   'Telefone',
   'Redes Sociais',
