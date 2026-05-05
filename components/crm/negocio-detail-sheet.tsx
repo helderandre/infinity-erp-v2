@@ -76,13 +76,9 @@ import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { cn } from '@/lib/utils'
 import { NEGOCIO_PROPERTY_STATUS, STATUS_COLORS, VISIT_STATUS_COLORS } from '@/lib/constants'
 
-import {
-  TemperaturaSelector,
-  temperaturaEmoji,
-  type Temperatura,
-} from '@/components/negocios/temperatura-selector'
+import { type Temperatura } from '@/components/negocios/temperatura-selector'
 import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
-import { ObservationsButton, parseObservations } from '@/components/crm/observations-dialog'
+import { parseObservations } from '@/components/crm/observations-dialog'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
 import {
@@ -159,27 +155,35 @@ const TEMP_COLORS: Record<string, string> = {
 }
 
 const TIPO_COLORS: Record<string, string> = {
+  // Perspective (post-refactor: negocios.tipo)
+  Comprador: '#2563eb',
+  Vendedor: '#16a34a',
+  Arrendatário: '#f59e0b',
+  Senhorio: '#0891b2',
+  Outro: '#64748b',
+  // Legacy aliases — kept para backwards-compat
   Compra: '#2563eb',
   Venda: '#16a34a',
-  Arrendatário: '#f59e0b',
   Arrendador: '#0891b2',
-  Outro: '#64748b',
 }
+
+// Temperatura — design segmented inline (alinhado com o picker da página de Contacto).
+const TEMP_INLINE_STYLES: Array<{
+  value: Exclude<Temperatura, null>
+  emoji: string
+  label: string
+  active: string
+}> = [
+  { value: 'Frio',   emoji: '❄️', label: 'Fria',   active: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30' },
+  { value: 'Morno',  emoji: '☀️', label: 'Morna',  active: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30' },
+  { value: 'Quente', emoji: '🔥', label: 'Quente', active: 'bg-red-500/15 text-red-600 dark:text-red-400 ring-1 ring-red-500/30' },
+]
 
 const eur = new Intl.NumberFormat('pt-PT', {
   style: 'currency',
   currency: 'EUR',
   maximumFractionDigits: 0,
 })
-
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    toast.success('Copiado')
-  } catch {
-    toast.error('Não foi possível copiar')
-  }
-}
 
 function formatRange(min: number | null, max: number | null, suffix = ''): string | null {
   if (min == null && max == null) return null
@@ -288,20 +292,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
     [saveFields, updateField],
   )
 
-  const handleSaveObservations = useCallback(
-    async (next: string | null) => {
-      if (!negocioId) return
-      const res = await fetch(`/api/negocios/${negocioId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ observacoes: next }),
-      })
-      if (!res.ok) throw new Error('Failed to save')
-      setForm((prev) => ({ ...prev, observacoes: next }))
-    },
-    [negocioId],
-  )
-
   const handleQuickFillApply = useCallback(
     async (fields: Record<string, unknown>) => {
       await saveFields(fields, 'Dados preenchidos')
@@ -313,6 +303,8 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   // 2026-06-XX: tipo post-refactor = perspective only; accept legacy + new
   const isBuyerType = ['Comprador', 'Compra', 'Arrendatário'].includes(tipo)
   const isSellerType = ['Vendedor', 'Venda', 'Senhorio', 'Arrendador'].includes(tipo)
+  const businessType = (form.business_type as string) || (negocio?.business_type as string | undefined) || ''
+  const tipoColor = (tipo && TIPO_COLORS[tipo]) || '#64748b'
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
     // Read-only mode (referrer viewing a referenced négocio): collapse to
@@ -364,33 +356,40 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
         )}
 
-        <SheetHeader className="shrink-0 px-6 pt-8 pb-3 sm:pt-10 gap-2 sm:gap-0 flex-col sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 pr-10 sm:pr-0">
-            <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight break-words sm:truncate">
-              {clientName}
-            </SheetTitle>
-            <SheetDescription className="sr-only">
-              Detalhes da oportunidade.
-            </SheetDescription>
-          </div>
+        <SheetHeader className="shrink-0 px-6 pt-6 pb-2 gap-2 flex-row items-center justify-between">
+          <SheetTitle className="sr-only">{clientName}</SheetTitle>
+          <SheetDescription className="sr-only">
+            Detalhes da oportunidade.
+          </SheetDescription>
+          {/* Tag — tipo de negócio · perspectiva (ex.: "Venda · Comprador") */}
+          {tipo ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold shrink-0 max-w-[60%] truncate"
+              style={{ backgroundColor: `${tipoColor}22`, color: tipoColor }}
+              title={businessType ? `${businessType} · ${tipo}` : tipo}
+            >
+              <Briefcase className="h-3 w-3 shrink-0" />
+              <span className="truncate">
+                {businessType ? `${businessType} · ${tipo}` : tipo}
+              </span>
+            </span>
+          ) : (
+            <span />
+          )}
           {negocio?.id && (
             <div className="flex items-center gap-1.5 sm:mr-10 shrink-0 flex-wrap">
-              {leadId && (
-                <Button
-                  asChild
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full h-8 text-xs gap-1.5"
-                  title="Ver perfil do contacto"
-                >
-                  <Link href={`/dashboard/leads/${leadId}`} onClick={() => onOpenChange(false)}>
-                    <UserIcon className="h-3.5 w-3.5" />
-                    Ver perfil
-                  </Link>
-                </Button>
-              )}
               {!readOnly && (
                 <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label="Referenciar"
+                    className="rounded-full h-8 w-8 p-0 justify-center"
+                    onClick={() => setReferOpen(true)}
+                    title="Referenciar a outro consultor"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -404,16 +403,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                     title="Editar dados da oportunidade"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full h-8 text-xs gap-1.5"
-                    onClick={() => setReferOpen(true)}
-                    title="Referenciar a outro consultor"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    Referenciar
                   </Button>
                   <Button
                     size="sm"
@@ -497,14 +486,15 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   form={form}
                   tipo={tipo}
                   isBuyerType={isBuyerType}
+                  leadId={leadId}
+                  readOnly={readOnly}
                   onPipelineStageChange={handlePipelineStageChange}
                   onTemperaturaChange={handleTemperaturaChange}
-                  onSaveObservations={handleSaveObservations}
-                  onOpenAiFill={() => setAiFillOpen(true)}
                   onOpenFullEdit={() => {
                     setEditInitialForm({ ...form })
                     setEditOpen(true)
                   }}
+                  onClose={() => onOpenChange(false)}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -847,22 +837,25 @@ function DetalhesTab({
   form,
   tipo,
   isBuyerType,
+  leadId,
+  readOnly,
   onPipelineStageChange,
   onTemperaturaChange,
-  onSaveObservations,
-  onOpenAiFill,
   onOpenFullEdit,
+  onClose,
 }: {
   negocio: any
   form: Record<string, unknown>
   tipo: string
   isBuyerType: boolean
+  leadId: string | null
+  readOnly?: boolean
   onPipelineStageChange: (stage: { id: string; name: string }) => void
   onTemperaturaChange: (t: Temperatura) => void
-  onSaveObservations: (next: string | null) => Promise<void>
-  onOpenAiFill: () => void
   /** "Ver tudo" abre o mesmo Sheet de edição que o botão Pencil do header. */
   onOpenFullEdit?: () => void
+  /** Fecha o sheet — usado quando se navega para o perfil do lead. */
+  onClose?: () => void
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -933,9 +926,6 @@ function DetalhesTab({
   const estadoImovel = (form.estado_imovel as string | null) ?? null
   const classeImovel = (form.classe_imovel as string | null) ?? null
 
-  const tipoColor = (tipo && TIPO_COLORS[tipo]) || '#64748b'
-  const tempEmoji = temperaturaEmoji(temperatura ?? undefined)
-
   // Pre-compute sections para o novo layout unificado
   const procuraItems: { label: string; value: string }[] = []
   if (form.tipo_imovel) procuraItems.push({ label: 'Tipo', value: String(form.tipo_imovel) })
@@ -981,40 +971,53 @@ function DetalhesTab({
             fallbackLabel={estado}
             onChange={onPipelineStageChange}
           />
-          {tipo && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-              style={{ backgroundColor: `${tipoColor}22`, color: tipoColor }}
-            >
-              <Briefcase className="h-3 w-3" />
-              {tipo}
-            </span>
-          )}
-          <TemperaturaSelector value={temperatura} onChange={onTemperaturaChange} />
-          <ObservationsButton observacoes={observacoes} onSave={onSaveObservations} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full h-7 text-xs gap-1"
-            onClick={onOpenAiFill}
-          >
-            <Sparkles className="h-3 w-3" />
-            IA
-          </Button>
+          {/* Temperatura — segmented inline (mesmo design da página de Contacto) */}
+          <div className="inline-flex items-center gap-1 rounded-full bg-background/60 backdrop-blur-sm border border-border/50 p-0.5 shadow-sm">
+            {TEMP_INLINE_STYLES.map((t) => {
+              const isActive = temperatura === t.value
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => onTemperaturaChange(isActive ? null : t.value)}
+                  title={t.label}
+                  className={cn(
+                    'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium transition-all px-2 sm:px-2.5',
+                    isActive
+                      ? t.active
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
+                  )}
+                >
+                  <span className="text-sm leading-none">{t.emoji}</span>
+                  <span className="hidden sm:inline">{t.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Inner content */}
         <div className="p-5 space-y-5">
-          {/* HERO — Cliente em destaque (nome grande + chips de contacto) */}
+          {/* HERO — Nome do cliente (clicável → perfil) + chips de contacto */}
           {lead && (
             <div>
-              <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                <UserIcon className="h-3 w-3" />
-                Cliente
-              </div>
-              <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight leading-tight truncate">
-                {clientName}
-              </h2>
+              {leadId && !readOnly ? (
+                <Link
+                  href={`/dashboard/leads/${leadId}`}
+                  onClick={() => onClose?.()}
+                  className="group inline-flex items-baseline gap-2 max-w-full"
+                  title="Ver perfil do contacto"
+                >
+                  <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight leading-tight truncate group-hover:underline underline-offset-4 decoration-2 decoration-foreground/30">
+                    {clientName}
+                  </h2>
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                </Link>
+              ) : (
+                <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight leading-tight truncate">
+                  {clientName}
+                </h2>
+              )}
               {lead.empresa && (
                 <p className="text-[12px] text-muted-foreground truncate mt-0.5">
                   {lead.empresa}
@@ -1022,7 +1025,7 @@ function DetalhesTab({
                 </p>
               )}
               {(phone || email) && (
-                <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
                   {phone && (
                     <span onClick={(e) => e.stopPropagation()} className="inline-block max-w-full">
                       <CallContactButton
@@ -1036,40 +1039,39 @@ function DetalhesTab({
                         leadId={lead?.id ?? null}
                         sourceRefType="lead"
                         sourceRefId={lead?.id ?? null}
-                        ariaLabel={phone}
-                        className="inline-flex items-center gap-1.5 h-7 rounded-full bg-muted/50 hover:bg-muted px-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors max-w-full"
+                        ariaLabel={`Ligar ${phone}`}
+                        className="inline-flex items-center gap-2 h-9 rounded-full border border-border/70 bg-card hover:bg-muted active:scale-[0.98] px-3.5 text-[12px] font-medium text-foreground transition-all shadow-sm max-w-full"
                       >
-                        <Phone className="h-3 w-3" />
+                        <Phone className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                         <span className="truncate">{phone}</span>
                       </CallContactButton>
                     </span>
                   )}
                   {email && (
-                    <button
-                      type="button"
-                      onClick={() => void copyToClipboard(email)}
-                      className="inline-flex items-center gap-1.5 h-7 rounded-full bg-muted/50 hover:bg-muted px-2.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors truncate max-w-full"
-                      title="Copiar email"
+                    <a
+                      href={`mailto:${email}`}
+                      className="inline-flex items-center gap-2 h-9 rounded-full border border-border/70 bg-card hover:bg-muted active:scale-[0.98] px-3.5 text-[12px] font-medium text-foreground transition-all shadow-sm truncate max-w-full"
+                      title={`Escrever para ${email}`}
                     >
-                      <Mail className="h-3 w-3 shrink-0" />
+                      <Mail className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
                       <span className="truncate">{email}</span>
-                    </button>
+                    </a>
                   )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Orçamento — número grande, sem caixa */}
+          {/* Orçamento — proeminente mas subordinado ao nome do cliente */}
           <CardDivider />
           <div>
             <SectionLabel icon={Euro}>{priceLabel}</SectionLabel>
             {price ? (
-              <p className="text-2xl sm:text-[26px] font-bold tabular-nums leading-tight">
+              <p className="text-lg sm:text-xl font-semibold tabular-nums leading-tight">
                 {price}
               </p>
             ) : (
-              <p className="text-base text-muted-foreground italic font-medium">—</p>
+              <p className="text-sm text-muted-foreground italic font-medium">—</p>
             )}
           </div>
 

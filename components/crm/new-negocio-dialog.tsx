@@ -13,6 +13,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import type { NegocioZone } from '@/lib/matching'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
   Briefcase,
@@ -43,6 +48,8 @@ interface NewNegocioDialogProps {
   onOpenChange: (open: boolean) => void
   /** Called when a new negócio is created. Passes the negócio id. */
   onCreated?: (negocioId: string) => void
+  /** When set, the dialog skips the lead search step and pre-selects this lead. */
+  presetLeadId?: string | null
 }
 
 interface LeadOption {
@@ -130,7 +137,7 @@ const VALUE_CONFIG: Record<string, {
   },
 }
 
-export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDialogProps) {
+export function NewNegocioDialog({ open, onOpenChange, onCreated, presetLeadId }: NewNegocioDialogProps) {
   const isMobile = useIsMobile()
   const [tab, setTab] = useState<Tab>('existente')
   const [search, setSearch] = useState('')
@@ -142,7 +149,9 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
   const [valueMin, setValueMin] = useState('')
   const [valueMax, setValueMax] = useState('')
   const [valueSingle, setValueSingle] = useState('')
-  const [localizacao, setLocalizacao] = useState('')
+  const [zonas, setZonas] = useState<NegocioZone[]>([])
+  const [tipoImovel, setTipoImovel] = useState('')
+  const [quartosMin, setQuartosMin] = useState('')
   const [creating, setCreating] = useState(false)
   const [showLeadEntry, setShowLeadEntry] = useState(false)
 
@@ -160,7 +169,9 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
       setValueMin('')
       setValueMax('')
       setValueSingle('')
-      setLocalizacao('')
+      setZonas([])
+      setTipoImovel('')
+      setQuartosMin('')
       setCreating(false)
       return
     }
@@ -180,9 +191,35 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     if (tipo && !allowed.includes(tipo)) setTipo('')
   }, [businessType, tipo])
 
-  // Search leads — fires on debounced search OR when the dialog first opens
+  // When opened with a preset lead, fetch the lead by id and pre-select it.
+  // Skips the manual search step entirely.
   useEffect(() => {
-    if (!open || tab !== 'existente') return
+    if (!open || !presetLeadId) return
+    let cancelled = false
+    setTab('existente')
+    fetch(`/api/leads/${presetLeadId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((lead) => {
+        if (cancelled || !lead) return
+        setSelectedLead({
+          id: lead.id,
+          nome: lead.nome ?? null,
+          full_name: lead.full_name ?? null,
+          telemovel: lead.telemovel ?? null,
+          telefone: lead.telefone ?? null,
+          email: lead.email ?? null,
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [open, presetLeadId])
+
+  // Search leads — fires on debounced search OR when the dialog first opens.
+  // Skipped when a presetLeadId is provided (no manual search needed).
+  useEffect(() => {
+    if (!open || tab !== 'existente' || presetLeadId) return
     let cancelled = false
     setLoading(true)
     const params = new URLSearchParams({ qualified_only: 'true', limit: '15' })
@@ -203,7 +240,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     return () => {
       cancelled = true
     }
-  }, [open, tab, debouncedSearch])
+  }, [open, tab, debouncedSearch, presetLeadId])
 
   const config = businessType && tipo ? VALUE_CONFIG[`${businessType}|${tipo}`] : null
 
@@ -212,7 +249,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     if (!selectedLead) return 'Selecciona um contacto'
     if (!businessType) return 'Selecciona o tipo de negócio'
     if (!tipo) return 'Selecciona a perspectiva'
-    if (!localizacao.trim()) return 'Localização obrigatória'
+    if (zonas.length === 0) return 'Selecciona pelo menos uma zona'
     if (!config) return 'Combinação inválida'
     if (config.mode === 'range') {
       const min = Number(valueMin)
@@ -225,7 +262,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
       if (!valueSingle.trim() || !Number.isFinite(v) || v <= 0) return 'Valor obrigatório'
     }
     return null
-  }, [selectedLead, businessType, tipo, localizacao, valueMin, valueMax, valueSingle, config])
+  }, [selectedLead, businessType, tipo, zonas, valueMin, valueMax, valueSingle, config])
 
   const handleCreate = useCallback(async () => {
     if (validationError || !selectedLead || !businessType || !tipo || !config) return
@@ -235,8 +272,10 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
         lead_id: selectedLead.id,
         business_type: businessType,
         tipo,
-        localizacao: localizacao.trim(),
+        zonas,
       }
+      if (tipoImovel) body.tipo_imovel = tipoImovel
+      if (quartosMin) body.quartos_min = parseInt(quartosMin)
       if (config.mode === 'range' && config.minField && config.maxField) {
         body[config.minField] = Number(valueMin)
         body[config.maxField] = Number(valueMax)
@@ -262,7 +301,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
     } finally {
       setCreating(false)
     }
-  }, [validationError, selectedLead, businessType, tipo, config, localizacao, valueMin, valueMax, valueSingle, onOpenChange, onCreated])
+  }, [validationError, selectedLead, businessType, tipo, config, zonas, tipoImovel, quartosMin, valueMin, valueMax, valueSingle, onOpenChange, onCreated])
 
   return (
     <>
@@ -291,21 +330,44 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
           </SheetHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
-            {/* Card 1 — Tab pills */}
-            <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-2">
-              <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40 w-full">
-                <TabButton active={tab === 'existente'} onClick={() => setTab('existente')} icon={Users}>
-                  Contacto existente
-                </TabButton>
-                <TabButton active={tab === 'novo'} onClick={() => setTab('novo')} icon={UserPlus}>
-                  Novo contacto
-                </TabButton>
+            {/* Card 1 — Tab pills (hidden when a lead is pre-selected) */}
+            {!presetLeadId && (
+              <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-2">
+                <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40 w-full">
+                  <TabButton active={tab === 'existente'} onClick={() => setTab('existente')} icon={Users}>
+                    Contacto existente
+                  </TabButton>
+                  <TabButton active={tab === 'novo'} onClick={() => setTab('novo')} icon={UserPlus}>
+                    Novo contacto
+                  </TabButton>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Pre-selected lead indicator (when invoked from a lead detail page) */}
+            {presetLeadId && selectedLead && (
+              <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-3 flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Users className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Para</p>
+                  <p className="text-sm font-medium truncate">
+                    {selectedLead.full_name || selectedLead.nome || 'Contacto'}
+                  </p>
+                  {(selectedLead.telemovel || selectedLead.telefone || selectedLead.email) && (
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {[selectedLead.telemovel || selectedLead.telefone, selectedLead.email].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {tab === 'existente' ? (
               <>
-                {/* Card 2 — Pesquisa de contacto */}
+                {/* Card 2 — Pesquisa de contacto (hidden when a lead is pre-selected) */}
+                {!presetLeadId && (
                 <div className="rounded-2xl bg-card border border-border/50 shadow-sm p-4 space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -364,6 +426,7 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* Card 3 — Tipo de oportunidade (após escolher contacto) */}
                 {selectedLead && (
@@ -485,21 +548,46 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated }: NewNegocioDi
                       </div>
                     )}
 
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        Localização *
-                      </Label>
-                      <Input
-                        placeholder="Ex: Lisboa, Cascais, Oeiras"
-                        value={localizacao}
-                        onChange={(e) => setLocalizacao(e.target.value)}
-                        className="rounded-full h-9 text-xs"
-                      />
-                      <p className="text-[10px] text-muted-foreground/80">
-                        Separa várias zonas por vírgulas.
-                      </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          Tipo de Imóvel
+                        </Label>
+                        <Select
+                          value={tipoImovel || '_any'}
+                          onValueChange={(v) => setTipoImovel(v === '_any' ? '' : v)}
+                        >
+                          <SelectTrigger className="rounded-full h-9 text-xs">
+                            <SelectValue placeholder="Qualquer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_any">Qualquer</SelectItem>
+                            {['Apartamento', 'Moradia', 'Quinta', 'Prédio', 'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico'].map((t) => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          {tipo === 'Comprador' || tipo === 'Arrendatário' ? 'Quartos mín.' : 'Quartos'}
+                        </Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="2"
+                          value={quartosMin}
+                          onChange={(e) => setQuartosMin(e.target.value)}
+                          className="rounded-full h-9 text-xs"
+                        />
+                      </div>
                     </div>
+
+                    <NegocioZonasField
+                      value={zonas}
+                      onChange={setZonas}
+                    />
                   </div>
                 )}
               </>

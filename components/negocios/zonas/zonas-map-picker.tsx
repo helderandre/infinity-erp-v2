@@ -721,7 +721,7 @@ export function ZonasMapPicker({
             <div className="p-6 text-center text-sm text-muted-foreground">
               <Home className="h-10 w-10 mx-auto mb-2 text-muted-foreground/30" />
               {zones.length === 0
-                ? 'Adiciona zonas para filtrar os imóveis pelo local pretendido.'
+                ? 'Nenhum imóvel cumpre os critérios actuais (preço, tipologia, etc.). Desenha uma área para restringir geograficamente.'
                 : 'Nenhum imóvel cumpre os critérios + estas zonas.'}
             </div>
           ) : (

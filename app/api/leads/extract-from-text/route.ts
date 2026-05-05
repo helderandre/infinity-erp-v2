@@ -32,7 +32,8 @@ interface ExtractedPayload {
     observacoes: FieldWithConfidence<string>
   }
   negocio: {
-    tipo: FieldWithConfidence<'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'>
+    business_type: FieldWithConfidence<'Venda' | 'Arrendamento' | 'Trespasse'>
+    tipo: FieldWithConfidence<'Comprador' | 'Vendedor' | 'Arrendatário' | 'Senhorio'>
     tipo_imovel: FieldWithConfidence<string>
     tipologia: FieldWithConfidence<string>
     quartos_min: FieldWithConfidence<number>
@@ -66,7 +67,8 @@ const JSON_SCHEMA = {
         type: 'object',
         additionalProperties: false,
         properties: {
-          tipo: fieldSchema({ type: 'string', enum: ['Compra', 'Venda', 'Arrendatário', 'Arrendador'] }),
+          business_type: fieldSchema({ type: 'string', enum: ['Venda', 'Arrendamento', 'Trespasse'] }),
+          tipo: fieldSchema({ type: 'string', enum: ['Comprador', 'Vendedor', 'Arrendatário', 'Senhorio'] }),
           tipo_imovel: fieldSchema({ type: 'string' }),
           tipologia: fieldSchema({ type: 'string' }),
           quartos_min: fieldSchema({ type: 'integer' }),
@@ -75,7 +77,7 @@ const JSON_SCHEMA = {
           localizacao: fieldSchema({ type: 'string' }),
           caracteristicas: fieldSchema({ type: 'array', items: { type: 'string' } }),
         },
-        required: ['tipo', 'tipo_imovel', 'tipologia', 'quartos_min', 'orcamento', 'orcamento_max', 'localizacao', 'caracteristicas'],
+        required: ['business_type', 'tipo', 'tipo_imovel', 'tipologia', 'quartos_min', 'orcamento', 'orcamento_max', 'localizacao', 'caracteristicas'],
       },
     },
     required: ['contacto', 'negocio'],
@@ -103,7 +105,17 @@ REGRAS ABSOLUTAS (não negociáveis):
    - "high" = a informação foi dita de forma clara e não ambígua pelo contacto ou agente.
    - "medium" = a informação aparece mas com alguma ambiguidade (ex: "talvez uns 300 mil").
    - "low" = não foi mencionado ou só aparece indirectamente; também usa quando value=null.
-4. Campo "tipo" (Compra/Venda/Arrendatário/Arrendador): só "high" se o contacto expressar intenção clara (ex: "quero comprar", "estou a vender").
+4. Campos "business_type" + "tipo" são SEPARADOS:
+   - "business_type" = tipo de transacção: "Venda" (comprar/vender imóvel), "Arrendamento" (arrendar/alugar), "Trespasse" (trespassar negócio).
+   - "tipo" = perspectiva do contacto: "Comprador" (quer comprar), "Vendedor" (quer vender), "Arrendatário" (quer arrendar — inquilino), "Senhorio" (quer alugar — proprietário).
+   - Exemplos:
+     · "Quero comprar uma casa" → business_type=Venda, tipo=Comprador
+     · "Estou a vender o meu apartamento" → business_type=Venda, tipo=Vendedor
+     · "Estou à procura para arrendar" → business_type=Arrendamento, tipo=Arrendatário
+     · "Quero pôr o meu T2 a render" → business_type=Arrendamento, tipo=Senhorio
+     · "Vou trespassar o meu café" → business_type=Trespasse, tipo=Vendedor
+     · "Quero comprar um trespasse" → business_type=Trespasse, tipo=Comprador
+   - Só marca "high" se a intenção for inequívoca; senão "medium" ou "low".
 5. "tipologia" usa o formato português: T0, T1, T2, T3, T4, T5, T5+. Nunca números soltos.
 6. "quartos_min" é um inteiro (não string).
 7. Orçamento em EUROS como número (não string, sem símbolo €). Converte "300 mil" → 300000, "1.5M" → 1500000.
@@ -169,6 +181,7 @@ export async function POST(request: Request) {
     if (kept(payload.contacto.observacoes)) fields.observacoes = payload.contacto.observacoes.value
 
     // Negócio
+    if (kept(payload.negocio.business_type)) fields.business_type = payload.negocio.business_type.value
     if (kept(payload.negocio.tipo)) fields.negocio_tipo = payload.negocio.tipo.value
     if (kept(payload.negocio.tipo_imovel)) fields.tipo_imovel = normalizeTipoImovel(payload.negocio.tipo_imovel.value as string)
     if (kept(payload.negocio.tipologia)) fields.tipologia = normalizeTipologia(payload.negocio.tipologia.value as string)

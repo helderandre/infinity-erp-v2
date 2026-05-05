@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
-import { LeadForm } from '@/components/leads/lead-form'
+import { ContactDialog } from '@/components/leads/contact-dialog'
 import {
   Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight,
   Phone, Mail, Zap, LayoutGrid, List, Download, Upload,
@@ -140,6 +140,9 @@ function LeadsPageContent() {
     const csv = searchParams.get('qualif_tipos') || ''
     return csv ? csv.split(',').filter(Boolean) : []
   })
+  const [qualifiedTab, setQualifiedTab] = useState<'qualified' | 'unqualified'>(
+    (searchParams.get('qualified') as 'qualified' | 'unqualified') || 'qualified',
+  )
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
   const debouncedSearch = useDebounce(search, 300)
@@ -161,7 +164,8 @@ function LeadsPageContent() {
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String(page * PAGE_SIZE))
 
-      params.set('qualified_only', 'true')
+      if (qualifiedTab === 'qualified') params.set('qualified_only', 'true')
+      else params.set('unqualified_only', 'true')
       const res = await fetch(`/api/leads?${params.toString()}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -173,7 +177,7 @@ function LeadsPageContent() {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, page])
+  }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, qualifiedTab, page])
 
   const loadConsultants = useCallback(async () => {
     try {
@@ -194,7 +198,7 @@ function LeadsPageContent() {
     // o filtro fica escondido e a API força agent_id=self.
     if (isManagement) loadConsultants()
   }, [loadConsultants, isManagement])
-  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos])
+  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, qualifiedTab])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -260,7 +264,7 @@ function LeadsPageContent() {
         <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
           <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            {total} contacto{total !== 1 ? 's' : ''} qualificado{total !== 1 ? 's' : ''}
+            {total} contacto{total !== 1 ? 's' : ''} {qualifiedTab === 'qualified' ? 'qualificado' : 'por qualificar'}{total !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
@@ -289,6 +293,34 @@ function LeadsPageContent() {
             <span className="hidden sm:inline">Novo Contacto</span>
           </Button>
         </div>
+      </div>
+
+      {/* Qualificados / Por qualificar pill tabs */}
+      <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40">
+        <button
+          type="button"
+          onClick={() => setQualifiedTab('qualified')}
+          className={cn(
+            'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+            qualifiedTab === 'qualified'
+              ? 'bg-foreground text-background shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Qualificados
+        </button>
+        <button
+          type="button"
+          onClick={() => setQualifiedTab('unqualified')}
+          className={cn(
+            'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+            qualifiedTab === 'unqualified'
+              ? 'bg-foreground text-background shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Por qualificar
+        </button>
       </div>
 
       {/* Filters + View toggle */}
@@ -551,20 +583,16 @@ function LeadsPageContent() {
         </div>
       )}
 
-      {/* New Lead Dialog */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent className="sm:max-w-md !rounded-2xl !p-0 !gap-0 !ring-0 overflow-hidden" showCloseButton={false}>
-          <VisuallyHidden><DialogTitle>Novo Contacto</DialogTitle></VisuallyHidden>
-          <LeadForm
-            consultants={consultants}
-            onSuccess={(id) => {
-              setShowNewDialog(false)
-              router.push(`/dashboard/leads/${id}`)
-            }}
-            onCancel={() => setShowNewDialog(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Novo Contacto — sheet partilhada com quick-actions */}
+      <ContactDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+        onComplete={(id) => {
+          setShowNewDialog(false)
+          loadLeads()
+          router.push(`/dashboard/leads/${id}`)
+        }}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

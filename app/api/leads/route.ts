@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     const canSeeAll = isManagementRole(auth.roles)
     const agent_id = canSeeAll ? agentParam : auth.user.id
     const qualified_only = searchParams.get('qualified_only') === 'true'
+    const unqualified_only = searchParams.get('unqualified_only') === 'true'
     const qualifTiposCsv = searchParams.get('qualif_tipos') || ''
     const qualifTipos = qualifTiposCsv
       .split(',')
@@ -81,6 +82,24 @@ export async function GET(request: Request) {
         return NextResponse.json({ data: [], total: 0 })
       }
       query = query.in('id', leadIds)
+    }
+
+    // "Por qualificar" — exclui contactos que tenham qualquer negócio. O
+    // `qualified_only` (inner join) já cobre o oposto. Mutuamente exclusivos
+    // — se ambos vierem true, `qualified_only` ganha (vai sobrepor o filtro
+    // negativo via inner join, que devolve só rows com negócio).
+    if (unqualified_only && !qualified_only) {
+      const { data: negs } = await supabase
+        .from('negocios')
+        .select('lead_id')
+      const leadIdsWithNeg = Array.from(
+        new Set(((negs as Array<{ lead_id: string | null }> | null) ?? [])
+          .map((n) => n.lead_id)
+          .filter((id): id is string => !!id)),
+      )
+      if (leadIdsWithNeg.length > 0) {
+        query = query.not('id', 'in', `(${leadIdsWithNeg.join(',')})`)
+      }
     }
 
     const { data, error, count } = await query

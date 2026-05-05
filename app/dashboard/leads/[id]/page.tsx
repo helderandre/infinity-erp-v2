@@ -120,11 +120,6 @@ export default function LeadDetailPage() {
   const [newNegocioOpen, setNewNegocioOpen] = useState(false)
   const [negocioToDelete, setNegocioToDelete] = useState<string | null>(null)
   const [deletingNegocio, setDeletingNegocio] = useState(false)
-  const [newNegocioBusinessType, setNewNegocioBusinessType] = useState<'Venda' | 'Arrendamento' | 'Trespasse' | ''>('')
-  const [newNegocioTipo, setNewNegocioTipo] = useState('')
-  const [newNegocioTipologia, setNewNegocioTipologia] = useState<'T0' | 'T1' | 'T2' | 'T3' | 'T4' | 'T5+' | null>(null)
-  const [newNegocioValor, setNewNegocioValor] = useState<string>('')
-  const [creatingNegocio, setCreatingNegocio] = useState(false)
   const [attachments, setAttachments] = useState<LeadAttachment[]>([])
   const [cpLoading, setCpLoading] = useState(false)
   const [nipcLoading, setNipcLoading] = useState(false)
@@ -135,7 +130,7 @@ export default function LeadDetailPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
   const [entriesLoading, setEntriesLoading] = useState(false)
-  const [historicoSubtab, setHistoricoSubtab] = useState<'entradas' | 'anexos'>('entradas')
+  const [historicoSubtab, setHistoricoSubtab] = useState<'atividade' | 'entradas' | 'anexos'>('atividade')
   const [dataSheetOpen, setDataSheetOpen] = useState(false)
   const [entriesSheetOpen, setEntriesSheetOpen] = useState(false)
   const [automationsSheetOpen, setAutomationsSheetOpen] = useState(false)
@@ -304,56 +299,9 @@ export default function LeadDetailPage() {
     }
   }
 
-  const handleCreateNegocio = async () => {
-    if (!newNegocioTipo || !newNegocioBusinessType) return
-    setCreatingNegocio(true)
-    try {
-      const body: Record<string, unknown> = {
-        lead_id: id,
-        business_type: newNegocioBusinessType,
-        tipo: newNegocioTipo,
-      }
-
-      // Tipologia → quartos (T0=0, T1=1, ..., T5+=5)
-      if (newNegocioTipologia) {
-        const n = newNegocioTipologia === 'T5+' ? 5 : parseInt(newNegocioTipologia.slice(1), 10)
-        if (!Number.isNaN(n)) {
-          // For buyer/tenant intent, the field is the minimum (quartos_min);
-          // for seller/landlord, it's the property's actual rooms (quartos).
-          if (newNegocioTipo === 'Comprador' || newNegocioTipo === 'Arrendatário') {
-            body.quartos_min = n
-          } else {
-            body.quartos = n
-          }
-        }
-      }
-
-      // Valor → maps to the right column based on tipo
-      const valorNum = newNegocioValor.trim() ? parseFloat(newNegocioValor) : null
-      if (valorNum && !Number.isNaN(valorNum) && valorNum > 0) {
-        if (newNegocioTipo === 'Comprador') body.orcamento_max = valorNum
-        else if (newNegocioTipo === 'Arrendatário') body.renda_max_mensal = valorNum
-        else if (newNegocioTipo === 'Vendedor') body.preco_venda = valorNum
-        else if (newNegocioTipo === 'Senhorio') body.renda_pretendida = valorNum
-      }
-
-      const res = await fetch('/api/negocios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error()
-      const data = await res.json()
-      toast.success('Oportunidade criada com sucesso')
-      setNewNegocioOpen(false)
-      setNewNegocioBusinessType('')
-      setNewNegocioTipo('')
-      setNewNegocioTipologia(null)
-      setNewNegocioValor('')
-      loadNegocios()
-      openNegocioSheet(data.id)
-    } catch { toast.error('Erro ao criar oportunidade') }
-    finally { setCreatingNegocio(false) }
+  const handleNegocioCreated = (negocioId: string) => {
+    loadNegocios()
+    openNegocioSheet(negocioId)
   }
 
   const handleDeleteNegocio = async () => {
@@ -513,7 +461,7 @@ export default function LeadDetailPage() {
         setActiveTab(tab)
         if (tab === 'negocios') loadNegocios()
         if (tab === 'notas') loadActivities()
-        if (tab === 'historico') { loadAttachments(); loadEntries() }
+        if (tab === 'historico') { loadAttachments(); loadEntries(); loadActivities() }
         // Agenda → tasks subtab needs the lead's negocios to fetch their tasks
         if (tab === 'agenda') loadNegocios()
       }}
@@ -894,20 +842,12 @@ export default function LeadDetailPage() {
                 </div>
               )}
 
-              {/* Nova Oportunidade sheet — replaces the previous Dialog */}
+              {/* Nova Oportunidade sheet — auto-managed state */}
               <NewNegocioSheet
                 open={newNegocioOpen}
                 onOpenChange={setNewNegocioOpen}
-                businessType={newNegocioBusinessType}
-                onBusinessTypeChange={setNewNegocioBusinessType}
-                tipo={newNegocioTipo}
-                onTipoChange={setNewNegocioTipo}
-                tipologia={newNegocioTipologia}
-                onTipologiaChange={setNewNegocioTipologia}
-                valor={newNegocioValor}
-                onValorChange={setNewNegocioValor}
-                onSubmit={handleCreateNegocio}
-                submitting={creatingNegocio}
+                leadId={id}
+                onCreated={handleNegocioCreated}
               />
 
               {/* Delete negocio confirmation */}
@@ -1020,6 +960,7 @@ export default function LeadDetailPage() {
               {/* Subtabs */}
               <div className="flex items-center gap-1 rounded-full bg-muted/50 p-1 w-fit border border-border/30">
                 {([
+                  { key: 'atividade' as const, label: 'Atividade', count: activities.length },
                   { key: 'entradas' as const, label: 'Entradas', count: entries.length },
                   { key: 'anexos' as const, label: 'Anexos', count: attachments.length },
                 ]).map((sub) => (
@@ -1047,6 +988,87 @@ export default function LeadDetailPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Atividade subtab — chronological record of tasks, events, calls, notes, etc. */}
+              {historicoSubtab === 'atividade' && (
+                <div className="space-y-2">
+                  {activitiesLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+                    </div>
+                  ) : activities.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-12 text-center">
+                      <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                        <Clock className="h-7 w-7 text-muted-foreground/30" />
+                      </div>
+                      <p className="text-muted-foreground text-sm">Sem atividade registada</p>
+                      <p className="text-muted-foreground/60 text-xs mt-1">Tarefas, eventos, chamadas e notas aparecem aqui em ordem cronológica</p>
+                    </div>
+                  ) : (
+                    activities.map((act) => {
+                      const meta = (() => {
+                        switch (act.activity_type) {
+                          case 'task':          return { Icon: CheckSquare,    label: 'Tarefa',     tint: 'bg-amber-500/10 text-amber-600' }
+                          case 'event':         return { Icon: CalendarDays,   label: 'Evento',     tint: 'bg-violet-500/10 text-violet-600' }
+                          case 'note':          return { Icon: StickyNote,     label: 'Nota',       tint: 'bg-sky-500/10 text-sky-600' }
+                          case 'call':          return { Icon: Phone,          label: 'Chamada',    tint: 'bg-emerald-500/10 text-emerald-600' }
+                          case 'email':         return { Icon: Mail,           label: 'Email',      tint: 'bg-blue-500/10 text-blue-600' }
+                          case 'whatsapp':      return { Icon: MessageSquare,  label: 'WhatsApp',   tint: 'bg-emerald-500/10 text-emerald-600' }
+                          case 'sms':           return { Icon: Smartphone,     label: 'SMS',        tint: 'bg-indigo-500/10 text-indigo-600' }
+                          case 'visit':         return { Icon: CalendarDays,   label: 'Visita',     tint: 'bg-purple-500/10 text-purple-600' }
+                          case 'status_change': return { Icon: Sparkles,       label: 'Estado',     tint: 'bg-stone-500/10 text-stone-600' }
+                          case 'assignment':    return { Icon: Sparkles,       label: 'Atribuição', tint: 'bg-stone-500/10 text-stone-600' }
+                          case 'qualification': return { Icon: Sparkles,       label: 'Qualif.',    tint: 'bg-stone-500/10 text-stone-600' }
+                          default:              return { Icon: Clock,          label: act.activity_type || 'Atividade', tint: 'bg-muted text-muted-foreground' }
+                        }
+                      })()
+                      const Icon = meta.Icon
+                      const dateStr = formatDate(act.occurred_at || act.created_at)
+                      const author = act.created_by_user?.commercial_name
+                      const isFutureEvent = act.activity_type === 'event' && act.metadata?.start_date && new Date(act.metadata.start_date).getTime() > Date.now()
+                      const isOverdueTask = act.activity_type === 'task' && !act.metadata?.is_completed && act.metadata?.due_date && new Date(act.metadata.due_date).getTime() < Date.now()
+                      const isCompletedTask = act.activity_type === 'task' && act.metadata?.is_completed
+                      return (
+                        <div
+                          key={act.id}
+                          className="rounded-2xl border border-border/30 bg-card/50 backdrop-blur-sm px-4 py-3 flex items-start gap-3 transition-all hover:bg-card/80"
+                        >
+                          <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5', meta.tint)}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium truncate max-w-full">
+                                {act.subject || act.description || meta.label}
+                              </span>
+                              <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0', meta.tint)}>
+                                {meta.label}
+                              </span>
+                              {isCompletedTask && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 shrink-0">Concluída</span>
+                              )}
+                              {isOverdueTask && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 shrink-0">Em atraso</span>
+                              )}
+                              {isFutureEvent && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 shrink-0">Futuro</span>
+                              )}
+                            </div>
+                            {act.subject && act.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{act.description}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground/60 mt-1">
+                              {dateStr}
+                              {author && <span> · {author}</span>}
+                              {act.metadata?.location && <span> · {act.metadata.location}</span>}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )}
 
               {/* Entradas subtab — inbound leads from forms/campaigns */}
               {historicoSubtab === 'entradas' && (

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import {
   Plus,
   Users,
@@ -56,8 +56,18 @@ type CardGroup = {
 
 export function QuickActions() {
   const router = useRouter()
+  const pathname = usePathname()
   const { user } = useUser()
   const [sheetOpen, setSheetOpen] = useState(false)
+
+  // When triggered from a lead's detail page, the "Nova Oportunidade" dialog
+  // should pre-select that lead instead of forcing a manual search. We grab
+  // the UUID from `/dashboard/leads/<id>` (or `/dashboard/crm/leads/<id>`).
+  const contextLeadId = useMemo(() => {
+    if (!pathname) return null
+    const m = pathname.match(/\/dashboard\/(?:crm\/)?leads\/([0-9a-f-]{36})(?:[/?#]|$)/i)
+    return m?.[1] ?? null
+  }, [pathname])
   const [contactOpen, setContactOpen] = useState(false)
   const [novoContactoOpen, setNovoContactoOpen] = useState(false)
   const [negocioOpen, setNegocioOpen] = useState(false)
@@ -337,6 +347,7 @@ export function QuickActions() {
       <NewNegocioDialog
         open={negocioOpen}
         onOpenChange={setNegocioOpen}
+        presetLeadId={contextLeadId}
         onCreated={(negocioId) => {
           setNegocioOpen(false)
           router.push(`/dashboard/negocios/${negocioId}`)

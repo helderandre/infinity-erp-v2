@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import type { NegocioZone } from '@/lib/matching'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -14,7 +16,7 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import {
-  Mic, MicOff, Loader2, Sparkles, ArrowDownLeft, ArrowUpRight,
+  Mic, MicOff, Loader2, Sparkles,
   ShoppingCart, Store, Key, Building2, Briefcase,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -108,18 +110,13 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
   // Negócio inline (required: at least business_type + tipo)
   const [negocioBusinessType, setNegocioBusinessType] = useState<string>(initialValues?.negocio_business_type || '')
   const [negocioTipo, setNegocioTipo] = useState<string>(initialValues?.negocio_tipo || '')
+  const [negocioZonas, setNegocioZonas] = useState<NegocioZone[]>([])
   const [negocioFields, setNegocioFields] = useState({
     tipo_imovel: initialValues?.tipo_imovel || '',
-    localizacao: initialValues?.localizacao || '',
     quartos_min: initialValues?.quartos_min !== undefined ? String(initialValues.quartos_min) : '',
     orcamento: initialValues?.orcamento !== undefined ? String(initialValues.orcamento) : '',
     orcamento_max: initialValues?.orcamento_max !== undefined ? String(initialValues.orcamento_max) : '',
   })
-
-  // Referral
-  const [referralDir, setReferralDir] = useState<null | 'incoming' | 'outgoing'>(null)
-  const [referralConsultantId, setReferralConsultantId] = useState('')
-  const [referralNotes, setReferralNotes] = useState('')
 
   // AI
   const [aiOpen, setAiOpen] = useState(false)
@@ -163,7 +160,8 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
         setNegocioTipo(mapped.tipo)
       }
     }
-    if (fields.localizacao) setNegocioFields((p) => ({ ...p, localizacao: fields.localizacao }))
+    // Localização extraída pela IA fica como texto livre — vai paralela
+    // às zonas estruturadas escolhidas pelo consultor no mapa.
     if (fields.quartos_min || fields.quartos) setNegocioFields((p) => ({ ...p, quartos_min: String(fields.quartos_min || fields.quartos) }))
     if (fields.orcamento) setNegocioFields((p) => ({ ...p, orcamento: String(fields.orcamento) }))
     if (fields.orcamento_max) setNegocioFields((p) => ({ ...p, orcamento_max: String(fields.orcamento_max) }))
@@ -251,7 +249,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
     if (!negocioBusinessType || !negocioTipo) { toast.error('Seleccione o tipo de negócio e a perspectiva'); return }
 
     // Mandatory negócio fields — same rule as the CRM "Novo negócio" dialog.
-    if (!negocioFields.localizacao.trim()) { toast.error('Localização é obrigatória'); return }
+    if (negocioZonas.length === 0) { toast.error('Selecciona pelo menos uma zona'); return }
     const orcMin = parseFloat(negocioFields.orcamento)
     const orcMax = parseFloat(negocioFields.orcamento_max)
     const isBuyer = negocioTipo === 'Comprador' || negocioTipo === 'Arrendatário' || negocioTipo === 'Outro'
@@ -325,7 +323,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
           assigned_consultant_id: form.agent_id || null,
         }
         if (negocioFields.tipo_imovel) negPayload.tipo_imovel = negocioFields.tipo_imovel
-        if (negocioFields.localizacao) negPayload.localizacao = negocioFields.localizacao
+        if (negocioZonas.length > 0) negPayload.zonas = negocioZonas
         if (negocioFields.quartos_min) negPayload.quartos_min = parseInt(negocioFields.quartos_min)
         if (negocioFields.orcamento) {
           negPayload.orcamento = parseFloat(negocioFields.orcamento)
@@ -340,22 +338,6 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
         })
       }
 
-      // 3. Create referral if set
-      if (referralDir && referralConsultantId && user?.id) {
-        try {
-          await fetch('/api/crm/referrals', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contact_id: contactId,
-              referral_type: 'internal',
-              from_consultant_id: referralDir === 'incoming' ? referralConsultantId : user.id,
-              to_consultant_id: referralDir === 'incoming' ? user.id : referralConsultantId,
-              notes: referralNotes || null,
-            }),
-          })
-        } catch {}
-      }
 
       toast.success('Contacto e negócio criados com sucesso')
       if (onSuccess) onSuccess(contactId)
@@ -535,30 +517,16 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
           </div>
         </div>
 
-        {/* Origem + Consultor */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
-            <Select value={form.origem || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, origem: v === '_none' ? '' : v }))}>
-              <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">—</SelectItem>
-                {LEAD_ORIGENS_OPTIONS.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-[11px] text-muted-foreground font-medium">Consultor</Label>
-            <Select value={form.agent_id || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, agent_id: v === '_none' ? '' : v }))}>
-              <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">—</SelectItem>
-                {consultants.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.commercial_name}{c.id === user?.id ? ' (eu)' : ''}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Origem — agent_id é sempre o consultor autenticado */}
+        <div>
+          <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
+          <Select value={form.origem || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, origem: v === '_none' ? '' : v }))}>
+            <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">—</SelectItem>
+              {LEAD_ORIGENS_OPTIONS.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Negócio details (optional, expandable if tipo selected) */}
@@ -575,10 +543,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Localização</Label>
-              <Input placeholder="ex: Lisboa, Cascais..." value={negocioFields.localizacao} onChange={(e) => setNegocioFields((p) => ({ ...p, localizacao: e.target.value }))} className="rounded-lg mt-1 h-9" />
-            </div>
+            <NegocioZonasField value={negocioZonas} onChange={setNegocioZonas} />
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-[11px] text-muted-foreground font-medium">{isBuyer ? 'Quartos mín.' : 'Quartos'}</Label>
@@ -597,62 +562,6 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
             </div>
           </div>
         )}
-
-        {/* Referral */}
-        <div>
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Referência</p>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => setReferralDir(referralDir === 'incoming' ? null : 'incoming')}
-              className={cn(
-                'flex-1 rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5',
-                referralDir === 'incoming'
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <ArrowDownLeft className="h-3 w-3" />
-              Recebi
-            </button>
-            <button
-              type="button"
-              onClick={() => setReferralDir(referralDir === 'outgoing' ? null : 'outgoing')}
-              className={cn(
-                'flex-1 rounded-lg py-2 text-[11px] font-medium transition-all text-center flex items-center justify-center gap-1.5',
-                referralDir === 'outgoing'
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-              Estou a referenciar
-            </button>
-          </div>
-
-          {referralDir && (
-            <div className="space-y-3 mt-3">
-              <div>
-                <Label className="text-[11px] text-muted-foreground font-medium">
-                  {referralDir === 'incoming' ? 'Quem me referenciou?' : 'Referenciar para quem?'}
-                </Label>
-                <Select value={referralConsultantId || '_none'} onValueChange={(v) => setReferralConsultantId(v === '_none' ? '' : v)}>
-                  <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar consultor" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">—</SelectItem>
-                    {consultants.filter((c) => c.id !== user?.id).map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.commercial_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-[11px] text-muted-foreground font-medium">Notas da referência</Label>
-                <Input placeholder="Ex: contacto do cliente X..." value={referralNotes} onChange={(e) => setReferralNotes(e.target.value)} className="rounded-lg mt-1 h-9 text-xs" />
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Observations */}
         <div>

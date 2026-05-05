@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -12,7 +12,13 @@ import { Briefcase } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import type { NegocioZone } from '@/lib/matching'
 import { Spinner } from '@/components/kibo-ui/spinner'
+import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import {
@@ -21,83 +27,114 @@ import {
   type NegocioBusinessType,
 } from '@/lib/constants'
 
-const TIPOLOGIAS = ['T0', 'T1', 'T2', 'T3', 'T4', 'T5+'] as const
-type Tipologia = (typeof TIPOLOGIAS)[number]
+const PROPERTY_TYPES = [
+  'Apartamento', 'Moradia', 'Quinta', 'Prédio',
+  'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico',
+] as const
 
 interface NewNegocioSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  businessType: NegocioBusinessType | ''
-  onBusinessTypeChange: (bt: NegocioBusinessType | '') => void
-  tipo: string
-  onTipoChange: (tipo: string) => void
-  tipologia: Tipologia | null
-  onTipologiaChange: (tipologia: Tipologia | null) => void
-  valor: string
-  onValorChange: (valor: string) => void
-  onSubmit: () => void
-  submitting: boolean
+  leadId: string
+  /** Called with the created negócio id after a successful insert. */
+  onCreated?: (negocioId: string) => void
 }
 
 /**
- * "Nova Oportunidade" sheet — replaces the previous Dialog popup so the
- * creation step lives in the same visual language as the other sheets.
- *
- * Two-step picker:
- *   1. Business type — Venda / Arrendamento / Trespasse (mandatory)
- *   2. Perspectiva  — Comprador|Vendedor (Venda/Trespasse) or
- *                     Arrendatário|Senhorio (Arrendamento)
- *
- * Plus quick-qualification: tipologia (T0..T5+) and valor (€) — adaptive
- * label based on tipo.
+ * "Nova Oportunidade" sheet — auto-managed state. Aligns with the page-level
+ * lead-form: tipo de imóvel, localização, quartos mín., orçamento mín./máx.
+ * (or preço único para vendedores).
  */
 export function NewNegocioSheet({
   open,
   onOpenChange,
-  businessType,
-  onBusinessTypeChange,
-  tipo,
-  onTipoChange,
-  tipologia,
-  onTipologiaChange,
-  valor,
-  onValorChange,
-  onSubmit,
-  submitting,
+  leadId,
+  onCreated,
 }: NewNegocioSheetProps) {
   const isMobile = useIsMobile()
+  const [businessType, setBusinessType] = useState<NegocioBusinessType | ''>('')
+  const [tipo, setTipo] = useState<string>('')
+  const [tipoImovel, setTipoImovel] = useState<string>('')
+  const [zonas, setZonas] = useState<NegocioZone[]>([])
+  const [quartosMin, setQuartosMin] = useState<string>('')
+  const [orcamento, setOrcamento] = useState<string>('')
+  const [orcamentoMax, setOrcamentoMax] = useState<string>('')
+  const [submitting, setSubmitting] = useState(false)
 
-  // When business_type changes and the current `tipo` is no longer valid for
-  // this business_type, reset it.
+  // Reset state on close
+  useEffect(() => {
+    if (!open) {
+      setBusinessType('')
+      setTipo('')
+      setTipoImovel('')
+      setZonas([])
+      setQuartosMin('')
+      setOrcamento('')
+      setOrcamentoMax('')
+      setSubmitting(false)
+    }
+  }, [open])
+
+  // When business_type changes and the current tipo is no longer valid, reset it.
   useEffect(() => {
     if (!businessType) return
     const allowed = NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE[businessType]
-    if (tipo && !allowed.includes(tipo)) {
-      onTipoChange('')
-    }
-  }, [businessType, tipo, onTipoChange])
+    if (tipo && !allowed.includes(tipo)) setTipo('')
+  }, [businessType, tipo])
 
   const perspectivaOptions = businessType
     ? NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE[businessType]
     : []
 
-  // Adaptive label: budget when buyer/tenant; target price when seller/landlord.
-  const valorLabel = (() => {
-    switch (tipo) {
-      case 'Comprador':
-        return businessType === 'Trespasse' ? 'Orçamento máximo (€)' : 'Orçamento máximo (€)'
-      case 'Arrendatário':
-        return 'Renda máxima mensal (€)'
-      case 'Vendedor':
-        return businessType === 'Trespasse' ? 'Preço pretendido (€)' : 'Preço pretendido (€)'
-      case 'Senhorio':
-        return 'Renda pretendida mensal (€)'
-      default:
-        return 'Valor (€)'
-    }
-  })()
-
+  const isBuyer = tipo === 'Comprador' || tipo === 'Arrendatário'
   const canSubmit = !!businessType && !!tipo && !submitting
+
+  const handleSubmit = async () => {
+    if (!canSubmit || !leadId) return
+    setSubmitting(true)
+    try {
+      const body: Record<string, unknown> = {
+        lead_id: leadId,
+        business_type: businessType,
+        tipo,
+      }
+      if (tipoImovel) body.tipo_imovel = tipoImovel
+      if (zonas.length > 0) body.zonas = zonas
+      if (quartosMin) {
+        const n = parseInt(quartosMin)
+        if (!Number.isNaN(n)) {
+          if (isBuyer) body.quartos_min = n
+          else body.quartos = n
+        }
+      }
+      const orcNum = orcamento.trim() ? parseFloat(orcamento) : null
+      const orcMaxNum = orcamentoMax.trim() ? parseFloat(orcamentoMax) : null
+      if (orcNum && Number.isFinite(orcNum) && orcNum > 0) {
+        if (tipo === 'Comprador') body.orcamento = orcNum
+        else if (tipo === 'Arrendatário') body.renda_max_mensal = orcNum
+        else if (tipo === 'Vendedor') body.preco_venda = orcNum
+        else if (tipo === 'Senhorio') body.renda_pretendida = orcNum
+      }
+      if (isBuyer && orcMaxNum && Number.isFinite(orcMaxNum) && orcMaxNum > 0) {
+        body.orcamento_max = orcMaxNum
+      }
+
+      const res = await fetch('/api/negocios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      toast.success('Oportunidade criada com sucesso')
+      onOpenChange(false)
+      onCreated?.(data.id)
+    } catch {
+      toast.error('Erro ao criar oportunidade')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -141,7 +178,7 @@ export function NewNegocioSheet({
                     <button
                       key={bt}
                       type="button"
-                      onClick={() => onBusinessTypeChange(active ? '' : bt)}
+                      onClick={() => setBusinessType(active ? '' : bt)}
                       className={cn(
                         'inline-flex items-center justify-center h-9 rounded-full text-xs font-medium transition-all border',
                         active
@@ -167,7 +204,7 @@ export function NewNegocioSheet({
                       <button
                         key={p}
                         type="button"
-                        onClick={() => onTipoChange(active ? '' : p)}
+                        onClick={() => setTipo(active ? '' : p)}
                         className={cn(
                           'inline-flex items-center justify-center h-9 rounded-full text-xs font-medium transition-all border',
                           active
@@ -183,48 +220,69 @@ export function NewNegocioSheet({
               </div>
             )}
 
-            {/* Tipologia — buttons row T0..T5+. Optional. */}
-            <div className="space-y-2">
-              <Label>Tipologia</Label>
-              <div className="grid grid-cols-6 gap-1">
-                {TIPOLOGIAS.map((t) => {
-                  const active = tipologia === t
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => onTipologiaChange(active ? null : t)}
-                      className={cn(
-                        'inline-flex items-center justify-center h-8 rounded-full text-xs font-medium transition-all border',
-                        active
-                          ? 'bg-foreground text-background border-foreground'
-                          : 'border-border/40 bg-background/40 text-muted-foreground hover:text-foreground hover:border-border/70',
-                      )}
-                    >
-                      {t}
-                    </button>
-                  )
-                })}
+            {/* Detalhes do negócio (opcional) */}
+            {tipo && (
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3 animate-in fade-in slide-in-from-top-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Detalhes do negócio (opcional)
+                </p>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-medium">Tipo de Imóvel</Label>
+                  <Select
+                    value={tipoImovel || '_any'}
+                    onValueChange={(v) => setTipoImovel(v === '_any' ? '' : v)}
+                  >
+                    <SelectTrigger className="rounded-xl text-xs">
+                      <SelectValue placeholder="Qualquer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_any">Qualquer</SelectItem>
+                      {PROPERTY_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <NegocioZonasField
+                  value={zonas}
+                  onChange={setZonas}
+                />
+                <div className={cn('grid gap-2', isBuyer ? 'grid-cols-3' : 'grid-cols-2')}>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-medium">{isBuyer ? 'Quartos mín.' : 'Quartos'}</Label>
+                    <Input
+                      type="number"
+                      placeholder="2"
+                      value={quartosMin}
+                      onChange={(e) => setQuartosMin(e.target.value)}
+                      className="rounded-xl text-xs"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] font-medium">{isBuyer ? 'Orç. mín. €' : 'Preço €'}</Label>
+                    <Input
+                      type="number"
+                      placeholder="200000"
+                      value={orcamento}
+                      onChange={(e) => setOrcamento(e.target.value)}
+                      className="rounded-xl text-xs"
+                    />
+                  </div>
+                  {isBuyer && (
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-medium">Orç. máx. €</Label>
+                      <Input
+                        type="number"
+                        placeholder="350000"
+                        value={orcamentoMax}
+                        onChange={(e) => setOrcamentoMax(e.target.value)}
+                        className="rounded-xl text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="text-[10px] text-muted-foreground/80">
-                Opcional — número de quartos.
-              </p>
-            </div>
-
-            {/* Valor — adaptive label */}
-            <div className="space-y-2">
-              <Label htmlFor="negocio-valor">{valorLabel}</Label>
-              <Input
-                id="negocio-valor"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                placeholder="Opcional"
-                value={valor}
-                onChange={(e) => onValorChange(e.target.value)}
-                disabled={!tipo}
-              />
-            </div>
+            )}
           </div>
         </div>
 
@@ -241,7 +299,7 @@ export function NewNegocioSheet({
           <Button
             type="button"
             size="sm"
-            onClick={onSubmit}
+            onClick={handleSubmit}
             disabled={!canSubmit}
             className="min-w-[120px]"
           >

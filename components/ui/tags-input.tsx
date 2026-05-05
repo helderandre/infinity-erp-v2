@@ -38,13 +38,26 @@ export function TagsInput({
 
   const tagsLower = tags.map((t) => t.toLowerCase())
 
-  // Filter suggestions: match input, exclude already-added tags
+  // Filter suggestions: match input, exclude already-added tags, dedupe
+  // (suggestions arrays may legitimately repeat entries — e.g. LOCALIZACOES_PT
+  // groups by region, so 'Viana do Castelo' shows under both "Distritos" and
+  // "Norte". React keys on the rendered list must still be unique.)
   const filtered = suggestions && inputValue.trim().length >= 1
-    ? suggestions.filter((s) => {
-        const lower = s.toLowerCase()
+    ? (() => {
         const query = inputValue.trim().toLowerCase()
-        return lower.includes(query) && !tagsLower.includes(lower)
-      }).slice(0, 8)
+        const seen = new Set<string>()
+        const out: string[] = []
+        for (const s of suggestions) {
+          const lower = s.toLowerCase()
+          if (seen.has(lower)) continue
+          if (tagsLower.includes(lower)) continue
+          if (!lower.includes(query)) continue
+          seen.add(lower)
+          out.push(s)
+          if (out.length >= 8) break
+        }
+        return out
+      })()
     : []
 
   const commitTag = (raw: string) => {
