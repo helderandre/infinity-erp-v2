@@ -143,12 +143,8 @@ export default function LeadDetailPage() {
   const [quickNoteOpen, setQuickNoteOpen] = useState(false)
   const [consultants, setConsultants] = useState<Array<{ id: string; commercial_name: string }>>([])
   const [activeTab, setActiveTab] = useState<string>(
-    // Back-compat: old URLs used `?tab=calendario` before the rename to
-    // `agenda`. `?tab=notas` deixou de ser tab — Notas vivem no aside
-    // agora — fallback para `negocios`.
-    tabFromUrl === 'calendario' ? 'agenda' :
-    tabFromUrl === 'notas' ? 'negocios' :
-    (tabFromUrl || 'negocios'),
+    // Back-compat: old URLs used `?tab=calendario` before the rename to `agenda`.
+    tabFromUrl === 'calendario' ? 'agenda' : (tabFromUrl || 'negocios'),
   )
 
   const loadLead = useCallback(async () => {
@@ -358,10 +354,9 @@ export default function LeadDetailPage() {
 
   // Tabs list — rendered twice: above the carousel on mobile (`lg:hidden`)
   // and inside the right-pane tabs row on desktop (`hidden lg:flex`).
-  // Notas removidas — agora live as a glass card no bottom da left
-  // aside (always visible, sem precisar de tab).
   const TABS_CONFIG = [
     { key: 'negocios', label: 'Oportunidades', icon: Briefcase },
+    { key: 'notas', label: 'Notas', icon: StickyNote },
     { key: 'agenda', label: 'Agenda', icon: CalendarDays },
     { key: 'historico', label: 'Histórico', icon: Clock },
   ] as const
@@ -470,6 +465,7 @@ export default function LeadDetailPage() {
       onValueChange={(tab) => {
         setActiveTab(tab)
         if (tab === 'negocios') loadNegocios()
+        if (tab === 'notas') loadActivities()
         if (tab === 'historico') { loadAttachments(); loadEntries(); loadActivities() }
         // Agenda → tasks subtab needs the lead's negocios to fetch their tasks
         if (tab === 'agenda') loadNegocios()
@@ -791,6 +787,21 @@ export default function LeadDetailPage() {
                   </button>
                 </div>
               )}
+
+              {/* Perfil do cliente (IA) — também acessível aqui no
+                  bottom de Card 3, além de viver na tab Notas. Pattern
+                  pill style consistente com os outros action buttons. */}
+              <div className="pt-2 border-t border-border/30 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setProfileSheetOpen(true)}
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-indigo-700/40 bg-indigo-700/15 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/25 transition-colors shadow-sm"
+                  title="Ver perfil IA do cliente"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Perfil do cliente
+                </button>
+              </div>
             </div>
           )}
 
@@ -814,71 +825,6 @@ export default function LeadDetailPage() {
             </div>
           )}
 
-          {/* ─── Card 4: Notas — sempre visível no aside (deixou de ser
-              uma tab no right pane). Pill buttons "Perfil IA" + "Nova
-              nota" + lista de observações. */}
-          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-3">
-            <p className="text-xs font-medium text-muted-foreground/80 px-1">Notas</p>
-
-            {/* Pill buttons centrados */}
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setProfileSheetOpen(true)}
-                className="group inline-flex items-center gap-2 h-8 rounded-full border border-indigo-700/40 bg-indigo-700/15 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/25 transition-colors shadow-sm"
-                title="Ver perfil IA do cliente"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Perfil do cliente
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickNoteOpen(true)}
-                className="group inline-flex items-center gap-2 h-8 rounded-full border border-stone-700/40 bg-stone-700/15 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-700/25 transition-colors shadow-sm"
-                title="Adicionar nova nota"
-              >
-                <StickyNote className="h-3.5 w-3.5" />
-                Nova nota
-              </button>
-            </div>
-
-            {/* Notes list — só observações (activity_type='note').
-                Tarefas e eventos vivem no Histórico. */}
-            {(() => {
-              const notes = activities.filter((a) => a.activity_type === 'note')
-              if (activitiesLoading) {
-                return (
-                  <div className="space-y-2">
-                    {[1, 2].map((i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
-                  </div>
-                )
-              }
-              if (notes.length === 0) {
-                return (
-                  <p className="text-[11px] text-muted-foreground/70 text-center py-2">
-                    Sem notas ainda — toca em <span className="font-medium">Nova nota</span> para registar a primeira.
-                  </p>
-                )
-              }
-              return (
-                <div className="space-y-2">
-                  {notes.map((act) => (
-                    <ObservationItem
-                      key={act.id}
-                      activity={act as ObservationActivity}
-                      contactId={id}
-                      onChanged={() => {
-                        loadActivities()
-                        setProfileInvalidateKey((k) => k + 1)
-                      }}
-                      onNegocioClick={openNegocioSheet}
-                    />
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
-          {/* ─── /Card 4 ─────────────────────────────────────────────── */}
         </div>
       </aside>
 
@@ -1004,6 +950,91 @@ export default function LeadDetailPage() {
             </TabsContent>
 
             {/* Notas Tab — composer + AI profile + observation timeline */}
+            {/* Notas Tab — observações (activity_type='note'). */}
+            <TabsContent value="notas" className="mt-0 space-y-3">
+              {/* Legacy observacoes migration banner */}
+              {(form.observacoes as string)?.trim() && (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
+                  <StickyNote className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">Observação antiga sem data</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      {form.observacoes as string}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full text-xs h-7 px-3 shrink-0"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/leads/${id}/migrate-observacoes`, { method: 'POST' })
+                        if (!res.ok) throw new Error()
+                        updateField('observacoes', '')
+                        setLead((prev) => (prev ? { ...prev, observacoes: null } : prev))
+                        loadActivities()
+                        toast.success('Observação movida para o histórico')
+                      } catch {
+                        toast.error('Erro ao mover observação')
+                      }
+                    }}
+                  >
+                    Mover para o histórico
+                  </Button>
+                </div>
+              )}
+
+              {/* Top actions — Perfil IA + Nova nota lado-a-lado. */}
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setProfileSheetOpen(true)}
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-indigo-700/40 bg-indigo-700/15 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/25 transition-colors shadow-sm"
+                  title="Ver perfil IA do cliente"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Perfil do cliente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickNoteOpen(true)}
+                  className="group inline-flex items-center gap-2 h-8 rounded-full border border-stone-700/40 bg-stone-700/15 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-700/25 transition-colors shadow-sm"
+                  title="Adicionar nova nota"
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Nova nota
+                </button>
+              </div>
+
+              {(() => {
+                const notes = activities.filter((a) => a.activity_type === 'note')
+                if (activitiesLoading) {
+                  return (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-2xl" />)}
+                    </div>
+                  )
+                }
+                if (notes.length === 0) return null
+                return (
+                  <div className="space-y-2">
+                    {notes.map((act) => (
+                      <ObservationItem
+                        key={act.id}
+                        activity={act as ObservationActivity}
+                        contactId={id}
+                        onChanged={() => {
+                          loadActivities()
+                          setProfileInvalidateKey((k) => k + 1)
+                        }}
+                        onNegocioClick={openNegocioSheet}
+                      />
+                    ))}
+                  </div>
+                )
+              })()}
+            </TabsContent>
+
             {/* Agenda Tab — sub-tabs: calendar (events) + tasks linked to this contact */}
             <TabsContent value="agenda" className="mt-0">
               <LeadAgendaTab
