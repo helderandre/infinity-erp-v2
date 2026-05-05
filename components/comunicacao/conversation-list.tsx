@@ -47,7 +47,7 @@ function lastMessagePreview(
 
 export type ConversationType =
   | { type: 'internal' }
-  | { type: 'dm'; userId: string; userName: string; avatarUrl?: string }
+  | { type: 'dm'; userId: string; userName: string; avatarUrl?: string; roles?: string[] }
   | { type: 'process'; processId: string }
 
 interface DevUserContact {
@@ -55,22 +55,6 @@ interface DevUserContact {
   commercial_name: string
   dev_consultant_profiles: { profile_photo_url: string | null } | null
   user_roles: Array<{ role: { name: string } | null }> | null
-}
-
-const ROLE_COLORS: Record<string, string> = {
-  'Broker/CEO': 'bg-amber-100 text-amber-800',
-  'Consultor': 'bg-blue-100 text-blue-800',
-  'Consultora Executiva': 'bg-violet-100 text-violet-800',
-  'Gestora Processual': 'bg-emerald-100 text-emerald-800',
-  'Marketing': 'bg-pink-100 text-pink-800',
-  'Office Manager': 'bg-teal-100 text-teal-800',
-  'team_leader': 'bg-orange-100 text-orange-800',
-  'recrutador': 'bg-indigo-100 text-indigo-800',
-  'intermediario_credito': 'bg-cyan-100 text-cyan-800',
-}
-
-function getRoleColor(roleName: string): string {
-  return ROLE_COLORS[roleName] || 'bg-muted text-muted-foreground'
 }
 
 interface ConversationListProps {
@@ -86,6 +70,11 @@ interface ConversationListProps {
   lastActivity?: Record<string, string>
   /** Mapa channelId → última mensagem (preview + sender + timestamp). */
   lastMessage?: Record<string, ChatLastMessage>
+  /** True quando o fetch inicial de unread/lastActivity já voltou —
+   * usado para evitar render do contact list em ordem alfabética
+   * (fallback) e re-ordenar visivelmente quando os dados de
+   * actividade chegam. Mostramos skeleton até ambos estarem prontos. */
+  activityHasLoaded?: boolean
 }
 
 export function ConversationList({
@@ -98,6 +87,7 @@ export function ConversationList({
   unreadCounts = {},
   lastActivity = {},
   lastMessage = {},
+  activityHasLoaded = false,
 }: ConversationListProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'processos'>('chat')
   const [contacts, setContacts] = useState<DevUserContact[]>([])
@@ -319,7 +309,11 @@ export function ConversationList({
             </div>
 
             <div className="px-1 space-y-0.5">
-              {isLoadingContacts ? (
+              {/* Esperamos por contactos AND last-activity antes de
+                  render — sem isto a lista mostrava ordem alfabética
+                  por meio segundo e re-ordenava por actividade quando
+                  o fetch /unread chegava (visualmente "salta"). */}
+              {isLoadingContacts || !activityHasLoaded ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3 px-3 py-2">
                     <Skeleton className="h-10 w-10 rounded-full shrink-0" />
@@ -344,7 +338,6 @@ export function ConversationList({
                   const roles = (contact.user_roles || [])
                     .map((ur) => ur.role?.name)
                     .filter((n): n is string => Boolean(n))
-                  const primaryRole = roles[0]
                   const lastMsg = lastMessage[dmChId]
                   const activityTs = lastActivity[dmChId]
                   const timeLabel = formatActivityLabel(activityTs)
@@ -360,6 +353,7 @@ export function ConversationList({
                           userId: contact.id,
                           userName: contact.commercial_name,
                           avatarUrl: contact.dev_consultant_profiles?.profile_photo_url || undefined,
+                          roles,
                         })
                       }
                       className={cn(
@@ -402,18 +396,6 @@ export function ConversationList({
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                          {primaryRole && (
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                'text-[9px] px-1.5 py-0 h-4 font-medium border-0 shrink-0 max-w-[110px] truncate',
-                                getRoleColor(primaryRole),
-                              )}
-                              title={primaryRole}
-                            >
-                              {primaryRole}
-                            </Badge>
-                          )}
                           {preview.text || preview.isAttachment ? (
                             <span
                               className={cn(

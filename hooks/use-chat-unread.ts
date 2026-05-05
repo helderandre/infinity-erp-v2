@@ -18,6 +18,11 @@ export function useChatUnread() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [lastActivity, setLastActivity] = useState<Record<string, string>>({})
   const [lastMessage, setLastMessage] = useState<Record<string, ChatLastMessage>>({})
+  // `hasLoaded` flip uma vez no primeiro fetch (sucesso OU falha) para
+  // a UI saber que já não vale a pena mostrar skeleton — sem isto a
+  // sidebar mostrava ordem alfabética e re-ordenava por última
+  // actividade alguns segundos depois (re-ordering visível ao olho).
+  const [hasLoaded, setHasLoaded] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchCounts = useCallback(async () => {
@@ -36,6 +41,8 @@ export function useChatUnread() {
       }
     } catch {
       // silent
+    } finally {
+      setHasLoaded(true)
     }
   }, [])
 
@@ -69,5 +76,5 @@ export function useChatUnread() {
 
   const totalUnread = Object.values(counts).reduce((sum, c) => sum + c, 0)
 
-  return { counts, lastActivity, lastMessage, totalUnread, refetch: fetchCounts }
+  return { counts, lastActivity, lastMessage, totalUnread, hasLoaded, refetch: fetchCounts }
 }

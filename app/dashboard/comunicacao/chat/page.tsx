@@ -33,6 +33,7 @@ function ChatPageContent() {
     counts: unreadCounts,
     lastActivity: chatLastActivity,
     lastMessage: chatLastMessage,
+    hasLoaded: unreadHasLoaded,
     refetch: refetchUnread,
   } = useChatUnread()
   const searchParams = useSearchParams()
@@ -59,15 +60,19 @@ function ChatPageContent() {
     let cancelled = false
     fetch('/api/users/consultants')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((users: Array<{ id: string; commercial_name: string; dev_consultant_profiles: { profile_photo_url: string | null } | null }>) => {
+      .then((users: Array<{ id: string; commercial_name: string; dev_consultant_profiles: { profile_photo_url: string | null } | null; user_roles?: Array<{ role: { name: string } | null }> | null }>) => {
         if (cancelled) return
         const target = users.find((u) => u.id === dmParam)
         if (target) {
+          const roles = (target.user_roles || [])
+            .map((ur) => ur.role?.name)
+            .filter((n): n is string => Boolean(n))
           setActiveConversation({
             type: 'dm',
             userId: target.id,
             userName: target.commercial_name,
             avatarUrl: target.dev_consultant_profiles?.profile_photo_url || undefined,
+            roles,
           })
         } else {
           setActiveConversation({ type: 'internal' })
@@ -160,6 +165,7 @@ function ChatPageContent() {
           unreadCounts={unreadCounts}
           lastActivity={chatLastActivity}
           lastMessage={chatLastMessage}
+          activityHasLoaded={unreadHasLoaded}
         />
       </div>
 
@@ -216,6 +222,7 @@ function ChatPageContent() {
               <DmChatHeader
                 userName={activeConversation.userName}
                 avatarUrl={activeConversation.avatarUrl}
+                roles={activeConversation.roles}
                 onBack={openListSheet}
               />
             }
@@ -245,12 +252,17 @@ function ChatPageContent() {
 function DmChatHeader({
   userName,
   avatarUrl,
+  roles,
   onBack,
 }: {
   userName: string
   avatarUrl?: string
+  roles?: string[]
   onBack: () => void
 }) {
+  // Subtítulo: lista de roles (ex.: "Consultora Executiva" ou
+  // "Consultor, Team Leader"); fallback "Mensagem direta" se não vier.
+  const subtitle = roles && roles.length > 0 ? roles.join(', ') : 'Mensagem direta'
   return (
     <div className="border-b px-4 py-2.5 flex items-center gap-3 shrink-0">
       <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 md:hidden" onClick={onBack}>
@@ -262,9 +274,9 @@ function DmChatHeader({
           {userName?.[0]?.toUpperCase() || '?'}
         </AvatarFallback>
       </Avatar>
-      <div>
-        <h3 className="text-sm font-semibold">{userName}</h3>
-        <p className="text-[11px] text-muted-foreground">Mensagem direta</p>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold truncate">{userName}</h3>
+        <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
       </div>
     </div>
   )
