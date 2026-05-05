@@ -396,11 +396,11 @@ export default function LeadDetailPage() {
       <button
         type="button"
         onClick={() => setDataSheetOpen(true)}
-        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70"
+        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/50 bg-white/80 dark:bg-neutral-900/70 backdrop-blur-md shadow-sm transition-all hover:bg-white dark:hover:bg-neutral-900 hover:border-border/80 hover:shadow"
         title="Ver dados completos do contacto"
         aria-label="Ver dados completos"
       >
-        <span className="h-7 w-7 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors group-hover:bg-slate-500/15">
+        <span className="h-7 w-7 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors group-hover:bg-slate-500/25">
           <IdCard className="h-3.5 w-3.5" />
         </span>
       </button>
@@ -408,11 +408,11 @@ export default function LeadDetailPage() {
       <button
         type="button"
         onClick={() => setEntriesSheetOpen(true)}
-        className="group relative inline-flex items-center justify-center h-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70 px-1"
+        className="group relative inline-flex items-center justify-center h-9 rounded-2xl border border-border/50 bg-white/80 dark:bg-neutral-900/70 backdrop-blur-md shadow-sm transition-all hover:bg-white dark:hover:bg-neutral-900 hover:border-border/80 hover:shadow px-1"
         title="Ver vezes que mostrou interesse"
         aria-label="Leads"
       >
-        <span className="h-7 w-7 rounded-full bg-blue-700/10 text-blue-700 dark:text-blue-300 flex items-center justify-center transition-colors group-hover:bg-blue-700/15">
+        <span className="h-7 w-7 rounded-full bg-blue-700/15 text-blue-700 dark:text-blue-300 flex items-center justify-center transition-colors group-hover:bg-blue-700/25">
           <Inbox className="h-3.5 w-3.5" />
         </span>
         {entries.length > 0 && (
@@ -431,11 +431,11 @@ export default function LeadDetailPage() {
       <button
         type="button"
         onClick={() => setAutomationsSheetOpen(true)}
-        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70"
+        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/50 bg-white/80 dark:bg-neutral-900/70 backdrop-blur-md shadow-sm transition-all hover:bg-white dark:hover:bg-neutral-900 hover:border-border/80 hover:shadow"
         title="Automatismos do contacto"
         aria-label="Automatismos"
       >
-        <span className="h-7 w-7 rounded-full bg-amber-700/10 text-amber-700 dark:text-amber-400 flex items-center justify-center transition-colors group-hover:bg-amber-700/15">
+        <span className="h-7 w-7 rounded-full bg-amber-700/15 text-amber-700 dark:text-amber-400 flex items-center justify-center transition-colors group-hover:bg-amber-700/25">
           <Zap className="h-3.5 w-3.5" />
         </span>
       </button>
@@ -443,11 +443,11 @@ export default function LeadDetailPage() {
       <button
         type="button"
         onClick={() => setEditSheetOpen(true)}
-        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm transition-all hover:bg-background/70 hover:border-border/70"
+        className="group inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/50 bg-white/80 dark:bg-neutral-900/70 backdrop-blur-md shadow-sm transition-all hover:bg-white dark:hover:bg-neutral-900 hover:border-border/80 hover:shadow"
         title="Edição rápida"
         aria-label="Edição rápida"
       >
-        <span className="h-7 w-7 rounded-full bg-stone-500/10 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors group-hover:bg-stone-500/15">
+        <span className="h-7 w-7 rounded-full bg-stone-500/15 text-stone-700 dark:text-stone-300 flex items-center justify-center transition-colors group-hover:bg-stone-500/25">
           <Pencil className="h-3.5 w-3.5" />
         </span>
       </button>
@@ -492,7 +492,7 @@ export default function LeadDetailPage() {
           // generoso para aspecto iOS widget.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2rem] ring-1 ring-border/30',
-          'bg-gradient-to-br from-neutral-300 via-neutral-200 to-neutral-300',
+          'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
@@ -508,23 +508,35 @@ export default function LeadDetailPage() {
           aria-hidden
           className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2rem]"
         >
-          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-500/40 dark:bg-neutral-700/55 blur-3xl" />
-          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/45 blur-3xl" />
-          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-200/45 dark:bg-neutral-800/55 blur-3xl" />
-          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-500/35 dark:bg-neutral-700/50 blur-3xl" />
-          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-300/40 dark:bg-neutral-800/55 blur-3xl" />
-          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-500/40 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
+          <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
+          <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-100/45 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-400/35 dark:bg-neutral-700/50 blur-3xl" />
+          <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-200/40 dark:bg-neutral-800/55 blur-3xl" />
+          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
         </div>
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
           {/* Top header — Voltar (left) + 4-button cluster (right).
-              Em mobile vive aqui dentro do aside glass (ficou no topo
-              do gray panel). Em desktop só Voltar é visível — o cluster
-              é render na tabs row do desktop. */}
+              Em mobile vive aqui dentro do aside glass (no topo do
+              gray panel). Voltar usa o mesmo bubble style que o
+              cluster — bolha branca arredondada com border + shadow,
+              destaca-se claramente sobre o gray. */}
           <div className="flex items-center lg:mb-0">
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Voltar"
+              title="Voltar"
+              className="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-border/50 bg-white/80 dark:bg-neutral-900/70 backdrop-blur-md shadow-sm transition-all hover:bg-white dark:hover:bg-neutral-900 hover:border-border/80 hover:shadow"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            {/* Desktop ainda tem o seu Voltar próprio (variant ghost
+                pequeno) — keep para não duplicar visualmente o cluster. */}
             <Button
               variant="ghost"
               size="icon"
-              className="-ml-1 h-9 w-9 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-white/40 dark:hover:bg-white/10"
+              className="hidden lg:inline-flex -ml-1 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
               onClick={goBack}
               aria-label="Voltar"
               title="Voltar"
