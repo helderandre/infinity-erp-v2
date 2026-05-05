@@ -472,43 +472,37 @@ export default function LeadDetailPage() {
         glass panel. Desktop continua a render o cluster nas tabs row. */}
     <div
       className={cn(
-        // Mobile: horizontal snap carousel, one card at a time. The pt-2 prevents
-        // the rounded top corner of each card from being clipped against the
-        // page edge (the cards have ambient shadow which extends upward).
+        // Mobile: horizontal snap carousel, one card at a time.
         'flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-2 h-[calc(100svh-9rem)]',
-        // Desktop: one continuous rounded shell, natural height. Flat surface
-        // (no gradient, no halo) for a cleaner professional look.
-        'lg:overflow-x-visible lg:snap-none lg:gap-0 lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:h-auto',
-        'lg:rounded-3xl lg:overflow-hidden lg:ring-1 lg:ring-border/50 lg:bg-card',
+        // Desktop: 2 cards glassmorphic separados side-by-side com gap
+        // (em vez do single unified rounded shell). Each card mantém
+        // o seu próprio glass + mesh + rounded.
+        'lg:overflow-x-visible lg:snap-none lg:mx-0 lg:px-0 lg:pt-0 lg:pb-0 lg:h-auto lg:gap-4 lg:items-start',
       )}
     >
       {/* ─── LEFT: profile sidebar / Card 1 in mobile carousel ─── */}
       <aside
         className={cn(
           'relative',
-          // Mobile: gradient base mais escuro + 6 mesh blobs (4 nos
-          // cantos + 2 centrais) para cobrir TODA a superfície com
-          // variação tonal — sem áreas planas no meio. Rounded
-          // generoso para aspecto iOS widget.
+          // Mobile: full-width snap card no carousel
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2.25rem] ring-1 ring-border/30',
           // Profile pane mantém tom mais saturado para dar identidade
           // (é o "main card" que destaca os white cards por dentro).
           'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
-          // Desktop: merged into the outer card (transparente, sem
-          // grouped cards — mantém a sidebar única).
-          'lg:w-[320px] lg:h-auto lg:overflow-hidden',
-          'lg:rounded-none lg:ring-0 lg:bg-none lg:dark:bg-none lg:border-r lg:border-border/40',
+          // Desktop: 25% width, separate glass card (mantém o gradient
+          // + ring acima). Height natural (lg:h-auto) — não estica
+          // para a altura do right pane.
+          'lg:w-1/4 lg:h-auto lg:shrink-0 lg:overflow-hidden',
         )}
       >
         {/* Mesh blobs — 6 "ilhas" cobrindo toda a superfície
-            (cantos + zona central). O blur dos cards por cima apanha
-            valores diferentes em zonas diferentes, efeito vidro real
-            sem áreas chatas no meio. */}
+            (cantos + zona central). Visível também em desktop agora
+            que a aside é uma standalone card. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2.25rem]"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2.25rem]"
         >
           <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
           <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
@@ -555,7 +549,7 @@ export default function LeadDetailPage() {
               que apanha o gradient + blobs do aside atrás, dando
               profundidade. Desktop: tudo neutralizado (sub-elementos
               do sidebar unificado). */}
-          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-4 space-y-4 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0">
+          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-4 space-y-4">
           {/* Identity — name + subtitle */}
           <div className="flex flex-col items-center text-center gap-1.5 pt-2 lg:pt-0">
             <h2 className="text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
@@ -648,7 +642,7 @@ export default function LeadDetailPage() {
 
           {/* ─── Card 2: contact action buttons + quick action buttons ──
               Mobile: frosted glass. Desktop: transparente. */}
-          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0 lg:space-y-5">
+          <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2">
           {/* Action buttons — glass-gray container with white icon-only buttons */}
           <div className="rounded-2xl bg-muted/40 p-1.5 grid grid-cols-4 gap-1.5 lg:rounded-3xl lg:bg-muted/50 lg:supports-[backdrop-filter]:bg-muted/40 lg:backdrop-blur-md">
             {lead.telemovel ? (
@@ -754,7 +748,7 @@ export default function LeadDetailPage() {
 
           {/* ─── Card 3: contact info (Telemóvel/Email/Consultor) ──── */}
           {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
-            <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2.5 lg:bg-background/40 lg:backdrop-blur-sm lg:border lg:border-border/40 lg:shadow-none">
+            <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2.5">
               <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
               {lead.telemovel && (
                 <div className="flex items-center justify-between gap-2 text-sm">
@@ -830,21 +824,20 @@ export default function LeadDetailPage() {
       <div
         className={cn(
           'relative',
-          // Mobile: gray glassmorphic pane com mesh — match com left
-          // aside (mesma identidade visual). Cantos extra rounded.
+          // Mobile: gray glassmorphic pane (light) — mantém-se o mesh.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-[2.25rem] ring-1 ring-border/30',
           'bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
-          // Desktop: merges into the outer card
-          'lg:w-auto lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
-          'lg:rounded-none lg:ring-0 lg:bg-none lg:dark:bg-none lg:p-6',
+          // Desktop: standalone card (75%), mantém glass styles. Height
+          // natural — cresce com o conteúdo.
+          'lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
         )}
       >
-          {/* Mesh blobs — mesmo pattern do left aside (mobile-only). */}
+          {/* Mesh blobs — visível também em desktop. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2.25rem]"
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2.25rem]"
           >
             <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
             <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
@@ -855,7 +848,7 @@ export default function LeadDetailPage() {
           </div>
 
           {/* Conteúdo (relative para ficar acima dos blobs absolutos). */}
-          <div className="relative p-4 sm:p-5 lg:p-0">
+          <div className="relative p-4 sm:p-5 lg:p-6">
           {/* Mobile: tabs row centred at the top of the right pane card */}
           <div className="lg:hidden mb-3 flex items-center justify-center">
             {tabsListJsx}
