@@ -491,7 +491,7 @@ export default function LeadDetailPage() {
           // variação tonal — sem áreas planas no meio. Rounded
           // generoso para aspecto iOS widget.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-[2rem] ring-1 ring-border/30',
+          'rounded-[2.25rem] ring-1 ring-border/30',
           'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
           'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merged into the outer card (transparente, sem
@@ -506,7 +506,7 @@ export default function LeadDetailPage() {
             sem áreas chatas no meio. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2rem]"
+          className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2.25rem]"
         >
           <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
           <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
@@ -827,14 +827,33 @@ export default function LeadDetailPage() {
       {/* ─── RIGHT: tabs + content / Card 2 in mobile carousel ─── */}
       <div
         className={cn(
-          // Mobile: second carousel card — own styling, scrolls internally
+          'relative',
+          // Mobile: gray glassmorphic pane com mesh — match com left
+          // aside (mesma identidade visual). Cantos extra rounded.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl ring-1 ring-border/40 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl shadow-[0_0_24px_-2px_rgb(0_0_0_/_0.06),0_4px_12px_-3px_rgb(0_0_0_/_0.08)] p-5',
+          'rounded-[2.25rem] ring-1 ring-border/30',
+          'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
+          'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merges into the outer card
           'lg:w-auto lg:flex-1 lg:min-w-0 lg:h-auto lg:overflow-visible',
-          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:backdrop-blur-none lg:shadow-none lg:p-6',
+          'lg:rounded-none lg:ring-0 lg:bg-none lg:dark:bg-none lg:p-6',
         )}
       >
+          {/* Mesh blobs — mesmo pattern do left aside (mobile-only). */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-[2.25rem]"
+          >
+            <div className="absolute -top-24 -left-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
+            <div className="absolute top-[15%] -right-20 h-72 w-72 rounded-full bg-neutral-300/35 dark:bg-neutral-700/45 blur-3xl" />
+            <div className="absolute top-1/3 left-[20%] h-64 w-64 rounded-full bg-neutral-100/45 dark:bg-neutral-800/55 blur-3xl" />
+            <div className="absolute top-[55%] right-[15%] h-64 w-64 rounded-full bg-neutral-400/35 dark:bg-neutral-700/50 blur-3xl" />
+            <div className="absolute top-[70%] -left-20 h-72 w-72 rounded-full bg-neutral-200/40 dark:bg-neutral-800/55 blur-3xl" />
+            <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-neutral-400/35 dark:bg-neutral-700/55 blur-3xl" />
+          </div>
+
+          {/* Conteúdo (relative para ficar acima dos blobs absolutos). */}
+          <div className="relative p-4 sm:p-5 lg:p-0">
           {/* Mobile: tabs row centred at the top of the right pane card */}
           <div className="lg:hidden mb-3 flex items-center justify-center">
             {tabsListJsx}
@@ -1212,8 +1231,9 @@ export default function LeadDetailPage() {
               )}
 
             </TabsContent>
-        </div>
-      </div>
+          </div> {/* close inner content wrapper of right pane */}
+        </div> {/* close right pane outer wrapper */}
+      </div> {/* close carousel wrapper */}
     </Tabs>
 
       {/* Call outcome dialog, WhatsApp + email bubbles (overlays, out of flow) */}

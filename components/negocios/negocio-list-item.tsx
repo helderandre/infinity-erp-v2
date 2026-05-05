@@ -2,7 +2,7 @@
 
 import { format, isToday, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import { Briefcase, Sparkles, Calendar, Trash2 } from 'lucide-react'
+import { Briefcase, Calendar, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface NegocioListItemData {
@@ -27,14 +27,11 @@ const fmt = new Intl.NumberFormat('pt-PT', {
   maximumFractionDigits: 0,
 })
 
-// Tipo (perspective) tag — accepts both new and legacy values for safety
 const TIPO_TAG: Record<string, { color: string; label: string }> = {
   Comprador:    { color: '#3b82f6', label: 'Comprador' },
   Vendedor:     { color: '#10b981', label: 'Vendedor' },
   Arrendatário: { color: '#f59e0b', label: 'Arrendatário' },
   Senhorio:     { color: '#fb923c', label: 'Senhorio' },
-  // Legacy fallbacks (rows from before the 2026 split won't appear post-backfill,
-  // but kept defensive)
   Compra:       { color: '#3b82f6', label: 'Comprador' },
   Venda:        { color: '#10b981', label: 'Vendedor' },
   Arrendador:   { color: '#fb923c', label: 'Senhorio' },
@@ -52,6 +49,15 @@ interface NegocioListItemProps {
   onDelete?: () => void
 }
 
+/**
+ * Negócio list item — mini "background card" estilo glassmorphism
+ * (gradient neutro + 2 mini mesh blobs + border) match com o aside
+ * do profile e com o right pane outer. Cada item parece um pequeno
+ * pedaço de vidro fosco a flutuar dentro do gray glass do pane.
+ *
+ * Border + soft shadow servem para destacar o item do gradient pai
+ * (que tem cor muito parecida — sem isto fundiam-se).
+ */
 export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItemProps) {
   const tipo = negocio.tipo || ''
   const tipoTag = TIPO_TAG[tipo] || { color: '#64748b', label: tipo || 'Oportunidade' }
@@ -87,75 +93,92 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
   return (
     <div
       className={cn(
-        'group relative w-full rounded-2xl border backdrop-blur-sm transition-colors',
-        isNewToday
-          ? 'border-amber-400/70 bg-amber-50/70 dark:bg-amber-500/15 hover:bg-amber-100/80 dark:hover:bg-amber-500/20'
-          : 'border-border/40 bg-background/60 hover:bg-background/80',
+        'group relative w-full overflow-hidden rounded-2xl border transition-all',
+        // Mais claro — quase branco com tint subtil para se destacar
+        // do gray glass do pane parent.
+        'bg-gradient-to-br from-white via-neutral-50 to-white',
+        'dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
+        'border-white/70 dark:border-white/10',
+        'shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.6),0_2px_8px_-2px_rgb(0_0_0_/_0.08),0_1px_2px_-1px_rgb(0_0_0_/_0.04)]',
+        'hover:shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.7),0_4px_12px_-2px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)]',
       )}
     >
+      {/* Mini mesh blobs — neutros muito subtis para acompanhar o
+          tom claro sem voltar a parecer gray médio. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+        <div className="absolute -top-10 -left-8 h-32 w-32 rounded-full bg-neutral-200/40 dark:bg-neutral-700/30 blur-2xl" />
+        <div className="absolute -bottom-10 -right-8 h-32 w-32 rounded-full bg-neutral-100/60 dark:bg-neutral-700/30 blur-2xl" />
+      </div>
+
       <button
         type="button"
         onClick={onSelect}
-        className="w-full text-left flex items-center gap-4 p-3"
+        className="relative w-full text-left flex items-center gap-3 p-3"
       >
+        {/* Icon — colorido (identifica tipo) num square translúcido */}
         <div
-          className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: `${tipoTag.color}1a`, color: tipoTag.color }}
+          className="h-11 w-11 shrink-0 rounded-xl flex items-center justify-center backdrop-blur-sm border border-white/50 dark:border-white/10"
+          style={{ backgroundColor: `${tipoTag.color}1f`, color: tipoTag.color }}
         >
-          <Briefcase className="h-7 w-7" />
+          <Briefcase className="h-5 w-5" />
         </div>
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
+
+        <div className="flex-1 min-w-0 space-y-0.5">
+          {/* Title row + "NOVO" label discreta */}
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold leading-tight truncate flex-1 pr-6">
+              {title}
+              {negocio.localizacao && (
+                <span className="text-muted-foreground font-normal"> · {negocio.localizacao}</span>
+              )}
+            </p>
             {isNewToday && (
-              <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                <Sparkles className="h-2.5 w-2.5" />
-                Novo hoje
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 shrink-0">
+                Novo
               </span>
             )}
-            <span
-              className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: `${tipoTag.color}1a`, color: tipoTag.color }}
-            >
-              {tipoTag.label}
+          </div>
+
+          {/* Meta — tipo / estado / temp via dots monocromáticos */}
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tipoTag.color }} />
+              <span>{tipoTag.label}</span>
             </span>
-            {tempTag && (
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: `${tempTag.color}1a`, color: tempTag.color }}
-              >
-                <span aria-hidden>{tempTag.emoji}</span>
-                {tempTag.label}
-              </span>
-            )}
-          </div>
-          <p className="text-sm font-semibold leading-tight truncate pr-8">
-            {title}
-            {negocio.localizacao && (
-              <span className="text-muted-foreground font-normal"> em {negocio.localizacao}</span>
-            )}
-          </p>
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             {stageName && (
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
-                <span className="truncate">{stageName}</span>
-              </span>
+              <>
+                <span className="text-muted-foreground/30">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: stageColor }} />
+                  <span className="truncate">{stageName}</span>
+                </span>
+              </>
             )}
-            {stageName && priceStr && <span className="text-muted-foreground/40">·</span>}
-            {priceStr && (
-              <span className="tabular-nums font-semibold text-foreground">{priceStr}</span>
+            {tempTag && (
+              <>
+                <span className="text-muted-foreground/30">·</span>
+                <span aria-hidden>{tempTag.emoji}</span>
+              </>
             )}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+
+          {/* Price + date — bottom row */}
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            {priceStr && (
+              <span className="text-sm font-semibold tabular-nums text-foreground">
+                {priceStr}
+              </span>
+            )}
             {createdDate && (
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70 ml-auto">
                 <Calendar className="h-2.5 w-2.5" />
-                {format(createdDate, "d 'de' MMM yyyy", { locale: pt })}
+                {format(createdDate, "d MMM yyyy", { locale: pt })}
               </span>
             )}
           </div>
         </div>
       </button>
+
       {onDelete && (
         <button
           type="button"
@@ -163,7 +186,7 @@ export function NegocioListItem({ negocio, onSelect, onDelete }: NegocioListItem
             e.stopPropagation()
             onDelete()
           }}
-          className="absolute top-3 right-3 h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground/40 hover:text-destructive transition-all opacity-0 group-hover:opacity-100"
+          className="absolute top-3 right-3 z-10 h-7 w-7 inline-flex items-center justify-center rounded-full bg-white/40 dark:bg-white/5 backdrop-blur-sm text-muted-foreground/50 hover:text-destructive hover:bg-white/70 dark:hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100"
           aria-label="Eliminar oportunidade"
         >
           <Trash2 className="h-3.5 w-3.5" />
