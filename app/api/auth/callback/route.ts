@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
+import { recordUserActivity } from '@/lib/auth/record-user-activity'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -22,15 +22,7 @@ export async function GET(request: Request) {
           || request.headers.get('x-real-ip')
           || null
         const userAgent = request.headers.get('user-agent') || null
-        try {
-          await createCrmAdminClient().from('dev_user_logins').insert({
-            user_id: data.user.id,
-            ip_address: ip,
-            user_agent: userAgent,
-          })
-        } catch (e) {
-          console.error('[auth callback] failed to record login', e)
-        }
+        await recordUserActivity(data.user.id, ip, userAgent)
       }
 
       return NextResponse.redirect(new URL(next, request.url))
