@@ -499,30 +499,30 @@ export default function LeadDetailPage() {
       <aside
         className={cn(
           'relative',
-          // Mobile: carousel pane com gradient de fundo (mesh pastel
-          // muito subtil) + cards frosted glass. Pattern equivalente
-          // ao quick-actions sheet mas com profundidade visual real
-          // — os cards translúcidos apanham o gradient atrás via
-          // backdrop-blur, dando o efeito glassmorphism.
+          // Mobile: carousel pane com gradient neutro (sem cor) + cards
+          // glassmorphism com backdrop-blur forte. O gradient dá
+          // variação tonal para os cards translúcidos terem algo para
+          // "apanhar" via blur — sensação de vidro real em vez de
+          // branco-em-cinzento plano.
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
           'rounded-3xl ring-1 ring-border/30',
-          'bg-gradient-to-br from-slate-100 via-neutral-100 to-stone-100',
-          'dark:bg-gradient-to-br dark:from-neutral-900 dark:via-neutral-950 dark:to-zinc-900',
+          'bg-gradient-to-br from-neutral-200 via-neutral-100 to-neutral-200',
+          'dark:bg-gradient-to-br dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
           'lg:rounded-none lg:ring-0 lg:bg-none lg:dark:bg-none lg:border-r lg:border-border/40',
         )}
       >
-        {/* Pastel mesh accents — duas blobs muito subtis em cantos
-            opostos para dar variação tonal sem ser barulhento. Só em
-            mobile (esconde em desktop via lg:hidden). */}
+        {/* Neutral mesh accents — 2 "blobs" cinzentas em cantos opostos
+            para dar variação tonal mais forte (acentua o efeito glass
+            quando o backdrop-blur dos cards passa por cima). Sem cor. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 lg:hidden overflow-hidden rounded-3xl"
         >
-          <div className="absolute -top-16 -left-16 h-48 w-48 rounded-full bg-blue-300/15 dark:bg-blue-500/10 blur-3xl" />
-          <div className="absolute -bottom-20 -right-16 h-56 w-56 rounded-full bg-purple-300/15 dark:bg-purple-500/10 blur-3xl" />
+          <div className="absolute -top-20 -left-20 h-56 w-56 rounded-full bg-neutral-400/30 dark:bg-neutral-700/40 blur-3xl" />
+          <div className="absolute -bottom-24 -right-20 h-64 w-64 rounded-full bg-neutral-500/25 dark:bg-neutral-700/30 blur-3xl" />
         </div>
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
           {/* Voltar — desktop only (mobile renders it on the header row above) */}
@@ -542,7 +542,7 @@ export default function LeadDetailPage() {
               que apanha o gradient + blobs do aside atrás, dando
               profundidade. Desktop: tudo neutralizado (sub-elementos
               do sidebar unificado). */}
-          <div className="rounded-2xl bg-white/75 dark:bg-neutral-900/60 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.08),0_1px_2px_-1px_rgb(0_0_0_/_0.04)] p-4 space-y-4 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0">
+          <div className="rounded-2xl bg-white/45 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08),0_1px_3px_-1px_rgb(0_0_0_/_0.05)] p-4 space-y-4 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0">
           {/* Identity — name + subtitle */}
           <div className="flex flex-col items-center text-center gap-1.5 pt-2 lg:pt-0">
             <h2 className="text-xl sm:text-[22px] font-semibold tracking-tight text-foreground break-words max-w-full px-2">
@@ -635,7 +635,7 @@ export default function LeadDetailPage() {
 
           {/* ─── Card 2: contact action buttons + quick action buttons ──
               Mobile: frosted glass. Desktop: transparente. */}
-          <div className="rounded-2xl bg-white/75 dark:bg-neutral-900/60 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.08),0_1px_2px_-1px_rgb(0_0_0_/_0.04)] p-3 space-y-2 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0 lg:space-y-5">
+          <div className="rounded-2xl bg-white/45 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08),0_1px_3px_-1px_rgb(0_0_0_/_0.05)] p-3 space-y-2 lg:bg-transparent lg:dark:bg-transparent lg:backdrop-blur-none lg:border-0 lg:shadow-none lg:rounded-none lg:p-0 lg:space-y-5">
           {/* Action buttons — glass-gray container with white icon-only buttons */}
           <div className="rounded-2xl bg-muted/40 p-1.5 grid grid-cols-4 gap-1.5 lg:rounded-3xl lg:bg-muted/50 lg:supports-[backdrop-filter]:bg-muted/40 lg:backdrop-blur-md">
             {lead.telemovel ? (
@@ -741,7 +741,7 @@ export default function LeadDetailPage() {
 
           {/* ─── Card 3: contact info (Telemóvel/Email/Consultor) ──── */}
           {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
-            <div className="rounded-2xl bg-white/75 dark:bg-neutral-900/60 backdrop-blur-xl border border-white/60 dark:border-white/10 shadow-[0_2px_8px_-2px_rgb(0_0_0_/_0.08),0_1px_2px_-1px_rgb(0_0_0_/_0.04)] p-3 space-y-2.5 lg:bg-background/40 lg:backdrop-blur-sm lg:border lg:border-border/40 lg:shadow-none">
+            <div className="rounded-2xl bg-white/45 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_4px_20px_-4px_rgb(0_0_0_/_0.08),0_1px_3px_-1px_rgb(0_0_0_/_0.05)] p-3 space-y-2.5 lg:bg-background/40 lg:backdrop-blur-sm lg:border lg:border-border/40 lg:shadow-none">
               <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
               {lead.telemovel && (
                 <div className="flex items-center justify-between gap-2 text-sm">
