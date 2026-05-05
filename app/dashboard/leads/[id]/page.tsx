@@ -499,16 +499,16 @@ export default function LeadDetailPage() {
       <aside
         className={cn(
           'relative',
-          // Mobile: carousel pane com fundo cinzento subtil — pattern
-          // estilo quick-actions sheet, com as secções dentro a virem
-          // como cards brancos individuais (em vez de uma única
-          // superfície branca enorme).
+          // Mobile: carousel pane com fundo cinzento — pattern estilo
+          // quick-actions sheet, com as secções dentro a virem como
+          // cards brancos individuais (em vez de uma única superfície
+          // branca enorme).
           'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] shrink-0 snap-center h-full overflow-y-auto',
-          'rounded-3xl ring-1 ring-border/30 bg-muted/40',
+          'rounded-3xl ring-1 ring-border/30 bg-neutral-100 dark:bg-neutral-900',
           // Desktop: merged into the outer card (transparente, sem
           // grouped cards — mantém a sidebar única).
           'lg:w-[320px] lg:h-auto lg:overflow-hidden',
-          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:border-r lg:border-border/40',
+          'lg:rounded-none lg:ring-0 lg:bg-transparent lg:dark:bg-transparent lg:border-r lg:border-border/40',
         )}
       >
         <div className="relative px-4 py-4 sm:px-5 sm:py-5 space-y-3 lg:px-6 lg:py-6 lg:space-y-5">
