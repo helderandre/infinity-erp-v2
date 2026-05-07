@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { WhatsAppIcon } from '@/components/shared/whatsapp-icon'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +30,7 @@ import {
   MapPin,
   Phone,
   Mail,
+  MessageSquare,
   ChevronLeft,
   ChevronRight,
   X,
@@ -84,17 +88,19 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
 
     let disposed = false
     ;(async () => {
-      const mapboxgl = (await import('mapbox-gl')).default
+      const maplibregl = (await import('maplibre-gl')).default
       if (disposed) return
-      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN!
-      const map = new mapboxgl.Map({
+      // CARTO Voyager — free vector style, modern look (POIs, parks, building
+      // shapes). No API key needed. Same family as Positron used in zonas/*.
+      const map = new maplibregl.Map({
         container: mapContainerRef.current!,
-        style: 'mapbox://styles/mapbox/streets-v12',
+        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
         center: [property.longitude!, property.latitude!],
         zoom: 15,
-        interactive: false,
+        attributionControl: { compact: true },
       })
-      new mapboxgl.Marker()
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+      new maplibregl.Marker({ color: '#3b82f6' })
         .setLngLat([property.longitude!, property.latitude!])
         .addTo(map)
       map.on('load', () => map.resize())
@@ -369,8 +375,7 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
                   <>
                     <div
                       ref={mapContainerRef}
-                      style={{ height: '200px' }}
-                      className="w-full max-w-md rounded-xl overflow-hidden border"
+                      className="w-full h-[320px] sm:h-[400px] rounded-xl overflow-hidden border"
                     />
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -385,8 +390,7 @@ export function PropertyApresentacaoTab({ property, onOpenMedia }: PropertyApres
                   </>
                 ) : (
                   <div
-                    style={{ height: '200px' }}
-                    className="w-full max-w-md rounded-xl border border-dashed bg-muted/30 flex items-center justify-center text-muted-foreground text-sm"
+                    className="w-full h-[320px] sm:h-[400px] rounded-xl border border-dashed bg-muted/30 flex items-center justify-center text-muted-foreground text-sm"
                   >
                     Sem coordenadas disponíveis
                   </div>
@@ -639,73 +643,25 @@ function SidebarCards({
               : '—'}
           </span>
         </div>
-        {property.business_type && (
-          <div className="text-xs text-muted-foreground">
-            {BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] ||
-              property.business_type}
-            {property.property_type &&
-              ` · ${PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type}`}
-          </div>
-        )}
-        {internal?.commission_agreed != null && (
-          <div className="pt-3 border-t">
-            <div className="text-xs text-muted-foreground">Comissão acordada</div>
-            <div className="text-sm font-semibold mt-0.5">
-              {internal.commission_type === 'percentage'
-                ? `${internal.commission_agreed}%`
-                : formatCurrency(Number(internal.commission_agreed))}
-            </div>
-          </div>
-        )}
-        {(internal?.imi_value != null || internal?.condominium_fee != null) && (
-          <div className="pt-3 border-t space-y-1.5">
-            <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
-              Encargos
-            </div>
-            {internal?.imi_value != null && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">IMI Anual</span>
-                <span className="font-medium">
-                  {formatCurrency(Number(internal.imi_value))}
-                </span>
-              </div>
-            )}
-            {internal?.condominium_fee != null && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Condomínio / mês</span>
-                <span className="font-medium">
-                  {formatCurrency(Number(internal.condominium_fee))}
-                </span>
-              </div>
+        {(property.business_type || internal?.commission_agreed != null) && (
+          <div className="text-sm text-muted-foreground">
+            {property.business_type &&
+              (BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] ||
+                property.business_type)}
+            {property.business_type && internal?.commission_agreed != null && ' · '}
+            {internal?.commission_agreed != null && (
+              <span className="font-semibold text-foreground">
+                {internal.commission_type === 'percentage'
+                  ? `${internal.commission_agreed}%`
+                  : formatCurrency(Number(internal.commission_agreed))}
+              </span>
             )}
           </div>
         )}
       </div>
 
       {/* Consultant card */}
-      {property.consultant && (
-        <div className="rounded-2xl border bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold shrink-0">
-              {(property.consultant.commercial_name || '?').charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm truncate">
-                {property.consultant.commercial_name || 'Consultor'}
-              </div>
-              <div className="text-xs text-muted-foreground">Consultor responsável</div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" title="Telefone">
-                <Phone className="h-3.5 w-3.5" />
-              </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" title="Mensagem">
-                <Mail className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {property.consultant && <ConsultantCard consultant={property.consultant} />}
 
       {/* Informações Gerais */}
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -749,7 +705,6 @@ function SidebarCards({
             }
           />
           <InfoRow label="Referência" value={property.external_ref} />
-          <InfoRow label="Consultor" value={property.consultant?.commercial_name} />
         </div>
       </div>
 
@@ -761,12 +716,32 @@ function SidebarCards({
           <InfoRow label="Quartos" value={specs?.bedrooms} />
           <InfoRow label="WC" value={specs?.bathrooms} />
           <InfoRow
+            label="Área bruta privativa"
+            value={
+              (specs as { area_gross_private?: number | null } | null)?.area_gross_private
+                ? formatArea(
+                    (specs as { area_gross_private?: number | null }).area_gross_private as number,
+                  )
+                : null
+            }
+          />
+          <InfoRow
             label="Área bruta"
             value={specs?.area_gross ? formatArea(specs.area_gross) : null}
           />
           <InfoRow
             label="Área útil"
             value={specs?.area_util ? formatArea(specs.area_util) : null}
+          />
+          <InfoRow
+            label="Área total do lote"
+            value={
+              (specs as { area_total_lot?: number | null } | null)?.area_total_lot
+                ? formatArea(
+                    (specs as { area_total_lot?: number | null }).area_total_lot as number,
+                  )
+                : null
+            }
           />
           <InfoRow label="Ano" value={specs?.construction_year} />
           <InfoRow label="Estacionamento" value={specs?.parking_spaces} />
@@ -782,25 +757,238 @@ function SidebarCards({
             <BadgeList label="Vistas" items={specs?.views} />
           </div>
         ) : null}
+        {(internal?.imi_value != null || internal?.condominium_fee != null) && (
+          <div className="mt-3 pt-3 border-t space-y-1.5">
+            <div className="text-[11px] text-muted-foreground uppercase tracking-wide">
+              Encargos
+            </div>
+            {internal?.imi_value != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">IMI Anual</span>
+                <span className="font-medium">
+                  {formatCurrency(Number(internal.imi_value))}
+                </span>
+              </div>
+            )}
+            {internal?.condominium_fee != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Condomínio / mês</span>
+                <span className="font-medium">
+                  {formatCurrency(Number(internal.condominium_fee))}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   )
 }
 
 function RichDescription({ text }: { text: string }) {
-  const escape = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const hasHtml = /<(strong|br|p|ul|ol|li|em|b|i|h[1-6])[\s>/]/i.test(text)
-  let html = hasHtml ? text : escape(text)
-  html = html
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n\n/g, '<br/><br/>')
-    .replace(/(?<!\n)\n(?!\n)/g, '<br/>')
+  const html = renderRichDescription(text)
   return (
     <div
-      className="text-sm text-muted-foreground leading-relaxed [&_strong]:text-foreground [&_strong]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_em]:italic [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-1.5 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground"
+      className="text-sm text-muted-foreground leading-relaxed [&_strong]:text-foreground [&_strong]:font-semibold [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:mb-1 [&_em]:italic [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mb-2 [&_h1]:mt-3 [&_h1:first-child]:mt-0 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-1.5 [&_h2]:mt-3 [&_h2:first-child]:mt-0 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground [&_h3]:mb-1 [&_h3]:mt-2 [&_h3:first-child]:mt-0 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:break-all"
       dangerouslySetInnerHTML={{ __html: html }}
     />
+  )
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function formatInlineMd(s: string): string {
+  let out = s
+  out = out.replace(
+    /(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>',
+  )
+  out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  out = out.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s)\.,;:!?]|$)/g, '$1<em>$2</em>')
+  out = out.replace(/(^|[\s(])_([^_\n]+)_(?=[\s)\.,;:!?]|$)/g, '$1<em>$2</em>')
+  return out
+}
+
+function renderRichDescription(text: string): string {
+  const hasHtml = /<(strong|em|br|p|ul|ol|li|b|i|h[1-6]|a)[\s>/]/i.test(text)
+  if (hasHtml) {
+    let html = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    html = html.replace(/\n\n+/g, '<br/><br/>').replace(/(?<!\n)\n(?!\n)/g, '<br/>')
+    return html
+  }
+
+  const lines = text.split('\n')
+  const blocks: string[] = []
+  let paragraph: string[] = []
+  let listItems: string[] = []
+  let listType: 'ul' | 'ol' | null = null
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      blocks.push(`<p>${paragraph.map((l) => formatInlineMd(escapeHtml(l))).join('<br/>')}</p>`)
+      paragraph = []
+    }
+  }
+  const flushList = () => {
+    if (listItems.length && listType) {
+      blocks.push(
+        `<${listType}>${listItems
+          .map((li) => `<li>${formatInlineMd(escapeHtml(li))}</li>`)
+          .join('')}</${listType}>`,
+      )
+      listItems = []
+      listType = null
+    }
+  }
+
+  for (const raw of lines) {
+    const line = raw.trimEnd()
+    if (!line.trim()) {
+      flushParagraph()
+      flushList()
+      continue
+    }
+    const heading = line.match(/^(#{1,6})\s+(.+)$/)
+    if (heading) {
+      flushParagraph()
+      flushList()
+      const level = Math.min(heading[1].length, 3)
+      blocks.push(`<h${level}>${formatInlineMd(escapeHtml(heading[2]))}</h${level}>`)
+      continue
+    }
+    const bullet = line.match(/^\s*[-*•]\s+(.+)$/)
+    if (bullet) {
+      flushParagraph()
+      if (listType && listType !== 'ul') flushList()
+      listType = 'ul'
+      listItems.push(bullet[1])
+      continue
+    }
+    const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/)
+    if (numbered) {
+      flushParagraph()
+      if (listType && listType !== 'ol') flushList()
+      listType = 'ol'
+      listItems.push(numbered[1])
+      continue
+    }
+    flushList()
+    paragraph.push(line)
+  }
+  flushParagraph()
+  flushList()
+
+  return blocks.join('')
+}
+
+function ConsultantCard({
+  consultant,
+}: {
+  consultant: NonNullable<PropertyDetail['consultant']>
+}) {
+  const router = useRouter()
+  const name = consultant.commercial_name || 'Consultor'
+  const photo = consultant.dev_consultant_profiles?.profile_photo_url || null
+  const phone = consultant.dev_consultant_profiles?.phone_commercial || null
+  const email = consultant.professional_email || null
+  const initial = name.trim().charAt(0).toUpperCase() || '?'
+
+  const phoneDigits = phone ? phone.replace(/[^\d+]/g, '') : ''
+  const waNumber = phone ? phone.replace(/[^\d]/g, '') : ''
+
+  const openInternalChat = () => {
+    router.push(`/dashboard/comunicacao/chat?dm=${consultant.id}`)
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="h-11 w-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold shrink-0 overflow-hidden">
+          {photo ? (
+            <Image
+              src={photo}
+              alt={name}
+              width={44}
+              height={44}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            initial
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm leading-tight break-words">{name}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">Consultor responsável</div>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-full rounded-full"
+          title={phone ? `Ligar ${phone}` : 'Sem telefone disponível'}
+          disabled={!phoneDigits}
+          asChild={!!phoneDigits}
+        >
+          {phoneDigits ? (
+            <a href={`tel:${phoneDigits}`} aria-label="Telefonar">
+              <Phone className="h-3.5 w-3.5" />
+            </a>
+          ) : (
+            <Phone className="h-3.5 w-3.5" />
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-full rounded-full"
+          title="Mensagem interna"
+          onClick={openInternalChat}
+          aria-label="Abrir chat interno"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-full rounded-full"
+          title={email ? `Enviar email para ${email}` : 'Sem email disponível'}
+          disabled={!email}
+          asChild={!!email}
+        >
+          {email ? (
+            <a href={`mailto:${email}`} aria-label="Enviar email">
+              <Mail className="h-3.5 w-3.5" />
+            </a>
+          ) : (
+            <Mail className="h-3.5 w-3.5" />
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-full rounded-full"
+          title={phone ? 'Abrir no WhatsApp' : 'Sem telefone disponível'}
+          disabled={!waNumber}
+          asChild={!!waNumber}
+        >
+          {waNumber ? (
+            <a
+              href={`https://wa.me/${waNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Abrir no WhatsApp"
+            >
+              <WhatsAppIcon className="h-3.5 w-3.5" />
+            </a>
+          ) : (
+            <WhatsAppIcon className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
+    </div>
   )
 }
 

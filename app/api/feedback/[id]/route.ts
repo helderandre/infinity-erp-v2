@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { updateFeedbackSchema } from '@/lib/validations/feedback'
 import { sendPushToUser } from '@/lib/crm/send-push'
 
@@ -46,6 +47,13 @@ export async function PUT(
   try {
     const auth = await requireAuth()
     if (!auth.authorized) return auth.response
+
+    if (!isManagementRole(auth.roles)) {
+      return NextResponse.json(
+        { error: 'Sem permissão para editar tickets/ideias' },
+        { status: 403 }
+      )
+    }
 
     const { id } = await params
     const body = await request.json()
@@ -136,6 +144,28 @@ export async function DELETE(
 
     const { id } = await params
     const supabase = createAdminClient()
+
+    // Management pode eliminar qualquer item; o submetente pode eliminar
+    // o próprio (self-cleanup). Resto → 403.
+    if (!isManagementRole(auth.roles)) {
+      const { data: row, error: lookupErr } = await supabase
+        .from('feedback_submissions')
+        .select('submitted_by')
+        .eq('id', id)
+        .single()
+      if (lookupErr) {
+        if (lookupErr.code === 'PGRST116') {
+          return NextResponse.json({ error: 'Submissão não encontrada' }, { status: 404 })
+        }
+        return NextResponse.json({ error: lookupErr.message }, { status: 500 })
+      }
+      if (row?.submitted_by !== auth.user.id) {
+        return NextResponse.json(
+          { error: 'Sem permissão para eliminar este item' },
+          { status: 403 }
+        )
+      }
+    }
 
     const { error } = await supabase
       .from('feedback_submissions')

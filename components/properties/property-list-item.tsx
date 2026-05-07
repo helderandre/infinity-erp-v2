@@ -6,6 +6,7 @@ import { pt } from 'date-fns/locale'
 import { Home, Sparkles, Hash, Calendar, User } from 'lucide-react'
 import { PROPERTY_TYPES, BUSINESS_TYPES, PROPERTY_STATUS } from '@/lib/constants'
 import { pickCoverMedia } from '@/lib/properties/cover-image'
+import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 import { cn } from '@/lib/utils'
 
 export interface PropertyListItemData {
@@ -15,12 +16,15 @@ export interface PropertyListItemData {
   title: string | null
   listing_price: number | null
   city: string | null
+  zone?: string | null
+  address_parish?: string | null
   created_at: string
   status?: string | null
   property_type?: string | null
   business_type?: string | null
   consultant?: { id: string; commercial_name: string } | null
   dev_property_media?: Array<{ id: string; url: string; is_cover: boolean; order_index: number }>
+  dev_property_specifications?: { typology?: string | null } | null
 }
 
 const fmt = new Intl.NumberFormat('pt-PT', {
@@ -135,7 +139,7 @@ export function PropertyListItem({
             )}
           </div>
           <p className={cn('text-sm font-semibold leading-tight truncate', actions ? 'pr-8' : '')}>
-            {property.title || 'Sem título'}
+            {buildPropertyDisplayLabel(property)}
           </p>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             {typeLabel && <span className="truncate">{typeLabel}</span>}

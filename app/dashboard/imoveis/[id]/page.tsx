@@ -19,6 +19,7 @@ import { PropertyMediaGallery } from '@/components/properties/property-media-gal
 import { PropertyDocumentsRoot } from '@/components/properties/property-documents-root'
 import { pickCoverImageUrl } from '@/lib/properties/cover-image'
 import { PropertyPlantasSection } from '@/components/properties/property-plantas-section'
+import { PropertyVideosSection } from '@/components/properties/property-videos-section'
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
@@ -90,7 +91,6 @@ import {
   Mic,
   Hash,
 } from 'lucide-react'
-import { motion, LayoutGroup } from 'framer-motion'
 import {
   formatCurrency,
   formatArea,
@@ -212,7 +212,7 @@ export default function ImovelDetalhePage() {
   const [showHiddenInteressados, setShowHiddenInteressados] = useState(false)
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
-  const [mediaSection, setMediaSection] = useState<'imagens' | 'plantas' | 'descricao'>('imagens')
+  const [mediaSection, setMediaSection] = useState<'fotos' | 'videos' | 'plantas' | 'descricao'>('fotos')
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
@@ -274,6 +274,8 @@ export default function ImovelDetalhePage() {
       // specs
       typology: s?.typology ?? '', bedrooms: s?.bedrooms ?? '', bathrooms: s?.bathrooms ?? '',
       area_gross: s?.area_gross ?? '', area_util: s?.area_util ?? '',
+      area_gross_private: (s as { area_gross_private?: number | null } | null)?.area_gross_private ?? '',
+      area_total_lot: (s as { area_total_lot?: number | null } | null)?.area_total_lot ?? '',
       construction_year: s?.construction_year ?? '',
       parking_spaces: s?.parking_spaces ?? '', garage_spaces: s?.garage_spaces ?? '',
       has_elevator: s?.has_elevator ?? false, fronts_count: s?.fronts_count ?? '',
@@ -367,6 +369,7 @@ export default function ImovelDetalhePage() {
       const specsPayload: Record<string, any> = {
         typology: str(d.typology), bedrooms: num(d.bedrooms), bathrooms: num(d.bathrooms),
         area_gross: num(d.area_gross), area_util: num(d.area_util),
+        area_gross_private: num(d.area_gross_private), area_total_lot: num(d.area_total_lot),
         construction_year: num(d.construction_year),
         parking_spaces: num(d.parking_spaces), garage_spaces: num(d.garage_spaces),
         has_elevator: d.has_elevator ?? false, fronts_count: num(d.fronts_count),
@@ -760,8 +763,10 @@ export default function ImovelDetalhePage() {
                       <InfoChip label="Tipologia" value={specs?.typology} editing editValue={editData.typology} onChange={(v) => updateField('typology', v)} type="select" options={Object.fromEntries(TYPOLOGIES.map(t => [t, t]))} />
                       <InfoChip label="Quartos" value={specs?.bedrooms} editing editValue={editData.bedrooms} onChange={(v) => updateField('bedrooms', v)} type="number" />
                       <InfoChip label="WC" value={specs?.bathrooms} editing editValue={editData.bathrooms} onChange={(v) => updateField('bathrooms', v)} type="number" />
+                      <InfoChip label="Área bruta privativa m²" value={(specs as { area_gross_private?: number | null } | null)?.area_gross_private ? formatArea((specs as { area_gross_private?: number | null }).area_gross_private as number) : undefined} editing editValue={editData.area_gross_private} onChange={(v) => updateField('area_gross_private', v)} type="number" />
                       <InfoChip label="Área bruta m²" value={specs?.area_gross ? formatArea(specs.area_gross) : undefined} editing editValue={editData.area_gross} onChange={(v) => updateField('area_gross', v)} type="number" />
                       <InfoChip label="Área útil m²" value={specs?.area_util ? formatArea(specs.area_util) : undefined} editing editValue={editData.area_util} onChange={(v) => updateField('area_util', v)} type="number" />
+                      <InfoChip label="Área total do lote m²" value={(specs as { area_total_lot?: number | null } | null)?.area_total_lot ? formatArea((specs as { area_total_lot?: number | null }).area_total_lot as number) : undefined} editing editValue={editData.area_total_lot} onChange={(v) => updateField('area_total_lot', v)} type="number" />
                       <InfoChip label="Ano" value={specs?.construction_year} editing editValue={editData.construction_year} onChange={(v) => updateField('construction_year', v)} type="number" />
                       <InfoChip label="Estac." value={specs?.parking_spaces} editing editValue={editData.parking_spaces} onChange={(v) => updateField('parking_spaces', v)} type="number" />
                       <InfoChip label="Garagens" value={specs?.garage_spaces} editing editValue={editData.garage_spaces} onChange={(v) => updateField('garage_spaces', v)} type="number" />
@@ -771,8 +776,10 @@ export default function ImovelDetalhePage() {
                       <StatCard icon={Layers} label="Tipologia" value={specs?.typology} />
                       <StatCard icon={BedDouble} label="Quartos" value={specs?.bedrooms} />
                       <StatCard icon={Bath} label="WC" value={specs?.bathrooms} />
+                      <StatCard icon={Maximize} label="Área bruta privativa" value={(specs as { area_gross_private?: number | null } | null)?.area_gross_private ? formatArea((specs as { area_gross_private?: number | null }).area_gross_private as number) : undefined} />
                       <StatCard icon={Maximize} label="Área bruta" value={specs?.area_gross ? formatArea(specs.area_gross) : undefined} />
                       <StatCard icon={Maximize} label="Área útil" value={specs?.area_util ? formatArea(specs.area_util) : undefined} />
+                      <StatCard icon={Maximize} label="Área total do lote" value={(specs as { area_total_lot?: number | null } | null)?.area_total_lot ? formatArea((specs as { area_total_lot?: number | null }).area_total_lot as number) : undefined} />
                       <StatCard icon={Calendar} label="Ano" value={specs?.construction_year} />
                       <StatCard icon={Car} label="Estac." value={specs?.parking_spaces} />
                       <StatCard icon={Car} label="Garagens" value={specs?.garage_spaces} />
@@ -829,209 +836,153 @@ export default function ImovelDetalhePage() {
         </div>
       )}
 
-      {/* ─── Media (images/plantas tabs on left | portals + description on right) ─── */}
+      {/* ─── Media (Fotos / Vídeos / Plantas / Descrição) ─── */}
       {activeTab === 'media' && (
-        <LayoutGroup id="media-tab">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start animate-in fade-in duration-300">
-            {/* Left: Imagens / Plantas tabs */}
-            <motion.div
-              layout
-              transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
-              className={cn(
-                'rounded-xl border bg-card shadow-sm p-5 space-y-4',
-                descriptionExpanded ? 'lg:col-span-1' : 'lg:col-span-2'
-              )}
-            >
-              <div className="flex justify-center lg:justify-start">
-                <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
-                  {([
-                    ['imagens', 'Imagens'],
-                    ['plantas', 'Plantas'],
-                    ...(isMobile ? ([['descricao', 'Descrição']] as const) : []),
-                  ] as ReadonlyArray<readonly [typeof mediaSection, string]>).map(([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={() => setMediaSection(key)}
-                      className={cn(
-                        'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
-                        mediaSection === key
-                          ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4 animate-in fade-in duration-300">
+          {/* Portal links — visible across all sub-tabs */}
+          {isEditing ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] text-muted-foreground font-medium shrink-0">Idealista</span>
+              <input value={editData.url_idealista ?? ''} onChange={(e) => updateField('url_idealista', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-[180px] focus:outline-none focus:ring-1 focus:ring-primary/30" />
+              <span className="text-[10px] text-muted-foreground font-medium shrink-0">Imovirtual</span>
+              <input value={editData.url_imovirtual ?? ''} onChange={(e) => updateField('url_imovirtual', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-[180px] focus:outline-none focus:ring-1 focus:ring-primary/30" />
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
+                { label: 'RE/MAX', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
+                { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
+                { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
+              ].map(portal => (
+                <a
+                  key={portal.label}
+                  href={portal.url || '#'}
+                  target={portal.url ? '_blank' : undefined}
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3 py-1.5 border shadow-sm transition-all',
+                    portal.url
+                      ? `${portal.bg} ${portal.text} ${portal.hover} ${portal.border}`
+                      : 'bg-muted/60 text-muted-foreground border-border cursor-not-allowed opacity-40'
+                  )}
+                  onClick={(e) => { if (!portal.url) e.preventDefault() }}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {portal.label}
+                </a>
+              ))}
+            </div>
+          )}
 
-              {mediaSection === 'imagens' && (
-                <PropertyMediaGallery
-                  propertyId={property.id}
-                  media={(property.dev_property_media || []).filter((m: any) => m.media_type !== 'planta' && m.media_type !== 'planta_3d')}
-                  onMediaChange={refetch}
-                  hideRoomLabels={descriptionExpanded}
-                />
-              )}
-
-              {mediaSection === 'plantas' && (
-                <PropertyPlantasSection
-                  propertyId={property.id}
-                  plantas={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta')}
-                  renders3d={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta_3d')}
-                  onMediaChange={refetch}
-                />
-              )}
-
-              {mediaSection === 'descricao' && isMobile && (
-                descriptionExpanded ? (
-                  <PropertyDescriptionGenerator
-                    inline
-                    propertyId={property.id}
-                    property={property}
-                    existingDescription={property.description || ''}
-                    onClose={() => setDescriptionExpanded(false)}
-                    onUseDescription={async (desc) => {
-                      updateField('description', desc)
-                      try {
-                        const res = await fetch(`/api/properties/${property.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ property: { description: desc } }),
-                        })
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}))
-                          throw new Error(err.error || 'Erro ao guardar descrição')
-                        }
-                        await refetch()
-                        toast.success('Descrição guardada')
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : 'Erro ao guardar descrição')
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold">Descrição</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDescriptionExpanded(true)}
-                        className="h-8 gap-1.5 text-xs"
-                      >
-                        <Maximize2 className="h-3.5 w-3.5" />
-                        Editar descrição
-                      </Button>
-                    </div>
-                    <DescriptionContent
-                      text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
-                      editing={isEditing}
-                      onChange={(v) => updateField('description', v)}
-                    />
-                  </div>
-                )
-              )}
-            </motion.div>
-
-            {/* Right: Portal links + Description (same card) */}
-            <motion.div
-              layout
-              transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
-              className={cn(
-                'rounded-xl border bg-card shadow-sm p-5 space-y-4 lg:sticky lg:top-4',
-                descriptionExpanded ? 'lg:col-span-2' : 'lg:col-span-1'
-              )}
-            >
-              {/* Portal links */}
-              {isEditing ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">Idealista</span>
-                  <input value={editData.url_idealista ?? ''} onChange={(e) => updateField('url_idealista', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-primary/30" />
-                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">Imovirtual</span>
-                  <input value={editData.url_imovirtual ?? ''} onChange={(e) => updateField('url_imovirtual', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-primary/30" />
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
-                    { label: 'RE/MAX', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
-                    { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
-                    { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
-                  ].map(portal => (
-                    <a
-                      key={portal.label}
-                      href={portal.url || '#'}
-                      target={portal.url ? '_blank' : undefined}
-                      rel="noopener noreferrer"
-                      className={cn(
-                        'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3 py-1.5 border shadow-sm transition-all',
-                        portal.url
-                          ? `${portal.bg} ${portal.text} ${portal.hover} ${portal.border}`
-                          : 'bg-muted/60 text-muted-foreground border-border cursor-not-allowed opacity-40'
-                      )}
-                      onClick={(e) => { if (!portal.url) e.preventDefault() }}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      {portal.label}
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {/* Description (read-only or expanded editor) — hidden on mobile (lives in subtab) */}
-              <div className="pt-4 border-t hidden lg:block">
-                {descriptionExpanded ? (
-                  <PropertyDescriptionGenerator
-                    inline
-                    propertyId={property.id}
-                    property={property}
-                    existingDescription={property.description || ''}
-                    onClose={() => setDescriptionExpanded(false)}
-                    onUseDescription={async (desc) => {
-                      updateField('description', desc)
-                      try {
-                        const res = await fetch(`/api/properties/${property.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ property: { description: desc } }),
-                        })
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}))
-                          throw new Error(err.error || 'Erro ao guardar descrição')
-                        }
-                        await refetch()
-                        toast.success('Descrição guardada')
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : 'Erro ao guardar descrição')
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold">Descrição</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDescriptionExpanded(true)}
-                        className="h-8 gap-1.5 text-xs"
-                      >
-                        <Maximize2 className="h-3.5 w-3.5" />
-                        Editar descrição
-                      </Button>
-                    </div>
-                    <DescriptionContent
-                      text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
-                      editing={isEditing}
-                      onChange={(v) => updateField('description', v)}
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.div>
+          {/* Sub-tabs */}
+          <div className="flex justify-center lg:justify-start pt-1">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
+              {([
+                ['fotos', 'Fotos'],
+                ['videos', 'Vídeos'],
+                ['plantas', 'Plantas'],
+                ['descricao', 'Descrição'],
+              ] as ReadonlyArray<readonly [typeof mediaSection, string]>).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setMediaSection(key)}
+                  className={cn(
+                    'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
+                    mediaSection === key
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </LayoutGroup>
+
+          {/* Body */}
+          {mediaSection === 'fotos' && (
+            <PropertyMediaGallery
+              propertyId={property.id}
+              media={(property.dev_property_media || []).filter(
+                (m: any) =>
+                  m.media_type !== 'planta' &&
+                  m.media_type !== 'planta_3d' &&
+                  m.media_type !== 'video'
+              )}
+              onMediaChange={refetch}
+            />
+          )}
+
+          {mediaSection === 'videos' && (
+            <PropertyVideosSection
+              propertyId={property.id}
+              videos={(property.dev_property_media || []).filter(
+                (m: any) => m.media_type === 'video'
+              )}
+              onMediaChange={refetch}
+            />
+          )}
+
+          {mediaSection === 'plantas' && (
+            <PropertyPlantasSection
+              propertyId={property.id}
+              plantas={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta')}
+              renders3d={(property.dev_property_media || []).filter((m: any) => m.media_type === 'planta_3d')}
+              onMediaChange={refetch}
+            />
+          )}
+
+          {mediaSection === 'descricao' && (
+            descriptionExpanded ? (
+              <PropertyDescriptionGenerator
+                inline
+                propertyId={property.id}
+                property={property}
+                existingDescription={property.description || ''}
+                onClose={() => setDescriptionExpanded(false)}
+                onUseDescription={async (desc) => {
+                  updateField('description', desc)
+                  try {
+                    const res = await fetch(`/api/properties/${property.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ property: { description: desc } }),
+                    })
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({}))
+                      throw new Error(err.error || 'Erro ao guardar descrição')
+                    }
+                    await refetch()
+                    toast.success('Descrição guardada')
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Erro ao guardar descrição')
+                  }
+                }}
+              />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold">Descrição</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDescriptionExpanded(true)}
+                    className="h-8 gap-1.5 text-xs"
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Editar descrição
+                  </Button>
+                </div>
+                <DescriptionContent
+                  text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
+                  editing={isEditing}
+                  onChange={(v) => updateField('description', v)}
+                />
+              </div>
+            )
+          )}
+        </div>
       )}
 
       {/* ─── Interessados (pipeline + visitas + propostas) ─── */}

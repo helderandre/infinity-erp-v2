@@ -19,7 +19,13 @@ export interface PropertyDetail extends PropertyRow {
   dev_property_specifications: PropertySpecsRow | null
   dev_property_internal: PropertyInternalRow | null
   dev_property_media: PropertyMediaRow[]
-  consultant: Pick<DevUser, 'id' | 'commercial_name'> | null
+  consultant:
+    | (Pick<DevUser, 'id' | 'commercial_name' | 'professional_email'> & {
+        dev_consultant_profiles:
+          | { profile_photo_url: string | null; phone_commercial: string | null }
+          | null
+      })
+    | null
   property_owners: {
     ownership_percentage: number
     is_main_contact: boolean

@@ -56,7 +56,12 @@ export async function GET(
         dev_property_specifications(*),
         dev_property_internal(*),
         dev_property_media(*),
-        consultant:dev_users!consultant_id(id, commercial_name),
+        consultant:dev_users!consultant_id(
+          id,
+          commercial_name,
+          professional_email,
+          dev_consultant_profiles(profile_photo_url, phone_commercial)
+        ),
         property_owners(ownership_percentage, is_main_contact, owner_role_id, owners(*))`
       )
       .eq(filterCol, id)

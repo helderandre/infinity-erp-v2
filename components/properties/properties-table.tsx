@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PROPERTY_TYPES, BUSINESS_TYPES, PROPERTY_STATUS } from '@/lib/constants'
 import { pickCoverMedia } from '@/lib/properties/cover-image'
+import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 import { cn } from '@/lib/utils'
 import type { PropertyListItemData } from './property-list-item'
 
@@ -201,7 +202,7 @@ export function PropertiesTable({
 
                   <TableCell className="min-w-0">
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="text-sm font-medium truncate">{p.title || '—'}</span>
+                      <span className="text-sm font-medium truncate">{buildPropertyDisplayLabel(p)}</span>
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground sm:hidden">
                         {p.external_ref && (
                           <span className="tabular-nums">{p.external_ref}</span>

@@ -28,6 +28,7 @@ import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
 import { PropertyApresentacaoActions } from '@/components/properties/property-apresentacao-actions'
 import { PropertyInteressadosTab } from '@/components/properties/property-interessados-tab'
+import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 import { VisitForm } from '@/components/visits/visit-form'
 import { RequestVisitDialog } from '@/components/visits/request-visit-dialog'
 import type { PropertyDetail } from '@/types/property'
@@ -105,60 +106,94 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
           <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
         )}
 
-        <SheetHeader className="shrink-0 px-6 pt-8 pb-3 sm:pt-10 gap-0 flex-row items-start justify-between">
-          <div className="min-w-0">
-            <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight truncate">
-              {property?.title || 'Imóvel'}
-            </SheetTitle>
-            <SheetDescription className="sr-only">
-              Apresentação do imóvel.
-            </SheetDescription>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 mr-10 shrink-0">
-            {canRequestVisit && (
+        <SheetHeader className="shrink-0 px-4 sm:px-6 pt-8 pb-3 sm:pt-10 gap-0">
+          {/* Mobile: [Editar] [Título centrado] [Ver tudo] */}
+          <div className="grid grid-cols-[2.25rem_1fr_2.25rem] items-center gap-2 sm:hidden">
+            {canSeeFullPage ? (
               <Button
                 size="sm"
                 variant="outline"
-                aria-label={visitCtaLabel}
-                className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
-                onClick={() => setVisitDialogOpen(true)}
-                title={visitCtaLabel}
+                aria-label="Editar"
+                className="rounded-full h-9 w-9 p-0"
+                onClick={() => setEditOpen(true)}
+                title="Editar"
               >
-                <CalendarPlus className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{visitCtaLabel}</span>
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
+            ) : (
+              <span aria-hidden className="h-9 w-9" />
             )}
+            <div className="min-w-0 px-1">
+              <SheetTitle className="text-[16px] font-semibold leading-tight tracking-tight truncate text-center">
+                {property ? buildPropertyDisplayLabel(property) : 'Imóvel'}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Apresentação do imóvel.
+              </SheetDescription>
+            </div>
+            {canSeeFullPage && fullPageHref ? (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-full h-9 w-9 p-0"
+                title="Ver tudo"
+              >
+                <Link
+                  href={fullPageHref}
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Ver tudo"
+                  className="inline-flex items-center justify-center"
+                >
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : (
+              <span aria-hidden className="h-9 w-9" />
+            )}
+          </div>
+
+          {/* Desktop: Título à esquerda, [Editar] [Ver tudo] à direita */}
+          <div className="hidden sm:flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <SheetTitle className="text-[20px] font-semibold leading-tight tracking-tight truncate">
+                {property ? buildPropertyDisplayLabel(property) : 'Imóvel'}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                Apresentação do imóvel.
+              </SheetDescription>
+            </div>
             {canSeeFullPage && fullPageHref && (
-              <>
+              <div className="flex items-center gap-2 mr-10 shrink-0">
                 <Button
                   size="sm"
                   variant="outline"
                   aria-label="Editar"
-                  className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
+                  className="rounded-full px-3 gap-1.5 text-xs"
                   onClick={() => setEditOpen(true)}
                   title="Editar"
                 >
                   <Pencil className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Editar</span>
+                  <span>Editar</span>
                 </Button>
                 <Button
                   asChild
                   size="sm"
                   variant="outline"
-                  className="rounded-full h-8 w-8 p-0 sm:w-auto sm:px-3 sm:gap-1.5 text-xs"
+                  className="rounded-full px-3 gap-1.5 text-xs"
                   title="Ver tudo"
                 >
                   <Link
                     href={fullPageHref}
                     onClick={() => onOpenChange(false)}
                     aria-label="Ver tudo"
-                    className="inline-flex items-center justify-center"
+                    className="inline-flex items-center"
                   >
                     <ArrowUpRight className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Ver tudo</span>
+                    <span>Ver tudo</span>
                   </Link>
                 </Button>
-              </>
+              </div>
             )}
           </div>
         </SheetHeader>
@@ -171,8 +206,8 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
             onValueChange={(v) => setActiveTab(v as 'apresentacao' | 'interessados')}
             className="flex-1 min-h-0 flex flex-col overflow-hidden"
           >
-            <div className="shrink-0 px-4 sm:px-6 pb-3 flex items-center justify-between gap-3 flex-wrap">
-              <div className="inline-flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+            <div className="shrink-0 px-4 sm:px-6 pb-3 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:flex-wrap">
+              <div className="order-2 sm:order-1 inline-flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
                 <TabsList className="bg-transparent p-0 h-auto">
                   <TabsTrigger
                     value="apresentacao"
@@ -188,12 +223,26 @@ export function PropertyDetailSheet({ propertyId, open, onOpenChange }: Property
                   </TabsTrigger>
                 </TabsList>
               </div>
-              {activeTab === 'apresentacao' && (
-                <PropertyApresentacaoActions
-                  property={property}
-                  canShareAsOwner={canShareAsOwner}
-                />
-              )}
+              <div className="order-1 sm:order-2 flex items-center gap-2 flex-wrap justify-center">
+                {canRequestVisit && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={visitCtaLabel}
+                    className="rounded-full h-9 w-9 p-0"
+                    onClick={() => setVisitDialogOpen(true)}
+                    title={visitCtaLabel}
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                  </Button>
+                )}
+                {activeTab === 'apresentacao' && (
+                  <PropertyApresentacaoActions
+                    property={property}
+                    canShareAsOwner={canShareAsOwner}
+                  />
+                )}
+              </div>
             </div>
 
             <TabsContent

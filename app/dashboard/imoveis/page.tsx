@@ -39,6 +39,8 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   LayoutGrid,
   List,
   Download,
@@ -52,6 +54,7 @@ import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
 import { useUser } from '@/hooks/use-user'
+import { isManagementRole, classifyUserMembership } from '@/lib/auth/roles'
 import { PROPERTY_STATUS, BUSINESS_TYPES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -155,6 +158,106 @@ function MultiPill({
   )
 }
 
+/**
+ * Pagination strip used both above and below the listings.
+ *
+ * Renders First / Prev / "Página N de M" with an inline jump-to-page input /
+ * Next / Last. The input is bounded and on Enter/blur snaps to the requested
+ * page. Self-hides quando totalPages ≤ 1.
+ */
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number
+  totalPages: number
+  onPageChange: (next: number) => void
+}) {
+  const [jumpDraft, setJumpDraft] = useState<string>('')
+  // Mantém o input em sync com a página actual sempre que muda externamente
+  // (ex.: filtros que fazem reset a 0). O placeholder mostra o número
+  // formatado, o `value` fica vazio até o utilizador começar a escrever.
+  useEffect(() => {
+    setJumpDraft('')
+  }, [page])
+
+  if (totalPages <= 1) return null
+
+  const commitJump = () => {
+    if (!jumpDraft.trim()) return
+    const target = Math.min(totalPages, Math.max(1, parseInt(jumpDraft, 10) || 0))
+    onPageChange(target - 1)
+    setJumpDraft('')
+  }
+
+  const isFirst = page === 0
+  const isLast = page >= totalPages - 1
+
+  return (
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2 pt-2 flex-wrap">
+      <button
+        type="button"
+        aria-label="Primeira página"
+        disabled={isFirst}
+        onClick={() => onPageChange(0)}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors"
+      >
+        <ChevronsLeft className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Página anterior"
+        disabled={isFirst}
+        onClick={() => onPageChange(Math.max(0, page - 1))}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+        Página
+        <Input
+          type="number"
+          min={1}
+          max={totalPages}
+          inputMode="numeric"
+          aria-label="Saltar para página"
+          placeholder={String(page + 1)}
+          value={jumpDraft}
+          onChange={(e) => setJumpDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitJump()
+            }
+          }}
+          onBlur={commitJump}
+          className="h-7 w-14 px-2 text-center text-xs rounded-full border-border/60"
+        />
+        de {totalPages}
+      </span>
+      <button
+        type="button"
+        aria-label="Próxima página"
+        disabled={isLast}
+        onClick={() => onPageChange(page + 1)}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Última página"
+        disabled={isLast}
+        onClick={() => onPageChange(totalPages - 1)}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors"
+      >
+        <ChevronsRight className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
 function ImoveisPageInner() {
   return (
     <Suspense fallback={<ImoveisPageSkeleton />}>
@@ -188,6 +291,8 @@ function ImoveisPageContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { user } = useUser()
+  const showManagementTab = isManagementRole(user?.role_names ?? [])
+  const isConsultor = classifyUserMembership(user?.role_names ?? []) === 'consultor'
 
   const [properties, setProperties] = useState<PropertyWithRelations[]>([])
   const [detailPropertyId, setDetailPropertyId] = useState<string | null>(null)
@@ -512,14 +617,18 @@ function ImoveisPageContent() {
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
             </div>
-            <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Exportar</span>
-            </button>
-            <button onClick={() => router.push('/dashboard/imoveis/novo')} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
-              <Plus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Novo Imóvel</span>
-            </button>
+            {!isConsultor && (
+              <>
+                <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Exportar</span>
+                </button>
+                <button onClick={() => router.push('/dashboard/imoveis/novo')} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Novo Imóvel</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -807,6 +916,7 @@ function ImoveisPageContent() {
         consultants={consultants}
         liveCount={isLoading ? null : total}
         liveLoading={isLoading}
+        showManagementTab={showManagementTab}
         value={{
           selectedStatuses,
           selectedPropertyTypes,
@@ -882,7 +992,7 @@ function ImoveisPageContent() {
               : 'Comece por criar o seu primeiro imóvel'
           }
           action={
-            !hasActiveFilters
+            !hasActiveFilters && !isConsultor
               ? {
                   label: 'Novo Imóvel',
                   onClick: () => router.push('/dashboard/imoveis/novo'),
@@ -892,6 +1002,7 @@ function ImoveisPageContent() {
         />
       ) : viewMode === 'table' ? (
         <>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           <PropertiesTable
             properties={properties as unknown as PropertyListItemData[]}
             sortBy={sortBy}
@@ -938,20 +1049,11 @@ function ImoveisPageContent() {
             )}
           />
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <button type="button" aria-label="Página anterior" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
-              <button type="button" aria-label="Próxima página" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       ) : (
         <>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {properties.map((property) => (
               <PropertyCard
@@ -963,17 +1065,7 @@ function ImoveisPageContent() {
             ))}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <button type="button" aria-label="Página anterior" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-xs text-muted-foreground">Página {page + 1} de {totalPages}</span>
-              <button type="button" aria-label="Próxima página" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)} className="inline-flex items-center justify-center h-8 w-8 rounded-full border bg-card shadow-sm disabled:opacity-40 hover:bg-muted transition-colors">
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
         </main>
@@ -985,6 +1077,7 @@ function ImoveisPageContent() {
           consultants={consultants}
           liveCount={isLoading ? null : total}
           liveLoading={isLoading}
+          showManagementTab={showManagementTab}
           value={{
             selectedStatuses,
             selectedPropertyTypes,

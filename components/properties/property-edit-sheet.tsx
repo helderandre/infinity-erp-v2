@@ -43,6 +43,7 @@ import { useUser } from '@/hooks/use-user'
 import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
 import { CalendarRichEditor } from '@/components/calendar/calendar-rich-editor'
 import { cn } from '@/lib/utils'
+import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
 import type {
@@ -409,11 +410,13 @@ export function PropertyEditSheet({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-[20px] font-semibold leading-tight tracking-tight truncate">
-                {property?.title || 'Editar imóvel'}
+                {property ? buildPropertyDisplayLabel(property) : 'Editar imóvel'}
               </h2>
-              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="mt-1.5 flex items-center gap-2">
                 {property?.external_ref && (
-                  <span className="tabular-nums">{property.external_ref}</span>
+                  <span className="text-sm font-semibold tabular-nums text-foreground">
+                    {property.external_ref}
+                  </span>
                 )}
                 {statusMeta && (
                   <span className={cn(

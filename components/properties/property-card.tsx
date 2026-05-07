@@ -8,6 +8,7 @@ import { PROPERTY_TYPES, BUSINESS_TYPES } from '@/lib/constants'
 import { Hash, MapPin, Maximize, User, Pencil } from 'lucide-react'
 import type { PropertyWithRelations } from '@/types/property'
 import { pickCoverMedia } from '@/lib/properties/cover-image'
+import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 
 interface PropertyCardProps {
   property: PropertyWithRelations
@@ -24,6 +25,7 @@ export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
   const specs = property.dev_property_specifications
   const propertyTypeLabel = PROPERTY_TYPES[property.property_type as keyof typeof PROPERTY_TYPES] || property.property_type
   const businessTypeLabel = BUSINESS_TYPES[property.business_type as keyof typeof BUSINESS_TYPES] || property.business_type
+  const displayLabel = buildPropertyDisplayLabel(property)
 
   return (
     <Card
@@ -69,7 +71,7 @@ export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
         )}
       </div>
       <CardContent className="p-4 space-y-2">
-        <h3 className="font-semibold text-sm line-clamp-1">{property.title}</h3>
+        <h3 className="font-semibold text-sm line-clamp-1">{displayLabel}</h3>
 
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <MapPin className="h-3 w-3 shrink-0" />

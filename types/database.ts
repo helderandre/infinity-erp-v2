@@ -5667,6 +5667,8 @@ export type Database = {
       dev_property_specifications: {
         Row: {
           area_gross: number | null
+          area_gross_private: number | null
+          area_total_lot: number | null
           area_util: number | null
           attic_area: number | null
           balcony_area: number | null
@@ -5690,6 +5692,8 @@ export type Database = {
         }
         Insert: {
           area_gross?: number | null
+          area_gross_private?: number | null
+          area_total_lot?: number | null
           area_util?: number | null
           attic_area?: number | null
           balcony_area?: number | null
@@ -5713,6 +5717,8 @@ export type Database = {
         }
         Update: {
           area_gross?: number | null
+          area_gross_private?: number | null
+          area_total_lot?: number | null
           area_util?: number | null
           attic_area?: number | null
           balcony_area?: number | null

@@ -65,6 +65,8 @@ interface PropertyFiltersPanelProps {
   /** Current result count for the live "Ver N imóveis" footer. */
   liveCount: number | null
   liveLoading?: boolean
+  /** Quando false, esconde a tab "Gestão" (consultores não vêem filtros de gestão). Default: true. */
+  showManagementTab?: boolean
 }
 
 /* ───────── Bits & helpers ───────── */
@@ -339,10 +341,15 @@ function ConsultantPill({
 /* ───────── Inner content (shared by mobile sheet + desktop aside) ───────── */
 
 function FiltersContent({
-  value, onChange, consultants, onClearAll, liveCount, liveLoading, onClose,
+  value, onChange, consultants, onClearAll, liveCount, liveLoading, onClose, showManagementTab = true,
 }: PropertyFiltersPanelProps & { onClose: () => void }) {
   const [tab, setTab] = useState<'imovel' | 'gestao'>('imovel')
   const toggleIn = (arr: string[], v: string) => arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
+
+  // Se a tab Gestão deixar de estar visível (ex.: consultor), forçar volta a "imovel"
+  useEffect(() => {
+    if (!showManagementTab && tab === 'gestao') setTab('imovel')
+  }, [showManagementTab, tab])
 
   const matchesPreset = (preset: typeof PRICE_PRESETS[number]) =>
     value.priceMin === preset.min && value.priceMax === preset.max
@@ -391,30 +398,32 @@ function FiltersContent({
         )}
 
         {/* Tabs — calendar-style pill segmented control */}
-        <div className="mt-3 flex w-fit p-0.5 rounded-full bg-muted/60 border border-border/30">
-          <button
-            type="button"
-            onClick={() => setTab('imovel')}
-            className={cn(
-              'inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-xs font-medium transition-all',
-              tab === 'imovel' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Building2 className="h-3.5 w-3.5" />
-            Imóvel
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('gestao')}
-            className={cn(
-              'inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-xs font-medium transition-all',
-              tab === 'gestao' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <ClipboardList className="h-3.5 w-3.5" />
-            Gestão
-          </button>
-        </div>
+        {showManagementTab && (
+          <div className="mt-3 flex w-fit p-0.5 rounded-full bg-muted/60 border border-border/30">
+            <button
+              type="button"
+              onClick={() => setTab('imovel')}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-xs font-medium transition-all',
+                tab === 'imovel' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Imóvel
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('gestao')}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-xs font-medium transition-all',
+                tab === 'gestao' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              Gestão
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Body */}

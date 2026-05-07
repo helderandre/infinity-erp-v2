@@ -26,6 +26,14 @@ const LICENSE_FIELDS = [
   'use_license_issuer',
 ] as const
 
+// Campos de áreas (Caderneta Predial) que vão para dev_property_specifications
+const SPECS_AREA_FIELDS = [
+  'area_gross',
+  'area_gross_private',
+  'area_util',
+  'area_total_lot',
+] as const
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
@@ -50,7 +58,9 @@ const EXTRACTION_SCHEMA = `{
     "bedrooms": "number — quartos",
     "bathrooms": "number — casas de banho",
     "area_gross": "number — área bruta em m²",
+    "area_gross_private": "number — área bruta privativa (Aa) em m², tipicamente da Caderneta Predial",
     "area_util": "number — área útil em m²",
+    "area_total_lot": "number — área total do lote/terreno em m², tipicamente da Caderneta Predial",
     "construction_year": "number — ano de construção",
     "parking_spaces": "number — lugares de estacionamento"
   },
@@ -123,6 +133,7 @@ ${EXTRACTION_SCHEMA}
 
 Regras importantes:
 - Caderneta Predial (CPU): morada do imóvel, áreas (bruta/útil), ano de construção, tipo prédio, titular(es) com NIF, Valor Patrimonial Tributário (VPT → imi_value)
+  → áreas a extrair com cuidado: "Área Bruta Privativa (Aa)" → area_gross_private; "Área Bruta" → area_gross; "Área Útil" → area_util; "Área Total do Terreno"/"Área do Lote" → area_total_lot. Não confundir as 4.
   → também: artigo matricial e o seu tipo (urbano/rústico/misto), freguesia fiscal, distrito, concelho, código INE da freguesia (se visível), letra da fracção autónoma (se PH)
 - Certidão Permanente (CRP): proprietários com NIF, estado civil, regime de bens, descrição do prédio, morada, freguesia, concelho
   → também: número da descrição (descricao_ficha), ano da descrição se vier "NUMERO/ANO" (descricao_ficha_ano), nome da conservatória, freguesia da descrição, quota-parte de comproprietários, fracção autónoma
@@ -366,8 +377,58 @@ export async function POST(request: Request) {
       }
     }
 
+    // ── Persistência das áreas (Caderneta Predial) em dev_property_specifications ──
+    // Merge defensivo: AI só preenche colunas vazias na row actual. Aplica-se
+    // apenas quando temos propertyId — chamadas em modo "rascunho" (formulário
+    // de angariação) continuam a receber as áreas no JSON de resposta e são o
+    // próprio frontend a aplicá-las ao state local.
+    let specsAreasSaved = false
+    let specsAreasFieldsSet = 0
+    if (propertyId && extracted?.property && typeof extracted.property === 'object') {
+      try {
+        const cleaned: Record<string, number> = {}
+        for (const key of SPECS_AREA_FIELDS) {
+          const v = extracted.property[key]
+          if (v == null || v === '') continue
+          const n = typeof v === 'number' ? v : parseFloat(String(v))
+          if (!Number.isFinite(n) || n <= 0) continue
+          cleaned[key] = n
+        }
+        if (Object.keys(cleaned).length > 0) {
+          const supabase = await createClient() as any
+          const { data: existing } = await supabase
+            .from('dev_property_specifications')
+            .select('area_gross, area_gross_private, area_util, area_total_lot')
+            .eq('property_id', propertyId)
+            .maybeSingle()
+
+          const merged: Record<string, any> = { property_id: propertyId }
+          for (const key of SPECS_AREA_FIELDS) {
+            const current = existing?.[key]
+            if (current != null) continue
+            if (cleaned[key] !== undefined) merged[key] = cleaned[key]
+          }
+          if (Object.keys(merged).length > 1) {
+            const { error: upsertErr } = await supabase
+              .from('dev_property_specifications')
+              .upsert(merged, { onConflict: 'property_id' })
+            if (!upsertErr) {
+              specsAreasSaved = true
+              specsAreasFieldsSet = Object.keys(merged).length - 1
+            } else {
+              console.error('[extract] Erro ao gravar áreas em specifications:', upsertErr)
+            }
+          }
+        }
+      } catch (areaErr) {
+        console.error('[extract] Erro a processar áreas:', areaErr)
+      }
+    }
+
     return NextResponse.json({
       data: extracted,
+      specs_areas_saved: specsAreasSaved,
+      specs_areas_fields_set: specsAreasFieldsSet,
       legal_data_saved: legalDataSaved,
       legal_data_fields_set: legalDataFieldsSet,
       license_saved: licenseSaved,

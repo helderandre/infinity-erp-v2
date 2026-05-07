@@ -6,15 +6,25 @@ import { PropertyForm } from '@/components/properties/property-form'
 import { ArrowLeft, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
+import { useUser } from '@/hooks/use-user'
+import { classifyUserMembership } from '@/lib/auth/roles'
 
 export default function NovoImovelPage() {
   const router = useRouter()
+  const { user, loading: userLoading } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [prefill] = useState<Record<string, unknown> | null>(() => peekPrefill('property'))
 
   useEffect(() => {
     clearPrefill('property')
   }, [])
+
+  useEffect(() => {
+    if (userLoading || !user) return
+    if (classifyUserMembership(user.role_names ?? []) === 'consultor') {
+      router.replace('/dashboard/imoveis')
+    }
+  }, [user, userLoading, router])
 
   async function handleSubmit(data: {
     property: Record<string, unknown>

@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { FEEDBACK_STATUS_MAP, FEEDBACK_TYPE_LABELS, FEEDBACK_PAGE_LABELS } from '@/types/feedback'
 import { TASK_PRIORITY_MAP } from '@/types/task'
 import type { FeedbackWithRelations, FeedbackStatus } from '@/types/feedback'
@@ -66,6 +68,10 @@ const TYPE_THEME = {
 
 export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consultants }: FeedbackDetailSheetProps) {
   const isMobile = useIsMobile()
+  const { user } = useUser()
+  const canManage = isManagementRole(user?.role_names ?? [])
+  const isSubmitter = !!user?.id && !!item?.submitted_by && user.id === item.submitted_by
+  const canDelete = canManage || isSubmitter
   const [isSaving, setIsSaving] = useState(false)
   const [pendingField, setPendingField] = useState<string | null>(null)
 
@@ -262,31 +268,33 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
               </div>
             </div>
 
-            {/* delete in the corner */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Eliminar {FEEDBACK_TYPE_LABELS[item.type].toLowerCase()}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Tem a certeza? Esta acção é irreversível.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Eliminar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {/* delete in the corner — management ou autor do item */}
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Eliminar {FEEDBACK_TYPE_LABELS[item.type].toLowerCase()}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem a certeza? Esta acção é irreversível.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
 
           {/* current state at-a-glance — quick chips below the title */}
@@ -376,101 +384,108 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
             </div>
           )}
 
-          {/* ─── Estado (chip row) ─── */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
-              Estado
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.entries(FEEDBACK_STATUS_MAP) as [FeedbackStatus, typeof FEEDBACK_STATUS_MAP['novo']][]).map(
-                ([key, info]) => {
-                  const isActive = item.status === key
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      disabled={isSaving}
-                      onClick={() => !isActive && handleUpdate({ status: key }, 'status')}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium border transition-all',
-                        isActive
-                          ? cn(info.bg, info.text, 'border-transparent shadow-sm')
-                          : 'bg-background/60 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                        'disabled:opacity-60',
-                      )}
-                    >
-                      <span className={cn('h-1.5 w-1.5 rounded-full', info.dot)} />
-                      {info.label}
-                    </button>
-                  )
-                },
-              )}
-            </div>
-          </div>
+          {/* ─── Edição triagem (Estado / Prioridade / Atribuído) ───
+              Só management edita. Para os restantes, a info já está
+              visível em chips read-only no hero. */}
+          {canManage && (
+            <>
+              {/* Estado (chip row) */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+                  Estado
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(Object.entries(FEEDBACK_STATUS_MAP) as [FeedbackStatus, typeof FEEDBACK_STATUS_MAP['novo']][]).map(
+                    ([key, info]) => {
+                      const isActive = item.status === key
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => !isActive && handleUpdate({ status: key }, 'status')}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium border transition-all',
+                            isActive
+                              ? cn(info.bg, info.text, 'border-transparent shadow-sm')
+                              : 'bg-background/60 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60',
+                            'disabled:opacity-60',
+                          )}
+                        >
+                          <span className={cn('h-1.5 w-1.5 rounded-full', info.dot)} />
+                          {info.label}
+                        </button>
+                      )
+                    },
+                  )}
+                </div>
+              </div>
 
-          {/* ─── Prioridade (chip row) ─── */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
-              Prioridade
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(TASK_PRIORITY_MAP).map(([key, info]) => {
-                const isActive = String(item.priority) === key
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => !isActive && handleUpdate({ priority: Number(key) }, 'priority')}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium border transition-all',
-                      isActive
-                        ? cn(info.bg, info.color, 'border-transparent shadow-sm')
-                        : 'bg-background/60 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                      'disabled:opacity-60',
-                    )}
-                  >
-                    <span className={cn('h-1.5 w-1.5 rounded-full', info.dot)} />
-                    {info.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+              {/* Prioridade (chip row) */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+                  Prioridade
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(TASK_PRIORITY_MAP).map(([key, info]) => {
+                    const isActive = String(item.priority) === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => !isActive && handleUpdate({ priority: Number(key) }, 'priority')}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium border transition-all',
+                          isActive
+                            ? cn(info.bg, info.color, 'border-transparent shadow-sm')
+                            : 'bg-background/60 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60',
+                          'disabled:opacity-60',
+                        )}
+                      >
+                        <span className={cn('h-1.5 w-1.5 rounded-full', info.dot)} />
+                        {info.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-          {/* ─── Atribuído ─── */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
-              Atribuído a
-            </p>
-            <Select
-              value={item.assigned_to || '_none'}
-              onValueChange={(v) => handleUpdate({ assigned_to: v === '_none' ? null : v }, 'assignee')}
-              disabled={isSaving}
-            >
-              <SelectTrigger className="rounded-full h-10 bg-background/60">
-                <SelectValue placeholder="Sem atribuição" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <User className="h-3.5 w-3.5" />
-                    Sem atribuição
-                  </span>
-                </SelectItem>
-                {consultants.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span className="flex items-center gap-2">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-                        {c.commercial_name?.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || '?'}
+              {/* Atribuído */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+                  Atribuído a
+                </p>
+                <Select
+                  value={item.assigned_to || '_none'}
+                  onValueChange={(v) => handleUpdate({ assigned_to: v === '_none' ? null : v }, 'assignee')}
+                  disabled={isSaving}
+                >
+                  <SelectTrigger className="rounded-full h-10 bg-background/60">
+                    <SelectValue placeholder="Sem atribuição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <User className="h-3.5 w-3.5" />
+                        Sem atribuição
                       </span>
-                      {c.commercial_name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                    </SelectItem>
+                    {consultants.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                            {c.commercial_name?.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                          </span>
+                          {c.commercial_name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
           {/* ─── Comentários ───
               Mini-timeline + form com toggle "Enviar via chat" e picker de
@@ -614,30 +629,32 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
             </div>
           </div>
 
-          {/* ─── Notas Técnicas ─── */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider inline-flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" />
-                Notas Técnicas
-              </p>
-              {pendingField === 'tech_notes' && (
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-              )}
+          {/* ─── Notas Técnicas ─── (management-only) */}
+          {canManage && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider inline-flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
+                  Notas Técnicas
+                </p>
+                {pendingField === 'tech_notes' && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              <Textarea
+                defaultValue={item.tech_notes || ''}
+                placeholder="Notas internas sobre este item — repro, hipóteses, próximos passos…"
+                rows={4}
+                className="rounded-2xl bg-background/60 border-border/40 focus-visible:ring-1"
+                onBlur={(e) => {
+                  const val = e.target.value.trim()
+                  if (val !== (item.tech_notes || '')) {
+                    handleUpdate({ tech_notes: val || null }, 'tech_notes')
+                  }
+                }}
+              />
             </div>
-            <Textarea
-              defaultValue={item.tech_notes || ''}
-              placeholder="Notas internas sobre este item — repro, hipóteses, próximos passos…"
-              rows={4}
-              className="rounded-2xl bg-background/60 border-border/40 focus-visible:ring-1"
-              onBlur={(e) => {
-                const val = e.target.value.trim()
-                if (val !== (item.tech_notes || '')) {
-                  handleUpdate({ tech_notes: val || null }, 'tech_notes')
-                }
-              }}
-            />
-          </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

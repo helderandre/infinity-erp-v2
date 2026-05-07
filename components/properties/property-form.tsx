@@ -70,7 +70,9 @@ const formSchema = propertySchema.extend({
   bedrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   bathrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   area_gross: z.coerce.number().positive().optional().or(z.literal('')),
+  area_gross_private: z.coerce.number().positive().optional().or(z.literal('')),
   area_util: z.coerce.number().positive().optional().or(z.literal('')),
+  area_total_lot: z.coerce.number().positive().optional().or(z.literal('')),
   construction_year: z.coerce.number().int().min(1800).max(new Date().getFullYear() + 5).optional().or(z.literal('')),
   parking_spaces: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   garage_spaces: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
@@ -199,7 +201,7 @@ export function PropertyForm({
 
   const handleSubmit = async (values: FormValues) => {
     const {
-      typology, bedrooms, bathrooms, area_gross, area_util, construction_year,
+      typology, bedrooms, bathrooms, area_gross, area_gross_private, area_util, area_total_lot, construction_year,
       parking_spaces, garage_spaces, has_elevator, fronts_count,
       features: feats, solar_orientation: solar, views_list, equipment_list,
       storage_area, balcony_area, pool_area, attic_area, pantry_area, gym_area,
@@ -220,7 +222,9 @@ export function PropertyForm({
     const bedroomsN = cleanNumber(bedrooms); if (bedroomsN !== undefined) specifications.bedrooms = bedroomsN
     const bathroomsN = cleanNumber(bathrooms); if (bathroomsN !== undefined) specifications.bathrooms = bathroomsN
     const areaGrossN = cleanNumber(area_gross); if (areaGrossN !== undefined) specifications.area_gross = areaGrossN
+    const areaGrossPrivateN = cleanNumber(area_gross_private); if (areaGrossPrivateN !== undefined) specifications.area_gross_private = areaGrossPrivateN
     const areaUtilN = cleanNumber(area_util); if (areaUtilN !== undefined) specifications.area_util = areaUtilN
+    const areaTotalLotN = cleanNumber(area_total_lot); if (areaTotalLotN !== undefined) specifications.area_total_lot = areaTotalLotN
     const constructionYearN = cleanNumber(construction_year); if (constructionYearN !== undefined) specifications.construction_year = constructionYearN
     const parkingN = cleanNumber(parking_spaces); if (parkingN !== undefined) specifications.parking_spaces = parkingN
     const garageN = cleanNumber(garage_spaces); if (garageN !== undefined) specifications.garage_spaces = garageN
@@ -475,10 +479,12 @@ export function PropertyForm({
                   </FormItem>
                 )} />
 
-                {(['bedrooms', 'bathrooms', 'construction_year', 'area_gross', 'area_util', 'parking_spaces', 'garage_spaces', 'fronts_count'] as const).map((name) => {
+                {(['bedrooms', 'bathrooms', 'construction_year', 'area_gross_private', 'area_gross', 'area_util', 'area_total_lot', 'parking_spaces', 'garage_spaces', 'fronts_count'] as const).map((name) => {
                   const labels: Record<string, string> = {
                     bedrooms: 'Quartos', bathrooms: 'Casas de banho', construction_year: 'Ano construção',
+                    area_gross_private: 'Área bruta privativa (m²)',
                     area_gross: 'Área bruta (m²)', area_util: 'Área útil (m²)',
+                    area_total_lot: 'Área total do lote (m²)',
                     parking_spaces: 'Estacionamentos', garage_spaces: 'Garagens', fronts_count: 'Frentes',
                   }
                   return (

@@ -193,7 +193,9 @@ export function StepDocuments({ form }: StepDocumentsProps) {
       if (p.bedrooms != null) { newSpecs.bedrooms = p.bedrooms; filled.add('specifications.bedrooms'); fieldsSet++; specsChanged = true }
       if (p.bathrooms != null) { newSpecs.bathrooms = p.bathrooms; filled.add('specifications.bathrooms'); fieldsSet++; specsChanged = true }
       if (p.area_gross != null) { newSpecs.area_gross = p.area_gross; filled.add('specifications.area_gross'); fieldsSet++; specsChanged = true }
+      if (p.area_gross_private != null) { newSpecs.area_gross_private = p.area_gross_private; filled.add('specifications.area_gross_private'); fieldsSet++; specsChanged = true }
       if (p.area_util != null) { newSpecs.area_util = p.area_util; filled.add('specifications.area_util'); fieldsSet++; specsChanged = true }
+      if (p.area_total_lot != null) { newSpecs.area_total_lot = p.area_total_lot; filled.add('specifications.area_total_lot'); fieldsSet++; specsChanged = true }
       if (p.construction_year != null) { newSpecs.construction_year = p.construction_year; filled.add('specifications.construction_year'); fieldsSet++; specsChanged = true }
       if (p.parking_spaces != null) { newSpecs.parking_spaces = p.parking_spaces; filled.add('specifications.parking_spaces'); fieldsSet++; specsChanged = true }
       if (specsChanged) form.setValue('specifications', newSpecs)
