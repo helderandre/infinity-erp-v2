@@ -9,6 +9,8 @@ import {
   Trash2,
   Copy,
   Check,
+  Eye,
+  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { UseFormReturn } from 'react-hook-form'
@@ -19,6 +21,50 @@ import { cn } from '@/lib/utils'
 
 interface StepDescriptionProps {
   form: UseFormReturn<any>
+}
+
+// ─── Markdown renderer leve ────────────────────────────────────────────
+// Suporta exactamente os elementos que a IA produz: **negrito**, listas
+// `- ` ou `* `, e parágrafos separados por linha em branco. Não suporta
+// HTML inline (texto é tratado como texto puro), por isso é XSS-safe.
+
+function renderInline(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*\n]+\*\*)/g)
+  return parts.map((part, i) => {
+    const m = /^\*\*(.+)\*\*$/.exec(part)
+    if (m) return <strong key={i}>{m[1]}</strong>
+    return <span key={i}>{part}</span>
+  })
+}
+
+function renderMarkdown(text: string): React.ReactNode {
+  if (!text) return null
+  const blocks = text.split(/\n\s*\n/)
+  return blocks.map((block, bi) => {
+    const lines = block.split('\n').filter((l) => l.length > 0)
+    if (lines.length === 0) return null
+    const isList = lines.every((l) => /^\s*[-*]\s+/.test(l))
+    if (isList) {
+      return (
+        <ul key={bi} className="list-disc pl-5 space-y-1 my-2">
+          {lines.map((l, li) => {
+            const content = l.replace(/^\s*[-*]\s+/, '')
+            return <li key={li}>{renderInline(content)}</li>
+          })}
+        </ul>
+      )
+    }
+    return (
+      <p key={bi} className="my-2 first:mt-0 last:mb-0 leading-relaxed">
+        {lines.map((l, li) => (
+          <span key={li}>
+            {renderInline(l)}
+            {li < lines.length - 1 && <br />}
+          </span>
+        ))}
+      </p>
+    )
+  })
 }
 
 /**
@@ -38,6 +84,12 @@ export function StepDescription({ form }: StepDescriptionProps) {
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  // Mode: preview (markdown rendered) ou edit (textarea raw).
+  // Default a preview se já há conteúdo (revisitação dum draft); edit
+  // quando arranca do zero.
+  const [mode, setMode] = useState<'edit' | 'preview'>(() =>
+    (form.getValues('description') || '').trim() ? 'preview' : 'edit'
+  )
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -176,6 +228,7 @@ export function StepDescription({ form }: StepDescriptionProps) {
       }
       const { description: generated } = await res.json()
       form.setValue('description', generated, { shouldDirty: true })
+      setMode('preview')
       toast.success('Descrição gerada.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar descrição.')
@@ -225,29 +278,79 @@ export function StepDescription({ form }: StepDescriptionProps) {
               Tudo aqui — escreve, dita, ou pede para gerar. A IA usa o que está em baixo como ponto de partida.
             </p>
           </div>
-          {charCount > 0 && (
-            <div className="shrink-0 hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground/80">
-              <span className="tabular-nums">{charCount.toLocaleString('pt-PT')}</span>
-              <span>caractere{charCount === 1 ? '' : 's'}</span>
+          <div className="shrink-0 flex items-center gap-2">
+            {/* Toggle Editar / Pré-visualizar */}
+            <div className="inline-flex p-0.5 rounded-full bg-muted/50 border border-border/40">
+              <button
+                type="button"
+                onClick={() => setMode('edit')}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all',
+                  mode === 'edit'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                title="Editar texto"
+              >
+                <Pencil className="h-3 w-3" />
+                <span className="hidden sm:inline">Editar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('preview')}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all',
+                  mode === 'preview'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                title="Pré-visualizar markdown"
+              >
+                <Eye className="h-3 w-3" />
+                <span className="hidden sm:inline">Pré-visualizar</span>
+              </button>
             </div>
-          )}
+            {charCount > 0 && (
+              <div className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground/80">
+                <span className="tabular-nums">{charCount.toLocaleString('pt-PT')}</span>
+                <span>caractere{charCount === 1 ? '' : 's'}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Textarea — fonte única (form.description) */}
+        {/* Editor — textarea (edit) ou markdown rendido (preview) */}
         <div className="relative px-4 sm:px-5 pt-3">
-          <Textarea
-            id="acq-description"
-            value={description}
-            onChange={(e) => form.setValue('description', e.target.value, { shouldDirty: true })}
-            placeholder={
-              isRecording
-                ? 'A gravar… podes continuar a escrever; a transcrição é adicionada quando parares.'
-                : 'Notas, características, vivência, vistas, melhorias recentes… A IA polirá isto numa descrição publicável.'
-            }
-            rows={12}
-            disabled={isRecording || isGenerating}
-            className="resize-y border-0 bg-transparent p-0 text-[14px] leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/55 disabled:opacity-60"
-          />
+          {mode === 'edit' ? (
+            <Textarea
+              id="acq-description"
+              value={description}
+              onChange={(e) => form.setValue('description', e.target.value, { shouldDirty: true })}
+              placeholder={
+                isRecording
+                  ? 'A gravar… podes continuar a escrever; a transcrição é adicionada quando parares.'
+                  : 'Notas, características, vivência, vistas, melhorias recentes… A IA polirá isto numa descrição publicável.'
+              }
+              rows={12}
+              disabled={isRecording || isGenerating}
+              className="resize-y border-0 bg-transparent p-0 text-[14px] leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/55 disabled:opacity-60"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMode('edit')}
+              className="block w-full text-left text-[14px] leading-relaxed min-h-[12rem] cursor-text hover:bg-muted/10 rounded-md transition-colors -mx-2 px-2 py-1"
+              title="Clique para editar"
+            >
+              {description.trim() ? (
+                <div className="prose-acquisition">{renderMarkdown(description)}</div>
+              ) : (
+                <span className="text-muted-foreground/55">
+                  Nada para pré-visualizar. Muda para Editar para escrever.
+                </span>
+              )}
+            </button>
+          )}
           {isGenerating && (
             <div className="absolute inset-x-5 top-3 bottom-3 rounded-xl bg-background/40 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 dark:text-violet-300">

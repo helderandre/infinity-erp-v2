@@ -240,41 +240,19 @@ export function StepOwners({ form }: StepOwnersProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name={`owners.${index}.nif`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>NIF</FormLabel>
-                      <FormControl>
-                        <Input placeholder="123456789" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={`owners.${index}.ownership_percentage`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Percentagem de Propriedade</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 100)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name={`owners.${index}.nif`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>NIF</FormLabel>
+                    <FormControl>
+                      <Input placeholder="123456789" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

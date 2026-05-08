@@ -58,7 +58,9 @@ export function PropertyAnnouncementBubble({ metadata, isOwn }: Props) {
       .filter(Boolean)
       .filter((v, i, arr) => arr.indexOf(v) === i)
       .join(', ') || ''
-  const propertyHref = `/dashboard/imoveis/${property.slug || property.id}`
+  // Abre a Sheet de detalhe sobre a listagem (?property=…) em vez da página
+  // dedicada — UX mais leve e mantém o contexto da lista por trás.
+  const propertyHref = `/dashboard/imoveis?property=${encodeURIComponent(property.slug || property.id)}`
   const specBits: string[] = []
   if (property.typology) specBits.push(property.typology)
   if (property.bedrooms) specBits.push(`${property.bedrooms} quartos`)

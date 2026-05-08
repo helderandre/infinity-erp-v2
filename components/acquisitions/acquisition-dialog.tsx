@@ -331,7 +331,7 @@ export function AcquisitionDialog({
               <div className="space-y-2 max-w-sm">
                 <h2 className="text-xl font-semibold tracking-tight">Angariação submetida</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  O nosso departamento interno vai tratar do processo. Avisamos-te quando precisarmos da tua acção (assinaturas, documentação, contactos com o proprietário…).
+                  O nosso departamento interno vai tratar do processo. Avisamos-te quando precisarmos da tua ação.
                 </p>
               </div>
               <Button

@@ -73,6 +73,7 @@ import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 import { PageSidebar } from '@/components/shared/page-sidebar'
 import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewBento } from '@/components/processes/process-review-bento'
+import { ProcessApprovalCard } from '@/components/processes/process-approval-card'
 import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
 import { ProcessStageMobileView } from '@/components/processes/process-stage-mobile-view'
 import { ProcessFocusView } from '@/components/processes/process-focus-view'
@@ -934,6 +935,17 @@ export default function ProcessoDetailPage() {
           {/* ── DETALHES section ── */}
           {activeSection === 'detalhes' && (
             <div className="space-y-4">
+              {/* Approval card — visível à gestão quando o processo está
+                  pendente de aprovação ou foi devolvido para corrigir. */}
+              {instance && ['pending_approval', 'returned'].includes(instance.current_status ?? '') && (
+                <ProcessApprovalCard
+                  processId={instance.id}
+                  status={instance.current_status as string}
+                  returnedReason={(instance as any).returned_reason ?? null}
+                  externalRef={instance.external_ref}
+                  onChanged={silentRefresh}
+                />
+              )}
               {isNegocio && deal && (
                 <ProcessDealBento
                   deal={deal}

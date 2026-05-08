@@ -69,11 +69,16 @@ const formSchema = propertySchema.extend({
   typology: z.string().optional(),
   bedrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   bathrooms: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
-  area_gross: z.coerce.number().positive().optional().or(z.literal('')),
-  area_gross_private: z.coerce.number().positive().optional().or(z.literal('')),
-  area_util: z.coerce.number().positive().optional().or(z.literal('')),
-  area_total_lot: z.coerce.number().positive().optional().or(z.literal('')),
-  construction_year: z.coerce.number().int().min(1800).max(new Date().getFullYear() + 5).optional().or(z.literal('')),
+  // Áreas — `0`/vazio aceite como "valor desconhecido".
+  area_gross: z.coerce.number().nonnegative().optional().or(z.literal('')),
+  area_gross_private: z.coerce.number().nonnegative().optional().or(z.literal('')),
+  area_util: z.coerce.number().nonnegative().optional().or(z.literal('')),
+  area_total_lot: z.coerce.number().nonnegative().optional().or(z.literal('')),
+  // Ano construção — aceita `0` como sentinela "desconhecido" + anos reais.
+  construction_year: z.coerce.number().int().refine(
+    (v) => v === 0 || (v >= 1800 && v <= new Date().getFullYear() + 5),
+    'Ano de construção inválido'
+  ).optional().or(z.literal('')),
   parking_spaces: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   garage_spaces: z.coerce.number().int().nonnegative().optional().or(z.literal('')),
   has_elevator: z.boolean().optional(),

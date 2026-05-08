@@ -6,7 +6,7 @@ export const propertySchema = z.object({
   description: z.string().optional(),
   property_type: z.string().min(1, 'Seleccione o tipo de imóvel'),
   business_type: z.string().min(1, 'Seleccione o tipo de negócio'),
-  listing_price: z.number().positive('O preço deve ser positivo').optional(),
+  listing_price: z.number().nonnegative('O preço não pode ser negativo').optional(),
   status: z.string().default('pending_approval'),
   property_condition: z.string().optional(),
   business_status: z.string().optional(),
@@ -55,11 +55,16 @@ export const propertySpecsSchema = z.object({
   typology: z.string().optional(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
-  area_gross: z.number().positive().optional(),
-  area_gross_private: z.number().positive().optional(),
-  area_util: z.number().positive().optional(),
-  area_total_lot: z.number().positive().optional(),
-  construction_year: z.number().int().min(1800).max(new Date().getFullYear() + 5).optional(),
+  // Áreas — `0`/vazio é aceite (consultor pode não ter o valor à mão).
+  area_gross: z.number().nonnegative().optional(),
+  area_gross_private: z.number().nonnegative().optional(),
+  area_util: z.number().nonnegative().optional(),
+  area_total_lot: z.number().nonnegative().optional(),
+  // Aceita `0` como sentinela "ano desconhecido" + anos reais 1800 → ano+5.
+  construction_year: z.number().int().refine(
+    (v) => v === 0 || (v >= 1800 && v <= new Date().getFullYear() + 5),
+    'Ano de construção inválido'
+  ).optional(),
   parking_spaces: z.number().int().nonnegative().optional(),
   garage_spaces: z.number().int().nonnegative().optional(),
   has_elevator: z.boolean().optional(),

@@ -43,9 +43,39 @@ interface StepDocumentsProps {
   form: UseFormReturn<any>
 }
 
+// Cache module-scope dos doc_types: o `<StepDocuments>` é desmontado
+// sempre que o utilizador sai da tab (Radix Tabs não preserva o conteúdo
+// inactivo) — sem cache, cada re-entrada refazia o fetch e ficava presa
+// no skeleton se o pedido falhasse silenciosamente.
+let cachedDocTypes: DocType[] | null = null
+let pendingFetch: Promise<DocType[]> | null = null
+
+function loadDocTypes(): Promise<DocType[]> {
+  if (cachedDocTypes) return Promise.resolve(cachedDocTypes)
+  if (pendingFetch) return pendingFetch
+  pendingFetch = fetch('/api/libraries/doc-types')
+    .then((res) => res.json())
+    .then((data) => {
+      const list = Array.isArray(data)
+        ? data.filter((dt: DocType) => ACQUISITION_DOC_CATEGORIES.includes(dt.category))
+        : []
+      cachedDocTypes = list
+      return list
+    })
+    .catch((err) => {
+      console.error('Erro ao carregar tipos de documento:', err)
+      return []
+    })
+    .finally(() => {
+      pendingFetch = null
+    })
+  return pendingFetch
+}
+
 export function StepDocuments({ form }: StepDocumentsProps) {
-  const [docTypes, setDocTypes] = useState<DocType[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // Arranca já com o cache (se existir) — evita o skeleton em revisitas.
+  const [docTypes, setDocTypes] = useState<DocType[]>(() => cachedDocTypes ?? [])
+  const [isLoading, setIsLoading] = useState(() => cachedDocTypes === null)
   const [isClassifying, setIsClassifying] = useState(false)
   const [isExtracting, setIsExtracting] = useState(false)
   const [classifiedFiles, setClassifiedFiles] = useState<ClassifiedFile[]>([])
@@ -70,21 +100,19 @@ export function StepDocuments({ form }: StepDocumentsProps) {
     return map
   }, [docTypes])
 
-  // 1. Carregar doc_types
+  // 1. Carregar doc_types (com cache module-scope)
   useEffect(() => {
-    fetch('/api/libraries/doc-types')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setDocTypes(
-            data.filter((dt: DocType) =>
-              ACQUISITION_DOC_CATEGORIES.includes(dt.category)
-            )
-          )
-        }
+    if (cachedDocTypes) return
+    let cancelled = false
+    loadDocTypes()
+      .then((list) => {
+        if (cancelled) return
+        setDocTypes(list)
       })
-      .catch((err) => console.error('Erro ao carregar tipos de documento:', err))
-      .finally(() => setIsLoading(false))
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => { cancelled = true }
   }, [])
 
   // 2. Handler de ficheiro seleccionado (modo deferred)
@@ -312,8 +340,8 @@ export function StepDocuments({ form }: StepDocumentsProps) {
     return fieldsSet
   }, [form])
 
-  // 5. Accept all classified files + extract data
-  const handleAcceptAll = useCallback(async () => {
+  // 5. Accept all classified files (com ou sem extracção de dados)
+  const handleAcceptAll = useCallback(async (extract: boolean = true) => {
     const accepted = classifiedFiles.filter(cf => cf.doc_type_id && cf.accepted)
     if (accepted.length === 0) {
       toast.error('Nenhum documento aceite')
@@ -353,8 +381,8 @@ export function StepDocuments({ form }: StepDocumentsProps) {
     form.setValue('documents', [...currentDocs, ...newDocs])
     toast.success(`${accepted.length} documento${accepted.length > 1 ? 's' : ''} adicionado${accepted.length > 1 ? 's' : ''}`)
 
-    // Now extract data from PDFs
-    const pdfFiles = accepted.filter(cf => cf.file.type === 'application/pdf')
+    // Now extract data from PDFs (apenas quando solicitado)
+    const pdfFiles = extract ? accepted.filter(cf => cf.file.type === 'application/pdf') : []
     if (pdfFiles.length > 0) {
       setIsExtracting(true)
       const extractId = toast.loading('A extrair dados dos documentos...')
@@ -594,10 +622,23 @@ export function StepDocuments({ form }: StepDocumentsProps) {
               </Button>
               <Button
                 type="button"
+                variant="outline"
                 size="sm"
                 className="text-xs h-8 rounded-full px-3"
-                onClick={handleAcceptAll}
+                onClick={() => handleAcceptAll(false)}
                 disabled={isExtracting}
+                title="Adicionar documentos sem extrair dados"
+              >
+                <Check className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Confirmar</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="text-xs h-8 rounded-full px-3"
+                onClick={() => handleAcceptAll(true)}
+                disabled={isExtracting}
+                title="Adicionar documentos e preencher campos automaticamente com IA"
               >
                 {isExtracting ? (
                   <>
@@ -607,9 +648,9 @@ export function StepDocuments({ form }: StepDocumentsProps) {
                   </>
                 ) : (
                   <>
-                    <Check className="h-3.5 w-3.5 mr-1" />
+                    <Sparkles className="h-3.5 w-3.5 mr-1" />
                     <span className="hidden sm:inline">Confirmar e Extrair</span>
-                    <span className="sm:hidden">Confirmar</span>
+                    <span className="sm:hidden">Extrair</span>
                   </>
                 )}
               </Button>

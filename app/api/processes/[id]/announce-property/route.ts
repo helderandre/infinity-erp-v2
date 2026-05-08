@@ -152,7 +152,7 @@ export async function POST(
       lines.push(`Angariador: **${consultantName}**`)
     }
 
-    const propertyUrl = `/dashboard/imoveis/${property.slug || property.id}`
+    const propertyUrl = `/dashboard/imoveis?property=${encodeURIComponent(property.slug || property.id)}`
     lines.push('')
     lines.push(`🔗 ${propertyUrl}`)
 
