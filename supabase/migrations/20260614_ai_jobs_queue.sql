@@ -61,6 +61,7 @@ CREATE POLICY ai_jobs_self_insert ON public.ai_jobs
 CREATE OR REPLACE FUNCTION public.fn_ai_jobs_notify_on_done()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_title text;
