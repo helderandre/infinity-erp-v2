@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export interface AiBatchJob {
   id: string
   propertyId: string
-  type: 'stage' | 'enhance' | 'lighting'
+  type: 'stage' | 'enhance' | 'lighting' | 'planta_3d'
   style?: string
   done: number
   total: number

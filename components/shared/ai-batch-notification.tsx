@@ -18,13 +18,27 @@ export function AiBatchNotification() {
   const handleCardClick = () => {
     if (job.finished) {
       // Navigate to the property's media tab with the right display mode
-      const tab = job.type === 'stage' ? 'staged' : 'enhanced'
-      router.push(`/dashboard/imoveis/${job.propertyId}?tab=media&display=${tab}`)
+      if (job.type === 'planta_3d') {
+        router.push(`/dashboard/imoveis/${job.propertyId}?tab=media&section=plantas`)
+      } else {
+        const tab = job.type === 'stage' ? 'staged' : 'enhanced'
+        router.push(`/dashboard/imoveis/${job.propertyId}?tab=media&display=${tab}`)
+      }
       dismiss()
     } else {
       setShowPreview(true)
     }
   }
+
+  const headlineFinished =
+    job.type === 'stage' ? `${job.succeeded} ${job.succeeded === 1 ? 'imagem decorada' : 'imagens decoradas'}` :
+    job.type === 'planta_3d' ? `${job.succeeded} ${job.succeeded === 1 ? 'render 3D pronto' : 'renders 3D prontos'}` :
+    `${job.succeeded} ${job.succeeded === 1 ? 'imagem melhorada' : 'imagens melhoradas'}`
+
+  const headlineRunning =
+    job.type === 'stage' ? 'A decorar imagens…' :
+    job.type === 'planta_3d' ? 'A gerar render 3D…' :
+    'A melhorar imagens…'
 
   return (
     <>
@@ -53,14 +67,7 @@ export function AiBatchNotification() {
               )}
               <div>
                 <p className="text-sm font-medium">
-                  {job.finished
-                    ? job.type === 'stage'
-                      ? `${job.succeeded} imagens decoradas`
-                      : `${job.succeeded} imagens melhoradas`
-                    : job.type === 'stage'
-                      ? 'A decorar imagens…'
-                      : 'A melhorar imagens…'
-                  }
+                  {job.finished ? headlineFinished : headlineRunning}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {job.finished
@@ -104,7 +111,9 @@ export function AiBatchNotification() {
               ) : (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              {job.type === 'stage' ? 'Decoração Virtual' : 'Melhoria de Imagens'}
+              {job.type === 'stage' ? 'Decoração Virtual'
+                : job.type === 'planta_3d' ? 'Render 3D de Planta'
+                : 'Melhoria de Imagens'}
               <span className="text-sm font-normal text-muted-foreground">
                 — {job.done}/{job.total}
               </span>

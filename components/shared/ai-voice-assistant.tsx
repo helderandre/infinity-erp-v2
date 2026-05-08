@@ -1519,10 +1519,16 @@ function NegocioLinkBanner({
     !linkedId && typeof args.existing_negocio_query === 'string'
       ? args.existing_negocio_query
       : ''
-  const filterTipos: Array<'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'> =
+  const filterTipos: Array<
+    | 'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'
+    | 'Comprador' | 'Vendedor' | 'Senhorio'
+  > =
     tool === 'create_angariacao'
-      ? ['Venda', 'Arrendador']
-      : ['Compra', 'Venda', 'Arrendatário', 'Arrendador']
+      ? ['Vendedor', 'Senhorio', 'Venda', 'Arrendador']
+      : [
+          'Comprador', 'Vendedor', 'Arrendatário', 'Senhorio',
+          'Compra', 'Venda', 'Arrendador',
+        ]
   const description =
     tool === 'create_angariacao'
       ? 'Pré-preenche tipo, valor e tipo de imóvel a partir da oportunidade.'

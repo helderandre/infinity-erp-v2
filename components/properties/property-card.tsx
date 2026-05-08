@@ -5,10 +5,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatCurrency } from '@/lib/constants'
 import { PROPERTY_TYPES, BUSINESS_TYPES } from '@/lib/constants'
-import { Hash, MapPin, Maximize, User, Pencil } from 'lucide-react'
+import { Hash, MapPin, Maximize, User, Pencil, Check } from 'lucide-react'
 import type { PropertyWithRelations } from '@/types/property'
 import { pickCoverMedia } from '@/lib/properties/cover-image'
 import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
+import { cn } from '@/lib/utils'
 
 interface PropertyCardProps {
   property: PropertyWithRelations
@@ -17,9 +18,14 @@ interface PropertyCardProps {
    *  cover image's top-right (next to the business badge) and triggers edit
    *  without bubbling the card click. */
   onEdit?: () => void
+  /** Selection mode — when true the card renders a checkbox overlay and
+   *  click toggles selection instead of opening the detail. */
+  selectMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: () => void
 }
 
-export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
+export function PropertyCard({ property, onClick, onEdit, selectMode, isSelected, onToggleSelect }: PropertyCardProps) {
   const coverImage = pickCoverMedia(property.dev_property_media)
 
   const specs = property.dev_property_specifications
@@ -29,8 +35,11 @@ export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
 
   return (
     <Card
-      className="overflow-hidden cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] py-0"
-      onClick={onClick}
+      className={cn(
+        'overflow-hidden cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] py-0',
+        selectMode && isSelected && 'ring-2 ring-primary border-primary',
+      )}
+      onClick={selectMode ? onToggleSelect : onClick}
     >
       <div className="relative aspect-[16/10] bg-muted">
         {coverImage ? (
@@ -49,14 +58,14 @@ export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
         <div className="absolute top-2 left-2">
           <StatusBadge status={property.status || 'pending_approval'} type="property" className="!bg-background/80 backdrop-blur-sm" />
         </div>
-        {(businessTypeLabel || onEdit) && (
+        {(businessTypeLabel || (onEdit && !selectMode)) && (
           <div className="absolute top-2 right-2 flex items-center gap-1.5">
             {businessTypeLabel && (
               <span className="inline-flex items-center rounded-md bg-background/80 backdrop-blur-sm px-2 py-1 text-xs font-medium">
                 {businessTypeLabel}
               </span>
             )}
-            {onEdit && (
+            {onEdit && !selectMode && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onEdit() }}
@@ -67,6 +76,18 @@ export function PropertyCard({ property, onClick, onEdit }: PropertyCardProps) {
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             )}
+          </div>
+        )}
+        {selectMode && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className={cn(
+              'flex items-center justify-center h-6 w-6 rounded-md border-2 transition-colors shadow-sm',
+              isSelected
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'bg-background/85 border-border/60 backdrop-blur-sm',
+            )}>
+              {isSelected && <Check className="h-4 w-4" />}
+            </div>
           </div>
         )}
       </div>

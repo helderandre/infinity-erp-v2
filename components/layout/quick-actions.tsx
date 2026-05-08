@@ -357,9 +357,10 @@ export function QuickActions() {
       <AcquisitionDialog
         open={acquisitionOpen}
         onOpenChange={setAcquisitionOpen}
-        onComplete={(procInstanceId) => {
+        onComplete={() => {
+          // Sem redirect — a confirmação é mostrada dentro do dialog e a
+          // gestão é notificada (com deep-link) para abrir o processo.
           setAcquisitionOpen(false)
-          router.push(`/dashboard/processos/${procInstanceId}`)
         }}
       />
 

@@ -559,7 +559,12 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
         onOpenChange={setPickerOpen}
         title="Escolher negócio existente"
         description="Pré-preenche o cliente, valor e tipo. Podes ajustar depois."
-        filterTipos={['Compra', 'Venda', 'Arrendatário', 'Arrendador']}
+        filterTipos={[
+          // Novos valores (pós-refactor de tipo)
+          'Comprador', 'Vendedor', 'Arrendatário', 'Senhorio',
+          // Legacy (rows pré-migração)
+          'Compra', 'Venda', 'Arrendador',
+        ]}
         onSelect={(n) => applyPickedNegocio(n)}
       />
     </Form>

@@ -26,6 +26,9 @@ export async function GET(request: Request) {
       'owner_doc_submitted',
       'owner_cmi_signed',
       'owner_field_edited',
+      // ai_jobs queue: trigger insere row em notifications quando o job
+      // termina; o cron entrega o push.
+      'ai_job_completed',
     ] as const
 
     const { data: pending, error } = await admin

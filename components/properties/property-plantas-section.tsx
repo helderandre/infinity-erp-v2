@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
-  Plus, Trash2, Loader2, FileText, Download, Maximize2, X, Layers, Sparkles, RefreshCw,
+  Plus, Trash2, Loader2, FileText, Download, Maximize2, Layers, Sparkles, RefreshCw,
 } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { PropertyImagePreviewSheet, type PreviewItem } from './property-image-preview-sheet'
+import { useAiBatchStore } from '@/stores/ai-batch-store'
 
 interface PlantaMedia {
   id: string
@@ -39,13 +41,18 @@ export function PropertyPlantasSection({
 }: PropertyPlantasSectionProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [generateForPlantaId, setGenerateForPlantaId] = useState<string | null>(null)
-  const [generatingPlantaId, setGeneratingPlantaId] = useState<string | null>(null)
   const [generationNotes, setGenerationNotes] = useState('')
   const [variantsCount, setVariantsCount] = useState<1 | 2>(1)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { job: batchJob, startJob, updateJob, finishJob } = useAiBatchStore()
+  // While a planta_3d batch is running, we show a loader on the source planta
+  // (only when the running batch belongs to this property). The endpoint
+  // generates all variants in one call so we don't track per-planta beyond
+  // the batch flag.
+  const isAnyGenerating = !!batchJob && batchJob.propertyId === propertyId && batchJob.type === 'planta_3d' && !batchJob.finished
 
   const rendersByPlanta = useMemo(() => {
     const map = new Map<string, PlantaMedia[]>()
@@ -57,6 +64,28 @@ export function PropertyPlantasSection({
     }
     return map
   }, [renders3d])
+
+  /** Flat list of previewable items (plantas + their renders) used by the
+   *  Sheet preview to support next/prev navigation. PDFs are skipped — they
+   *  open in a new tab via the Download icon. */
+  const previewItems = useMemo<PreviewItem[]>(() => {
+    const items: PreviewItem[] = []
+    plantas.forEach((p, idx) => {
+      if (!p.url.toLowerCase().endsWith('.pdf')) {
+        items.push({ id: p.id, url: p.url, caption: `Planta ${idx + 1}` })
+      }
+      const list = rendersByPlanta.get(p.id) || []
+      list.forEach((r, ri) => {
+        items.push({ id: r.id, url: r.url, caption: `Render 3D — Planta ${idx + 1} (${ri + 1})` })
+      })
+    })
+    return items
+  }, [plantas, rendersByPlanta])
+
+  const openPreviewById = useCallback((id: string) => {
+    const idx = previewItems.findIndex((x) => x.id === id)
+    if (idx !== -1) setPreviewIndex(idx)
+  }, [previewItems])
 
   const handleUpload = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -119,11 +148,13 @@ export function PropertyPlantasSection({
     }
   }, [propertyId, onMediaChange])
 
+  /** Generate 3D renders in the background using the global ai-batch-store.
+   *  The user gets a floating progress card and can navigate elsewhere; on
+   *  finish a click on the card returns to this section. */
   const generateRenders = useCallback(
     async (plantaId: string, variants: 1 | 2, notes: string) => {
-      setGeneratingPlantaId(plantaId)
-      const label = variants === 2 ? '2 variantes' : 'render 3D'
-      const toastId = toast.loading(`A gerar ${label}...`)
+      const style = variants === 2 ? '2 variantes' : '1 render'
+      startJob(propertyId, 'planta_3d', variants, style)
       try {
         const res = await fetch(
           `/api/properties/${propertyId}/media/${plantaId}/generate-3d`,
@@ -136,29 +167,31 @@ export function PropertyPlantasSection({
             }),
           }
         )
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
         if (!res.ok) {
-          toast.error(data.error || 'Erro ao gerar render', { id: toastId })
+          updateJob({ done: variants, succeeded: 0, failed: variants })
+          finishJob()
+          toast.error(data.error || 'Erro ao gerar render')
           return
         }
-        const successCount = data.generated ?? 1
-        const requested = data.requested ?? variants
-        if (successCount < requested) {
-          toast.warning(`Geradas ${successCount}/${requested} variantes`, { id: toastId })
+        const succeeded = data.generated ?? 1
+        const failed = Math.max(0, (data.requested ?? variants) - succeeded)
+        const completedUrls: string[] = Array.isArray(data.urls) ? data.urls : []
+        updateJob({ done: variants, succeeded, failed, completedUrls })
+        finishJob()
+        if (failed > 0) {
+          toast.warning(`Geradas ${succeeded}/${variants} variantes`)
         } else {
-          toast.success(
-            successCount > 1 ? `${successCount} renders gerados` : 'Render gerado',
-            { id: toastId }
-          )
+          toast.success(succeeded > 1 ? `${succeeded} renders gerados` : 'Render gerado')
         }
         onMediaChange()
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Erro ao gerar render', { id: toastId })
-      } finally {
-        setGeneratingPlantaId(null)
+        updateJob({ done: variants, succeeded: 0, failed: variants })
+        finishJob()
+        toast.error(error instanceof Error ? error.message : 'Erro ao gerar render')
       }
     },
-    [propertyId, onMediaChange]
+    [propertyId, onMediaChange, startJob, updateJob, finishJob]
   )
 
   const handleGenerate3D = useCallback(async () => {
@@ -224,7 +257,7 @@ export function PropertyPlantasSection({
         <div className="space-y-6">
           {plantas.map((planta, idx) => {
             const renders = rendersByPlanta.get(planta.id) || []
-            const isGenerating = generatingPlantaId === planta.id
+            const isGenerating = isAnyGenerating
             const isPlantaPdf = isPdf(planta.url)
 
             return (
@@ -248,7 +281,7 @@ export function PropertyPlantasSection({
                     ) : (
                       <div
                         className="aspect-[3/4] bg-muted/30 cursor-pointer"
-                        onClick={() => setPreviewUrl(planta.url)}
+                        onClick={() => openPreviewById(planta.id)}
                       >
                         <img
                           src={planta.url}
@@ -271,7 +304,7 @@ export function PropertyPlantasSection({
                         </a>
                       ) : (
                         <button
-                          onClick={() => setPreviewUrl(planta.url)}
+                          onClick={() => openPreviewById(planta.id)}
                           className="h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/70 transition-colors"
                           title="Ampliar"
                         >
@@ -337,7 +370,7 @@ export function PropertyPlantasSection({
                           <div key={render.id} className="group relative rounded-lg border bg-muted/20 overflow-hidden">
                             <div
                               className="aspect-square cursor-pointer"
-                              onClick={() => setPreviewUrl(render.url)}
+                              onClick={() => openPreviewById(render.id)}
                             >
                               <img
                                 src={render.url}
@@ -345,14 +378,14 @@ export function PropertyPlantasSection({
                                 className="w-full h-full object-cover"
                               />
                             </div>
-                            {generatingPlantaId === planta.id && (
+                            {isAnyGenerating && (
                               <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
                                 <Loader2 className="h-6 w-6 text-white animate-spin" />
                               </div>
                             )}
                             <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                onClick={() => setPreviewUrl(render.url)}
+                                onClick={() => openPreviewById(render.id)}
                                 className="h-6 w-6 rounded-full bg-black/60 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/80 transition-colors"
                                 title="Ampliar"
                               >
@@ -360,7 +393,7 @@ export function PropertyPlantasSection({
                               </button>
                               <button
                                 onClick={() => handleRegenerate(planta.id)}
-                                disabled={generatingPlantaId === planta.id}
+                                disabled={isAnyGenerating}
                                 className="h-6 w-6 rounded-full bg-black/60 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/80 transition-colors disabled:opacity-50"
                                 title="Regenerar (gera um novo render alternativo)"
                               >
@@ -390,24 +423,15 @@ export function PropertyPlantasSection({
         </div>
       )}
 
-      {/* Image preview dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95">
-          <button
-            onClick={() => setPreviewUrl(null)}
-            className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-white/15 backdrop-blur-sm text-white flex items-center justify-center hover:bg-white/25 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          {previewUrl && (
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="w-full h-auto max-h-[85vh] object-contain"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Image preview Sheet — modern design, supports next/prev across
+          plantas + 3D renders. */}
+      <PropertyImagePreviewSheet
+        open={previewIndex !== null}
+        onOpenChange={(o) => { if (!o) setPreviewIndex(null) }}
+        items={previewItems}
+        index={previewIndex ?? 0}
+        onIndexChange={setPreviewIndex}
+      />
 
       {/* Generate 3D dialog */}
       <Dialog open={!!generateForPlantaId} onOpenChange={(o) => !o && setGenerateForPlantaId(null)}>

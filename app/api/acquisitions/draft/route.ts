@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { notificationService } from '@/lib/notifications/service'
 import { ACQUISITION_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function POST(request: Request) {
   try {
@@ -15,6 +16,28 @@ export async function POST(request: Request) {
     const { prefillData, negocioId } = body as {
       prefillData?: Record<string, any>
       negocioId?: string
+    }
+
+    // Resolver o consultor responsável pelo processo. Default = quem está
+    // logado. Quando management arranca uma angariação a partir de uma
+    // oportunidade pertencente a um consultor, o processo é DESSE consultor
+    // (a angariação é para ele; quem regista é só intermediário).
+    let targetConsultantId: string = auth.user.id
+    if (negocioId && isManagementRole(auth.roles)) {
+      const { data: negocio } = await supabase
+        .from('negocios')
+        .select('assigned_consultant_id, lead:leads(agent_id)')
+        .eq('id', negocioId)
+        .maybeSingle()
+      const negocioConsultant =
+        (negocio as { assigned_consultant_id?: string | null } | null)
+          ?.assigned_consultant_id ??
+        (negocio as { lead?: { agent_id?: string | null } } | null)
+          ?.lead?.agent_id ??
+        null
+      if (negocioConsultant) {
+        targetConsultantId = negocioConsultant
+      }
     }
 
     // 1. Create property with draft status
@@ -35,7 +58,7 @@ export async function POST(request: Request) {
         postal_code: prefillData?.postal_code || null,
         latitude: prefillData?.latitude || null,
         longitude: prefillData?.longitude || null,
-        consultant_id: auth.user.id,
+        consultant_id: targetConsultantId,
         status: 'draft',
       })
       .select('id')
@@ -77,7 +100,11 @@ export async function POST(request: Request) {
         tpl_process_id: null,
         current_status: 'draft',
         process_type: 'angariacao',
-        requested_by: auth.user.id,
+        // O processo é do consultor responsável (em paridade com
+        // dev_properties.consultant_id). Permite que management arranque
+        // uma angariação a partir de oportunidades alheias sem se tornar
+        // o "dono" do processo.
+        requested_by: targetConsultantId,
         percent_complete: 0,
         last_completed_step: 0,
         negocio_id: negocioId || null,

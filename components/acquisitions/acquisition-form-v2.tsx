@@ -289,12 +289,16 @@ export function AcquisitionFormV2({
       const current = form.getValues()
       form.reset({ ...current, ...prefill } as any)
       toast.success('Pré-preenchido a partir do negócio')
+      // Picar uma oportunidade conta como intent de criar — sinalizamos
+      // edição ao dialog para que o prompt "guardar / descartar" apareça
+      // se o utilizador fechar antes de gravar.
+      onUserFirstEdit?.()
       // Após escolher uma oportunidade, saltamos directamente para
       // Dados do Imóvel — o passo intro já cumpriu o seu papel.
       setOriginChoice('opportunity')
       setActiveTab('property')
     },
-    [form],
+    [form, onUserFirstEdit],
   )
 
   const clearPickedNegocio = useCallback(() => {
@@ -933,7 +937,7 @@ export function AcquisitionFormV2({
           onOpenChange={setPickerOpen}
           title="Escolher negócio existente"
           description="Pré-preenche tipo, valor e tipo de imóvel a partir do negócio."
-          filterTipos={['Venda', 'Arrendador']}
+          filterTipos={['Vendedor', 'Senhorio', 'Venda', 'Arrendador']}
           onSelect={applyPickedNegocio}
         />
       </div>

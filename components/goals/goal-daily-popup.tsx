@@ -34,7 +34,6 @@ import { useAgentGoal } from '@/hooks/use-agent-goal'
 import { useFunnelAggregates } from '@/hooks/use-funnel-aggregates'
 import { computeAgentGoalTargets } from '@/lib/goals/v2/compute-targets'
 import { isoMondayOf, endOfWeek } from '@/lib/goals/v2/week-utils'
-import { LegacyGoalDailyPopup } from './goal-daily-popup-legacy'
 import type { CalendarEvent } from '@/types/calendar'
 import { CalendarEventDetail } from '@/components/calendar/calendar-event-detail'
 import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet'
@@ -98,20 +97,9 @@ function endOfTodayIso(): string {
   return d.toISOString()
 }
 
-// Router: agents with the new agent_goals row see V2; agents who only have
-// the legacy temp_consultant_goals see the original popup.
+// Daily briefing popup — only renders for agents with the v2 agent_goals row.
+// Agents without a goal see nothing (the popup auto-hides).
 export function GoalDailyPopup() {
-  const { user } = useUser()
-  const year = new Date().getFullYear()
-  const { goal, isLoading } = useAgentGoal({ year, agentId: user?.id ?? null })
-
-  if (!user?.id) return null
-  if (isLoading) return null
-  if (goal) return <V2GoalDailyPopup />
-  return <LegacyGoalDailyPopup />
-}
-
-function V2GoalDailyPopup() {
   const isMobile = useIsMobile()
   const { user } = useUser()
   const year = new Date().getFullYear()

@@ -50,6 +50,8 @@ import {
   Pencil,
   User,
   EyeOff,
+  CheckSquare,
+  Loader2,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -305,6 +307,10 @@ function ImoveisPageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   // Sheet de criação — partilha o componente PropertyEditSheet em mode='create'.
   const [createOpen, setCreateOpen] = useState(false)
@@ -640,6 +646,48 @@ function ImoveisPageContent() {
     }
   }
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }, [])
+
+  const selectAllVisible = () => setSelectedIds(new Set(properties.map((p) => p.id)))
+  const deselectAll = () => setSelectedIds(new Set())
+
+  const handleBulkDeletePermanent = async () => {
+    if (selectedIds.size === 0) return
+    setBulkDeleting(true)
+    const ids = Array.from(selectedIds)
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        fetch(`/api/properties/${id}?mode=permanent`, { method: 'DELETE' }).then((r) => {
+          if (!r.ok) throw new Error()
+        }),
+      ),
+    )
+    const ok = results.filter((r) => r.status === 'fulfilled').length
+    const failed = results.length - ok
+    if (ok > 0) {
+      toast.success(`${ok} ${ok === 1 ? 'imóvel eliminado' : 'imóveis eliminados'}`)
+      loadProperties()
+    }
+    if (failed > 0) {
+      toast.error(`Falha ao eliminar ${failed} ${failed === 1 ? 'imóvel' : 'imóveis'}`)
+    }
+    setBulkDeleting(false)
+    setBulkDeleteOpen(false)
+    exitSelectMode()
+  }
+
   const clearFilters = () => {
     setSearch('')
     setSelectedStatuses(DEFAULT_STATUSES)
@@ -700,6 +748,19 @@ function ImoveisPageContent() {
             </div>
             {!isConsultor && (
               <>
+                <button
+                  onClick={() => { if (selectMode) exitSelectMode(); else setSelectMode(true) }}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 backdrop-blur-sm border px-3 py-2 rounded-full text-xs font-medium transition-colors',
+                    selectMode
+                      ? 'bg-white text-neutral-900 border-white shadow-sm'
+                      : 'bg-white/15 text-white border-white/20 hover:bg-white/25',
+                  )}
+                  title={selectMode ? 'Sair da selecção' : 'Seleccionar imóveis'}
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{selectMode ? 'Sair' : 'Seleccionar'}</span>
+                </button>
                 <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors">
                   <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Exportar</span>
@@ -1073,6 +1134,51 @@ function ImoveisPageContent() {
 
       <div className="flex gap-5 items-start">
         <main className="flex-1 min-w-0 space-y-5">
+      {selectMode && !isConsultor && properties.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap rounded-2xl border border-border/60 bg-card/50 supports-[backdrop-filter]:bg-card/40 backdrop-blur-sm shadow-sm px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-2 mr-auto">
+            <span className="inline-flex items-center justify-center h-6 min-w-[1.5rem] rounded-full bg-primary/10 text-primary text-[11px] font-semibold px-2 tabular-nums">
+              {selectedIds.size}
+            </span>
+            <span className="text-sm font-medium">
+              seleccionado{selectedIds.size !== 1 ? 's' : ''}
+            </span>
+            <span className="h-4 w-px bg-border/60 mx-0.5" />
+            <button
+              type="button"
+              onClick={selectedIds.size === properties.length ? deselectAll : selectAllVisible}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {selectedIds.size === properties.length
+                ? 'Desmarcar tudo'
+                : `Seleccionar tudo (${properties.length})`}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={selectedIds.size === 0}
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Eliminar permanentemente
+            </Button>
+            <span className="h-5 w-px bg-border/60 mx-1" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={exitSelectMode}
+              title="Sair da selecção"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
       {isLoading ? (
         viewMode === 'table' ? (
           <div className="rounded-3xl border border-border/40 shadow-sm p-3 sm:p-4 space-y-2">
@@ -1126,6 +1232,9 @@ function ImoveisPageContent() {
             }}
             onResetSort={resetSort}
             onRowClick={(p) => openPropertySheet(p as unknown as PropertyWithRelations)}
+            selectMode={selectMode && !isConsultor}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
             rowActions={(p) => {
               // Consultor só pode editar/eliminar imóveis seus. Gestão (não
               // consultor) mantém acesso total. Ownership = property.consultant.id.
@@ -1187,6 +1296,9 @@ function ImoveisPageContent() {
                   property={property}
                   onClick={() => openPropertySheet(property)}
                   onEdit={canMutate ? () => setEditId(property.id) : undefined}
+                  selectMode={selectMode && !isConsultor}
+                  isSelected={selectedIds.has(property.id)}
+                  onToggleSelect={() => toggleSelect(property.id)}
                 />
               )
             })}
@@ -1263,6 +1375,55 @@ function ImoveisPageContent() {
             </AlertDialogAction>
             <AlertDialogAction onClick={handleDeletePermanent} className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk permanent delete confirmation — gestão only */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={(o) => { if (!bulkDeleting) setBulkDeleteOpen(o) }}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Eliminar {selectedIds.size} {selectedIds.size === 1 ? 'imóvel' : 'imóveis'} permanentemente
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Esta acção é <strong className="text-foreground">irreversível</strong>. Para
+                  cada imóvel seleccionado, são removidos da base de dados:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Especificações e dados internos</li>
+                  <li>Imagens, plantas e renderizações 3D</li>
+                  <li>Documentos associados (CRP, Caderneta Predial, certificado energético, etc.)</li>
+                  <li>Dados legais (Casa Pronta) e ligações a proprietários</li>
+                  <li>Processo de angariação completo (tarefas, subtarefas, actividade, comentários)</li>
+                  <li>Visitas agendadas e propostas de visita</li>
+                </ul>
+                <p>
+                  Os <strong className="text-foreground">proprietários</strong> em si
+                  mantêm-se (apenas as ligações a estes imóveis são removidas) e os
+                  <strong className="text-foreground"> negócios, eventos de calendário e
+                  campanhas de marketing</strong> ficam preservados, perdendo apenas a
+                  referência aos imóveis eliminados.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" disabled={bulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeletePermanent}
+              disabled={bulkDeleting}
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> A eliminar…</>
+              ) : (
+                `Eliminar ${selectedIds.size} ${selectedIds.size === 1 ? 'imóvel' : 'imóveis'}`
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

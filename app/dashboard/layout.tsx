@@ -57,6 +57,10 @@ const AiBatchNotification = dynamic(
   () => import('@/components/shared/ai-batch-notification').then((m) => m.AiBatchNotification),
   { ssr: false }
 )
+const AiJobsBootstrap = dynamic(
+  () => import('@/components/shared/ai-jobs-bootstrap').then((m) => m.AiJobsBootstrap),
+  { ssr: false }
+)
 const EmailComposerPopup = dynamic(
   () => import('@/components/email/composer/composer-popup').then((m) => m.EmailComposerPopup),
   { ssr: false }
@@ -206,6 +210,7 @@ export default function DashboardLayout({
         <GoalDailyPopup />
         <MobileBottomNav />
         <AiBatchNotification />
+        <AiJobsBootstrap />
         <AiVoiceAssistant />
         <ActivityRecorder />
       </SidebarProvider>

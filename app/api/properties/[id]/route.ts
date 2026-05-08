@@ -228,7 +228,15 @@ export async function DELETE(
     const mode = searchParams.get('mode') || 'cancel'
 
     if (mode === 'permanent') {
-      // Hard delete: remove from DB entirely
+      // Hard delete is restricted to management. Consultores podem ser
+      // owners do imóvel mas não podem apagar permanentemente — só usar o
+      // soft-cancel (mode default) ou pedir à gestão.
+      if (!isManagementRole(auth.roles)) {
+        return NextResponse.json(
+          { error: 'Apenas gestão pode eliminar permanentemente um imóvel.' },
+          { status: 403 }
+        )
+      }
       // First nullify NO ACTION foreign keys that would block deletion
       await Promise.all([
         supabase.from('deals').update({ property_id: null }).eq('property_id', id),

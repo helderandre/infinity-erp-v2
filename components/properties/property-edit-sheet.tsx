@@ -29,6 +29,7 @@ import {
   type DivisionPick,
 } from '@/components/shared/admin-division-autocomplete'
 import { PropertyMediaGallery } from './property-media-gallery'
+import { PropertyBrochurasTab } from './property-brochuras-tab'
 import { PropertyVideosSection } from './property-videos-section'
 import { PropertyPlantasSection } from './property-plantas-section'
 import { DescriptionEditorCanvas } from './description-editor/description-editor-canvas'
@@ -43,8 +44,18 @@ import {
 import {
   MapPin, Layers, Globe, ChevronRight, Check, ExternalLink,
   Home, Briefcase, Newspaper, Loader2, AlertCircle, Camera, Activity,
-  Images,
+  Images, Trash2, FileText,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
@@ -193,6 +204,7 @@ const TABS = [
   { value: 'contrato', label: 'Contrato', icon: Briefcase },
   { value: 'media', label: 'Media', icon: Images },
   { value: 'apresentacao', label: 'Apresentação', icon: Newspaper },
+  { value: 'brochuras', label: 'Brochuras', icon: FileText },
 ] as const
 
 type TabValue = typeof TABS[number]['value']
@@ -209,6 +221,8 @@ export function PropertyEditSheet({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [approving, setApproving] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [tab, setTab] = useState<TabValue>('geral')
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   // Gate that prevents the form from rendering until form.reset has populated
@@ -350,6 +364,32 @@ export function PropertyEditSheet({
 
   const status = form.watch('status')
   const isPending = status === 'pending_approval'
+
+  /* Hard delete — só management. Removida via cascade SQL (specs, internal,
+     media, plantas, doc_registry, property_owners, proc_instances + tasks +
+     subtasks, visits, dev_property_legal_data). FKs em deals / calendar /
+     marketing são nulificadas (não eliminam essas rows). */
+  const handlePermanentDelete = async () => {
+    if (!propertyId) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/properties/${propertyId}?mode=permanent`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erro ao eliminar imóvel')
+      }
+      toast.success('Imóvel eliminado permanentemente')
+      setDeleteOpen(false)
+      onSaved?.()
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao eliminar imóvel')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   /* Approve = single-click status flip + immediate save of just status */
   const handleApprove = async () => {
@@ -632,34 +672,115 @@ export function PropertyEditSheet({
                   </div>
                 )}
                 {tab === 'apresentacao' && <ApresentacaoPanel form={form} property={property} />}
+                {tab === 'brochuras' && property && (
+                  <PropertyBrochurasTab
+                    propertyId={property.id}
+                    propertySlug={property.slug ?? null}
+                    media={property.dev_property_media ?? []}
+                    initialOverrides={(property as any).presentation_overrides ?? null}
+                  />
+                )}
+                {tab === 'brochuras' && !property && isCreate && (
+                  <div className="flex items-center justify-center py-16 text-muted-foreground">
+                    <div className="text-center max-w-sm space-y-2">
+                      <FileText className="h-10 w-10 mx-auto opacity-30" />
+                      <p className="text-sm font-medium">Brochuras disponíveis depois de guardar</p>
+                      <p className="text-xs text-muted-foreground">
+                        Cria primeiro o imóvel para gerar e gerir brochuras digitais.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
-              <div className="shrink-0 px-6 py-3 border-t border-border/40 flex items-center justify-end gap-2 bg-background/60 backdrop-blur-xl">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full h-8 text-xs"
-                  onClick={() => onOpenChange(false)}
-                  disabled={saving}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="rounded-full h-8 text-xs"
-                  disabled={saving}
-                >
-                  {saving && <Spinner variant="infinite" size={14} className="mr-1.5" />}
-                  {isCreate ? 'Criar imóvel' : 'Guardar alterações'}
-                </Button>
+              <div className="shrink-0 px-6 py-3 border-t border-border/40 flex items-center gap-2 bg-background/60 backdrop-blur-xl">
+                {/* Eliminar permanentemente — só management, só em edit. */}
+                {!isCreate && isManagement && property && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-full h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 mr-auto"
+                    onClick={() => setDeleteOpen(true)}
+                    disabled={saving || deleting}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Eliminar imóvel
+                  </Button>
+                )}
+                <div className={cn('flex items-center gap-2', !(!isCreate && isManagement && property) && 'ml-auto')}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full h-8 text-xs"
+                    onClick={() => onOpenChange(false)}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="rounded-full h-8 text-xs"
+                    disabled={saving}
+                  >
+                    {saving && <Spinner variant="infinite" size={14} className="mr-1.5" />}
+                    {isCreate ? 'Criar imóvel' : 'Guardar alterações'}
+                  </Button>
+                </div>
               </div>
             </form>
           </Form>
         )}
       </SheetContent>
+
+      {/* Confirmação de eliminação permanente — gestão only */}
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => { if (!deleting) setDeleteOpen(o) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar imóvel permanentemente</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Esta acção é <strong className="text-foreground">irreversível</strong>. Ao
+                  eliminar este imóvel, os seguintes dados são removidos da base de dados:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Especificações e dados internos do imóvel</li>
+                  <li>Imagens, plantas e renderizações 3D</li>
+                  <li>Documentos associados (CRP, Caderneta Predial, certificado energético, etc.)</li>
+                  <li>Dados legais (Casa Pronta) e ligações a proprietários</li>
+                  <li>Processo de angariação completo (tarefas, subtarefas, actividade, comentários)</li>
+                  <li>Visitas agendadas e propostas de visita</li>
+                </ul>
+                <p>
+                  Os <strong className="text-foreground">proprietários</strong> em si
+                  mantêm-se (apenas a ligação a este imóvel é removida) e os
+                  <strong className="text-foreground"> negócios, eventos de calendário e
+                  campanhas de marketing</strong> ficam preservados, perdendo apenas a
+                  referência a este imóvel.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> A eliminar…</>
+              ) : (
+                'Eliminar imóvel'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }
@@ -868,6 +989,20 @@ function LocalizacaoPanel({ form }: { form: any }) {
     return () => clearTimeout(handle)
   }, [freguesiaValue, form])
 
+  // Auto-preenche pais a partir da escolha no autocomplete — só campos
+  // ainda vazios, para nunca destruir o que o utilizador já digitou.
+  const applyParentsOnPick = (pick: DivisionPick) => {
+    if (pick.freguesia && !form.getValues('address_parish')) {
+      form.setValue('address_parish', pick.freguesia, { shouldDirty: true })
+    }
+    if (pick.concelho && !form.getValues('city')) {
+      form.setValue('city', pick.concelho, { shouldDirty: true })
+    }
+    if (pick.distrito && !form.getValues('zone')) {
+      form.setValue('zone', pick.distrito, { shouldDirty: true })
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PropertyAddressMapPicker
@@ -888,21 +1023,45 @@ function LocalizacaoPanel({ form }: { form: any }) {
         <FormField control={form.control} name="address_parish" render={({ field }) => (
           <FormItem>
             <FormLabel>Freguesia</FormLabel>
-            <FormControl><Input placeholder="Ex: Santa Maria Maior" {...field} value={field.value ?? ''} /></FormControl>
+            <FormControl>
+              <AdminDivisionAutocomplete
+                type="freguesia"
+                value={field.value ?? ''}
+                onChange={(v) => field.onChange(v)}
+                onPick={applyParentsOnPick}
+                placeholder="Ex: Santa Maria Maior"
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField control={form.control} name="city" render={({ field }) => (
           <FormItem>
             <FormLabel>Concelho</FormLabel>
-            <FormControl><Input placeholder="Ex: Cascais" {...field} value={field.value ?? ''} /></FormControl>
+            <FormControl>
+              <AdminDivisionAutocomplete
+                type="concelho"
+                value={field.value ?? ''}
+                onChange={(v) => field.onChange(v)}
+                onPick={applyParentsOnPick}
+                placeholder="Ex: Cascais"
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
         <FormField control={form.control} name="zone" render={({ field }) => (
           <FormItem>
             <FormLabel>Distrito</FormLabel>
-            <FormControl><Input placeholder="Ex: Lisboa" {...field} value={field.value ?? ''} /></FormControl>
+            <FormControl>
+              <AdminDivisionAutocomplete
+                type="distrito"
+                value={field.value ?? ''}
+                onChange={(v) => field.onChange(v)}
+                onPick={applyParentsOnPick}
+                placeholder="Ex: Lisboa"
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />

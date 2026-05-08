@@ -34,6 +34,9 @@ export interface NegocioPickerLead {
 export interface NegocioPickerItem {
   id: string
   tipo: string
+  /** Pós-refactor 2026-06: business_type é coluna independente. Mantém-se
+   *  opcional porque o picker funciona contra rows novos e legacy. */
+  business_type?: string | null
   estado: string | null
   pipeline_stage_id?: string | null
   lead_id: string
@@ -53,10 +56,16 @@ export interface NegocioPickerItem {
 interface NegocioPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Filtro por tipo (ILIKE no backend). */
-  tipo?: 'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'
+  /** Filtro por tipo (ILIKE no backend). Aceita valores legacy ('Compra',
+   *  'Venda', 'Arrendador') e novos ('Comprador', 'Vendedor', 'Senhorio'). */
+  tipo?:
+    | 'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'
+    | 'Comprador' | 'Vendedor' | 'Senhorio'
   /** Quando definido, restringe a tipos compatíveis com fecho de negócio. */
-  filterTipos?: Array<'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'>
+  filterTipos?: Array<
+    | 'Compra' | 'Venda' | 'Arrendatário' | 'Arrendador'
+    | 'Comprador' | 'Vendedor' | 'Senhorio'
+  >
   title?: string
   description?: string
   /** Pesquisa inicial — útil quando o caller (ex.: voz) já tem um termo. */

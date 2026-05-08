@@ -17,6 +17,10 @@ import type { AcquisitionFormData } from '@/lib/validations/acquisition'
 interface NegocioForPrefill {
   id: string
   tipo: string
+  /** Pós-refactor 2026-06: business_type é coluna independente em `negocios`.
+   *  Quando presente é a fonte autoritativa para decidir venda vs arrendamento;
+   *  caso contrário (linhas legacy) inferimos a partir do `tipo`. */
+  business_type?: string | null
   tipo_imovel?: string | null
   preco_venda?: number | null
   preco_venda_max?: number | null
@@ -71,7 +75,13 @@ export function buildAcquisitionPrefillFromNegocio(
   negocio: NegocioForPrefill,
 ): Partial<AcquisitionFormData> {
   const tipo = negocio.tipo || ''
-  const isArrendador = tipo === 'Arrendador'
+  // Pós-refactor: `tipo` passou a ser perspectiva ('Vendedor'/'Senhorio') e
+  // `business_type` é coluna autoritativa. Aceita também os valores legacy
+  // ('Venda'/'Arrendador') caso a row seja anterior à migração.
+  const explicitBusinessType = (negocio.business_type || '').toLowerCase()
+  const isArrendador =
+    explicitBusinessType === 'arrendamento' ||
+    tipo === 'Arrendador' || tipo === 'Senhorio'
 
   const businessType: 'venda' | 'arrendamento' = isArrendador ? 'arrendamento' : 'venda'
 

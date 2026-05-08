@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { Button } from '@/components/ui/button'
-import { X } from 'lucide-react'
+import { CheckCircle2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AcquisitionFormV2 } from './acquisition-form-v2'
 import { DraftsList, type AcquisitionDraft } from './drafts-list'
@@ -66,6 +66,11 @@ export function AcquisitionDialog({
   // Becomes true once the form successfully completes — bypass the close
   // confirmation in that case, the draft was promoted to a real process.
   const submittedRef = useRef(false)
+  // Quando uma angariação é submetida com sucesso, em vez de redireccionar
+  // para a página do processo, mostramos uma view de confirmação dentro do
+  // próprio Sheet. O departamento interno (Broker/Gestor Processual) recebe
+  // notificação e abre a página do processo a partir daí.
+  const [submittedProcId, setSubmittedProcId] = useState<string | null>(null)
   // Imperative actions registered by the form. We call them from the
   // confirmation handlers to flush in-flight edits or stop pending saves.
   const formActionsRef = useRef<{
@@ -84,12 +89,14 @@ export function AcquisitionDialog({
       setUserHasEdited(false)
       submittedRef.current = false
       formActionsRef.current = null
+      setSubmittedProcId(null)
     } else {
       setDrafts([])
       setActiveDraftId(null)
       setUserHasEdited(false)
       setConfirmCloseOpen(false)
       formActionsRef.current = null
+      setSubmittedProcId(null)
     }
   }, [open, draftId, skipPicker])
 
@@ -291,7 +298,7 @@ export function AcquisitionDialog({
             </div>
           )}
 
-          {open && step === 'form' && (
+          {open && step === 'form' && !submittedProcId && (
             <AcquisitionFormV2
               key={resumeId || 'new'}
               mode="dialog"
@@ -305,11 +312,42 @@ export function AcquisitionDialog({
               onComplete={(procInstanceId) => {
                 submittedRef.current = true
                 setActiveDraftId(null)
-                onComplete?.(procInstanceId)
-                onOpenChange(false)
+                // Não fechamos o sheet nem redireccionamos. Mostramos a
+                // view de confirmação dentro do próprio sheet — o
+                // utilizador clica "Concluir" para fechar. A página do
+                // processo é aberta a partir da notificação que a
+                // gestão recebe (e não pelo consultor que submete).
+                setSubmittedProcId(procInstanceId)
               }}
               onClose={requestClose}
             />
+          )}
+
+          {open && submittedProcId && (
+            <div className="flex flex-col items-center justify-center flex-1 px-6 py-10 text-center gap-4">
+              <div className="h-14 w-14 rounded-full bg-emerald-500/10 ring-1 ring-emerald-500/20 flex items-center justify-center">
+                <CheckCircle2 className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="space-y-2 max-w-sm">
+                <h2 className="text-xl font-semibold tracking-tight">Angariação submetida</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  O nosso departamento interno vai tratar do processo. Avisamos-te quando precisarmos da tua acção (assinaturas, documentação, contactos com o proprietário…).
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-full h-9 px-5 text-xs gap-1.5 bg-neutral-900 text-white hover:bg-neutral-800 mt-2"
+                onClick={() => {
+                  const id = submittedProcId
+                  setSubmittedProcId(null)
+                  if (id) onComplete?.(id)
+                  onOpenChange(false)
+                }}
+              >
+                Concluir
+              </Button>
+            </div>
           )}
         </SheetContent>
       </Sheet>

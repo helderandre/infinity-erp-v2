@@ -31,6 +31,11 @@ interface PropertiesTableProps {
   onResetSort: () => void
   onRowClick: (property: PropertyListItemData) => void
   rowActions?: (property: PropertyListItemData) => ReactNode
+  /** When `selectMode` is on, row click toggles selection instead of opening
+   *  detail and a checkbox overlay appears on the cover thumbnail. */
+  selectMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
 }
 
 interface ColumnDef {
@@ -125,6 +130,9 @@ export function PropertiesTable({
   onResetSort,
   onRowClick,
   rowActions,
+  selectMode,
+  selectedIds,
+  onToggleSelect,
 }: PropertiesTableProps) {
   return (
     <div className="rounded-2xl border border-border/40 bg-card overflow-hidden">
@@ -177,11 +185,18 @@ export function PropertiesTable({
                 if (p.created_at) dateLabel = format(parseISO(p.created_at), 'd MMM yy', { locale: pt })
               } catch {}
 
+              const isSelected = !!selectedIds?.has(p.id)
               return (
                 <TableRow
                   key={p.id}
-                  className="cursor-pointer hover:bg-muted/40"
-                  onClick={() => onRowClick(p)}
+                  className={cn(
+                    'cursor-pointer hover:bg-muted/40',
+                    selectMode && isSelected && 'bg-primary/5 hover:bg-primary/10',
+                  )}
+                  onClick={() => {
+                    if (selectMode) onToggleSelect?.(p.id)
+                    else onRowClick(p)
+                  }}
                 >
                   <TableCell className="w-[64px] p-2">
                     <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-muted shrink-0">
@@ -191,6 +206,20 @@ export function PropertiesTable({
                       ) : (
                         <div className="h-full w-full flex items-center justify-center">
                           <Building2 className="h-4 w-4 text-muted-foreground/40" />
+                        </div>
+                      )}
+                      {selectMode && (
+                        <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] flex items-center justify-center">
+                          <div className={cn(
+                            'flex items-center justify-center h-6 w-6 rounded-md border-2 transition-colors shadow-sm',
+                            isSelected
+                              ? 'bg-primary border-primary text-primary-foreground'
+                              : 'bg-background border-border',
+                          )}>
+                            {isSelected && (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12" /></svg>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -255,7 +284,7 @@ export function PropertiesTable({
                   </TableCell>
 
                   <TableCell className="w-[48px] text-right" onClick={(e) => e.stopPropagation()}>
-                    {rowActions?.(p)}
+                    {!selectMode && rowActions?.(p)}
                   </TableCell>
                 </TableRow>
               )

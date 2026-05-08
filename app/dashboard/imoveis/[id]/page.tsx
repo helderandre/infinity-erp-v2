@@ -20,6 +20,7 @@ import { PropertyDocumentsRoot } from '@/components/properties/property-document
 import { pickCoverImageUrl } from '@/lib/properties/cover-image'
 import { PropertyPlantasSection } from '@/components/properties/property-plantas-section'
 import { PropertyVideosSection } from '@/components/properties/property-videos-section'
+import { PropertyBrochurasTab } from '@/components/properties/property-brochuras-tab'
 import { PropertyPropostaTab } from '@/components/properties/property-proposta-tab'
 import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
@@ -211,7 +212,7 @@ export default function ImovelDetalhePage() {
   const [showHiddenInteressados, setShowHiddenInteressados] = useState(false)
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
-  const [mediaSection, setMediaSection] = useState<'fotos' | 'videos' | 'plantas' | 'descricao'>('fotos')
+  const [mediaSection, setMediaSection] = useState<'fotos' | 'videos' | 'plantas' | 'descricao' | 'brochuras'>('fotos')
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
@@ -924,6 +925,7 @@ export default function ImovelDetalhePage() {
                 ['videos', 'Vídeos'],
                 ['plantas', 'Plantas'],
                 ['descricao', 'Descrição'],
+                ['brochuras', 'Brochuras'],
               ] as ReadonlyArray<readonly [typeof mediaSection, string]>).map(([key, label]) => (
                 <button
                   key={key}
@@ -981,6 +983,15 @@ export default function ImovelDetalhePage() {
                 onAfterFinalize={refetch}
               />
             </div>
+          )}
+
+          {mediaSection === 'brochuras' && (
+            <PropertyBrochurasTab
+              propertyId={property.id}
+              propertySlug={property.slug ?? null}
+              media={property.dev_property_media ?? []}
+              initialOverrides={(property as any).presentation_overrides ?? null}
+            />
           )}
         </div>
       )}

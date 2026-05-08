@@ -116,6 +116,17 @@ export async function POST(request: Request) {
 3. Áreas de foco (onde melhorar) — máximo 3 bullets curtos.
 4. Dicas accionáveis para a próxima semana — máximo 3 bullets concretos e específicos.
 
+Cruza SEMPRE as notas do consultor com a atividade efectivamente registada:
+- Se o consultor afirma ter feito muito de uma actividade mas o número
+  registado é baixo, sinaliza-o de forma construtiva como área de foco
+  (ex.: "registar contactos no momento — só 2 estão registados apesar
+  de mencionares ter feito muitos").
+- Se o consultor menciona desafios que os dados confirmam (ex.: poucas
+  visitas vs. alvo), reforça com o número.
+- Se há alta atividade registada mas as notas não a celebram, traz à
+  superfície como ponto forte.
+Não acuses — sugere melhorias e celebra o que está visível nos dados.
+
 Responde APENAS em JSON com esta estrutura:
 { "summary": "string", "strengths": ["..."], "focus_areas": ["..."], "tips": ["..."] }
 

@@ -97,7 +97,7 @@ import { Copyable } from '@/components/shared/copyable'
 import { usePermissions } from '@/hooks/use-permissions'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
-import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
+import { ADHOC_TASK_ROLES, isManagementRole } from '@/lib/auth/roles'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useSmartBack } from '@/hooks/use-previous-pathname'
@@ -117,6 +117,7 @@ export default function ProcessoDetailPage() {
   const { user } = useUser()
   const { isBroker } = usePermissions()
   const canManageTemplates = isBroker()
+  const isManagement = isManagementRole(user?.role_names ?? [])
   const [process, setProcess] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -846,13 +847,18 @@ export default function ProcessoDetailPage() {
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Eliminar processo
-                  </DropdownMenuItem>
+                  {/* Consultor só pode eliminar rascunhos seus; gestão pode
+                      eliminar qualquer processo (regra alinhada com o
+                      backend em /api/processes/[id] DELETE). */}
+                  {(isManagement || instance.current_status === 'draft') && (
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar processo
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

@@ -557,8 +557,12 @@ function NegocioPickerInline({
         if (res.ok) {
           const json = await res.json()
           let data: NegocioPickerItem[] = json.data || []
-          // Filtrar para tipos compatíveis com angariação (vendedor / arrendador).
-          data = data.filter((n) => ['Venda', 'Arrendador'].includes(n.tipo))
+          // Filtrar para tipos compatíveis com angariação (lado vendedor /
+          // senhorio). Aceita também os valores legacy ('Venda', 'Arrendador')
+          // caso ainda existam rows pré-refactor de tipo.
+          data = data.filter((n) =>
+            ['Vendedor', 'Senhorio', 'Venda', 'Arrendador'].includes(n.tipo)
+          )
           if (!cancelled) setItems(data)
         }
       } finally {

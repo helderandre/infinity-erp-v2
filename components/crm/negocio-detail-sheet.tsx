@@ -3567,11 +3567,12 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
         onOpenChange={setCreateOpen}
         negocioId={negocioId}
         prefillData={acquisitionPrefill}
-        onComplete={(procInstanceId) => {
+        onComplete={() => {
+          // Sem redirect — a confirmação é mostrada dentro do dialog. A
+          // gestão é notificada (com deep-link) para abrir a página do
+          // processo. Aqui só refrescamos o dossier do negócio.
           setCreateOpen(false)
-          toast.success('Angariação criada com sucesso')
           refetch()
-          router.push(`/dashboard/processos/${procInstanceId}`)
         }}
       />
     </div>

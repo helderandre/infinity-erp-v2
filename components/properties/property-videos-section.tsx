@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -13,7 +13,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Loader2, Plus, Trash2, Video } from 'lucide-react'
+import { GripVertical, Loader2, Plus, Trash2, Video } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface VideoMedia {
   id: string
@@ -28,6 +42,60 @@ interface PropertyVideosSectionProps {
   onMediaChange: () => void
 }
 
+function SortableVideo({
+  v,
+  onDelete,
+  isDeleting,
+}: {
+  v: VideoMedia
+  onDelete: () => void
+  isDeleting: boolean
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: v.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group relative rounded-2xl overflow-hidden border bg-black aspect-video"
+    >
+      <video
+        src={v.url}
+        controls
+        preload="metadata"
+        className="w-full h-full object-contain"
+      />
+      {/* Drag handle — bottom-left, always visible to be discoverable */}
+      <div
+        className="absolute bottom-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white shadow-sm cursor-grab active:cursor-grabbing touch-none backdrop-blur-sm"
+        title="Arrastar para reordenar"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+      <Button
+        variant="destructive"
+        size="icon"
+        className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+        onClick={onDelete}
+        disabled={isDeleting}
+        aria-label="Eliminar vídeo"
+      >
+        {isDeleting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="h-3.5 w-3.5" />
+        )}
+      </Button>
+    </div>
+  )
+}
+
 export function PropertyVideosSection({
   propertyId,
   videos,
@@ -37,6 +105,36 @@ export function PropertyVideosSection({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  const sortedVideos = useMemo(
+    () => videos.slice().sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
+    [videos],
+  )
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = sortedVideos.findIndex((v) => v.id === active.id)
+    const newIndex = sortedVideos.findIndex((v) => v.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    const reordered = [...sortedVideos]
+    const [moved] = reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, moved)
+    try {
+      const res = await fetch(`/api/properties/${propertyId}/media/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: reordered.map((v, i) => ({ id: v.id, order_index: i })),
+        }),
+      })
+      if (!res.ok) throw new Error()
+      onMediaChange()
+    } catch {
+      toast.error('Erro ao reordenar vídeos')
+    }
+  }
 
   const handleUpload = useCallback(
     async (files: FileList | null) => {
@@ -49,6 +147,13 @@ export function PropertyVideosSection({
         if (!allowed.includes(file.type)) {
           toast.error(`"${file.name}" não suportado. Use MP4, MOV ou WebM.`)
           continue
+        }
+        // Surface a friendly size hint — > 200MB is rejected server-side; > 80MB
+        // gets a soft warning so users know uploads on slow connections may be
+        // long. Compressão verdadeira lossless é feita server-side (codec
+        // re-encode com bitrate alvo) — não aplicada client-side neste flow.
+        if (file.size > 80 * 1024 * 1024) {
+          toast.info(`"${file.name}" tem ${Math.round(file.size / (1024 * 1024))}MB — o upload pode demorar.`)
         }
         try {
           const formData = new FormData()
@@ -147,38 +252,20 @@ export function PropertyVideosSection({
           <p className="text-[11px]">MP4, MOV ou WebM · até 200MB</p>
         </button>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {videos
-            .slice()
-            .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-            .map((v) => (
-              <div
-                key={v.id}
-                className="group relative rounded-2xl overflow-hidden border bg-black aspect-video"
-              >
-                <video
-                  src={v.url}
-                  controls
-                  preload="metadata"
-                  className="w-full h-full object-contain"
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortedVideos.map((v) => v.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {sortedVideos.map((v) => (
+                <SortableVideo
+                  key={v.id}
+                  v={v}
+                  isDeleting={deletingId === v.id}
+                  onDelete={() => setConfirmDeleteId(v.id)}
                 />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                  onClick={() => setConfirmDeleteId(v.id)}
-                  disabled={deletingId === v.id}
-                  aria-label="Eliminar vídeo"
-                >
-                  {deletingId === v.id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-              </div>
-            ))}
-        </div>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <AlertDialog

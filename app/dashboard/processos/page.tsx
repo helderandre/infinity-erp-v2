@@ -223,10 +223,18 @@ export default function ProcessosPage() {
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === processes.length) {
+    // Só seleccionamos linhas que o utilizador pode efectivamente eliminar.
+    // Para gestão isto inclui tudo; para consultor, só os seus rascunhos.
+    const deletableIds = processes
+      .filter(
+        (p) =>
+          isManagement || (p.current_status === 'draft' && p.requested_by === user?.id)
+      )
+      .map((p) => p.id)
+    if (selectedIds.size === deletableIds.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(processes.map((p) => p.id)))
+      setSelectedIds(new Set(deletableIds))
     }
   }
 
@@ -593,10 +601,13 @@ export default function ProcessosPage() {
               {processes.map((proc) => {
                 const isDraft = proc.current_status === 'draft'
                 const isSelected = selectedIds.has(proc.id)
+                const canDeleteRow =
+                  isManagement || (isDraft && proc.requested_by === user?.id)
 
                 const handleRowClick = () => {
                   if (Date.now() < suppressClickUntilRef.current) return
                   if (selectionMode) {
+                    if (!canDeleteRow) return
                     toggleSelect(proc.id)
                     return
                   }
@@ -625,7 +636,10 @@ export default function ProcessosPage() {
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => toggleSelect(proc.id)}
+                          disabled={!canDeleteRow}
+                          onCheckedChange={() => {
+                            if (canDeleteRow) toggleSelect(proc.id)
+                          }}
                         />
                       </TableCell>
                     )}
@@ -919,11 +933,14 @@ export default function ProcessosPage() {
         }}
         draftId={resumeDraftId}
         prefillData={voiceAcquisitionPrefill as any}
-        onComplete={(procInstanceId) => {
+        onComplete={() => {
+          // Não redireccionar — a confirmação é tratada dentro do
+          // <AcquisitionDialog> e a gestão é notificada com link para a
+          // página do processo. Aqui basta fechar e refrescar a lista.
           setDraftDialogOpen(false)
           setResumeDraftId(undefined)
           setVoiceAcquisitionPrefill(undefined)
-          router.push(`/dashboard/processos/${procInstanceId}`)
+          loadProcesses()
         }}
       />
 
