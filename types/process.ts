@@ -310,6 +310,9 @@ export interface ChatMessage {
   edited_at: string | null
   created_at: string
   updated_at: string
+  /** Payload estruturado opcional para mensagens com render custom no
+   *  panel (ex.: `{ kind: 'property_announcement', ... }`). */
+  metadata?: Record<string, unknown> | null
   // Joins
   sender?: {
     id: string

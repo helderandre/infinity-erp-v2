@@ -28,9 +28,7 @@ import {
   ChevronRight,
   Users,
   Briefcase,
-  Download,
 } from 'lucide-react'
-import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePermissions } from '@/hooks/use-permissions'
 import { classifyUserMembership } from '@/lib/auth/roles'
@@ -90,7 +88,6 @@ function ConsultoresPageContent() {
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const [createOpen, setCreateOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
 
   // Equipa + Staff derived state (single fetch of all members)
   const [allMembers, setAllMembers] = useState<ConsultantWithProfile[]>([])
@@ -286,15 +283,6 @@ function ConsultoresPageContent() {
           {/* Action buttons (icon-only on mobile, icon+label on desktop) — gated by `consultants` permission */}
           {canManage && (
             <>
-              <button
-                onClick={() => setExportOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-muted/40 hover:bg-muted/60 text-sm font-medium transition-colors"
-                aria-label="Exportar"
-                title="Exportar"
-              >
-                <Download className="h-3.5 w-3.5 shrink-0" />
-                <span className="hidden sm:inline">Exportar</span>
-              </button>
               <button
                 onClick={() => setCreateOpen(true)}
                 className="inline-flex items-center justify-center gap-1.5 h-7 w-7 sm:h-9 sm:w-auto sm:px-4 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-sm font-medium transition-colors hover:opacity-90"
@@ -724,14 +712,6 @@ function ConsultoresPageContent() {
         roles={roles}
         defaultRoleName={DEFAULT_ROLE_BY_TAB[activeTab]}
       />
-      <CsvExportDialog
-        open={exportOpen}
-        onOpenChange={setExportOpen}
-        endpoint="/api/export/consultants"
-        title="Consultores"
-        showConsultantFilter={false}
-      />
-
       <ConsultantDetailSheet
         consultantId={detailConsultantId}
         open={!!detailConsultantId}

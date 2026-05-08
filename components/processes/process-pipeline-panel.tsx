@@ -45,7 +45,9 @@ import { FloatingChat } from '@/components/processes/floating-chat'
 import { useUser } from '@/hooks/use-user'
 import { useProcessActivities } from '@/hooks/use-process-activities'
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
-import { ADHOC_TASK_ROLES } from '@/lib/auth/roles'
+import { ADHOC_TASK_ROLES, isManagementRole } from '@/lib/auth/roles'
+import { MediaTaskStageButton } from '@/components/processes/media-task-stage-button'
+import { AnnouncePropertyButton } from '@/components/processes/announce-property-button'
 import { cn } from '@/lib/utils'
 import type { ProcessStageWithTasks, ProcessTask } from '@/types/process'
 
@@ -372,6 +374,25 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
     ? sortedTasks.find((t) => t.id === resolvedTaskId) ?? null
     : null
 
+  // Botão "Tarefa Media" — só na primeira stage de uma angariação, e só
+  // visível à gestão (Broker/CEO + Office Manager + Gestor Processual).
+  const isFirstFocusStage =
+    !!focusStage &&
+    sortedStages.length > 0 &&
+    sortedStages[0].id === focusStage.id
+  // Botão "Anunciar no Geral" — só na 3ª stage de uma angariação, gestão.
+  const isThirdFocusStage =
+    !!focusStage &&
+    sortedStages.length >= 3 &&
+    sortedStages[2].id === focusStage.id
+  const isAngariacao =
+    process?.instance?.process_type === 'angariacao'
+  const isMgmt = isManagementRole(user?.role_names ?? [])
+  const showMediaTaskButton =
+    isFirstFocusStage && isAngariacao && isMgmt
+  const showAnnounceButton =
+    isThirdFocusStage && isAngariacao && isMgmt
+
   // The task that represents the stage's current completion point — the first
   // non-completed task. This is what gets the "you are here" pulse in the picker,
   // independent of whichever task the user is currently viewing.
@@ -675,6 +696,17 @@ export function ProcessPipelinePanel({ processId, className, onProcessChange, to
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Botão "Tarefa Media" — apenas na primeira stage de uma
+                  angariação, visível só à gestão. */}
+              {showMediaTaskButton && (
+                <MediaTaskStageButton processId={processId} />
+              )}
+              {/* Botão "Anunciar no Geral" — apenas na 3ª stage de uma
+                  angariação, visível só à gestão. */}
+              {showAnnounceButton && (
+                <AnnouncePropertyButton processId={processId} />
+              )}
 
               {/* Task pills — now on the right side of the stage row */}
               {sortedTasks.length > 1 && (

@@ -119,7 +119,7 @@ export async function PUT(
     const { data: currentTask } = await supabase
       .from('tasks')
       .select(
-        'id, title, description, priority, is_completed, is_recurring, recurrence_rule, due_date, assigned_to, created_by, task_list_id, section, entity_type, entity_id, is_private',
+        'id, title, description, priority, is_completed, is_recurring, recurrence_rule, due_date, assigned_to, created_by, task_list_id, section, entity_type, entity_id, is_private, category',
       )
       .eq('id', id)
       .single()
@@ -176,6 +176,60 @@ export async function PUT(
     if (error) {
       console.error('Erro ao actualizar tarefa:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Side-effect: tarefa Media. Quando uma tarefa especial
+    // category='media_capture' transita para concluída, carimba a data no
+    // imóvel + notifica Gestor Processual + Office Manager. Falhas não
+    // revertem a conclusão (try/catch isolado).
+    if (
+      data.is_completed === true &&
+      !currentTask.is_completed &&
+      (currentTask as { category?: string | null }).category === 'media_capture' &&
+      currentTask.entity_type === 'property' &&
+      currentTask.entity_id
+    ) {
+      try {
+        const propertyId = currentTask.entity_id as string
+        const stamp = new Date().toISOString()
+        await supabase
+          .from('dev_property_internal')
+          .upsert(
+            {
+              property_id: propertyId,
+              media_completed_at: stamp,
+              media_completed_by: auth.user.id,
+            } as any,
+            { onConflict: 'property_id' },
+          )
+
+        // Carregar título do imóvel para a notificação
+        const { data: prop } = await supabase
+          .from('dev_properties')
+          .select('id, title, slug')
+          .eq('id', propertyId)
+          .maybeSingle()
+
+        const { notificationService } = await import('@/lib/notifications/service')
+        const notifyRoles = ['Gestor Processual', 'Office Manager'] as const
+        const recipientIds = await notificationService.getUserIdsByRoles([
+          ...notifyRoles,
+        ])
+        if (recipientIds.length > 0) {
+          await notificationService.createBatch(recipientIds, {
+            senderId: auth.user.id,
+            notificationType: 'task_completed',
+            entityType: 'task',
+            entityId: id,
+            title: 'Upload de Media do Imóvel — concluído',
+            body: `${prop?.title || 'Imóvel'} — fotos, vídeos, plantas e descrição prontas.`,
+            actionUrl: `/dashboard/imoveis/${prop?.slug || propertyId}`,
+            metadata: { kind: 'media_capture_completed', property_id: propertyId },
+          })
+        }
+      } catch (sideEffectErr) {
+        console.error('[tasks PUT] media_capture side-effect failed:', sideEffectErr)
+      }
     }
 
     // Handle recurring: spawn next occurrence when completed.

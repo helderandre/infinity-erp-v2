@@ -1079,134 +1079,147 @@ export function PropertyMediaGallery({
 
   return (
     <div className="space-y-4">
-      {/* Primary toolbar — title, count, display-mode + global actions */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <h3 className="text-base font-semibold">Galeria de Imagens</h3>
-          {currentMedia.length === 0 && !selectMode && (
-            <PropertyMediaUpload
-              propertyId={propertyId}
-              onUploadComplete={handleUploadComplete}
-              variant="icon"
-            />
-          )}
-          {currentMedia.length > 0 && (
-            <>
-              <span className="text-xs text-muted-foreground">
-                {displayMode !== 'original'
-                  ? `${currentMedia.length} de ${allMedia.length}`
-                  : `${allMedia.length}`
-                } {allMedia.length === 1 ? 'imagem' : 'imagens'}
-              </span>
-
-              {/* Display mode toggle */}
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                value={displayMode}
-                onValueChange={(v) => v && setDisplayMode(v as DisplayMode)}
-                size="sm"
-              >
-                <ToggleGroupItem value="original" aria-label="Originais" className="text-xs h-7 px-2">
-                  Originais
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="staged"
-                  aria-label="Decoradas"
-                  className="text-xs h-7 px-2"
-                  disabled={stagedCount() === 0}
-                >
-                  Decoradas {stagedCount() > 0 && `(${stagedCount()})`}
-                </ToggleGroupItem>
-              </ToggleGroup>
-
-              {/* Classify-all dropdown — global action, hidden during select mode */}
-              {!selectMode && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs rounded-full gap-1.5"
-                      disabled={isClassifying}
-                    >
-                      {isClassifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-                      Classificar imagens
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => handleClassifyAll(false)}>
-                      <Brain className="h-3.5 w-3.5 mr-2" />
-                      Classificar novas
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleClassifyAll(true)}>
-                      <Brain className="h-3.5 w-3.5 mr-2" />
-                      Reclassificar todas
-                    </DropdownMenuItem>
-                    {stagedCount() > 0 && (
-                      <>
-                        <div className="h-px bg-border my-1" />
-                        <DropdownMenuItem
-                          onClick={() => setShowClearAiConfirm(true)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-2" />
-                          Eliminar decoradas ({stagedCount()})
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </>
-          )}
+      {/* Toolbar — sem título (já está nas tabs). Layout mobile-first: em
+       *  ecrãs pequenos parte em duas linhas claras (tabs + acções) em vez
+       *  de fazer wrap aleatório. Em desktop mantém-se em linha única. */}
+      {currentMedia.length === 0 && !selectMode && (
+        <div className="flex items-center justify-end">
+          <PropertyMediaUpload
+            propertyId={propertyId}
+            onUploadComplete={handleUploadComplete}
+            variant="icon"
+          />
         </div>
+      )}
 
-        {currentMedia.length > 0 && !selectMode && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full gap-1.5"
-              onClick={() => setSelectMode(true)}
-            >
-              <CheckSquare className="h-3.5 w-3.5" />
-              Seleccionar
-            </Button>
-
+      {currentMedia.length > 0 && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+          {/* Linha 1 (mobile) / lado esquerdo (desktop): display tabs + count.
+           *  As tabs são primárias, ficam destacadas. */}
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <ToggleGroup
               type="single"
               variant="outline"
-              value={viewMode}
-              onValueChange={(v) => v && setViewMode(v as ViewMode)}
+              value={displayMode}
+              onValueChange={(v) => v && setDisplayMode(v as DisplayMode)}
               size="sm"
             >
-              <ToggleGroupItem value="grid" aria-label="Vista em grelha">
-                <LayoutGrid className="h-4 w-4" />
+              <ToggleGroupItem value="original" aria-label="Originais" className="text-xs h-8 px-3">
+                Originais
               </ToggleGroupItem>
-              <ToggleGroupItem value="list" aria-label="Vista em lista">
-                <List className="h-4 w-4" />
+              <ToggleGroupItem
+                value="staged"
+                aria-label="Decoradas"
+                className="text-xs h-8 px-3"
+                disabled={stagedCount() === 0}
+              >
+                Decoradas {stagedCount() > 0 && `(${stagedCount()})`}
               </ToggleGroupItem>
             </ToggleGroup>
 
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => { setPresentationIndex(0); setPresentationMode(true) }}
-              title="Modo apresentação"
-            >
-              <Presentation className="h-4 w-4" />
-            </Button>
-
-            <PropertyMediaUpload
-              propertyId={propertyId}
-              onUploadComplete={handleUploadComplete}
-              variant="icon"
-            />
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {displayMode !== 'original'
+                ? `${currentMedia.length} de ${allMedia.length}`
+                : `${allMedia.length}`}{' '}
+              {allMedia.length === 1 ? 'imagem' : 'imagens'}
+            </span>
           </div>
-        )}
-      </div>
+
+          {/* Linha 2 (mobile) / lado direito (desktop): acções. Em mobile,
+           *  os botões secundários ficam icon-only para caberem; o + Upload
+           *  empurra-se para a direita. */}
+          {!selectMode && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Classificar — icon-only mobile, com texto desktop */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 sm:px-3 text-xs rounded-full gap-1.5"
+                    disabled={isClassifying}
+                    aria-label="Classificar imagens"
+                    title="Classificar imagens"
+                  >
+                    {isClassifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
+                    <span className="hidden sm:inline">Classificar</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleClassifyAll(false)}>
+                    <Brain className="h-3.5 w-3.5 mr-2" />
+                    Classificar novas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleClassifyAll(true)}>
+                    <Brain className="h-3.5 w-3.5 mr-2" />
+                    Reclassificar todas
+                  </DropdownMenuItem>
+                  {stagedCount() > 0 && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <DropdownMenuItem
+                        onClick={() => setShowClearAiConfirm(true)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Eliminar decoradas ({stagedCount()})
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Seleccionar — icon-only mobile, com texto desktop */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 sm:px-3 text-xs rounded-full gap-1.5"
+                onClick={() => setSelectMode(true)}
+                aria-label="Seleccionar imagens"
+                title="Seleccionar imagens"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Seleccionar</span>
+              </Button>
+
+              {/* View toggle — sempre icon-only */}
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                value={viewMode}
+                onValueChange={(v) => v && setViewMode(v as ViewMode)}
+                size="sm"
+              >
+                <ToggleGroupItem value="grid" aria-label="Vista em grelha" className="h-8 w-8">
+                  <LayoutGrid className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Vista em lista" className="h-8 w-8">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+
+              {/* Apresentação — escondido em mobile, abre fullscreen em desktop */}
+              <Button
+                variant="outline"
+                size="icon"
+                className="hidden sm:inline-flex h-8 w-8"
+                onClick={() => { setPresentationIndex(0); setPresentationMode(true) }}
+                title="Modo apresentação"
+                aria-label="Modo apresentação"
+              >
+                <Presentation className="h-4 w-4" />
+              </Button>
+
+              {/* + Upload — sempre visível, fica à direita pelo gap auto */}
+              <PropertyMediaUpload
+                propertyId={propertyId}
+                onUploadComplete={handleUploadComplete}
+                variant="icon"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Selection action bar — polished card with bulk actions */}
       {selectMode && currentMedia.length > 0 && (

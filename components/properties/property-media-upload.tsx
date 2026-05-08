@@ -286,7 +286,10 @@ export function PropertyMediaUpload({
       />
 
       {isBusy && (
-        <div className="space-y-1">
+        // basis-full + w-full: quando este componente é renderizado em
+        // `display:contents` dentro de um flex (variant="icon" na galeria),
+        // forçamos a barra de progresso a ocupar a sua própria linha.
+        <div className="space-y-1 basis-full w-full">
           <Progress value={isCompressing ? compressProgress : uploadProgress} />
           <p className="text-xs text-muted-foreground">
             {isCompressing ? 'A comprimir imagens...' : 'A enviar imagens...'}
@@ -295,14 +298,17 @@ export function PropertyMediaUpload({
       )}
 
       {hasPending && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
+        // basis-full + w-full: idem — a área de staging fica numa linha só
+        // sua, em vez de competir por espaço com os botões da toolbar quando
+        // este componente é usado com variant="icon".
+        <div className="space-y-3 basis-full w-full">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{pendingImages.length}</span>{' '}
               imagem{pendingImages.length === 1 ? '' : 'ens'} em staging.{' '}
               <span className="text-muted-foreground/70">Arraste para reordenar.</span>
             </p>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 self-end sm:self-auto">
               <Button
                 variant="ghost"
                 size="sm"

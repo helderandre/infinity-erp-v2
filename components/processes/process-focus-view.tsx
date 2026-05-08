@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CheckCircle2, Clock, Lock } from 'lucide-react'
+import { Check, CheckCircle2, Clock, Loader2, Lock } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
 import { TaskDetailActions } from './task-detail-actions'
@@ -205,6 +206,35 @@ function FocusTaskCard({
   const priorityLabel = task.priority ? TASK_PRIORITY_LABELS[task.priority as keyof typeof TASK_PRIORITY_LABELS] : null
   const description = (task.config as any)?.description as string | undefined
   const [addSubtaskSlot, setAddSubtaskSlot] = useState<HTMLDivElement | null>(null)
+  const [isToggling, setIsToggling] = useState(false)
+
+  // Server-side guard: PUT /api/processes/.../tasks/... rejects updates unless
+  // proc_instance is in {active, on_hold}. Mirror that here so the bubble
+  // explains why instead of toasting an error after the click.
+  const isProcessEditable = ['active', 'on_hold'].includes(instance.current_status ?? '')
+
+  const handleToggleDone = async () => {
+    if (isToggling) return
+    const action = task.status === 'completed' ? 'reset' : 'complete'
+    setIsToggling(true)
+    try {
+      const res = await fetch(`/api/processes/${instance.id}/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erro ao actualizar tarefa')
+      }
+      toast.success(action === 'complete' ? 'Etapa concluída' : 'Etapa reaberta')
+      onTaskUpdate()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao actualizar tarefa')
+    } finally {
+      setIsToggling(false)
+    }
+  }
 
   // Per-task progress (subtasks completed / total)
   const subtasks = task.subtasks ?? []
@@ -240,17 +270,48 @@ function FocusTaskCard({
       tabIndex={!isActive ? 0 : undefined}
       onKeyDown={!isActive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } } : undefined}
     >
-      {/* Past overlay: emerald checkmark ribbon, top-right */}
-      {isPast && (
-        <div className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 shadow-sm">
-          <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
-        </div>
-      )}
-      {/* Future overlay: lock badge, top-right */}
-      {isFuture && (
+      {/* Done bubble — top-right of the card.
+          - Active: outlined when pending, filled emerald when done; click to toggle.
+          - Past: filled emerald (already done); click to reopen.
+          - Future: lock (non-clickable, can't complete a step before earlier ones). */}
+      {isFuture ? (
         <div className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/50">
           <Lock className="h-3.5 w-3.5" />
         </div>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleToggleDone() }}
+          disabled={isToggling || task.status === 'skipped' || !isProcessEditable}
+          aria-pressed={isTaskDone(task)}
+          aria-label={isTaskDone(task) ? 'Marcar etapa como pendente' : 'Marcar etapa como concluída'}
+          title={
+            !isProcessEditable
+              ? `Processo não está activo (estado: ${instance.current_status ?? 'desconhecido'})`
+              : task.status === 'skipped'
+                ? 'Etapa ignorada'
+                : task.status === 'completed'
+                  ? 'Marcar como pendente'
+                  : 'Marcar como concluída'
+          }
+          className={cn(
+            'absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full transition-colors shadow-sm',
+            isTaskDone(task)
+              ? 'bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500'
+              : 'bg-background border-2 border-muted-foreground/30 text-transparent hover:border-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-500',
+            isToggling && 'opacity-70 cursor-wait',
+            task.status === 'skipped' && 'opacity-60 cursor-not-allowed hover:bg-emerald-500',
+            !isProcessEditable && 'opacity-50 cursor-not-allowed hover:border-muted-foreground/30 hover:bg-background hover:text-transparent',
+          )}
+        >
+          {isToggling ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : isTaskDone(task) ? (
+            <CheckCircle2 className="h-5 w-5" strokeWidth={2} />
+          ) : (
+            <Check className="h-5 w-5 transition-opacity" strokeWidth={3} />
+          )}
+        </button>
       )}
 
       <div className={cn('flex flex-col flex-1', contentInteractionClass, isPast && 'opacity-50', isFuture && 'opacity-70')}>

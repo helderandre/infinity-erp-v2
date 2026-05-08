@@ -863,6 +863,17 @@ export default function ImovelDetalhePage() {
                         )
                       })()}
                       <InfoChip label="Validade" value={internal?.contract_expiry ? formatDate(internal.contract_expiry) : undefined} editing={isEditing} editValue={editData.contract_expiry} onChange={(v) => updateField('contract_expiry', v)} />
+                      {/* Carimbo da tarefa Media — preenchido automaticamente
+                       *  quando o consultor conclui a tarefa criada pela gestão. */}
+                      {(() => {
+                        const completedAt = (internal as { media_completed_at?: string | null } | null)?.media_completed_at
+                        return (
+                          <InfoChip
+                            label="Media concluída"
+                            value={completedAt ? formatDate(completedAt) : undefined}
+                          />
+                        )
+                      })()}
                     </div>
                     <SectionTitle>Notas Internas</SectionTitle>
                     {isEditing ? (

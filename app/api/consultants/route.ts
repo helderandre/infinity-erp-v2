@@ -145,7 +145,7 @@ export async function POST(request: Request) {
       .insert({
         id: userId,
         commercial_name: validation.data.commercial_name,
-        professional_email: validation.data.professional_email || email,
+        professional_email: validation.data.professional_email || null,
         is_active: validation.data.is_active ?? true,
         display_website: validation.data.display_website ?? false,
       })

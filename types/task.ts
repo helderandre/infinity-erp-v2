@@ -20,6 +20,9 @@ export interface Task {
   order_index: number
   task_list_id: string | null
   section: string | null
+  /** Discriminador opcional para tarefas com UI custom (ex.: 'media_capture'
+   *  abre um sheet dedicado em vez do detail genérico). NULL = tarefa genérica. */
+  category?: string | null
   created_at: string
   updated_at: string
 }

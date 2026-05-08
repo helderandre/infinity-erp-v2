@@ -25,6 +25,7 @@ import { TaskSections } from '@/components/tasks/task-sections'
 import { MarketingMomentsDueSection } from '@/components/tasks/marketing-moments-due-section'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskDetailContent } from '@/components/tasks/task-detail-sheet'
+import { MediaTaskSheet } from '@/components/tasks/media-task-sheet'
 import { ProcessTaskContent } from '@/components/tasks/process-task-content'
 import { VisitProposalContent } from '@/components/booking/visit-proposal-sheet'
 import { ShareListDialog } from '@/components/tasks/share-list-dialog'
@@ -46,6 +47,7 @@ type Selection =
   | { kind: 'task'; id: string }
   | { kind: 'proc'; task: TaskWithRelations }
   | { kind: 'proposal'; visitId: string }
+  | { kind: 'media'; taskId: string }
   | null
 
 function TarefasPageInner() {
@@ -199,7 +201,27 @@ function TarefasPageInner() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const taskId = params.get('task')
-    if (taskId) setSelection({ kind: 'task', id: taskId })
+    if (taskId) {
+      // Tasks especiais (category='media_capture') abrem um sheet dedicado
+      // em vez do detail genérico — descobrimos a categoria via fetch
+      // antes de decidir. Para tasks normais cai no default 'task'.
+      ;(async () => {
+        try {
+          const res = await fetch(`/api/tasks/${taskId}`, { cache: 'no-store' })
+          if (res.ok) {
+            const data = await res.json()
+            const task = data.task ?? data
+            if (task?.category === 'media_capture') {
+              setSelection({ kind: 'media', taskId })
+              return
+            }
+          }
+        } catch {
+          // silent — cai no default
+        }
+        setSelection({ kind: 'task', id: taskId })
+      })()
+    }
 
     if (params.get('new') === '1') {
       const prefill = peekPrefill<{
@@ -322,6 +344,11 @@ function TarefasPageInner() {
       setSelection({ kind: 'proposal', visitId: task.visit_id })
       return
     }
+    // Tarefas especiais com category — abrem UI dedicada.
+    if (task.category === 'media_capture') {
+      setSelection({ kind: 'media', taskId: task.id })
+      return
+    }
     setSelection({ kind: 'task', id: task.id })
   }
 
@@ -330,6 +357,7 @@ function TarefasPageInner() {
     if (selection.kind === 'task') return selection.id === task.id
     if (selection.kind === 'proc') return selection.task.id === task.id
     if (selection.kind === 'proposal') return task.visit_id === selection.visitId
+    if (selection.kind === 'media') return selection.taskId === task.id
     return false
   }
 
@@ -706,9 +734,10 @@ function TarefasPageInner() {
       />
 
       {/* Mobile detail sheet — em desktop a detail aparece inline no split-view.
-          Em mobile sobe do fundo (bottom sheet) com cantos arredondados no topo. */}
+          Em mobile sobe do fundo (bottom sheet) com cantos arredondados no topo.
+          Para `kind === 'media'` usamos um sheet dedicado (renderizado abaixo). */}
       <Sheet
-        open={!!selection && isMobile}
+        open={!!selection && selection.kind !== 'media' && isMobile}
         onOpenChange={(open) => { if (!open) closeSelection() }}
       >
         <SheetContent
@@ -751,6 +780,16 @@ function TarefasPageInner() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Media task sheet — overlay dedicada para tarefas
+          category='media_capture'. Em ambos desktop e mobile (o sheet
+          gere a sua própria responsividade interna). */}
+      <MediaTaskSheet
+        open={selection?.kind === 'media'}
+        onOpenChange={(open) => { if (!open) closeSelection() }}
+        taskId={selection?.kind === 'media' ? selection.taskId : null}
+        onCompleted={handleRefresh}
+      />
     </div>
   )
 }

@@ -159,6 +159,14 @@ export async function GET(request: Request) {
       }
     }
 
+    // Tasks de category='media_capture' são privadas ao consultor responsável:
+    // só o `assigned_to` vê (mesmo quem criou — gestão — não as vê na sua
+    // to-do list nem em drill-in). Para outros utilizadores, a tarefa fica
+    // invisível na listagem.
+    tasksQuery = tasksQuery.or(
+      `category.is.null,category.neq.media_capture,assigned_to.eq.${selfId}`
+    )
+
     // ─── Decide if proc sources are eligible (entity_type filter + source_filter) ───
     // Proc tasks/subtasks are intrinsically tied to a 'process' entity.
     const includeProcSources =

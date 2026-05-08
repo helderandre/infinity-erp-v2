@@ -39,6 +39,10 @@ import { pt } from 'date-fns/locale'
 import { CHAT_LABELS, CHAT_EMOJI_QUICK } from '@/lib/constants'
 import { ChatAttachment } from './chat-attachment'
 import { ChatReactions } from './chat-reactions'
+import {
+  PropertyAnnouncementBubble,
+  type PropertyAnnouncementMetadata,
+} from './property-announcement-bubble'
 import type { ChatMessage as ChatMessageType } from '@/types/process'
 import { toast } from 'sonner'
 
@@ -307,6 +311,17 @@ export function ChatMessageItem({
   const isOwn = message.sender_id === currentUserId
   const timeStr = format(new Date(message.created_at), 'HH:mm')
 
+  // Detecta mensagens com payload estruturado (ex.: anúncio de
+  // angariação). Quando presentes, suprimimos o render textual + attachments
+  // e mostramos um card custom em substituição do bubble.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const messageMetadata = (message as any).metadata as
+    | { kind?: string }
+    | null
+    | undefined
+  const isPropertyAnnouncement =
+    !!messageMetadata && messageMetadata.kind === 'property_announcement'
+
   // Janela de edição: só permite Editar nos primeiros 15 min após envio.
   // Mensagens mais antigas têm o item escondido no dropdown.
   const isWithinEditWindow =
@@ -507,6 +522,8 @@ export function ChatMessageItem({
               <div className={cn(
                 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3.5 py-2.5 min-w-0',
                 isBeingEdited && 'ring-2 ring-primary-foreground/60 ring-offset-2 ring-offset-background',
+                // Anúncios renderizam o seu próprio card — sem bubble.
+                isPropertyAnnouncement && '!bg-transparent !text-foreground !px-0 !py-0',
               )}>
                 {/* Reply quote */}
                 {hasParentMessage && (
@@ -573,6 +590,11 @@ export function ChatMessageItem({
                       </div>
                     </div>
                   </div>
+                ) : isPropertyAnnouncement ? (
+                  <PropertyAnnouncementBubble
+                    metadata={messageMetadata as unknown as PropertyAnnouncementMetadata}
+                    isOwn
+                  />
                 ) : !isVoiceMsg ? (
                   <p className="text-sm whitespace-pre-wrap break-words select-text cursor-text selection:!bg-blue-500/50 selection:!text-white">
                     {renderMessageContent(message.content, true, onEntityClick, entitiesMap)}
@@ -582,8 +604,9 @@ export function ChatMessageItem({
                   </p>
                 ) : null}
 
-                {/* Attachments */}
-                {message.attachments && message.attachments.length > 0 && (
+                {/* Attachments — suprime quando é card de anúncio (a foto
+                    já vai dentro do card). */}
+                {!isPropertyAnnouncement && message.attachments && message.attachments.length > 0 && (
                   <div className={isVoiceMsg ? '' : 'mt-1.5 space-y-1'}>
                     {message.attachments.map((att) => (
                       <ChatAttachment key={att.id} attachment={att} />
@@ -683,7 +706,10 @@ export function ChatMessageItem({
 
           {/* Bubble row: bubble + eye (right) */}
           <div className="flex items-end gap-1.5">
-            <div className="bg-muted rounded-2xl rounded-tl-sm px-3.5 py-2.5 min-w-0">
+            <div className={cn(
+              'bg-muted rounded-2xl rounded-tl-sm px-3.5 py-2.5 min-w-0',
+              isPropertyAnnouncement && '!bg-transparent !px-0 !py-0',
+            )}>
               {/* Reply quote */}
               {hasParentMessage && (
                 <div className="bg-primary/5 rounded-lg px-2.5 py-1.5 mb-1.5 border-l-2 border-primary/30">
@@ -696,18 +722,22 @@ export function ChatMessageItem({
                 </div>
               )}
 
-              {/* Content */}
-              {!isVoiceMsg && (
+              {/* Content / Property announcement card */}
+              {isPropertyAnnouncement ? (
+                <PropertyAnnouncementBubble
+                  metadata={messageMetadata as unknown as PropertyAnnouncementMetadata}
+                />
+              ) : !isVoiceMsg ? (
                 <p className="text-sm whitespace-pre-wrap break-words select-text cursor-text selection:!bg-blue-500/50 selection:!text-white">
                   {renderMessageContent(message.content, false, onEntityClick, entitiesMap)}
                   {message.is_edited && (
                     <span className="text-[10px] text-muted-foreground ml-1">{CHAT_LABELS.edited}</span>
                   )}
                 </p>
-              )}
+              ) : null}
 
-              {/* Attachments */}
-              {message.attachments && message.attachments.length > 0 && (
+              {/* Attachments — suprime para anúncios (foto vai no card). */}
+              {!isPropertyAnnouncement && message.attachments && message.attachments.length > 0 && (
                 <div className={isVoiceMsg ? '' : 'mt-1.5 space-y-1'}>
                   {message.attachments.map((att) => (
                     <ChatAttachment key={att.id} attachment={att} isOwn={false} />
