@@ -124,6 +124,7 @@ export async function PUT(
             commission_type: d.commission_type || 'percentage',
             contract_regime: d.contract_regime,
             contract_term: d.contract_term || null,
+            contract_term_custom_reason: d.contract_term_custom_reason || null,
             contract_expiry: d.contract_expiry || null,
             imi_value: d.imi_value ?? null,
             condominium_fee: d.condominium_fee ?? null,

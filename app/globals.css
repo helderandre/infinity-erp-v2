@@ -260,6 +260,24 @@
   }
 }
 
+/* Subtle pulsing CTA — usado em "Fazer pedido" da angariação quando todos os
+ * campos obrigatórios estão preenchidos. Glow expansivo discreto, sem mexer
+ * em opacity para o botão continuar 100% legível. */
+.animate-pulse-cta {
+  position: relative;
+  z-index: 0;
+  animation: pulse-cta-shadow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-cta-shadow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in oklch, var(--primary) 0%, transparent);
+  }
+}
+
 /* craft.js editor — component selection indicator */
 .component-selected {
   outline: 2px solid color-mix(in oklch, var(--primary) 40%, transparent);

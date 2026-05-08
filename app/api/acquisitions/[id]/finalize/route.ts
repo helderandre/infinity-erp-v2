@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { notificationService } from '@/lib/notifications/service'
-import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { ACQUISITION_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 import { logGoalActivity } from '@/lib/goals/log-activity'
 import { ensureLeadAndNegocioForAcquisition } from '@/lib/acquisitions/ensure-lead-and-negocio'
@@ -121,7 +121,7 @@ export async function POST(
 
     // Send notifications
     try {
-      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
+      const approverIds = await notificationService.getUserIdsByRoles([...ACQUISITION_NOTIFICATION_ROLES])
       if (approverIds.length > 0) {
         await notificationService.createBatch(approverIds, {
           senderId: auth.user.id,

@@ -95,22 +95,25 @@ export const acquisitionSchema = z.object({
     .nonnegative('A comissão não pode ser negativa'),
   commission_type: z.string().default('percentage'),
   contract_term: z.string().optional(),
+  contract_term_custom_reason: z.string().optional().nullable(),
   contract_expiry: z.string().optional(),
   imi_value: z.number().nonnegative().optional(),
   condominium_fee: z.number().nonnegative().optional(),
   internal_notes: z.string().optional(),
 
-  // Especificações técnicas (opcional)
+  // Especificações técnicas (opcional). Os numéricos aceitam null durante
+  // edição (campo vazio) e são normalizados a 0 no submit final, excepto
+  // construction_year que se mantém nullable no DB.
   specifications: z
     .object({
       typology: z.string().optional(),
-      bedrooms: z.number().int().nonnegative().optional(),
-      bathrooms: z.number().int().nonnegative().optional(),
-      area_gross: z.number().nonnegative().optional(),
-      area_util: z.number().nonnegative().optional(),
+      bedrooms: z.number().int().nonnegative().nullish(),
+      bathrooms: z.number().int().nonnegative().nullish(),
+      area_gross: z.number().nonnegative().nullish(),
+      area_util: z.number().nonnegative().nullish(),
       construction_year: z.number().int().nullable().optional(),
-      parking_spaces: z.number().int().nonnegative().optional(),
-      garage_spaces: z.number().int().nonnegative().optional(),
+      parking_spaces: z.number().int().nonnegative().nullish(),
+      garage_spaces: z.number().int().nonnegative().nullish(),
       has_elevator: z.boolean().optional(),
       features: z.array(z.string()).optional(),
     })
@@ -172,13 +175,13 @@ export const acquisitionStep1Schema = z.object({
   specifications: z
     .object({
       typology: z.string().optional(),
-      bedrooms: z.number().int().nonnegative().optional(),
-      bathrooms: z.number().int().nonnegative().optional(),
-      area_gross: z.number().nonnegative().optional(),
-      area_util: z.number().nonnegative().optional(),
+      bedrooms: z.number().int().nonnegative().nullish(),
+      bathrooms: z.number().int().nonnegative().nullish(),
+      area_gross: z.number().nonnegative().nullish(),
+      area_util: z.number().nonnegative().nullish(),
       construction_year: z.number().int().nullable().optional(),
-      parking_spaces: z.number().int().nonnegative().optional(),
-      garage_spaces: z.number().int().nonnegative().optional(),
+      parking_spaces: z.number().int().nonnegative().nullish(),
+      garage_spaces: z.number().int().nonnegative().nullish(),
       has_elevator: z.boolean().optional(),
       features: z.array(z.string()).optional(),
     })
@@ -254,6 +257,7 @@ export const acquisitionStep4Schema = z.object({
   commission_agreed: z.number().nonnegative('A comissão não pode ser negativa'),
   commission_type: z.string().default('percentage'),
   contract_term: z.string().optional(),
+  contract_term_custom_reason: z.string().optional().nullable(),
   contract_expiry: z.string().optional(),
   imi_value: z.number().nonnegative().optional(),
   condominium_fee: z.number().nonnegative().optional(),

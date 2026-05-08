@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { propertySchema } from '@/lib/validations/property'
 import { requirePermission } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 import { autoActivateProcess } from '@/lib/processes/auto-activate'
 
 export async function GET(request: Request) {
@@ -56,16 +57,33 @@ export async function GET(request: Request) {
     const sortColumn = requestedSort === 'external_ref' ? 'external_ref_seq' : requestedSort
     const sortAscending = sortDir === 'asc'
 
+    // Excluímos `draft`/`cancelled` por defeito, mas só se o caller NÃO os
+    // pedir explicitamente — caso contrário o filtro Off-market (rascunho +
+    // pendente aprovação + em processo) ficaria sempre vazio para `draft`.
+    const requestedStatuses = status ? status.split(',').map((s) => s.trim()).filter(Boolean) : []
+    const wantsDraft = requestedStatuses.includes('draft')
+    const wantsCancelled = requestedStatuses.includes('cancelled')
+
     let query = supabase
       .from('dev_properties')
       .select(
         '*, dev_property_specifications(*), dev_property_media(id, url, is_cover, order_index), consultant:dev_users!consultant_id(id, commercial_name)',
         { count: 'exact' }
       )
-      .neq('status', 'draft')
-      .neq('status', 'cancelled')
       .order(sortColumn, { ascending: sortAscending, nullsFirst: false })
       .range(offset, offset + limit - 1)
+    if (!wantsDraft) query = query.neq('status', 'draft')
+    if (!wantsCancelled) query = query.neq('status', 'cancelled')
+
+    // Privacidade: rascunhos são privados ao consultor que os criou. Para
+    // utilizadores que não são gestão (admin / Broker / Office Manager / etc.),
+    // aplicamos um filtro row-level que aceita qualquer linha cujo status
+    // != 'draft' OU cujo consultant_id é o próprio. Funciona mesmo quando
+    // o caller pede explicitamente `?status=draft` (caso de "as minhas
+    // angariações") — o seu próprio rascunho passa, os dos colegas não.
+    if (!isManagementRole(auth.roles)) {
+      query = query.or(`status.neq.draft,consultant_id.eq.${auth.user.id}`)
+    }
 
     if (search) {
       const trimmed = search.trim()
@@ -326,12 +344,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Auto-create a synthetic angariação process: when an admin creates an
-    // imóvel directly (skipping the pedido de angariação flow), every imóvel
-    // still ends up with a process — flagged is_synthetic=true so it is
-    // excluded from "tempo médio de processo" metrics. The template is wired
-    // and tasks are populated + marked completed so the Pipeline tab renders
-    // a full 100% process instead of "Pipeline não disponível".
+    // Auto-create a real angariação process linked to the property. Quando
+    // gestão cria um imóvel directamente (sem passar pelo fluxo de pedido),
+    // o processo é necessário para a equipa trabalhar a documentação, CMI,
+    // etc. Mantemos `is_synthetic=true` para rotular o caso (não veio de um
+    // pedido) sem afectar `tempo médio de processo`. Mas NÃO marcamos como
+    // completed — o processo arranca activo no estado inicial para a equipa
+    // poder seguir as tarefas no Pipeline.
     const consultantId = (insertData.consultant_id as string | null) ?? auth.user.id
     const { data: synthInstance, error: synthInsertError } = await supabase
       .from('proc_instances')
@@ -349,7 +368,7 @@ export async function POST(request: Request) {
       .single()
 
     if (synthInsertError || !synthInstance) {
-      console.error('Erro ao criar processo sintético:', synthInsertError)
+      console.error('Erro ao criar processo de angariação:', synthInsertError)
     } else {
       try {
         await autoActivateProcess({
@@ -357,10 +376,12 @@ export async function POST(request: Request) {
           processType: 'angariacao',
           approverId: consultantId,
           propertyId: property.id,
-          markCompleted: true,
+          // markCompleted omitido — processo arranca em 'active' (0%) para
+          // que a gestão consiga trabalhar a checklist como qualquer outra
+          // angariação.
         })
       } catch (activateErr) {
-        console.error('[POST /api/properties] Erro ao activar processo sintético:', activateErr)
+        console.error('[POST /api/properties] Erro ao activar processo de angariação:', activateErr)
       }
     }
 
@@ -378,7 +399,7 @@ export async function POST(request: Request) {
       }).catch(() => {})
     }).catch(() => {})
 
-    return NextResponse.json({ id: property.id }, { status: 201 })
+    return NextResponse.json({ id: property.id, slug: property.slug ?? null }, { status: 201 })
   } catch (error) {
     console.error('Erro ao criar imóvel:', error)
     return NextResponse.json(

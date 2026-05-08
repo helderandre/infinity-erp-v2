@@ -34,7 +34,13 @@ export function AcqSectionHeader({
   )
 }
 
-/* ─── Field Wrapper ─── */
+/* ─── Field Wrapper ─────────────────────────────────────────────────────
+ * Card minimalista: borda subtil por defeito, anel suave em focus, fundo
+ * `bg-card/60` para se misturar com o resto do form. Estados especiais
+ * (AI-preenchido, em falta, erro) ganham um tint sem alterar o ritmo
+ * vertical. Os componentes internos (Input/Select/Textarea) continuam sem
+ * borda própria — a borda é só do wrapper.
+ */
 export function AcqFieldWrapper({
   children,
   fullWidth,
@@ -51,10 +57,12 @@ export function AcqFieldWrapper({
   return (
     <div
       className={cn(
-        'rounded-xl border px-4 py-3 transition-colors',
+        'rounded-2xl border bg-card/60 px-3.5 py-2.5 transition-all',
+        'border-border/40 hover:border-border/70',
+        'focus-within:border-foreground/30 focus-within:ring-4 focus-within:ring-foreground/5',
         fullWidth && 'col-span-full',
-        isAiFilled && 'border-violet-300 bg-violet-50/30 dark:border-violet-700 dark:bg-violet-950/20',
-        isMissing && !isAiFilled && 'border-amber-200 bg-amber-50/40 dark:border-amber-700 dark:bg-amber-950/20',
+        isAiFilled && 'border-violet-300/70 bg-violet-50/40 hover:border-violet-400 dark:border-violet-700/50 dark:bg-violet-950/20',
+        isMissing && !isAiFilled && 'border-amber-300/60 bg-amber-50/30 hover:border-amber-400 dark:border-amber-700/50 dark:bg-amber-950/20',
         className
       )}
     >
@@ -72,7 +80,7 @@ export function AcqFieldLabel({
   required?: boolean
 }) {
   return (
-    <p className="text-xs text-muted-foreground mb-1">
+    <p className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground/80 mb-1">
       {children}
       {required && <span className="text-destructive ml-0.5">*</span>}
     </p>
@@ -127,7 +135,7 @@ export function AcqInputField({
           placeholder="0,00 €"
           value={value != null ? String(value) : ''}
           onValueChange={(_masked, unmasked) => onChange(unmasked)}
-          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+          className="h-8 border-0 px-2 shadow-none focus-visible:ring-0 text-sm font-medium"
         />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
       </AcqFieldWrapper>
@@ -144,7 +152,7 @@ export function AcqInputField({
           placeholder="0,00%"
           value={value != null ? String(value) : ''}
           onValueChange={(_masked, unmasked) => onChange(unmasked)}
-          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+          className="h-8 border-0 px-2 shadow-none focus-visible:ring-0 text-sm font-medium"
         />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
       </AcqFieldWrapper>
@@ -162,7 +170,7 @@ export function AcqInputField({
           placeholder={placeholder || maskPlaceholder}
           value={value != null ? String(value) : ''}
           onValueChange={(_masked, unmasked) => onChange(unmasked)}
-          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+          className="h-8 border-0 px-2 shadow-none focus-visible:ring-0 text-sm font-medium"
         />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
       </AcqFieldWrapper>
@@ -178,7 +186,7 @@ export function AcqInputField({
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder || '—'}
-          className="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+          className="h-8 border-0 px-2 shadow-none focus-visible:ring-0 text-sm font-medium"
         />
         {suffix && (
           <span className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -223,7 +231,7 @@ export function AcqTextareaField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder || ''}
         rows={rows}
-        className="border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium resize-none"
+        className="border-0 px-2 py-0 shadow-none focus-visible:ring-0 text-sm font-medium resize-none"
       />
       {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </AcqFieldWrapper>
@@ -258,7 +266,7 @@ export function AcqSelectField({
     <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive')}>
       <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
       <Select value={value || ''} onValueChange={onChange}>
-        <SelectTrigger className="h-8 border-0 p-0 shadow-none focus:ring-0 text-sm font-medium [&>svg]:ml-2">
+        <SelectTrigger className="h-8 border-0 px-2 shadow-none focus:ring-0 text-sm font-medium [&>svg]:ml-2">
           <SelectValue placeholder={placeholder || 'Seleccionar...'} />
         </SelectTrigger>
         <SelectContent>

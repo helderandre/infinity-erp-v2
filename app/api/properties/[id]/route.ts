@@ -113,6 +113,14 @@ export async function PUT(
 
     // Update property data
     if (property && Object.keys(property).length > 0) {
+      // Aprovar (mudar status para 'active') é decisão de gestão. Mesmo que
+      // o consultor seja o angariador, não pode alterar o status via API. A UI
+      // já esconde o botão "Aprovar" para consultores; este gate é defensivo.
+      const isMgmt = isManagementRole(auth.roles)
+      if (!isMgmt && property.status !== undefined) {
+        delete property.status
+      }
+
       const validation = updatePropertySchema.safeParse(property)
       if (!validation.success) {
         return NextResponse.json(

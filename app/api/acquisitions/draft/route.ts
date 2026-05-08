@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { notificationService } from '@/lib/notifications/service'
-import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { ACQUISITION_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 
 export async function POST(request: Request) {
   try {
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
     // dispara na criação inicial (POST aqui); saves subsequentes em
     // /api/acquisitions/[id]/step/* não voltam a notificar.
     try {
-      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
+      const approverIds = await notificationService.getUserIdsByRoles([...ACQUISITION_NOTIFICATION_ROLES])
       if (approverIds.length > 0) {
         const consultantName = (auth.user as any).user_metadata?.commercial_name
           || (auth.user as any).email

@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Esconde o indicador "N" flutuante do Next.js dev (canto inferior esquerdo).
+  // Aparece só em desenvolvimento mas atrapalha a leitura visual de mockups e
+  // formulários cheios — sobretudo em mobile.
+  devIndicators: false,
   typescript: {
     ignoreBuildErrors: true,
   },

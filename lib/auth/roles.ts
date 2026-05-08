@@ -136,6 +136,17 @@ export const PROPERTY_RESPONSIBLE_ROLES = [
 /** Roles que recebem notificações de aprovação/gestão */
 export const APPROVER_NOTIFICATION_ROLES = ['Broker/CEO', 'Gestor Processual'] as const
 
+/**
+ * Gestão notificada quando um consultor submete uma nova angariação. Inclui
+ * Office Manager além dos approvers normais — a gestão administrativa quer
+ * acompanhar entradas novas mesmo sem ser approver formal do processo.
+ */
+export const ACQUISITION_NOTIFICATION_ROLES = [
+  'Broker/CEO',
+  'Office Manager',
+  'Gestor Processual',
+] as const
+
 /** Roles com acesso a TODAS as caixas de email (podem ver e enviar de qualquer conta) */
 export const EMAIL_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
 

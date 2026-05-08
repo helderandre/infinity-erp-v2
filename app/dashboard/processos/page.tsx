@@ -39,12 +39,16 @@ import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
 import { toast } from 'sonner'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { DealDialog } from '@/components/deals/deal-dialog'
 
-function ProcessDropdownMenu({ isDraft, selectionMode, onResumeDraft, onViewDetails, onSelectMultiple, onDelete }: {
+function ProcessDropdownMenu({ isDraft, canDelete, selectionMode, onResumeDraft, onViewDetails, onSelectMultiple, onDelete }: {
   isDraft: boolean
+  /** Política: consultor só pode eliminar os seus rascunhos; management pode
+   *  eliminar tudo. Resolvido pelo caller; aqui apenas escondemos o item. */
+  canDelete: boolean
   selectionMode: boolean
   onResumeDraft: () => void
   onViewDetails: () => void
@@ -98,17 +102,21 @@ function ProcessDropdownMenu({ isDraft, selectionMode, onResumeDraft, onViewDeta
             </DropdownMenuItem>
           </>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="text-destructive focus:text-destructive"
-          onClick={(e) => {
-            e.preventDefault()
-            onDelete()
-          }}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Eliminar processo
-        </DropdownMenuItem>
+        {canDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={(e) => {
+                e.preventDefault()
+                onDelete()
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDraft ? 'Eliminar rascunho' : 'Eliminar processo'}
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -132,6 +140,10 @@ export default function ProcessosPage() {
   // server-side para mostrar apenas os processos do próprio consultor
   // (gestão vê todos).
   const { user } = useUser()
+  // Política: consultor só pode eliminar os SEUS PRÓPRIOS rascunhos.
+  // Management (broker/CEO/Gestor Processual/Office Manager/Team Leader)
+  // pode eliminar qualquer processo. Resolvido aqui e propagado aos cards.
+  const isManagement = isManagementRole(user?.role_names ?? [])
   const [processes, setProcesses] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -702,6 +714,7 @@ export default function ProcessosPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <ProcessDropdownMenu
                         isDraft={isDraft}
+                        canDelete={isManagement || (isDraft && proc.requested_by === user?.id)}
                         selectionMode={selectionMode}
                         onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}
                         onViewDetails={() => router.push(`/dashboard/processos/${proc.id}`)}
@@ -757,6 +770,7 @@ export default function ProcessosPage() {
                 <div className="absolute top-3 right-3 z-10">
                   <ProcessDropdownMenu
                     isDraft={isDraft}
+                    canDelete={isManagement || (isDraft && proc.requested_by === user?.id)}
                     selectionMode={selectionMode}
                     onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}
                     onViewDetails={() => router.push(`/dashboard/processos/${proc.id}`)}

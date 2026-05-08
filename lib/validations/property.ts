@@ -85,6 +85,7 @@ export const propertyInternalSchema = z.object({
   commission_type: z.string().default('percentage'),
   contract_regime: z.string().optional(),
   contract_term: z.string().optional(),
+  contract_term_custom_reason: z.string().nullable().optional(),
   contract_expiry: z.string().optional(),
   imi_value: z.number().nonnegative().optional(),
   condominium_fee: z.number().nonnegative().optional(),

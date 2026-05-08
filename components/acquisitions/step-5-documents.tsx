@@ -5,12 +5,14 @@ import { UseFormReturn } from 'react-hook-form'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { DocumentsSection } from '@/components/documents/DocumentsSection'
 import { toast } from 'sonner'
-import { Upload, Sparkles, Loader2, Check, X, AlertTriangle, Trash2 } from 'lucide-react'
+import { Sparkles, Loader2, Check, X, AlertTriangle, Trash2, Info, AlertCircle } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { DocType } from '@/types/document'
 
@@ -477,23 +479,27 @@ export function StepDocuments({ form }: StepDocumentsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold">Documentos</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Carregue todos os documentos de uma vez — a IA classifica e extrai os dados automaticamente.
-          </p>
-        </div>
+      {/* Header centrado — só título + CTA. A lista detalhada de tipos de
+          documento foi escondida; a IA classifica e extrai automaticamente
+          o que carregares. O botão "i" abre um popover com os documentos
+          tipicamente esperados nesta fase. */}
+      <div className="flex flex-col items-center text-center gap-3 pt-2">
+        <h3 className="text-2xl font-semibold tracking-tight">Documentos</h3>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Carrega os documentos que já tenhas
+          <br />
+          <span className="text-muted-foreground/80">a IA trata do resto.</span>
+        </p>
 
-        <div className="shrink-0">
-          <input
-            ref={bulkInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            className="hidden"
-            onChange={(e) => handleBulkUpload(e.target.files)}
-          />
+        <input
+          ref={bulkInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          className="hidden"
+          onChange={(e) => handleBulkUpload(e.target.files)}
+        />
+        <div className="flex items-center gap-2">
           <Button
             type="button"
             size="lg"
@@ -513,26 +519,99 @@ export function StepDocuments({ form }: StepDocumentsProps) {
               </>
             )}
           </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Que documentos preciso?"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-80 rounded-2xl p-4 text-sm"
+            >
+              <p className="font-semibold mb-2">Documentos típicos da angariação</p>
+              <ul className="space-y-1 text-muted-foreground">
+                <li>• Caderneta Predial Urbana (CPU)</li>
+                <li>• Certidão Permanente do Registo Predial (CRP)</li>
+                <li>• Certificado Energético (CE/SCE)</li>
+                <li>• Licença de Utilização (Câmara Municipal)</li>
+                <li>• Ficha Técnica de Habitação (FTH) — se posterior a 2004</li>
+                <li>• Plantas do imóvel</li>
+                <li>• Cartão de Cidadão / NIF dos proprietários</li>
+                <li>• Comprovativo de morada dos proprietários</li>
+                <li>• Distrate da hipoteca (se aplicável)</li>
+                <li>• CMI assinado</li>
+              </ul>
+              <p className="text-[11px] text-muted-foreground/80 mt-3">
+                Não precisas de carregar tudo agora — podes adicionar depois na ficha do imóvel.
+              </p>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Lembrete vermelho — as plantas são frequentemente esquecidas e
+            essenciais para o anúncio nos portais. */}
+        <div className="w-full max-w-md mt-2 rounded-xl border border-red-200 bg-red-50/70 dark:border-red-900/40 dark:bg-red-950/30 px-4 py-3 flex items-start gap-2.5 text-left">
+          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-300 shrink-0 mt-0.5" />
+          <div className="text-[13px] leading-snug">
+            <p className="font-semibold text-red-700 dark:text-red-300">
+              Não te esqueças das plantas caso já as tenhas…
+            </p>
+            <p className="text-red-600/80 dark:text-red-400/80 text-xs mt-0.5">
+              São essenciais para o anúncio nos portais.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* AI Classification Results */}
+      {/* AI Classification Results — mobile-first: header empilha, cada linha
+          tem o nome em cima e o selector full-width em baixo. */}
       {classifiedFiles.length > 0 && (
-        <div className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold">Classificação IA</p>
-              <Badge variant="secondary" className="text-[10px]">
+        <div className="rounded-2xl border bg-card/60 backdrop-blur-sm p-3 sm:p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-start sm:items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <p className="text-sm font-semibold truncate">Classificação IA</p>
+              <Badge variant="secondary" className="text-[10px] shrink-0">
                 {classifiedFiles.filter(f => f.accepted).length}/{classifiedFiles.length} aceites
               </Badge>
             </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" className="text-xs h-7" onClick={() => setClassifiedFiles([])}>
-                <X className="h-3 w-3 mr-1" />Cancelar
+            <div className="flex items-center gap-1.5 ml-auto sm:ml-0 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs h-8 rounded-full px-2 sm:px-3"
+                onClick={() => setClassifiedFiles([])}
+              >
+                <X className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Cancelar</span>
               </Button>
-              <Button type="button" size="sm" className="text-xs h-7 rounded-full" onClick={handleAcceptAll} disabled={isExtracting}>
-                {isExtracting ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />A extrair...</> : <><Check className="h-3 w-3 mr-1" />Confirmar e Extrair</>}
+              <Button
+                type="button"
+                size="sm"
+                className="text-xs h-8 rounded-full px-3"
+                onClick={handleAcceptAll}
+                disabled={isExtracting}
+              >
+                {isExtracting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    <span className="hidden xs:inline">A extrair…</span>
+                    <span className="xs:hidden">…</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    <span className="hidden sm:inline">Confirmar e Extrair</span>
+                    <span className="sm:hidden">Confirmar</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -552,55 +631,62 @@ export function StepDocuments({ form }: StepDocumentsProps) {
               <div
                 key={cf.index}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all',
+                  'rounded-xl border px-3 py-2.5 transition-all',
+                  // Mobile: empilhamento vertical; sm+: linha horizontal
+                  'flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-2',
                   cf.accepted ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800' : 'bg-muted/30 border-border/50 opacity-60',
                   (isDuplicate || alreadyUploaded) && cf.accepted && 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-700'
                 )}
               >
-                {/* Accept toggle */}
-                <button
-                  type="button"
-                  onClick={() => toggleFileAccepted(cf.index)}
-                  className={cn(
-                    'h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors',
-                    cf.accepted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/30'
-                  )}
-                >
-                  {cf.accepted && <Check className="h-3 w-3" />}
-                </button>
+                {/* Linha 1 (mobile) / esquerda (desktop): toggle + nome + meta */}
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleFileAccepted(cf.index)}
+                    className={cn(
+                      'h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors mt-0.5',
+                      cf.accepted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-muted-foreground/30'
+                    )}
+                  >
+                    {cf.accepted && <Check className="h-3 w-3" />}
+                  </button>
 
-                {/* File info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{cf.file.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {cf.doc_type_name ? (
-                      <span className="text-xs text-muted-foreground">
-                        {cf.doc_type_category} &rarr; {cf.doc_type_name}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-red-500 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Não classificado
-                      </span>
-                    )}
-                    {isDuplicate && (
-                      <span className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Duplicado — altere o tipo de um deles
-                      </span>
-                    )}
-                    {alreadyUploaded && !isDuplicate && (
-                      <span className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Já existe um ficheiro deste tipo
-                      </span>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-sm font-medium truncate min-w-0">{cf.file.name}</p>
+                      {cf.doc_type_id && (
+                        <span className="shrink-0">
+                          {confidenceBadge(cf.confidence)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                      {cf.doc_type_name ? (
+                        <span className="text-[11px] text-muted-foreground truncate max-w-full">
+                          {cf.doc_type_category} → {cf.doc_type_name}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-red-500 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Não classificado
+                        </span>
+                      )}
+                      {isDuplicate && (
+                        <span className="text-[11px] text-amber-600 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Duplicado
+                        </span>
+                      )}
+                      {alreadyUploaded && !isDuplicate && (
+                        <span className="text-[11px] text-amber-600 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Já existe um deste tipo
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Confidence */}
-                {cf.doc_type_id && confidenceBadge(cf.confidence)}
-
-                {/* Change doc type */}
+                {/* Selector — full-width em mobile, fixo em desktop */}
                 <select
-                  className="text-xs bg-transparent border rounded-md px-2 py-1 max-w-[180px]"
+                  className="text-xs bg-background/80 border rounded-lg px-2 py-1.5 w-full sm:w-auto sm:max-w-[200px] sm:shrink-0"
                   value={cf.doc_type_id || ''}
                   onChange={(e) => changeFileDocType(cf.index, e.target.value)}
                 >
@@ -665,17 +751,6 @@ export function StepDocuments({ form }: StepDocumentsProps) {
           </div>
         </div>
       )}
-
-      <DocumentsSection
-        byCategory={byCategory}
-        uploadedDocs={uploadedDocs}
-        deferred={true}
-        onFileSelected={handleFileSelected}
-        onDeleteSingle={handleDeleteSingle}
-        selectedForDeletion={selectedForDeletion}
-        onToggleDeleteSelection={toggleDeleteSelection}
-        isInDeleteMode={selectedForDeletion.size > 0}
-      />
 
       {/* Delete confirmation dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

@@ -1,17 +1,25 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/shared/empty-state'
-import { FileEdit, Trash2, Clock } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { FileEdit, Trash2, Clock, Plus, Briefcase } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 
-interface Draft {
+export interface AcquisitionDraft {
   proc_instance_id: string
   property_id: string
   title: string
@@ -25,129 +33,180 @@ interface Draft {
 }
 
 interface DraftsListProps {
+  drafts: AcquisitionDraft[]
   onResume: (draftId: string) => void
+  onStartNew: () => void
+  onDeleted: (draftId: string) => void
 }
 
-export function DraftsList({ onResume }: DraftsListProps) {
-  const [drafts, setDrafts] = useState<Draft[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function DraftsList({ drafts, onResume, onStartNew, onDeleted }: DraftsListProps) {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
+  const handleDelete = async () => {
+    if (!confirmDeleteId) return
+    const id = confirmDeleteId
+    setDeletingId(id)
     try {
-      const res = await fetch('/api/acquisitions/drafts')
-      if (res.ok) {
-        const data = await res.json()
-        setDrafts(data.data || [])
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const handleDelete = async (draftId: string) => {
-    setDeletingId(draftId)
-    try {
-      const res = await fetch(`/api/acquisitions/${draftId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/acquisitions/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Erro ao eliminar')
-      setDrafts((prev) => prev.filter((d) => d.proc_instance_id !== draftId))
+      onDeleted(id)
       toast.success('Rascunho eliminado')
     } catch {
       toast.error('Erro ao eliminar rascunho')
     } finally {
       setDeletingId(null)
+      setConfirmDeleteId(null)
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[1, 2].map((i) => (
-          <Skeleton key={i} className="h-32 w-full rounded-xl" />
-        ))}
-      </div>
-    )
-  }
-
-  if (drafts.length === 0) return null
+  const hasDrafts = drafts.length > 0
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Rascunhos
+      <div className="space-y-1.5">
+        <h3 className="text-base font-semibold tracking-tight flex items-center gap-2">
+          <Briefcase className="h-4 w-4" />
+          {hasDrafts ? 'Continuar onde parou?' : 'Pronto para começar'}
         </h3>
-        <Badge variant="secondary">{drafts.length}</Badge>
+        <p className="text-xs text-muted-foreground">
+          {hasDrafts
+            ? drafts.length === 1
+              ? 'Tem um rascunho de angariação por terminar.'
+              : `Tem ${drafts.length} rascunhos de angariação por terminar.`
+            : 'Sem rascunhos guardados — comece uma nova angariação.'}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {drafts.map((draft) => (
-          <Card key={draft.proc_instance_id} className="group hover:shadow-md transition-shadow">
-            <CardContent className="pt-4 pb-4 space-y-3">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate">
-                    {draft.title === 'Rascunho' ? 'Nova Angariação' : draft.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {draft.property_type && (
-                      <Badge variant="outline" className="text-xs">
-                        {draft.property_type}
-                      </Badge>
-                    )}
-                    {draft.city && (
-                      <span className="text-xs text-muted-foreground">{draft.city}</span>
-                    )}
-                  </div>
+      <Button
+        type="button"
+        onClick={onStartNew}
+        className="w-full rounded-full h-10 text-sm gap-1.5"
+      >
+        <Plus className="h-4 w-4" />
+        Nova angariação
+      </Button>
+
+      {hasDrafts && (
+        <>
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border/60" />
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              ou retomar
+            </span>
+            <div className="h-px flex-1 bg-border/60" />
+          </div>
+        </>
+      )}
+
+      <div className="space-y-2.5">
+        {drafts.map((draft) => {
+          const isDeleting = deletingId === draft.proc_instance_id
+          return (
+            <Card
+              key={draft.proc_instance_id}
+              className="group transition-shadow hover:shadow-md"
+            >
+              <CardContent className="p-3 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onResume(draft.proc_instance_id)}
+                    disabled={isDeleting}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="font-medium text-sm truncate">
+                      {draft.title === 'Rascunho' || !draft.title
+                        ? 'Nova angariação'
+                        : draft.title}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {draft.property_type && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
+                          {draft.property_type}
+                        </Badge>
+                      )}
+                      {draft.city && (
+                        <span className="text-[11px] text-muted-foreground">{draft.city}</span>
+                      )}
+                    </div>
+                  </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setConfirmDeleteId(draft.proc_instance_id)}
+                    disabled={isDeleting}
+                    aria-label="Eliminar rascunho"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Passo {draft.last_completed_step} de 5</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(draft.updated_at), { locale: pt, addSuffix: true })}
-                </span>
-              </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Passo {draft.last_completed_step} de 5</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDistanceToNow(new Date(draft.updated_at), {
+                      locale: pt,
+                      addSuffix: true,
+                    })}
+                  </span>
+                </div>
 
-              {/* Progress bar */}
-              <div className="h-1 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${(draft.last_completed_step / 5) * 100}%` }}
-                />
-              </div>
+                <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${(draft.last_completed_step / 5) * 100}%` }}
+                  />
+                </div>
 
-              <div className="flex items-center gap-2">
                 <Button
+                  type="button"
                   size="sm"
                   variant="outline"
-                  className="flex-1 text-xs"
+                  className="w-full text-xs h-8 rounded-full"
                   onClick={() => onResume(draft.proc_instance_id)}
+                  disabled={isDeleting}
                 >
                   <FileEdit className="mr-1.5 h-3.5 w-3.5" />
                   Retomar
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDelete(draft.proc_instance_id)}
-                  disabled={deletingId === draft.proc_instance_id}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
+
+      <AlertDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDeleteId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar rascunho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar este rascunho? Esta acção é irreversível
+              e todo o trabalho não submetido será perdido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDelete()
+              }}
+              disabled={deletingId !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

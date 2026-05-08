@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { notificationService } from '@/lib/notifications/service'
-import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { APPROVER_NOTIFICATION_ROLES, isManagementRole } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 
 export async function DELETE(
@@ -31,6 +31,27 @@ export async function DELETE(
 
     if (proc.deleted_at) {
       return NextResponse.json({ error: 'Processo já foi eliminado' }, { status: 400 })
+    }
+
+    // Política de eliminação:
+    //   - Consultor (não-management) só pode eliminar os SEUS PRÓPRIOS rascunhos
+    //     (`current_status === 'draft'` && `requested_by === auth.user.id`).
+    //   - Management (broker/CEO/Gestor Processual/Office Manager/Team Leader)
+    //     pode eliminar qualquer processo.
+    const isManagement = isManagementRole(auth.roles)
+    if (!isManagement) {
+      if (proc.current_status !== 'draft') {
+        return NextResponse.json(
+          { error: 'Não pode eliminar uma angariação. Só rascunhos.' },
+          { status: 403 },
+        )
+      }
+      if (proc.requested_by !== auth.user.id) {
+        return NextResponse.json(
+          { error: 'Só pode eliminar os seus próprios rascunhos.' },
+          { status: 403 },
+        )
+      }
     }
 
     const adminSupabase = createAdminClient()

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { acquisitionSchema } from '@/lib/validations/acquisition'
 import { notificationService } from '@/lib/notifications/service'
-import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
+import { ACQUISITION_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 import { requirePermission } from '@/lib/auth/permissions'
 import { autoActivateProcess } from '@/lib/processes/auto-activate'
 
@@ -323,7 +323,7 @@ export async function POST(request: Request) {
     // Notificar Gestora Processual + Broker/CEO — agora como FYI ("nova
     // angariação criada"), não como pedido de aprovação.
     try {
-      const approverIds = await notificationService.getUserIdsByRoles([...APPROVER_NOTIFICATION_ROLES])
+      const approverIds = await notificationService.getUserIdsByRoles([...ACQUISITION_NOTIFICATION_ROLES])
       if (approverIds.length > 0) {
         await notificationService.createBatch(approverIds, {
           senderId: auth.user.id,

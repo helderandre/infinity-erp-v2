@@ -24,10 +24,6 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { OwnerKycSingular } from './owner-kyc-singular'
-import { OwnerKycColetiva } from './owner-kyc-coletiva'
-import { OwnerBeneficiariesList } from './owner-beneficiaries-list'
-import { OwnerDocumentsInline } from './owner-documents-inline'
 
 interface StepOwnersProps {
   form: UseFormReturn<any>
@@ -95,24 +91,24 @@ export function StepOwners({ form }: StepOwnersProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Proprietários</h3>
-          <p className="text-sm text-muted-foreground">
-            Adicione pelo menos um proprietário
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Header centrado — alinhado com a Tab de Documentos. */}
+      <div className="flex flex-col items-center text-center gap-3 pt-2">
+        <h3 className="text-2xl font-semibold tracking-tight">Proprietários</h3>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Adiciona pelo menos um proprietário do imóvel.
+        </p>
+        <div className="flex items-center gap-2 flex-wrap justify-center">
           <Button
             type="button"
             onClick={() => setPickerOpen(true)}
             size="sm"
             variant="outline"
+            className="rounded-full"
           >
             <UserPlus className="mr-2 h-4 w-4" />
-            Importar
+            Contacto existente
           </Button>
-          <Button type="button" onClick={addOwner} size="sm">
+          <Button type="button" onClick={addOwner} size="sm" className="rounded-full">
             <Plus className="mr-2 h-4 w-4" />
             Adicionar
           </Button>
@@ -126,15 +122,6 @@ export function StepOwners({ form }: StepOwnersProps) {
             <p className="text-sm text-muted-foreground">
               Nenhum proprietário adicionado
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addOwner}
-              className="mt-4"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Primeiro Proprietário
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -311,28 +298,8 @@ export function StepOwners({ form }: StepOwnersProps) {
                 )}
               />
 
-              {/* KYC Condicional */}
-              {form.watch(`owners.${index}.person_type`) === 'singular' && (
-                <OwnerKycSingular form={form} index={index} />
-              )}
-
-              {form.watch(`owners.${index}.person_type`) === 'coletiva' && (
-                <>
-                  <OwnerKycColetiva form={form} index={index} />
-                  {!form.watch(`owners.${index}.rcbe_code`) && (
-                    <OwnerBeneficiariesList form={form} ownerIndex={index} />
-                  )}
-                </>
-              )}
-
-              {/* Documentos do Proprietário */}
-              {form.watch(`owners.${index}.person_type`) && (
-                <OwnerDocumentsInline
-                  form={form}
-                  ownerIndex={index}
-                  personType={form.watch(`owners.${index}.person_type`)}
-                />
-              )}
+              {/* KYC + documentos foram removidos do step de criação —
+               *  são recolhidos depois, na fase de processo (após aprovação). */}
             </div>
             </div>
             </div>
@@ -344,9 +311,9 @@ export function StepOwners({ form }: StepOwnersProps) {
       <ContactPickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        kind="owner"
-        title="Importar proprietário"
-        description="Pesquisa um proprietário já existente para reusar os dados (NIF, morada, etc.)."
+        kind="lead"
+        title="Importar contacto"
+        description="Pesquisa na base de contactos (leads) para reusar nome, email, telemóvel e NIF. Se o contacto ainda não existe, cria primeiro um lead."
         onSelect={addOwnerFromContact}
       />
     </div>

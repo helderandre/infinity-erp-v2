@@ -6,8 +6,20 @@ import {
   AcqInputField,
   AcqTextareaField,
   AcqSelectField,
+  AcqSwitchField,
 } from './acquisition-field'
 import { CONTRACT_REGIMES } from '@/lib/constants'
+
+const STANDARD_CONTRACT_TERM = '6 meses'
+
+// No formulário de angariação só fazem sentido os regimes contratuais
+// vinculativos (Exclusivo / Não Exclusivo). "Angariação" é um valor legacy
+// que continua a existir em CONTRACT_REGIMES para descodificar rows antigas
+// mas não deve ser oferecido em novos contratos.
+const ACQUISITION_CONTRACT_REGIMES = {
+  exclusivo: CONTRACT_REGIMES.exclusivo,
+  nao_exclusivo: CONTRACT_REGIMES.nao_exclusivo,
+} as const
 
 interface StepContractProps {
   form: UseFormReturn<any>
@@ -26,7 +38,14 @@ export function StepContract({ form }: StepContractProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <div className="flex flex-col items-center text-center gap-2 pt-1 pb-2">
+        <h3 className="text-2xl font-semibold tracking-tight">Contrato</h3>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Regime, comissão e condições — base para emitir o CMI mais tarde.
+        </p>
+      </div>
+
       <AcqSectionHeader title="Informações Contratuais" />
 
       <div className="grid grid-cols-2 gap-3">
@@ -35,30 +54,55 @@ export function StepContract({ form }: StepContractProps) {
           required
           value={form.watch('contract_regime')}
           onChange={(v) => form.setValue('contract_regime', v, { shouldDirty: true })}
-          options={toOptions(CONTRACT_REGIMES)}
+          options={toOptions(ACQUISITION_CONTRACT_REGIMES)}
           placeholder="Seleccionar regime"
           error={errors.contract_regime?.message as string}
           isAiFilled={ai('contract_regime')}
           isMissing={isEmpty('contract_regime')}
         />
 
-        <AcqInputField
-          label="Prazo do Contrato"
-          value={form.watch('contract_term')}
-          onChange={(v) => form.setValue('contract_term', v)}
-          placeholder="Ex: 12 meses"
-          isAiFilled={ai('contract_term')}
-        />
-
-        <AcqInputField
-          label="Data de Expiração"
-          type="date"
-          value={form.watch('contract_expiry')}
-          onChange={(v) => form.setValue('contract_expiry', v)}
-          fullWidth
-          isAiFilled={ai('contract_expiry')}
+        <AcqSwitchField
+          label="Prazo standard (6 meses)?"
+          checked={(form.watch('contract_term') || '').trim() === STANDARD_CONTRACT_TERM}
+          onChange={(v) => {
+            if (v) {
+              form.setValue('contract_term', STANDARD_CONTRACT_TERM, { shouldDirty: true })
+              form.setValue('contract_term_custom_reason', null, { shouldDirty: true })
+            } else {
+              // Limpa o valor para o consultor escrever um prazo concreto;
+              // o textarea de justificação aparece logo de seguida.
+              form.setValue('contract_term', '', { shouldDirty: true })
+            }
+          }}
         />
       </div>
+
+      {(form.watch('contract_term') || '').trim() !== STANDARD_CONTRACT_TERM && (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+            Prazo diferente do standard
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            <AcqInputField
+              label="Prazo do Contrato"
+              value={form.watch('contract_term')}
+              onChange={(v) => form.setValue('contract_term', v, { shouldDirty: true })}
+              placeholder="Ex: 12 meses"
+              isAiFilled={ai('contract_term')}
+            />
+            <AcqTextareaField
+              label="Motivo (porquê este prazo?)"
+              value={form.watch('contract_term_custom_reason') ?? ''}
+              onChange={(v) =>
+                form.setValue('contract_term_custom_reason', v || null, { shouldDirty: true })
+              }
+              placeholder="Justificação que vai ficar visível à gestão processual…"
+            />
+          </div>
+        </div>
+      )}
+      {/* Data de Expiração removida — calculada automaticamente após assinatura
+       *  do CMI a partir do prazo do contrato. */}
 
       <AcqSectionHeader title="Comissão" className="pt-2" />
 
@@ -68,8 +112,8 @@ export function StepContract({ form }: StepContractProps) {
           required
           type="number"
           value={form.watch('commission_agreed')}
-          onChange={(v) => form.setValue('commission_agreed', parseFloat(v) || 0, { shouldDirty: true })}
-          placeholder="0"
+          onChange={(v) => form.setValue('commission_agreed', v === '' ? null : (parseFloat(v) || null), { shouldDirty: true })}
+          placeholder="5"
           error={errors.commission_agreed?.message as string}
           isAiFilled={ai('commission_agreed')}
           isMissing={isEmpty('commission_agreed')}

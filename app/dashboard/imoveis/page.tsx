@@ -49,6 +49,7 @@ import {
   X,
   Pencil,
   User,
+  EyeOff,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -63,6 +64,10 @@ import type { PropertyWithRelations } from '@/types/property'
 const PAGE_SIZE = 20
 const ALL_STATUS_KEYS = Object.keys(PROPERTY_STATUS)
 const DEFAULT_STATUSES = ALL_STATUS_KEYS.filter((k) => k !== 'cancelled')
+// Estados "off-market" — pendente aprovação e em processo. São imóveis
+// ainda não publicados mas que vale a pena dar visibilidade aos colegas.
+// Rascunhos ficam de fora porque são privados ao consultor que os criou.
+const OFF_MARKET_STATUSES = ['pending_approval', 'in_process'] as const
 
 const STATUS_QUICK_OPTIONS = Object.entries(PROPERTY_STATUS).map(([k, v]) => ({
   value: k, label: v.label, dot: v.dot,
@@ -301,6 +306,8 @@ function ImoveisPageContent() {
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
+  // Sheet de criação — partilha o componente PropertyEditSheet em mode='create'.
+  const [createOpen, setCreateOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = usePersistentState<'table' | 'grid'>('imoveis-view-mode', 'table')
   // Default to the numeric-suffix order of `external_ref` so the most recent
@@ -343,6 +350,11 @@ function ImoveisPageContent() {
   // Toggle "Os meus imóveis" — força consultant_id = user.id no fetch, sem
   // depender do filtro avançado de consultores.
   const [onlyMine, setOnlyMine] = usePersistentState<boolean>('imoveis-filter-only-mine', false)
+  // Toggle "Off-market" — só imóveis ainda não publicados (rascunho, pendente
+  // aprovação, em processo). Override absoluto sobre o filtro de Estado, para
+  // os utilizadores poderem ver o que está "a entrar" em catálogo.
+  const [offMarket, setOffMarket] = usePersistentState<boolean>('imoveis-filter-off-market', false)
+  const [offMarketCount, setOffMarketCount] = useState<number | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
@@ -375,7 +387,8 @@ function ImoveisPageContent() {
     missingOwners ||
     contractExpiringDays !== '' ||
     externalRefStatus !== 'all' ||
-    onlyMine
+    onlyMine ||
+    offMarket
 
   // Count of advanced-only filters (used to badge the "Filtros avançados" button).
   // Excludes the four quick pills (Status / Negócio / Preço / Tipologia) that
@@ -412,7 +425,12 @@ function ImoveisPageContent() {
     try {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set('search', debouncedSearch)
-      if (selectedStatuses.length > 0 && selectedStatuses.length < ALL_STATUS_KEYS.length) {
+      if (offMarket) {
+        // Override absoluto — independente do filtro de Estado escolhido pelo
+        // utilizador. Garante que o button mostra exactamente os imóveis "a
+        // entrar". O selector de Estado fica visualmente subordinado a este.
+        params.set('status', OFF_MARKET_STATUSES.join(','))
+      } else if (selectedStatuses.length > 0 && selectedStatuses.length < ALL_STATUS_KEYS.length) {
         params.set('status', selectedStatuses.join(','))
       }
       if (selectedPropertyTypes.length > 0) params.set('property_type', selectedPropertyTypes.join(','))
@@ -463,7 +481,7 @@ function ImoveisPageContent() {
     priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
     yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
     energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
-    onlyMine, user?.id,
+    onlyMine, offMarket, user?.id,
     page, sortBy, sortDir,
   ])
 
@@ -529,7 +547,69 @@ function ImoveisPageContent() {
     priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
     yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
     energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
-    onlyMine,
+    onlyMine, offMarket,
+  ])
+
+  // Off-market badge count — espelha exactamente o que apareceria na lista
+  // se o utilizador clicasse no botão. Por isso herda todos os outros
+  // filtros activos (search, preço, negócio, consultor, …) e só substitui
+  // o `status` pelo conjunto off-market. Quando o botão já está ligado a
+  // contagem é simplesmente o `total` actual da listagem (sem refetch).
+  useEffect(() => {
+    if (offMarket) {
+      setOffMarketCount(total)
+      return
+    }
+    let cancelled = false
+    async function fetchCount() {
+      try {
+        const params = new URLSearchParams()
+        params.set('status', OFF_MARKET_STATUSES.join(','))
+        params.set('per_page', '1')
+        params.set('page', '1')
+        if (debouncedSearch) params.set('search', debouncedSearch)
+        if (selectedPropertyTypes.length > 0) params.set('property_type', selectedPropertyTypes.join(','))
+        if (selectedBusinessTypes.length > 0) params.set('business_type', selectedBusinessTypes.join(','))
+        if (selectedConditions.length > 0) params.set('property_condition', selectedConditions.join(','))
+        const consultantIds = new Set<string>(selectedConsultants)
+        if (onlyMine && user?.id) consultantIds.add(user.id)
+        if (consultantIds.size > 0) params.set('consultant_id', Array.from(consultantIds).join(','))
+        if (priceMin) params.set('price_min', priceMin)
+        if (priceMax) params.set('price_max', priceMax)
+        if (bedroomsMin) params.set('bedrooms_min', bedroomsMin)
+        if (bathroomsMin) params.set('bathrooms_min', bathroomsMin)
+        if (areaUtilMin) params.set('area_util_min', areaUtilMin)
+        if (areaUtilMax) params.set('area_util_max', areaUtilMax)
+        if (yearMin) params.set('construction_year_min', yearMin)
+        if (yearMax) params.set('construction_year_max', yearMax)
+        if (hasElevator) params.set('has_elevator', 'true')
+        if (hasPool) params.set('has_pool', 'true')
+        if (parkingMin) params.set('parking_spaces_min', parkingMin)
+        if (zoneFilter) params.set('zone', zoneFilter)
+        if (parishFilter) params.set('address_parish', parishFilter)
+        if (energyCerts.length > 0) params.set('energy_certificate', energyCerts.join(','))
+        if (missingCover) params.set('missing_cover', 'true')
+        if (missingOwners) params.set('missing_owners', 'true')
+        if (contractExpiringDays) params.set('contract_expiring_days', contractExpiringDays)
+        if (externalRefStatus !== 'all') params.set('external_ref_status', externalRefStatus)
+        const res = await fetch(`/api/properties?${params.toString()}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setOffMarketCount(typeof data.total === 'number' ? data.total : 0)
+      } catch {
+        if (!cancelled) setOffMarketCount(null)
+      }
+    }
+    fetchCount()
+    return () => { cancelled = true }
+  }, [
+    offMarket, total,
+    debouncedSearch,
+    selectedPropertyTypes, selectedBusinessTypes, selectedConditions, selectedConsultants,
+    priceMin, priceMax, bedroomsMin, bathroomsMin, areaUtilMin, areaUtilMax,
+    yearMin, yearMax, hasElevator, hasPool, parkingMin, zoneFilter, parishFilter,
+    energyCerts, missingCover, missingOwners, contractExpiringDays, externalRefStatus,
+    onlyMine, user?.id,
   ])
 
   const handleCancel = async () => {
@@ -586,6 +666,7 @@ function ImoveisPageContent() {
     setContractExpiringDays('')
     setExternalRefStatus('all')
     setOnlyMine(false)
+    setOffMarket(false)
     setPage(0)
   }
 
@@ -623,7 +704,7 @@ function ImoveisPageContent() {
                   <Download className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Exportar</span>
                 </button>
-                <button onClick={() => router.push('/dashboard/imoveis/novo')} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
+                <button onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm">
                   <Plus className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Novo Imóvel</span>
                 </button>
@@ -661,6 +742,37 @@ function ImoveisPageContent() {
           <User className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Os meus imóveis</span>
           <span className="sm:hidden">Os meus</span>
+        </Button>
+
+        {/* "Off-market" — imóveis a entrar (rascunho, pendente aprovação,
+            em processo). Mostra sempre o contador, mesmo quando não está
+            activo, para a equipa saber o que está em pipeline. */}
+        <Button
+          size="sm"
+          variant={offMarket ? 'default' : 'outline'}
+          onClick={() => setOffMarket(!offMarket)}
+          className={cn(
+            'h-9 rounded-full text-xs gap-1.5 shrink-0 relative',
+            offMarket && 'bg-foreground text-background',
+          )}
+          aria-pressed={offMarket}
+          title="Imóveis a entrar — rascunho, pendente aprovação, em processo"
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Off-market</span>
+          <span className="sm:hidden">Off</span>
+          {offMarketCount != null && offMarketCount > 0 && (
+            <span
+              className={cn(
+                'inline-flex items-center justify-center rounded-full px-1.5 min-w-[18px] h-[18px] text-[10px] font-semibold tabular-nums',
+                offMarket
+                  ? 'bg-background/20 text-background'
+                  : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {offMarketCount}
+            </span>
+          )}
         </Button>
 
         {/* Quick pills — só desktop. No mobile tudo passa pelo Sheet de Filtros. */}
@@ -995,7 +1107,7 @@ function ImoveisPageContent() {
             !hasActiveFilters && !isConsultor
               ? {
                   label: 'Novo Imóvel',
-                  onClick: () => router.push('/dashboard/imoveis/novo'),
+                  onClick: () => setCreateOpen(true),
                 }
               : undefined
           }
@@ -1014,39 +1126,49 @@ function ImoveisPageContent() {
             }}
             onResetSort={resetSort}
             onRowClick={(p) => openPropertySheet(p as unknown as PropertyWithRelations)}
-            rowActions={(p) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-xl">
-                  <DropdownMenuItem
-                    className="rounded-lg"
-                    onClick={() => openPropertySheet(p as unknown as PropertyWithRelations)}
-                  >
-                    <Building2 className="mr-2 h-3.5 w-3.5" />
-                    Ver Detalhe
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="rounded-lg"
-                    onClick={() => setEditId(p.id)}
-                  >
-                    <Pencil className="mr-2 h-3.5 w-3.5" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive rounded-lg"
-                    onClick={() => setDeleteId(p.id)}
-                  >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                    Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            rowActions={(p) => {
+              // Consultor só pode editar/eliminar imóveis seus. Gestão (não
+              // consultor) mantém acesso total. Ownership = property.consultant.id.
+              const isMine = !!user?.id && p.consultant?.id === user.id
+              const canMutate = !isConsultor || isMine
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full">
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl">
+                    <DropdownMenuItem
+                      className="rounded-lg"
+                      onClick={() => openPropertySheet(p as unknown as PropertyWithRelations)}
+                    >
+                      <Building2 className="mr-2 h-3.5 w-3.5" />
+                      Ver Detalhe
+                    </DropdownMenuItem>
+                    {canMutate && (
+                      <>
+                        <DropdownMenuItem
+                          className="rounded-lg"
+                          onClick={() => setEditId(p.id)}
+                        >
+                          <Pencil className="mr-2 h-3.5 w-3.5" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive rounded-lg"
+                          onClick={() => setDeleteId(p.id)}
+                        >
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            }}
           />
 
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -1055,14 +1177,19 @@ function ImoveisPageContent() {
         <>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onClick={() => openPropertySheet(property)}
-                onEdit={() => setEditId(property.id)}
-              />
-            ))}
+            {properties.map((property) => {
+              // Consultor só vê o atalho de editar nos seus.
+              const isMine = !!user?.id && property.consultant?.id === user.id
+              const canMutate = !isConsultor || isMine
+              return (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onClick={() => openPropertySheet(property)}
+                  onEdit={canMutate ? () => setEditId(property.id) : undefined}
+                />
+              )
+            })}
           </div>
 
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -1159,6 +1286,22 @@ function ImoveisPageContent() {
         open={!!editId}
         onOpenChange={(o) => { if (!o) setEditId(null) }}
         onSaved={() => loadProperties()}
+      />
+
+      <PropertyEditSheet
+        mode="create"
+        propertyId={null}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSaved={(created) => {
+          loadProperties()
+          // Após criar, abre directamente a ficha completa (com Media tab,
+          // proprietários, processo, etc.). Se falhar a leitura do id volta
+          // simplesmente para a listagem.
+          if (created?.id) {
+            router.push(`/dashboard/imoveis/${created.slug || created.id}`)
+          }
+        }}
       />
     </div>
   )

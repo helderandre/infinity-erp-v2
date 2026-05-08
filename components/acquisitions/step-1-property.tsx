@@ -5,10 +5,8 @@ import { useState } from 'react'
 import {
   AcqSectionHeader,
   AcqInputField,
-  AcqTextareaField,
   AcqSelectField,
 } from './acquisition-field'
-import { PropertyVoiceDescription } from './property-voice-description'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
@@ -32,7 +30,11 @@ export function StepProperty({ form }: StepPropertyProps) {
     return v === undefined || v === null || v === '' || v === 0
   }
 
+  // Sentinela `_na` ("Não aplicável") aparece como opção mas grava sempre como
+  // string vazia — assim a coluna no DB fica null/empty e o imóvel não tem
+  // tipologia atribuída. `_outro` é também sentinela: muda para input livre.
   const TYPOLOGY_OPTIONS = [
+    { value: '_na', label: 'Não aplicável' },
     { value: 'T0', label: 'T0' },
     { value: 'T1', label: 'T1' },
     { value: 'T2', label: 'T2' },
@@ -43,11 +45,22 @@ export function StepProperty({ form }: StepPropertyProps) {
     { value: '_outro', label: 'Outro...' },
   ]
   const currentTypology = form.watch('specifications.typology') || ''
-  const isStandardTypology = TYPOLOGY_OPTIONS.some(o => o.value === currentTypology && o.value !== '_outro')
+  const isStandardTypology = TYPOLOGY_OPTIONS.some(
+    o => o.value === currentTypology && o.value !== '_outro' && o.value !== '_na'
+  )
   const [customTypology, setCustomTypology] = useState(!isStandardTypology && currentTypology.length > 0)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Hero centrado — alinha com Documentos / Proprietários. O label do
+          passo já não aparece no stepper, por isso vive aqui. */}
+      <div className="flex flex-col items-center text-center gap-2 pt-1 pb-2">
+        <h3 className="text-2xl font-semibold tracking-tight">Dados do Imóvel</h3>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Informação base sobre o imóvel — quanto mais preencheres, melhor.
+        </p>
+      </div>
+
       <AcqSectionHeader title="Informações Básicas" />
 
       <div className="grid grid-cols-2 gap-3">
@@ -92,7 +105,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           required
           type="number"
           value={form.watch('listing_price')}
-          onChange={(v) => form.setValue('listing_price', parseFloat(v) || 0, { shouldDirty: true })}
+          onChange={(v) => form.setValue('listing_price', v === '' ? null : (parseFloat(v) || null), { shouldDirty: true })}
           placeholder="0"
           suffix="€"
           error={errors.listing_price?.message as string}
@@ -111,21 +124,20 @@ export function StepProperty({ form }: StepPropertyProps) {
         <AcqSelectField
           label="Certificado Energético"
           value={form.watch('energy_certificate')}
-          onChange={(v) => form.setValue('energy_certificate', v)}
-          options={toOptions(ENERGY_CERTIFICATES)}
+          onChange={(v) => {
+            // `_na` ("Não aplicável") é sentinela — grava como string vazia,
+            // mantendo a coluna do DB livre e o imóvel sem CE atribuído.
+            if (v === '_na') form.setValue('energy_certificate', '')
+            else form.setValue('energy_certificate', v)
+          }}
+          options={[
+            { value: '_na', label: 'Não aplicável' },
+            ...toOptions(ENERGY_CERTIFICATES),
+          ]}
           placeholder="Seleccionar classe"
           isAiFilled={ai('energy_certificate')}
         />
 
-        <PropertyVoiceDescription form={form} />
-
-        <AcqTextareaField
-          label="Descrição"
-          value={form.watch('description')}
-          onChange={(v) => form.setValue('description', v)}
-          placeholder="Descreva as características principais do imóvel ou utilize a gravação por voz acima..."
-          rows={5}
-        />
       </div>
 
       <AcqSectionHeader title="Especificações" className="pt-2" />
@@ -148,6 +160,7 @@ export function StepProperty({ form }: StepPropertyProps) {
             value={currentTypology}
             onChange={(v) => {
               if (v === '_outro') { setCustomTypology(true); form.setValue('specifications.typology', '') }
+              else if (v === '_na') { form.setValue('specifications.typology', '') }
               else form.setValue('specifications.typology', v)
             }}
             options={TYPOLOGY_OPTIONS}
@@ -160,7 +173,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Quartos"
           type="number"
           value={form.watch('specifications.bedrooms')}
-          onChange={(v) => form.setValue('specifications.bedrooms', parseInt(v) || 0)}
+          onChange={(v) => form.setValue('specifications.bedrooms', v === '' ? null : (parseInt(v) || null))}
           isAiFilled={ai('specifications.bedrooms')}
         />
 
@@ -168,7 +181,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Casas de Banho"
           type="number"
           value={form.watch('specifications.bathrooms')}
-          onChange={(v) => form.setValue('specifications.bathrooms', parseInt(v) || 0)}
+          onChange={(v) => form.setValue('specifications.bathrooms', v === '' ? null : (parseInt(v) || null))}
           isAiFilled={ai('specifications.bathrooms')}
         />
 
@@ -176,7 +189,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Área Útil"
           type="number"
           value={form.watch('specifications.area_util')}
-          onChange={(v) => form.setValue('specifications.area_util', parseFloat(v) || 0)}
+          onChange={(v) => form.setValue('specifications.area_util', v === '' ? null : (parseFloat(v) || null))}
           suffix="m²"
           isAiFilled={ai('specifications.area_util')}
         />
@@ -185,7 +198,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Área Bruta"
           type="number"
           value={form.watch('specifications.area_gross')}
-          onChange={(v) => form.setValue('specifications.area_gross', parseFloat(v) || 0)}
+          onChange={(v) => form.setValue('specifications.area_gross', v === '' ? null : (parseFloat(v) || null))}
           suffix="m²"
           isAiFilled={ai('specifications.area_gross')}
         />
@@ -194,7 +207,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Ano Construção"
           type="number"
           value={form.watch('specifications.construction_year')}
-          onChange={(v) => form.setValue('specifications.construction_year', parseInt(v) || null)}
+          onChange={(v) => form.setValue('specifications.construction_year', v === '' ? null : (parseInt(v) || null))}
           placeholder="Ex: 2005"
           isAiFilled={ai('specifications.construction_year')}
         />
@@ -203,7 +216,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Estacionamento"
           type="number"
           value={form.watch('specifications.parking_spaces')}
-          onChange={(v) => form.setValue('specifications.parking_spaces', parseInt(v) || 0)}
+          onChange={(v) => form.setValue('specifications.parking_spaces', v === '' ? null : (parseInt(v) || null))}
           isAiFilled={ai('specifications.parking_spaces')}
         />
 
@@ -211,7 +224,7 @@ export function StepProperty({ form }: StepPropertyProps) {
           label="Garagem"
           type="number"
           value={form.watch('specifications.garage_spaces')}
-          onChange={(v) => form.setValue('specifications.garage_spaces', parseInt(v) || 0)}
+          onChange={(v) => form.setValue('specifications.garage_spaces', v === '' ? null : (parseInt(v) || null))}
         />
       </div>
     </div>

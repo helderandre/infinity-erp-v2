@@ -28,7 +28,7 @@ import { PropertyApresentacaoTab } from '@/components/properties/property-aprese
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
-import { PropertyDescriptionGenerator } from '@/components/properties/property-description-generator'
+import { DescriptionEditorCanvas } from '@/components/properties/description-editor/description-editor-canvas'
 import { PropertyAvailabilityPanel } from '@/components/booking/property-availability-panel'
 import { PropertyOwnerAddDialog } from '@/components/properties/property-owner-add-dialog'
 import { PropertyOwnerInvitesSection } from '@/components/properties/property-owner-invites-section'
@@ -85,7 +85,6 @@ import {
   MessageSquare,
   EyeOff,
   Eye,
-  Maximize2,
   Minimize2,
   Globe,
   Mic,
@@ -213,7 +212,6 @@ export default function ImovelDetalhePage() {
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
   const [mediaSection, setMediaSection] = useState<'fotos' | 'videos' | 'plantas' | 'descricao'>('fotos')
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
@@ -787,9 +785,28 @@ export default function ImovelDetalhePage() {
                   )}
                 </div>
                 <div className="space-y-4 pt-2">
-                  {!isEditing && specs?.has_elevator && <BoolBadge label="Elevador" value />}
                   {!isEditing && specs?.fronts_count ? <span className="text-xs bg-muted rounded-full px-3 py-1 font-medium">{specs.fronts_count} frente{specs.fronts_count !== 1 ? 's' : ''}</span> : null}
-                  <PropertyAmenityGrid label="Características" allItems={[...FEATURES]} selected={isEditing ? (editData.features || []) : (specs?.features || [])} isEditing={isEditing} onToggle={(item) => toggleArrayField('features', item)} />
+                  {/* "Elevador" entra como cartão na grelha de Características.
+                      O estado real continua na coluna boolean has_elevator —
+                      em modo edição despachamos para o handler dedicado e nas
+                      restantes para toggleArrayField sobre `features`. */}
+                  <PropertyAmenityGrid
+                    label="Características"
+                    allItems={['Elevador', ...FEATURES]}
+                    selected={(() => {
+                      const base = isEditing ? (editData.features || []) : (specs?.features || [])
+                      const elev = isEditing ? !!editData.has_elevator : !!specs?.has_elevator
+                      return elev ? ['Elevador', ...base] : base
+                    })()}
+                    isEditing={isEditing}
+                    onToggle={(item) => {
+                      if (item === 'Elevador') {
+                        updateField('has_elevator', !editData.has_elevator)
+                        return
+                      }
+                      toggleArrayField('features', item)
+                    }}
+                  />
                   <PropertyAmenityGrid label="Equipamento" allItems={[...EQUIPMENT]} selected={isEditing ? (editData.equipment || []) : (specs?.equipment || [])} isEditing={isEditing} onToggle={(item) => toggleArrayField('equipment', item)} />
                   <PropertyAmenityGrid label="Orientação Solar" allItems={[...SOLAR_ORIENTATIONS]} selected={isEditing ? (editData.solar_orientation || []) : (specs?.solar_orientation || [])} isEditing={isEditing} onToggle={(item) => toggleArrayField('solar_orientation', item)} />
                   <PropertyAmenityGrid label="Vistas" allItems={[...VIEWS]} selected={isEditing ? (editData.views || []) : (specs?.views || [])} isEditing={isEditing} onToggle={(item) => toggleArrayField('views', item)} />
@@ -819,7 +836,31 @@ export default function ImovelDetalhePage() {
                     <SectionTitle>Contrato</SectionTitle>
                     <div className="space-y-3">
                       <InfoChip label="Regime" value={CONTRACT_REGIMES[internal?.contract_regime as keyof typeof CONTRACT_REGIMES] || internal?.contract_regime} editing={isEditing} editValue={editData.contract_regime} onChange={(v) => updateField('contract_regime', v)} type="select" options={CONTRACT_REGIMES} />
-                      <InfoChip label="Duração" value={internal?.contract_term} editing={isEditing} editValue={editData.contract_term} onChange={(v) => updateField('contract_term', v)} />
+                      {(() => {
+                        const term = internal?.contract_term
+                        const isStandard = !term || (typeof term === 'string' && term.trim() === '6 meses')
+                        const reason = (internal as { contract_term_custom_reason?: string | null } | null)?.contract_term_custom_reason
+                        return (
+                          <div className={cn(
+                            'rounded-lg',
+                            !isStandard && 'ring-1 ring-amber-500/40 bg-amber-500/5 p-1',
+                          )}>
+                            <InfoChip label="Duração" value={internal?.contract_term} editing={isEditing} editValue={editData.contract_term} onChange={(v) => updateField('contract_term', v)} />
+                            {!isStandard && (
+                              <div className="mt-1 px-3 pb-1 flex flex-col gap-1">
+                                <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-semibold">
+                                  ≠ standard de 6 meses
+                                </span>
+                                {reason && (
+                                  <p className="text-[11px] text-amber-700 dark:text-amber-300/80 leading-snug whitespace-pre-wrap">
+                                    {reason}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                       <InfoChip label="Validade" value={internal?.contract_expiry ? formatDate(internal.contract_expiry) : undefined} editing={isEditing} editValue={editData.contract_expiry} onChange={(v) => updateField('contract_expiry', v)} />
                     </div>
                     <SectionTitle>Notas Internas</SectionTitle>
@@ -934,53 +975,12 @@ export default function ImovelDetalhePage() {
           )}
 
           {mediaSection === 'descricao' && (
-            descriptionExpanded ? (
-              <PropertyDescriptionGenerator
-                inline
+            <div className="h-[min(80vh,720px)] flex flex-col">
+              <DescriptionEditorCanvas
                 propertyId={property.id}
-                property={property}
-                existingDescription={property.description || ''}
-                onClose={() => setDescriptionExpanded(false)}
-                onUseDescription={async (desc) => {
-                  updateField('description', desc)
-                  try {
-                    const res = await fetch(`/api/properties/${property.id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ property: { description: desc } }),
-                    })
-                    if (!res.ok) {
-                      const err = await res.json().catch(() => ({}))
-                      throw new Error(err.error || 'Erro ao guardar descrição')
-                    }
-                    await refetch()
-                    toast.success('Descrição guardada')
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : 'Erro ao guardar descrição')
-                  }
-                }}
+                onAfterFinalize={refetch}
               />
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold">Descrição</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDescriptionExpanded(true)}
-                    className="h-8 gap-1.5 text-xs"
-                  >
-                    <Maximize2 className="h-3.5 w-3.5" />
-                    Editar descrição
-                  </Button>
-                </div>
-                <DescriptionContent
-                  text={isEditing ? editData.description ?? property.description ?? '' : property.description || ''}
-                  editing={isEditing}
-                  onChange={(v) => updateField('description', v)}
-                />
-              </div>
-            )
+            </div>
           )}
         </div>
       )}
@@ -2249,6 +2249,7 @@ function BoolBadge({ label, value }: { label: string; value: boolean }) {
 
 const PROPERTY_AMENITY_EMOJIS: Record<string, { emoji: string; label: string; category: 'features' | 'equipment' | 'solar_orientation' | 'views' }> = {
   // Features
+  'Elevador': { emoji: '🛗', label: 'Elevador', category: 'features' },
   'Varanda': { emoji: '🌸', label: 'Varanda', category: 'features' },
   'Terraço': { emoji: '☀️', label: 'Terraço', category: 'features' },
   'Jardim': { emoji: '🌻', label: 'Jardim', category: 'features' },

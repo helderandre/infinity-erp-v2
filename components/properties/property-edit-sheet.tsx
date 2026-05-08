@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -25,6 +25,14 @@ import { Spinner } from '@/components/kibo-ui/spinner'
 import { datePTMask, datePTtoISO, isoToDatePT } from '@/lib/masks'
 import { PropertyAddressMapPicker } from './property-address-map-picker'
 import {
+  AdminDivisionAutocomplete,
+  type DivisionPick,
+} from '@/components/shared/admin-division-autocomplete'
+import { PropertyMediaGallery } from './property-media-gallery'
+import { PropertyVideosSection } from './property-videos-section'
+import { PropertyPlantasSection } from './property-plantas-section'
+import { DescriptionEditorCanvas } from './description-editor/description-editor-canvas'
+import {
   propertySchema,
 } from '@/lib/validations/property'
 import {
@@ -35,13 +43,13 @@ import {
 import {
   MapPin, Layers, Globe, ChevronRight, Check, ExternalLink,
   Home, Briefcase, Newspaper, Loader2, AlertCircle, Camera, Activity,
+  Images,
 } from 'lucide-react'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
 import { useUser } from '@/hooks/use-user'
 import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
-import { CalendarRichEditor } from '@/components/calendar/calendar-rich-editor'
 import { cn } from '@/lib/utils'
 import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -53,6 +61,7 @@ import type {
 const NONE_VALUE = '__none__'
 
 const AMENITY_EMOJIS: Record<string, string> = {
+  'Elevador': '🛗',
   'Varanda': '🌸', 'Terraço': '☀️', 'Jardim': '🌻', 'Piscina': '🏊', 'Garagem': '🚗',
   'Arrecadação': '📦', 'Sótão': '🏠', 'Cave': '🏗️', 'Ginásio': '💪',
   'Condomínio Fechado': '🔒', 'Portaria': '🛡️', 'Cozinha Equipada': '🍳',
@@ -91,6 +100,7 @@ const formSchema = propertySchema.extend({
   commission_agreed: z.coerce.number().nonnegative().optional().or(z.literal('')),
   commission_type: z.string().optional(),
   contract_term: z.string().optional(),
+  contract_term_custom_reason: z.string().optional().nullable(),
   contract_expiry: z.string().optional(),
   imi_value: z.coerce.number().nonnegative().optional().or(z.literal('')),
   condominium_fee: z.coerce.number().nonnegative().optional().or(z.literal('')),
@@ -110,64 +120,21 @@ function cleanNumber(v: unknown): number | undefined {
   return isNaN(n) ? undefined : n
 }
 
-/** Convert legacy markdown-style descriptions (**bold**, blank-line paragraphs)
- *  into the HTML the rich editor expects. If the value is already HTML
- *  (any opening tag detected), pass it through untouched. */
-function descriptionToHtml(text: string | null | undefined): string {
-  if (!text) return ''
-  if (/<\w+[^>]*>/.test(text)) return text
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  // Bullet lines starting with "- " or "• " → list items grouped per run.
-  const lines = withBold.split('\n')
-  const out: string[] = []
-  let listBuf: string[] = []
-  const flushList = () => {
-    if (listBuf.length === 0) return
-    out.push('<ul>' + listBuf.map((l) => `<li>${l}</li>`).join('') + '</ul>')
-    listBuf = []
-  }
-  let para: string[] = []
-  const flushPara = () => {
-    if (para.length === 0) return
-    out.push(`<p>${para.join('<br/>')}</p>`)
-    para = []
-  }
-  for (const raw of lines) {
-    const line = raw.trim()
-    if (!line) {
-      flushList()
-      flushPara()
-      continue
-    }
-    const m = line.match(/^[-•]\s+(.*)$/)
-    if (m) {
-      flushPara()
-      listBuf.push(m[1])
-    } else {
-      flushList()
-      para.push(line)
-    }
-  }
-  flushList()
-  flushPara()
-  return out.join('')
-}
-
 /* ───────── Props ───────── */
 
 export interface PropertyEditSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Property to edit. Null = the sheet is dormant. */
-  propertyId: string | null
+  /** 'edit' (default) or 'create'. In create mode, no fetch is performed and
+   *  the form starts empty; submit POSTs to /api/properties. */
+  mode?: 'edit' | 'create'
+  /** Property to edit. Null = the sheet is dormant (edit mode) or create mode. */
+  propertyId?: string | null
   /** Optional preloaded data so the sheet opens instant — fetched server-side
    *  by the caller. If omitted, the sheet fetches on open. */
   initialProperty?: PropertyFullData | null
-  onSaved?: () => void
+  /** Called after a successful save. In create mode, receives the new id/slug. */
+  onSaved?: (created?: { id: string; slug?: string | null }) => void
 }
 
 /** Shape we read from `/api/properties/[id]` (a join over the 3 tables). */
@@ -200,10 +167,10 @@ export interface PropertyFullData {
   link_portal_remax?: string | null
   link_portal_idealista?: string | null
   link_portal_imovirtual?: string | null
-  link_portal_infinity?: string | null
   remax_published_date?: string | null
   remax_draft_number?: string | null
   notas_juridico_convictus?: string | null
+  slug?: string | null
   // Joined nested
   dev_property_specifications?: PropertySpecsFormData | null
   dev_property_internal?: Partial<PropertyInternalFormData> & {
@@ -213,6 +180,8 @@ export interface PropertyFullData {
     use_license_date?: string | null
     use_license_issuer?: string | null
   } | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dev_property_media?: any[] | null
 }
 
 /* ───────── Tabs ───────── */
@@ -222,6 +191,7 @@ const TABS = [
   { value: 'localizacao', label: 'Localização', icon: MapPin },
   { value: 'especificacoes', label: 'Especs', icon: Layers },
   { value: 'contrato', label: 'Contrato', icon: Briefcase },
+  { value: 'media', label: 'Media', icon: Images },
   { value: 'apresentacao', label: 'Apresentação', icon: Newspaper },
 ] as const
 
@@ -230,8 +200,9 @@ type TabValue = typeof TABS[number]['value']
 /* ───────── Component ───────── */
 
 export function PropertyEditSheet({
-  open, onOpenChange, propertyId, initialProperty, onSaved,
+  open, onOpenChange, mode = 'edit', propertyId = null, initialProperty, onSaved,
 }: PropertyEditSheetProps) {
+  const isCreate = mode === 'create'
   const isMobile = useIsMobile()
   const { user } = useUser()
   const [property, setProperty] = useState<PropertyFullData | null>(initialProperty ?? null)
@@ -262,8 +233,14 @@ export function PropertyEditSheet({
       .catch(() => {})
   }, [])
 
-  /* Fetch property when opening (unless preloaded) */
+  /* Fetch property when opening (unless preloaded). Skipped em create mode —
+     o form arranca vazio e nunca há GET para /api/properties/[id]. */
   useEffect(() => {
+    if (isCreate) {
+      setProperty(null)
+      setLoading(false)
+      return
+    }
     if (!open || !propertyId) return
     if (initialProperty && initialProperty.id === propertyId) {
       setProperty(initialProperty)
@@ -277,11 +254,28 @@ export function PropertyEditSheet({
       .catch(() => { if (!cancelled) setProperty(null) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [open, propertyId, initialProperty])
+  }, [open, propertyId, initialProperty, isCreate])
 
-  /* Reset tab on close */
+  /* Refetch property — usado pelos sub-componentes da Media tab quando
+   *  carregam fotos/vídeos/plantas, para sincronizar o estado local. */
+  const refetchProperty = useMemo(() => {
+    return async () => {
+      if (!propertyId) return
+      try {
+        const res = await fetch(`/api/properties/${propertyId}`)
+        if (!res.ok) return
+        const data = await res.json()
+        setProperty(data)
+      } catch {
+        // silent
+      }
+    }
+  }, [propertyId])
+
+  /* Reset tab on close. */
   useEffect(() => {
     if (!open) setTab('geral')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   /* Build defaults from the loaded property — memoized so the form's `values`
@@ -308,16 +302,37 @@ export function PropertyEditSheet({
    *  so children render with the correct field values from their first mount
    *  (preventing Select triggers from sticking on the placeholder). */
   useEffect(() => {
+    if (isCreate) {
+      // Em create mode o form não depende de fetch — usar os defaults vazios.
+      setIsFormReady(true)
+      return
+    }
     setIsFormReady(false)
-  }, [property?.id])
+  }, [property?.id, isCreate])
 
   useEffect(() => {
+    if (isCreate) return
     if (property) {
       form.reset(buildDefaults(property))
       setIsFormReady(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [property?.id, property?.updated_at])
+  }, [property?.id, property?.updated_at, isCreate])
+
+  /* Reset do form quando o sheet (re)abre em create mode. Sem isto, abrir
+     duas vezes seguidas mostraria os valores deixados pelo último submit. */
+  useEffect(() => {
+    if (open && isCreate) {
+      form.reset({
+        has_elevator: false,
+        features: [],
+        solar_orientation: [],
+        views_list: [],
+        equipment_list: [],
+      } as any)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isCreate])
 
   /* Make sure the property's currently-assigned consultant is always in the
    *  dropdown — the /api/consultants endpoint filters by status=active, so an
@@ -358,12 +373,31 @@ export function PropertyEditSheet({
     }
   }
 
-  /* Submit — splits the values into the 3-payload shape the API expects */
+  /* Submit — splits the values into the 3-payload shape the API expects.
+     Em create mode faz POST a /api/properties (que também auto-cria a
+     processo de angariação ligado); em edit mode faz PUT a /[id]. */
   const handleSubmit = async (values: FormValues) => {
-    if (!propertyId) return
     setSaving(true)
     try {
       const { property: propPayload, specifications, internal } = splitPayload(values)
+      if (isCreate) {
+        const res = await fetch('/api/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...propPayload, specifications, internal }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || 'Erro ao criar imóvel')
+        }
+        const data = await res.json().catch(() => ({}))
+        toast.success('Imóvel criado')
+        onSaved?.({ id: data.id, slug: data.slug ?? null })
+        onOpenChange(false)
+        return
+      }
+
+      if (!propertyId) return
       const res = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -410,15 +444,17 @@ export function PropertyEditSheet({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="text-[20px] font-semibold leading-tight tracking-tight truncate">
-                {property ? buildPropertyDisplayLabel(property) : 'Editar imóvel'}
+                {isCreate
+                  ? 'Novo imóvel'
+                  : property ? buildPropertyDisplayLabel(property) : 'Editar imóvel'}
               </h2>
               <div className="mt-1.5 flex items-center gap-2">
-                {property?.external_ref && (
+                {!isCreate && property?.external_ref && (
                   <span className="text-sm font-semibold tabular-nums text-foreground">
                     {property.external_ref}
                   </span>
                 )}
-                {statusMeta && (
+                {!isCreate && statusMeta && (
                   <span className={cn(
                     'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
                     statusMeta.bg, statusMeta.text,
@@ -427,10 +463,18 @@ export function PropertyEditSheet({
                     {statusMeta.label}
                   </span>
                 )}
+                {isCreate && (
+                  <span className="text-[11px] text-muted-foreground">
+                    Preenche os campos essenciais — depois podes refinar tudo na ficha do imóvel.
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0 mr-10">
-              {isPending && (
+              {/* Aprovação é uma decisão de gestão. Consultores não vêem o
+                  botão e o dispatch de approve no servidor já valida via
+                  `requireRoles(PROCESS_MANAGER_ROLES)`. */}
+              {!isCreate && isPending && isManagement && (
                 <Button
                   type="button"
                   size="sm"
@@ -478,7 +522,9 @@ export function PropertyEditSheet({
 
           {/* Tabs — on mobile only the active tab shows the label, the others
               collapse to a square icon button so 5 tabs fit on one row.
-              Centered on mobile, left-aligned from sm+. */}
+              Centered on mobile, left-aligned from sm+.
+              Em create mode escondemos a tab Media (sem property_id ainda
+              não há onde fazer upload) — fica disponível na edição. */}
           <div className="mt-4 flex justify-center sm:justify-start">
             <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
               <TabsList className="bg-muted/40 backdrop-blur-sm border border-border/30 rounded-full p-1 h-auto flex flex-nowrap justify-start gap-0.5 overflow-x-auto scrollbar-hide max-w-full">
@@ -507,12 +553,13 @@ export function PropertyEditSheet({
           </div>
         </SheetHeader>
 
-        {/* Body */}
-        {loading || (property && !isFormReady) ? (
+        {/* Body. Em create mode renderizamos o form mesmo sem property
+            carregado — o utilizador está a CRIAR um. */}
+        {loading || (!isCreate && property && !isFormReady) ? (
           <div className="flex-1 min-h-0 flex items-center justify-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
-        ) : !property ? (
+        ) : !isCreate && !property ? (
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center text-muted-foreground gap-2">
             <AlertCircle className="h-6 w-6" />
             <p className="text-sm">Imóvel não encontrado.</p>
@@ -558,6 +605,32 @@ export function PropertyEditSheet({
                 {tab === 'localizacao' && <LocalizacaoPanel form={form} />}
                 {tab === 'especificacoes' && <EspecsPanel form={form} />}
                 {tab === 'contrato' && <ContratoPanel form={form} />}
+                {tab === 'media' && property && (
+                  <MediaPanel form={form} property={property} onMediaChange={refetchProperty} />
+                )}
+                {tab === 'media' && !property && isCreate && (
+                  <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-8 flex flex-col items-center justify-center text-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center">
+                      <Images className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold">Guarda o imóvel para activar Media</p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        Fotos, vídeos, plantas e descrição com IA precisam de
+                        um imóvel já criado. Preenche o essencial nas tabs
+                        anteriores e guarda — depois voltas aqui para a Media.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="rounded-full h-8 text-xs gap-1.5 bg-neutral-900 text-white hover:bg-neutral-800"
+                      onClick={() => setTab('geral')}
+                    >
+                      Voltar a Geral
+                    </Button>
+                  </div>
+                )}
                 {tab === 'apresentacao' && <ApresentacaoPanel form={form} property={property} />}
               </div>
 
@@ -580,7 +653,7 @@ export function PropertyEditSheet({
                   disabled={saving}
                 >
                   {saving && <Spinner variant="infinite" size={14} className="mr-1.5" />}
-                  Guardar alterações
+                  {isCreate ? 'Criar imóvel' : 'Guardar alterações'}
                 </Button>
               </div>
             </form>
@@ -604,20 +677,6 @@ function GeralPanel({
         <FormItem>
           <FormLabel>Título *</FormLabel>
           <FormControl><Input placeholder="Ex: Apartamento T2 no centro de Lisboa" {...field} /></FormControl>
-          <FormMessage />
-        </FormItem>
-      )} />
-
-      <FormField control={form.control} name="description" render={({ field }) => (
-        <FormItem>
-          <FormLabel>Descrição</FormLabel>
-          <FormControl>
-            <CalendarRichEditor
-              value={descriptionToHtml(field.value)}
-              onChange={(html) => field.onChange(html)}
-              placeholder="Descreva o imóvel..."
-            />
-          </FormControl>
           <FormMessage />
         </FormItem>
       )} />
@@ -744,6 +803,71 @@ function GeralPanel({
 }
 
 function LocalizacaoPanel({ form }: { form: any }) {
+  // Auto-fill canónico via geoapi.pt:
+  // 1) Quando o postal_code muda (ex: definido pelo map picker), pedimos a
+  //    geoapi para preencher Freguesia / Concelho / Distrito de uma vez.
+  // 2) Quando o utilizador edita a Freguesia manualmente e o nome resolve
+  //    a um único match, preenchemos Concelho + Distrito.
+  // Em ambos os casos só sobrepomos campos vazios — não destruímos valores
+  // que o utilizador já tenha introduzido.
+  const postalCode = form.watch('postal_code') || ''
+  const freguesiaValue = form.watch('address_parish') || ''
+
+  // Cache simples para evitar refazer pedidos por digitação rápida.
+  const cpHandledRef = useRef<string>('')
+  const fregHandledRef = useRef<string>('')
+
+  // Postal-code → freguesia/concelho/distrito
+  useEffect(() => {
+    const cp = String(postalCode).trim()
+    if (!cp || !/^\d{4}-?\d{3}$/.test(cp)) return
+    if (cpHandledRef.current === cp) return
+    cpHandledRef.current = cp
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/postal-code/${encodeURIComponent(cp)}`)
+        if (!res.ok) return
+        const data = await res.json().catch(() => null)
+        if (!data || cancelled) return
+        // geoapi devolve campos com a inicial maiúscula
+        const fg = data.Freguesia || data.freguesia
+        const cc = data.Concelho || data.concelho
+        const dt = data.Distrito || data.distrito
+        if (fg && !form.getValues('address_parish')) form.setValue('address_parish', fg, { shouldDirty: true })
+        if (cc && !form.getValues('city')) form.setValue('city', cc, { shouldDirty: true })
+        if (dt && !form.getValues('zone')) form.setValue('zone', dt, { shouldDirty: true })
+      } catch {
+        // silencioso — auto-fill é best-effort
+      }
+    })()
+    return () => { cancelled = true }
+  }, [postalCode, form])
+
+  // Freguesia (digitada) → concelho/distrito (apenas com match único)
+  useEffect(() => {
+    const name = String(freguesiaValue).trim()
+    if (name.length < 3) return
+    if (fregHandledRef.current === name.toLowerCase()) return
+    const handle = setTimeout(async () => {
+      fregHandledRef.current = name.toLowerCase()
+      try {
+        const res = await fetch(`/api/admin-divisions/freguesia/${encodeURIComponent(name)}`)
+        if (!res.ok) return
+        const matches = (await res.json().catch(() => [])) as Array<{
+          freguesia: string; concelho: string; distrito: string
+        }>
+        if (!Array.isArray(matches) || matches.length !== 1) return
+        const m = matches[0]
+        if (m.concelho && !form.getValues('city')) form.setValue('city', m.concelho, { shouldDirty: true })
+        if (m.distrito && !form.getValues('zone')) form.setValue('zone', m.distrito, { shouldDirty: true })
+      } catch {
+        // silencioso
+      }
+    }, 500)
+    return () => clearTimeout(handle)
+  }, [freguesiaValue, form])
+
   return (
     <div className="space-y-4">
       <PropertyAddressMapPicker
@@ -760,13 +884,32 @@ function LocalizacaoPanel({ form }: { form: any }) {
         onLatitudeChange={(v) => form.setValue('latitude', v ?? undefined)}
         onLongitudeChange={(v) => form.setValue('longitude', v ?? undefined)}
       />
-      <FormField control={form.control} name="address_parish" render={({ field }) => (
-        <FormItem>
-          <FormLabel>Freguesia</FormLabel>
-          <FormControl><Input placeholder="Ex: Santa Maria Maior" {...field} value={field.value ?? ''} /></FormControl>
-          <FormMessage />
-        </FormItem>
-      )} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <FormField control={form.control} name="address_parish" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Freguesia</FormLabel>
+            <FormControl><Input placeholder="Ex: Santa Maria Maior" {...field} value={field.value ?? ''} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="city" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Concelho</FormLabel>
+            <FormControl><Input placeholder="Ex: Cascais" {...field} value={field.value ?? ''} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="zone" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Distrito</FormLabel>
+            <FormControl><Input placeholder="Ex: Lisboa" {...field} value={field.value ?? ''} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Concelho e Distrito são preenchidos automaticamente a partir do código postal (após escolher a localização no mapa) ou da Freguesia.
+      </p>
     </div>
   )
 }
@@ -809,15 +952,28 @@ function EspecsPanel({ form }: { form: any }) {
         })}
       </div>
 
-      <FormField control={form.control} name="has_elevator" render={({ field }) => (
-        <FormItem className="flex items-center gap-2 space-y-0">
-          <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-          <FormLabel className="font-normal cursor-pointer">Tem elevador</FormLabel>
-        </FormItem>
-      )} />
-
       <div className="space-y-5">
-        <AmenityGrid label="Características" allItems={[...FEATURES]} value={form.watch('features') || []} onChange={(v: string[]) => form.setValue('features', v)} />
+        {/* "Elevador" entra como mais um card na grid de Características —
+            o estado vive na coluna boolean has_elevator (não é um item do
+            array `features`), por isso passamos um virtualItem com handlers
+            próprios. Para o utilizador é só mais um cartão. */}
+        <AmenityGrid
+          label="Características"
+          allItems={['Elevador', ...FEATURES]}
+          value={[
+            ...(form.watch('has_elevator') ? ['Elevador'] : []),
+            ...((form.watch('features') as string[] | undefined) || []),
+          ]}
+          onChange={(next) => {
+            const hasElevator = next.includes('Elevador')
+            form.setValue('has_elevator', hasElevator, { shouldDirty: true })
+            form.setValue(
+              'features',
+              next.filter((v) => v !== 'Elevador'),
+              { shouldDirty: true },
+            )
+          }}
+        />
         <AmenityGrid label="Equipamento" allItems={[...EQUIPMENT]} value={form.watch('equipment_list') || []} onChange={(v: string[]) => form.setValue('equipment_list', v)} />
         <AmenityGrid label="Orientação solar" allItems={[...SOLAR_ORIENTATIONS]} value={form.watch('solar_orientation') || []} onChange={(v: string[]) => form.setValue('solar_orientation', v)} />
         <AmenityGrid label="Vistas" allItems={[...VIEWS]} value={form.watch('views_list') || []} onChange={(v: string[]) => form.setValue('views_list', v)} />
@@ -904,13 +1060,8 @@ function ContratoPanel({ form }: { form: any }) {
           </FormItem>
         )} />
 
-        <FormField control={form.control} name="contract_term" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Prazo do contrato</FormLabel>
-            <FormControl><Input placeholder="6 meses" {...field} value={field.value ?? ''} /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <ContractTermField form={form} />
+
 
         <FormField control={form.control} name="contract_expiry" render={({ field }) => (
           <FormItem>
@@ -1057,7 +1208,153 @@ function ContratoPanel({ form }: { form: any }) {
   )
 }
 
-function ApresentacaoPanel({ form }: { form: any; property: PropertyFullData }) {
+/** Toggle "Prazo standard (6 meses)?" + bloco amarelo com motivo quando ≠ standard.
+ *  Espelha a UX do step-4-contract.tsx (formulário de angariação). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ContractTermField({ form }: { form: any }) {
+  const STANDARD = '6 meses'
+  const term = (form.watch('contract_term') ?? '') as string
+  const reason = (form.watch('contract_term_custom_reason') ?? '') as string
+  const isStandard = term.trim() === STANDARD
+  return (
+    <FormItem>
+      <FormLabel>Prazo do contrato</FormLabel>
+      <div className="flex items-center justify-between rounded-lg border bg-background/50 px-3 py-2">
+        <span className="text-xs text-muted-foreground">Standard (6 meses)?</span>
+        <Switch
+          checked={isStandard}
+          onCheckedChange={(v) => {
+            if (v) {
+              form.setValue('contract_term', STANDARD, { shouldDirty: true })
+              form.setValue('contract_term_custom_reason', null, { shouldDirty: true })
+            } else {
+              form.setValue('contract_term', '', { shouldDirty: true })
+            }
+          }}
+        />
+      </div>
+      {!isStandard && (
+        <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+            Prazo diferente do standard
+          </p>
+          <Input
+            placeholder="Ex: 12 meses"
+            value={term}
+            onChange={(e) => form.setValue('contract_term', e.target.value, { shouldDirty: true })}
+          />
+          <Textarea
+            placeholder="Motivo (porquê este prazo?)"
+            value={reason}
+            onChange={(e) =>
+              form.setValue('contract_term_custom_reason', e.target.value || null, { shouldDirty: true })
+            }
+            className="min-h-[64px] text-xs"
+          />
+        </div>
+      )}
+      <FormMessage />
+    </FormItem>
+  )
+}
+
+function MediaPanel({
+  property,
+  onMediaChange,
+  form,
+}: {
+  property: PropertyFullData
+  onMediaChange: () => void | Promise<void>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form: any
+}) {
+  const [section, setSection] = useState<'fotos' | 'videos' | 'plantas' | 'descricao'>('fotos')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allMedia = (property.dev_property_media || []) as any[]
+  const photos = allMedia.filter(
+    (m) => m.media_type !== 'planta' && m.media_type !== 'planta_3d' && m.media_type !== 'video'
+  )
+  const videos = allMedia.filter((m) => m.media_type === 'video')
+  const plantas = allMedia.filter((m) => m.media_type === 'planta')
+  const renders3d = allMedia.filter((m) => m.media_type === 'planta_3d')
+
+  return (
+    <div className="space-y-4">
+      {/* Portal links — campos editáveis em grelha 2x2. Antes era uma fila de
+          chips só-leitura; aqui o utilizador edita os URLs directamente. */}
+      <div className="rounded-2xl border border-border/40 bg-background/40 p-4 space-y-3">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Links nos portais
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <PortalLink form={form} field="link_portal_remax" label="RE/MAX" placeholder="https://www.remax.pt/imoveis/..." />
+          <PortalLink form={form} field="link_portal_idealista" label="Idealista" placeholder="https://www.idealista.pt/imovel/..." />
+          <PortalLink form={form} field="link_portal_imovirtual" label="Imovirtual" placeholder="https://www.imovirtual.com/anuncio/..." />
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex justify-center sm:justify-start">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
+          {([
+            ['fotos', 'Fotos'],
+            ['videos', 'Vídeos'],
+            ['plantas', 'Plantas'],
+            ['descricao', 'Descrição'],
+          ] as ReadonlyArray<readonly [typeof section, string]>).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSection(key)}
+              className={cn(
+                'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
+                section === key
+                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Body */}
+      {section === 'fotos' && (
+        <PropertyMediaGallery
+          propertyId={property.id}
+          media={photos}
+          onMediaChange={onMediaChange}
+        />
+      )}
+      {section === 'videos' && (
+        <PropertyVideosSection
+          propertyId={property.id}
+          videos={videos}
+          onMediaChange={onMediaChange}
+        />
+      )}
+      {section === 'plantas' && (
+        <PropertyPlantasSection
+          propertyId={property.id}
+          plantas={plantas}
+          renders3d={renders3d}
+          onMediaChange={onMediaChange}
+        />
+      )}
+      {section === 'descricao' && (
+        <div className="h-[min(70vh,640px)] flex flex-col">
+          <DescriptionEditorCanvas
+            propertyId={property.id}
+            onAfterFinalize={onMediaChange}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ApresentacaoPanel({ form }: { form: any; property: PropertyFullData | null }) {
   const showStaging = form.watch('presentation_show_staging') !== false
   const showAiPlantas = form.watch('presentation_show_ai_plantas') !== false
   return (
@@ -1081,30 +1378,25 @@ function ApresentacaoPanel({ form }: { form: any; property: PropertyFullData }) 
         </div>
       </div>
 
-      {/* Portal links */}
+      {/* Meta RE/MAX — número do rascunho + data de publicação. Os campos de
+          link dos portais (RE/MAX, Idealista, Imovirtual) vivem agora na tab
+          Media. O link do Infinity Group foi removido — o URL público é
+          derivado do slug e não precisa de ser editado. */}
       <div className="rounded-2xl border border-border/40 bg-background/40 p-4 space-y-3">
         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Links nos portais
+          RE/MAX
         </h4>
-        <div className="grid gap-3">
-          <PortalLink form={form} field="link_portal_remax" label="RE/MAX" placeholder="https://www.remax.pt/imoveis/..." />
-          <PortalLink form={form} field="link_portal_idealista" label="Idealista" placeholder="https://www.idealista.pt/imovel/..." />
-          <PortalLink form={form} field="link_portal_imovirtual" label="Imovirtual" placeholder="https://www.imovirtual.com/anuncio/..." />
-          <PortalLink form={form} field="link_portal_infinity" label="Infinity Group" placeholder="https://infinitygroup.pt/imovel/..." />
-        </div>
-
-        {/* REMAX-specific extras */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        <div className="grid grid-cols-2 gap-3">
           <FormField control={form.control} name="remax_draft_number" render={({ field }) => (
             <FormItem>
-              <FormLabel>Nº rascunho RE/MAX</FormLabel>
+              <FormLabel>Nº rascunho</FormLabel>
               <FormControl><Input placeholder="—" {...field} value={field.value ?? ''} /></FormControl>
               <FormMessage />
             </FormItem>
           )} />
           <FormField control={form.control} name="remax_published_date" render={({ field }) => (
             <FormItem>
-              <FormLabel>Data publicação RE/MAX</FormLabel>
+              <FormLabel>Data publicação</FormLabel>
               <FormControl>
                 <MaskInput
                   mask={datePTMask} placeholder="DD/MM/AAAA"
@@ -1314,7 +1606,6 @@ function buildDefaults(p: PropertyFullData): Partial<FormValues> {
     link_portal_remax: p.link_portal_remax ?? '',
     link_portal_idealista: p.link_portal_idealista ?? '',
     link_portal_imovirtual: p.link_portal_imovirtual ?? '',
-    link_portal_infinity: p.link_portal_infinity ?? '',
     remax_published_date: p.remax_published_date ?? '',
     remax_draft_number: p.remax_draft_number ?? '',
     notas_juridico_convictus: p.notas_juridico_convictus ?? '',
@@ -1342,6 +1633,9 @@ function buildDefaults(p: PropertyFullData): Partial<FormValues> {
     commission_agreed: (internal?.commission_agreed as any) ?? '',
     commission_type: internal?.commission_type ?? 'percentage',
     contract_term: internal?.contract_term ?? '',
+    contract_term_custom_reason:
+      (internal as { contract_term_custom_reason?: string | null } | null)
+        ?.contract_term_custom_reason ?? null,
     contract_expiry: internal?.contract_expiry ?? '',
     imi_value: (internal?.imi_value as any) ?? '',
     condominium_fee: (internal?.condominium_fee as any) ?? '',
@@ -1365,8 +1659,14 @@ function splitPayload(values: FormValues): {
     features, solar_orientation, views_list, equipment_list,
     storage_area, balcony_area, pool_area, attic_area, pantry_area, gym_area,
     internal_notes, commission_agreed, commission_type, contract_term,
+    contract_term_custom_reason,
     contract_expiry, imi_value, condominium_fee, cpcv_percentage,
     has_mortgage, mortgage_owed, use_license_number, use_license_date, use_license_issuer,
+    // description é gerida pelo canvas (Media → Descrição) com auto-save
+    // dedicado; mantê-la fora do payload evita race conditions onde a row
+    // do form (cache do snapshot inicial) sobrescreve uma edição mais
+    // recente feita no canvas.
+    description: _strippedDescription,
     ...propertyData
   } = values
 
@@ -1408,6 +1708,9 @@ function splitPayload(values: FormValues): {
   if (commission_type) internal.commission_type = commission_type
   if (values.contract_regime) internal.contract_regime = values.contract_regime
   if (contract_term !== undefined) internal.contract_term = contract_term || ''
+  if (contract_term_custom_reason !== undefined)
+    (internal as Record<string, unknown>).contract_term_custom_reason =
+      contract_term_custom_reason || null
   // contract_expiry is a date column — empty string would be rejected.
   if (contract_expiry !== undefined) (internal as Record<string, unknown>).contract_expiry = contract_expiry || null
   const _imi = cleanNumber(imi_value); if (_imi !== undefined) internal.imi_value = _imi
