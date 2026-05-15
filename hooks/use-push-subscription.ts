@@ -26,17 +26,26 @@ export function usePushSubscription() {
 
   const subscribe = useCallback(async () => {
     if (permission === 'unsupported' || permission === 'denied') return false
+
+    // iOS PWA requires Notification.requestPermission() to be invoked while
+    // the user-gesture is still hot — i.e. before any long-running awaits.
+    // Calling it first (and synchronously kicking off the promise) keeps the
+    // prompt visible on iPhone Add-to-Home-Screen PWAs.
+    const permPromise = Notification.requestPermission()
+
     setIsLoading(true)
 
     try {
+      const perm = await permPromise
+      setPermission(perm as PushPermission)
+      if (perm !== 'granted') {
+        console.warn('[Push] Permission not granted:', perm)
+        return false
+      }
+
       // Register service worker
       const reg = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
-
-      // Request permission
-      const perm = await Notification.requestPermission()
-      setPermission(perm as PushPermission)
-      if (perm !== 'granted') return false
 
       // Subscribe to push
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
