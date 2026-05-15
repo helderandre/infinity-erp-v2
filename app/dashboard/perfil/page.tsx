@@ -27,6 +27,7 @@ import { ConsultantAvailabilityPanel } from '@/components/booking/consultant-ava
 import { cn } from '@/lib/utils'
 import { createClient as createBrowserSupabase } from '@/lib/supabase/client'
 import { useImageCompress } from '@/hooks/use-image-compress'
+import { DeviceNotificationsControl } from '@/components/notifications/device-notifications-control'
 
 const TABS = [
   { key: 'geral' as const, label: 'Geral', icon: User },
@@ -258,6 +259,9 @@ export default function PerfilPage() {
           </div>
         </div>
       </Card>
+
+      {/* Atalho: notificações do dispositivo */}
+      <DeviceNotificationsControl />
 
       {/* Pill Navigation — selected: text only · others: icon only · centered */}
       <div className="flex justify-center">

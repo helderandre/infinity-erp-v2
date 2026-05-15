@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils'
 import { useUser } from '@/hooks/use-user'
 import { toast } from 'sonner'
 import type { Notification, NotificationType } from '@/lib/notifications/types'
+import { DeviceNotificationsControl } from '@/components/notifications/device-notifications-control'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -431,17 +432,20 @@ export default function NotificacoesPage() {
             </p>
           </div>
         </div>
-        {unreadCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMarkAllAsRead}
-            className="gap-1.5 text-xs"
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
-            Marcar tudo como lido
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <DeviceNotificationsControl variant="compact" />
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              className="gap-1.5 text-xs"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              Marcar tudo como lido
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Filters ── */}
