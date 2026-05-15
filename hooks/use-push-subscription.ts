@@ -46,6 +46,20 @@ export function usePushSubscription() {
       // Register service worker
       const reg = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
+      console.log('[Push] SW ready')
+
+      // iOS PWA: PushManager keeps stale subscriptions in local cache even
+      // after the row is removed server-side. Calling subscribe() while a
+      // stale one is alive throws InvalidStateError. Wipe it first.
+      try {
+        const existing = await reg.pushManager.getSubscription()
+        if (existing) {
+          console.log('[Push] Clearing stale local subscription')
+          await existing.unsubscribe()
+        }
+      } catch (err) {
+        console.warn('[Push] Failed to clear stale subscription:', err)
+      }
 
       // Subscribe to push
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -58,6 +72,7 @@ export function usePushSubscription() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
       })
+      console.log('[Push] pushManager.subscribe ok', subscription.endpoint.slice(0, 60))
 
       // Send to server
       const res = await fetch('/api/push/subscribe', {
@@ -67,12 +82,15 @@ export function usePushSubscription() {
       })
 
       if (res.ok) {
+        console.log('[Push] Server stored subscription')
         setIsSubscribed(true)
         return true
       }
+      const body = await res.text().catch(() => '')
+      console.error('[Push] Server rejected subscription:', res.status, body)
       return false
     } catch (err) {
-      console.error('[Push] Subscribe error:', err)
+      console.error('[Push] Subscribe error:', err instanceof Error ? `${err.name}: ${err.message}` : err)
       return false
     } finally {
       setIsLoading(false)
