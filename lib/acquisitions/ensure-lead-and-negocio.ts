@@ -149,6 +149,10 @@ export async function ensureLeadAndNegocioForAcquisition(
     negocioInsert.preco_venda = property.listing_price || null
   }
 
+  // Seed denormalized `expected_value` (kanban card + commission totals).
+  const { deriveExpectedValue } = await import('@/lib/crm/derive-expected-value')
+  negocioInsert.expected_value = deriveExpectedValue(negocioInsert)
+
   const { data: newNegocio, error: negocioErr } = await supabase
     .from('negocios')
     .insert(negocioInsert)

@@ -5,6 +5,7 @@ import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
+import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
 
 export async function GET(request: Request) {
   try {
@@ -215,6 +216,15 @@ export async function POST(request: Request) {
         ;(insertPayload as Record<string, unknown>).referral_pct =
           inheritedReferral.referral_pct
       }
+    }
+
+    // Seed `expected_value` from the price fields supplied so new négocios
+    // start in sync with the kanban card / commission totals. Caller-supplied
+    // explicit value wins.
+    if ((insertPayload as { expected_value?: unknown }).expected_value === undefined) {
+      ;(insertPayload as Record<string, unknown>).expected_value = deriveExpectedValue(
+        insertPayload as Record<string, unknown>,
+      )
     }
 
     const { data: negocio, error } = await supabase

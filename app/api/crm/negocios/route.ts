@@ -9,6 +9,7 @@ import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
+import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
 
 export async function GET(request: Request) {
   try {
@@ -180,6 +181,12 @@ export async function POST(request: Request) {
       input.assigned_consultant_id ?? null,
     )
 
+    // Seed `expected_value` from the price fields the caller supplied so new
+    // négocios start in sync with the kanban card / commission totals.
+    // Caller-supplied `expected_value` wins.
+    const seededExpectedValue =
+      input.expected_value ?? deriveExpectedValue(input as Record<string, unknown>)
+
     const { data, error } = await supabase
       .from('negocios')
       .insert({
@@ -191,6 +198,7 @@ export async function POST(request: Request) {
               referral_pct: inheritedReferral.referral_pct,
             }
           : {}),
+        expected_value: seededExpectedValue,
         stage_entered_at: new Date().toISOString(),
       })
       .select(

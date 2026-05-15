@@ -5,6 +5,10 @@ import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import { requireAuth } from '@/lib/auth/permissions'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
+import {
+  deriveExpectedValue,
+  patchTouchesExpectedValueSources,
+} from '@/lib/crm/derive-expected-value'
 
 export async function GET(
   _request: Request,
@@ -107,6 +111,26 @@ export async function PUT(
           updatePayload.lost_date = new Date().toISOString()
           updatePayload.won_date = null
         }
+      }
+    }
+
+    // Recompute denormalized `expected_value` whenever the caller touches
+    // a source field (tipo, preco_venda, orcamento, orcamento_max,
+    // renda_pretendida, renda_max_mensal). The kanban card + commission
+    // totals prefer this column, so leaving it stale shows the old price.
+    // Skipped if caller already supplied an explicit `expected_value`.
+    if (
+      updatePayload.expected_value === undefined &&
+      patchTouchesExpectedValueSources(updatePayload)
+    ) {
+      const { data: current } = await supabase
+        .from('negocios')
+        .select('tipo, preco_venda, orcamento, orcamento_max, renda_pretendida, renda_max_mensal')
+        .eq('id', id)
+        .single()
+      if (current) {
+        const merged = { ...current, ...updatePayload } as Record<string, unknown>
+        updatePayload.expected_value = deriveExpectedValue(merged)
       }
     }
 

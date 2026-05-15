@@ -5,6 +5,10 @@ import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
+import {
+  deriveExpectedValue,
+  patchTouchesExpectedValueSources,
+} from '@/lib/crm/derive-expected-value'
 import type { Database } from '@/types/database'
 
 type NegocioUpdate = Database['public']['Tables']['negocios']['Update']
@@ -115,7 +119,7 @@ export async function PUT(
 
     const { data: existing } = await supabase
       .from('negocios')
-      .select('lead_id, assigned_consultant_id')
+      .select('lead_id, assigned_consultant_id, tipo, preco_venda, orcamento, orcamento_max, renda_pretendida, renda_max_mensal')
       .eq('id', id)
       .maybeSingle()
 
@@ -124,6 +128,21 @@ export async function PUT(
       if (!existing || (existing as any).assigned_consultant_id !== auth.user.id) {
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }
+    }
+
+    // Recompute denormalized `expected_value` whenever a source field is
+    // touched (tipo, preco_venda, orcamento*, renda_*). Caller-supplied
+    // explicit value wins.
+    if (
+      existing &&
+      (updateData as Record<string, unknown>).expected_value === undefined &&
+      patchTouchesExpectedValueSources(updateData as Record<string, unknown>)
+    ) {
+      const merged = {
+        ...(existing as Record<string, unknown>),
+        ...(updateData as Record<string, unknown>),
+      }
+      ;(updateData as Record<string, unknown>).expected_value = deriveExpectedValue(merged)
     }
 
     const { error } = await supabase
