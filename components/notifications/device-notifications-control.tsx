@@ -33,12 +33,9 @@ export function DeviceNotificationsControl({
     }
 
     if (next) {
-      const result = await subscribe()
-      if (result.ok) {
-        toast.success('Notificações activadas neste dispositivo.')
-      } else {
-        toast.error(result.message)
-      }
+      const ok = await subscribe()
+      if (ok) toast.success('Notificações activadas neste dispositivo.')
+      else toast.error('Não foi possível activar as notificações.')
     } else {
       await unsubscribe()
       toast.success('Notificações desactivadas neste dispositivo.')

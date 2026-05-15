@@ -4,21 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 
 type PushPermission = 'default' | 'granted' | 'denied' | 'unsupported'
 
-export type SubscribeResult =
-  | { ok: true }
-  | {
-      ok: false
-      reason:
-        | 'unsupported'
-        | 'denied'
-        | 'permission-not-granted'
-        | 'missing-vapid'
-        | 'sw-failed'
-        | 'subscribe-failed'
-        | 'server-failed'
-      message: string
-    }
-
 export function usePushSubscription() {
   const [permission, setPermission] = useState<PushPermission>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -39,89 +24,31 @@ export function usePushSubscription() {
     })
   }, [])
 
-  const subscribe = useCallback(async (): Promise<SubscribeResult> => {
-    if (permission === 'unsupported') {
-      return { ok: false, reason: 'unsupported', message: 'Este dispositivo não suporta notificações push.' }
-    }
-    if (permission === 'denied') {
-      return { ok: false, reason: 'denied', message: 'As notificações estão bloqueadas nas definições do navegador.' }
-    }
+  const subscribe = useCallback(async () => {
+    if (permission === 'unsupported' || permission === 'denied') return false
     setIsLoading(true)
 
     try {
       // Register service worker
-      let reg: ServiceWorkerRegistration
-      try {
-        reg = await navigator.serviceWorker.register('/sw.js')
-        await navigator.serviceWorker.ready
-      } catch (err) {
-        console.error('[Push] Service worker registration failed:', err)
-        return { ok: false, reason: 'sw-failed', message: 'Não foi possível registar o service worker.' }
-      }
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      await navigator.serviceWorker.ready
 
       // Request permission
       const perm = await Notification.requestPermission()
       setPermission(perm as PushPermission)
-      if (perm !== 'granted') {
-        return {
-          ok: false,
-          reason: 'permission-not-granted',
-          message: perm === 'denied'
-            ? 'Permissão negada. Desbloqueie nas definições do navegador.'
-            : 'Permissão não concedida.',
-        }
-      }
+      if (perm !== 'granted') return false
 
       // Subscribe to push
-      const vapidKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '').trim()
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidKey) {
         console.warn('[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY not set')
-        return {
-          ok: false,
-          reason: 'missing-vapid',
-          message: 'Configuração de push em falta no servidor (VAPID key).',
-        }
+        return false
       }
 
-      // Validate the key client-side BEFORE handing to PushManager so we can
-      // give a meaningful error if the env var was truncated/mis-copied.
-      let keyBytes: Uint8Array
-      try {
-        keyBytes = urlBase64ToUint8Array(vapidKey)
-      } catch (err) {
-        console.error('[Push] VAPID key not valid base64url:', err)
-        return {
-          ok: false,
-          reason: 'missing-vapid',
-          message: 'VAPID key inválida (base64 mal-formada).',
-        }
-      }
-      if (keyBytes.length !== 65 || keyBytes[0] !== 0x04) {
-        console.error('[Push] VAPID key wrong shape:', {
-          length: keyBytes.length,
-          firstByte: keyBytes[0]?.toString(16),
-        })
-        return {
-          ok: false,
-          reason: 'missing-vapid',
-          message: `VAPID key inválida (${keyBytes.length} bytes, esperados 65). Verifique a env em produção e refaça o build.`,
-        }
-      }
-
-      let subscription: PushSubscription
-      try {
-        subscription = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: keyBytes as BufferSource,
-        })
-      } catch (err) {
-        console.error('[Push] pushManager.subscribe failed:', err)
-        return {
-          ok: false,
-          reason: 'subscribe-failed',
-          message: err instanceof Error ? err.message : 'Falha ao subscrever push.',
-        }
-      }
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+      })
 
       // Send to server
       const res = await fetch('/api/push/subscribe', {
@@ -132,22 +59,12 @@ export function usePushSubscription() {
 
       if (res.ok) {
         setIsSubscribed(true)
-        return { ok: true }
+        return true
       }
-
-      const body = await res.json().catch(() => ({}))
-      return {
-        ok: false,
-        reason: 'server-failed',
-        message: body?.error || 'Falha ao registar subscrição no servidor.',
-      }
+      return false
     } catch (err) {
       console.error('[Push] Subscribe error:', err)
-      return {
-        ok: false,
-        reason: 'subscribe-failed',
-        message: err instanceof Error ? err.message : 'Erro inesperado.',
-      }
+      return false
     } finally {
       setIsLoading(false)
     }
