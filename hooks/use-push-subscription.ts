@@ -73,7 +73,7 @@ export function usePushSubscription() {
       }
 
       // Subscribe to push
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      const vapidKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '').trim()
       if (!vapidKey) {
         console.warn('[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY not set')
         return {
@@ -83,11 +83,36 @@ export function usePushSubscription() {
         }
       }
 
+      // Validate the key client-side BEFORE handing to PushManager so we can
+      // give a meaningful error if the env var was truncated/mis-copied.
+      let keyBytes: Uint8Array
+      try {
+        keyBytes = urlBase64ToUint8Array(vapidKey)
+      } catch (err) {
+        console.error('[Push] VAPID key not valid base64url:', err)
+        return {
+          ok: false,
+          reason: 'missing-vapid',
+          message: 'VAPID key inválida (base64 mal-formada).',
+        }
+      }
+      if (keyBytes.length !== 65 || keyBytes[0] !== 0x04) {
+        console.error('[Push] VAPID key wrong shape:', {
+          length: keyBytes.length,
+          firstByte: keyBytes[0]?.toString(16),
+        })
+        return {
+          ok: false,
+          reason: 'missing-vapid',
+          message: `VAPID key inválida (${keyBytes.length} bytes, esperados 65). Verifique a env em produção e refaça o build.`,
+        }
+      }
+
       let subscription: PushSubscription
       try {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+          applicationServerKey: keyBytes as BufferSource,
         })
       } catch (err) {
         console.error('[Push] pushManager.subscribe failed:', err)
