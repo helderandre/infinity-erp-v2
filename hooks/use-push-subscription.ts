@@ -49,11 +49,38 @@ export function usePushSubscription() {
     }
     setPermission(Notification.permission as PushPermission)
 
-    // Check if already subscribed
-    navigator.serviceWorker.ready.then(reg => {
-      reg.pushManager.getSubscription().then(sub => {
-        setIsSubscribed(!!sub)
-      })
+    // Check if already subscribed AND key matches. After a VAPID key rotation
+    // the cached PushSubscription remains in the browser, but pushes signed
+    // with the new key would be rejected by the provider. Detect the mismatch
+    // and treat as not-subscribed so the user can re-activate.
+    navigator.serviceWorker.ready.then(async (reg) => {
+      const sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        setIsSubscribed(false)
+        return
+      }
+      try {
+        const currentKey = await resolveVapidKey()
+        if (!currentKey) {
+          setIsSubscribed(true) // can't verify; trust local
+          return
+        }
+        const expected = urlBase64ToUint8Array(currentKey)
+        const raw = sub.options.applicationServerKey
+        const actual = raw ? new Uint8Array(raw as ArrayBuffer) : new Uint8Array(0)
+        const matches = expected.length === actual.length &&
+          expected.every((b, i) => b === actual[i])
+        if (matches) {
+          setIsSubscribed(true)
+        } else {
+          console.warn('[Push] Local subscription uses stale VAPID key; clearing')
+          try { await sub.unsubscribe() } catch {}
+          setIsSubscribed(false)
+        }
+      } catch (err) {
+        console.warn('[Push] Key compare failed, trusting local subscription:', err)
+        setIsSubscribed(true)
+      }
     })
   }, [])
 

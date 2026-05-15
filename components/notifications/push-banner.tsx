@@ -14,8 +14,14 @@ export function PushBanner() {
   const [dismissed, setDismissed] = useState(true) // default hidden
 
   useEffect(() => {
-    // Show only if: not subscribed, not denied, not dismissed before
-    if (permission === 'unsupported' || permission === 'denied' || isSubscribed) return
+    // Hide once we know push is already active OR unsupported/denied. The
+    // initial render shows nothing (default dismissed=true), and the async
+    // SW.getSubscription() may flip isSubscribed→true after mount; in that
+    // case we must explicitly re-hide.
+    if (permission === 'unsupported' || permission === 'denied' || isSubscribed) {
+      setDismissed(true)
+      return
+    }
     const wasDismissed = localStorage.getItem('push_banner_dismissed')
     if (!wasDismissed) setDismissed(false)
   }, [permission, isSubscribed])
@@ -51,7 +57,13 @@ export function PushBanner() {
       >
         Ativar
       </Button>
-      <button onClick={handleDismiss} className="p-1 rounded-full hover:bg-muted transition-colors">
+      <button
+        type="button"
+        onClick={handleDismiss}
+        aria-label="Dispensar"
+        title="Dispensar"
+        className="p-1 rounded-full hover:bg-muted transition-colors"
+      >
         <X className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
     </div>
