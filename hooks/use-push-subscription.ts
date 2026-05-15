@@ -19,6 +19,24 @@ function logRemote(stage: string, payload?: unknown) {
   }
 }
 
+// Resolve the VAPID public key at runtime via API.
+// Avoids the build-time inlining pitfall of NEXT_PUBLIC_* vars: if the build
+// environment didn't have the env, the bundle ships with `undefined` forever.
+// Falls back to the bundle-inlined env for local dev.
+// To revert: replace caller with `const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY`.
+async function resolveVapidKey(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/push/public-key', { cache: 'force-cache' })
+    if (res.ok) {
+      const body = (await res.json()) as { key?: string | null }
+      if (body.key) return body.key
+    }
+  } catch {
+    // swallow — try bundle fallback
+  }
+  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null
+}
+
 export function usePushSubscription() {
   const [permission, setPermission] = useState<PushPermission>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -102,10 +120,10 @@ export function usePushSubscription() {
         })
       }
 
-      // Subscribe to push
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      // Subscribe to push — VAPID key fetched at runtime (see resolveVapidKey)
+      const vapidKey = await resolveVapidKey()
       if (!vapidKey) {
-        console.warn('[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY not set')
+        console.warn('[Push] VAPID public key not available at runtime')
         logRemote('vapid.missing', null)
         return false
       }
