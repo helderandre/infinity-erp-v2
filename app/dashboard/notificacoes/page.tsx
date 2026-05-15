@@ -418,12 +418,12 @@ export default function NotificacoesPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
             <Bell className="h-5 w-5 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-xl font-bold tracking-tight">Notificações</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               {unreadCount > 0
@@ -432,7 +432,7 @@ export default function NotificacoesPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DeviceNotificationsControl variant="compact" />
           {unreadCount > 0 && (
             <Button
@@ -467,7 +467,7 @@ export default function NotificacoesPage() {
         </Tabs>
 
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[190px] h-9 text-xs">
+          <SelectTrigger className="w-full sm:w-[190px] h-9 text-xs">
             <Filter className="mr-1.5 h-3 w-3 text-muted-foreground" />
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>

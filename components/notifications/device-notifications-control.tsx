@@ -33,9 +33,12 @@ export function DeviceNotificationsControl({
     }
 
     if (next) {
-      const ok = await subscribe()
-      if (ok) toast.success('Notificações activadas neste dispositivo.')
-      else toast.error('Não foi possível activar as notificações.')
+      const result = await subscribe()
+      if (result.ok) {
+        toast.success('Notificações activadas neste dispositivo.')
+      } else {
+        toast.error(result.message)
+      }
     } else {
       await unsubscribe()
       toast.success('Notificações desactivadas neste dispositivo.')
@@ -75,7 +78,7 @@ export function DeviceNotificationsControl({
 
   return (
     <Card className={className}>
-      <CardContent className="flex items-center gap-4 py-4">
+      <CardContent className="flex items-center gap-4">
         <div
           className={cn(
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',

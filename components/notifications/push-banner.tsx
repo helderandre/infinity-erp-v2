@@ -21,8 +21,8 @@ export function PushBanner() {
   }, [permission, isSubscribed])
 
   const handleEnable = async () => {
-    const ok = await subscribe()
-    if (ok) {
+    const result = await subscribe()
+    if (result.ok) {
       setDismissed(true)
       localStorage.setItem('push_banner_dismissed', '1')
     }
