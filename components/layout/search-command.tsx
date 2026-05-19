@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SearchIcon } from 'lucide-react'
+import { SearchIcon, Building2, FileSearch } from 'lucide-react'
 import {
   CommandDialog,
   Command,
@@ -19,11 +19,20 @@ import {
 } from '@/components/ui/input-group'
 import { usePermissions } from '@/hooks/use-permissions'
 import { menuItems, builderItems } from './app-sidebar'
+import { parsePriceInput, formatPriceShort } from '@/lib/search/parse-price'
 
 export function SearchCommand() {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const router = useRouter()
   const { hasPermission } = usePermissions()
+
+  // Reset query on open/close to avoid surfacing stale price shortcuts.
+  useEffect(() => { if (!open) setQuery('') }, [open])
+
+  // Intent: typing a price like "300000", "300k" or "300 000 €" surfaces
+  // quick-action shortcuts to filter Imóveis and Processos by max price.
+  const parsedPrice = useMemo(() => parsePriceInput(query), [query])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -99,10 +108,58 @@ export function SearchCommand() {
         title="Pesquisar páginas"
         description="Pesquise e navegue rapidamente para qualquer página."
       >
-        <Command>
-          <CommandInput placeholder="Pesquisar páginas..." />
+        <Command shouldFilter={!parsedPrice}>
+          <CommandInput
+            placeholder="Pesquisar páginas ou escrever um preço..."
+            value={query}
+            onValueChange={setQuery}
+          />
           <CommandList>
             <CommandEmpty>Nenhuma página encontrada.</CommandEmpty>
+            {parsedPrice !== null && (
+              <CommandGroup heading={`Filtrar por preço (${formatPriceShort(parsedPrice)})`}>
+                {hasPermission('properties' as any) && (
+                  <>
+                    <CommandItem
+                      value={`__price_imoveis_max_${parsedPrice}`}
+                      onSelect={() => handleSelect(`/dashboard/imoveis?price_max=${parsedPrice}`)}
+                    >
+                      <Building2 className="size-4 shrink-0" />
+                      <span>Imóveis até {formatPriceShort(parsedPrice)}</span>
+                      <CommandShortcut>price_max</CommandShortcut>
+                    </CommandItem>
+                    <CommandItem
+                      value={`__price_imoveis_min_${parsedPrice}`}
+                      onSelect={() => handleSelect(`/dashboard/imoveis?price_min=${parsedPrice}`)}
+                    >
+                      <Building2 className="size-4 shrink-0" />
+                      <span>Imóveis a partir de {formatPriceShort(parsedPrice)}</span>
+                      <CommandShortcut>price_min</CommandShortcut>
+                    </CommandItem>
+                  </>
+                )}
+                {hasPermission('processes' as any) && (
+                  <>
+                    <CommandItem
+                      value={`__price_processos_max_${parsedPrice}`}
+                      onSelect={() => handleSelect(`/dashboard/processos?price_max=${parsedPrice}`)}
+                    >
+                      <FileSearch className="size-4 shrink-0" />
+                      <span>Processos até {formatPriceShort(parsedPrice)}</span>
+                      <CommandShortcut>price_max</CommandShortcut>
+                    </CommandItem>
+                    <CommandItem
+                      value={`__price_processos_min_${parsedPrice}`}
+                      onSelect={() => handleSelect(`/dashboard/processos?price_min=${parsedPrice}`)}
+                    >
+                      <FileSearch className="size-4 shrink-0" />
+                      <span>Processos a partir de {formatPriceShort(parsedPrice)}</span>
+                      <CommandShortcut>price_min</CommandShortcut>
+                    </CommandItem>
+                  </>
+                )}
+              </CommandGroup>
+            )}
             <CommandGroup heading="Menu Principal">
               {visibleMenuItems.map((item) => (
                 <CommandItem

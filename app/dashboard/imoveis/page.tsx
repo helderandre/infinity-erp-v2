@@ -54,6 +54,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
+import { PriceSearchHint } from '@/components/shared/price-search-hint'
 import { useDebounce } from '@/hooks/use-debounce'
 import { usePersistentState } from '@/hooks/use-persistent-filters'
 import { useUser } from '@/hooks/use-user'
@@ -331,6 +332,24 @@ function ImoveisPageContent() {
   const [selectedConsultants, setSelectedConsultants] = usePersistentState<string[]>('imoveis-filter-consultants-multi', [])
   const [priceMin, setPriceMin] = usePersistentState('imoveis-filter-price-min', searchParams.get('price_min') || '')
   const [priceMax, setPriceMax] = usePersistentState('imoveis-filter-price-max', searchParams.get('price_max') || '')
+
+  // Allow deep-links (e.g. from the global search command typing a price) to
+  // override the persisted filter. When ?price_min / ?price_max appear in the
+  // URL, sync them into state and strip from the URL so subsequent navigation
+  // doesn't re-apply.
+  useEffect(() => {
+    const urlMin = searchParams.get('price_min')
+    const urlMax = searchParams.get('price_max')
+    if (urlMin === null && urlMax === null) return
+    if (urlMin !== null) setPriceMin(urlMin)
+    if (urlMax !== null) setPriceMax(urlMax)
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('price_min')
+    next.delete('price_max')
+    const q = next.toString()
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   const [bedroomsMin, setBedroomsMin] = usePersistentState('imoveis-filter-bedrooms-min', searchParams.get('bedrooms_min') || '')
   const [bathroomsMin, setBathroomsMin] = usePersistentState('imoveis-filter-bathrooms-min', '')
   const [areaUtilMin, setAreaUtilMin] = usePersistentState('imoveis-filter-area-util-min', '')
@@ -780,11 +799,20 @@ function ImoveisPageContent() {
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por título, ref, cidade..."
+            placeholder="Pesquisar por título, ref, cidade ou preço..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 rounded-full"
           />
+          {/* When the typed query looks like a price, surface inline shortcuts
+              to apply it as a price filter instead of running a text search. */}
+          <div className="absolute left-3 top-full mt-1.5 z-10">
+            <PriceSearchHint
+              query={search}
+              onApplyMax={(p) => { setPriceMax(String(p)); setSearch('') }}
+              onApplyMin={(p) => { setPriceMin(String(p)); setSearch('') }}
+            />
+          </div>
         </div>
 
         {/* "Os meus imóveis" — visível em mobile e desktop, fora dos filtros. */}

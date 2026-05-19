@@ -30,9 +30,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, Handshake, LayoutList, LayoutGrid, List, Download, Activity } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
+import { PriceSearchHint } from '@/components/shared/price-search-hint'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS } from '@/lib/constants'
@@ -140,6 +141,13 @@ const STATUS_TABS = [
 
 export default function ProcessosPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const priceMin = searchParams.get('price_min')
+  const priceMax = searchParams.get('price_max')
+  const priceMinNum = priceMin ? Number(priceMin) : null
+  const priceMaxNum = priceMax ? Number(priceMax) : null
+  const hasPriceFilter = (priceMinNum !== null && Number.isFinite(priceMinNum)) || (priceMaxNum !== null && Number.isFinite(priceMaxNum))
   // Página índice acessível a todos com permissão `processes`. A API filtra
   // server-side para mostrar apenas os processos do próprio consultor
   // (gestão vê todos).
@@ -332,13 +340,47 @@ export default function ProcessosPage() {
     return acc
   }, {} as Record<string, number>)
 
-  // Client-side status filter applied on top of the fetched set. A CSV value
-  // (e.g. ACTIVE_SET) matches any of its members.
+  // Client-side status + price filter applied on top of the fetched set. A
+  // CSV status value (e.g. ACTIVE_SET) matches any of its members. Price
+  // filter compares against the related property's listing_price.
   const filteredProcesses = useMemo(() => {
-    if (!statusFilter) return processes
-    const allowed = new Set(statusFilter.split(',').map((s) => s.trim()).filter(Boolean))
-    return processes.filter((p: any) => allowed.has(p.current_status))
-  }, [processes, statusFilter])
+    let rows = processes
+    if (statusFilter) {
+      const allowed = new Set(statusFilter.split(',').map((s) => s.trim()).filter(Boolean))
+      rows = rows.filter((p: any) => allowed.has(p.current_status))
+    }
+    if (priceMinNum !== null && Number.isFinite(priceMinNum)) {
+      rows = rows.filter((p: any) => {
+        const price = Number(p.dev_properties?.listing_price)
+        return Number.isFinite(price) && price >= priceMinNum
+      })
+    }
+    if (priceMaxNum !== null && Number.isFinite(priceMaxNum)) {
+      rows = rows.filter((p: any) => {
+        const price = Number(p.dev_properties?.listing_price)
+        return Number.isFinite(price) && price <= priceMaxNum
+      })
+    }
+    return rows
+  }, [processes, statusFilter, priceMinNum, priceMaxNum])
+
+  const clearPriceFilter = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.delete('price_min')
+    next.delete('price_max')
+    const q = next.toString()
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+  }, [router, pathname, searchParams])
+
+  const applyPriceFilter = useCallback((key: 'price_min' | 'price_max', value: number) => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.set(key, String(value))
+    // Apply only one bound at a time — clearing the other so a user that
+    // types a new price gets a fresh single-bound filter, not an AND of two.
+    next.delete(key === 'price_min' ? 'price_max' : 'price_min')
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+    setSearch('')
+  }, [router, pathname, searchParams])
 
   const TYPE_PILLS = [
     { key: 'all', label: 'Todos', icon: LayoutList },
@@ -357,6 +399,26 @@ export default function ProcessosPage() {
             <p className="text-neutral-400 text-sm">
               {filteredProcesses.length} processo{filteredProcesses.length !== 1 ? 's' : ''}
             </p>
+            {hasPriceFilter && (
+              <button
+                type="button"
+                onClick={clearPriceFilter}
+                className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/15 transition-colors px-2.5 py-1 text-[11px] text-white/90 border border-white/15"
+                aria-label="Limpar filtro de preço"
+              >
+                <span>
+                  Preço{' '}
+                  {priceMinNum !== null && Number.isFinite(priceMinNum)
+                    ? `desde ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(priceMinNum)}`
+                    : null}
+                  {priceMinNum !== null && priceMaxNum !== null ? ' ' : null}
+                  {priceMaxNum !== null && Number.isFinite(priceMaxNum)
+                    ? `até ${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(priceMaxNum)}`
+                    : null}
+                </span>
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {/* View toggle — desktop only */}
@@ -428,11 +490,18 @@ export default function ProcessosPage() {
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por referência, imóvel..."
+            placeholder="Pesquisar por referência, imóvel ou preço..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 rounded-full"
           />
+          <div className="absolute left-3 top-full mt-1.5 z-10">
+            <PriceSearchHint
+              query={search}
+              onApplyMax={(p) => applyPriceFilter('price_max', p)}
+              onApplyMin={(p) => applyPriceFilter('price_min', p)}
+            />
+          </div>
         </div>
         {TYPE_PILLS.map((pill) => {
           const Icon = pill.icon
