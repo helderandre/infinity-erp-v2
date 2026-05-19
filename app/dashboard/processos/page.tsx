@@ -1,13 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
-import { PageSidebar, type PageSidebarAction } from '@/components/shared/page-sidebar'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,14 +28,14 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, Handshake, LayoutList, LayoutGrid, List, Download } from 'lucide-react'
+import { FileText, FileEdit, Plus, Search, Building2, MapPin, MoreVertical, Trash2, X, CheckSquare, FileSearch, Handshake, LayoutList, LayoutGrid, List, Download, Activity } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { peekPrefill, clearPrefill } from '@/lib/voice/prefill'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS, PROCESS_TYPES } from '@/lib/constants'
+import { BUSINESS_TYPES, PROPERTY_TYPES, PROCESS_STATUS } from '@/lib/constants'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
@@ -122,7 +121,12 @@ function ProcessDropdownMenu({ isDraft, canDelete, selectionMode, onResumeDraft,
   )
 }
 
+/** Estados considerados "a decorrer" — tudo o que está vivo, excluindo
+ *  terminais (concluído, rejeitado, cancelado) e pausados. */
+const ACTIVE_SET = 'draft,pending_approval,returned,active'
+
 const STATUS_TABS = [
+  { value: ACTIVE_SET, label: 'A decorrer' },
   { value: '', label: 'Todos' },
   { value: 'draft', label: 'Rascunhos' },
   { value: 'pending_approval', label: 'Pendentes' },
@@ -147,7 +151,7 @@ export default function ProcessosPage() {
   const [processes, setProcesses] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>(ACTIVE_SET)
   const [activeType, setActiveType] = useState<string>('all')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [processToDelete, setProcessToDelete] = useState<any>(null)
@@ -174,7 +178,10 @@ export default function ProcessosPage() {
     try {
       const params = new URLSearchParams()
       if (debouncedSearch) params.set('search', debouncedSearch)
-      if (statusFilter) params.set('status', statusFilter)
+      // Status filter is applied client-side so the per-tab counts (Todos /
+      // Rascunhos / Em Andamento / etc.) reflect the actual numbers instead
+      // of being bounded by the active filter. Search + type are still
+      // server-side because they reduce the dataset.
       if (activeType !== 'all') params.set('process_type', activeType)
 
       const res = await fetch(`/api/processes?${params.toString()}`)
@@ -188,7 +195,7 @@ export default function ProcessosPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, statusFilter, activeType])
+  }, [debouncedSearch, activeType])
 
   const handleDeleteProcess = async () => {
     if (!processToDelete) return
@@ -223,9 +230,10 @@ export default function ProcessosPage() {
   }
 
   const toggleSelectAll = () => {
-    // Só seleccionamos linhas que o utilizador pode efectivamente eliminar.
-    // Para gestão isto inclui tudo; para consultor, só os seus rascunhos.
-    const deletableIds = processes
+    // Só seleccionamos linhas visíveis (após status filter) que o utilizador
+    // pode efectivamente eliminar. Para gestão isto inclui tudo; para
+    // consultor, só os seus rascunhos.
+    const deletableIds = filteredProcesses
       .filter(
         (p) =>
           isManagement || (p.current_status === 'draft' && p.requested_by === user?.id)
@@ -316,125 +324,183 @@ export default function ProcessosPage() {
     }
   }, [])
 
-  // Count processes by status (from unfiltered data when no status filter, otherwise show current)
+  // Counts come from the FULL fetched set so per-tab numbers (Todos /
+  // Rascunhos / Em Andamento / ...) stay accurate even when a filter is
+  // narrowing the visible list.
   const statusCounts = processes.reduce((acc: Record<string, number>, proc: any) => {
     acc[proc.current_status] = (acc[proc.current_status] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
-  const TYPE_SIDEBAR_ITEMS = [
-    { key: 'all', bg: 'bg-foreground', text: 'text-background', dot: '', label: 'Todos', icon: LayoutList },
-    { ...PROCESS_TYPES.angariacao, key: 'angariacao', label: 'Angariações', icon: FileSearch },
-    { ...PROCESS_TYPES.negocio, key: 'negocio', label: 'Negócios', icon: Handshake },
-  ]
+  // Client-side status filter applied on top of the fetched set. A CSV value
+  // (e.g. ACTIVE_SET) matches any of its members.
+  const filteredProcesses = useMemo(() => {
+    if (!statusFilter) return processes
+    const allowed = new Set(statusFilter.split(',').map((s) => s.trim()).filter(Boolean))
+    return processes.filter((p: any) => allowed.has(p.current_status))
+  }, [processes, statusFilter])
 
-  const sidebarActions: PageSidebarAction[] = [
-    { key: 'templates', label: 'Gerir Templates', icon: FileText, onClick: () => router.push('/dashboard/processos/templates') },
-    { key: 'nova', label: 'Nova Angariação', icon: Plus, onClick: () => { setResumeDraftId(undefined); setDraftDialogOpen(true) } },
-    { key: 'novo-fecho', label: 'Novo Fecho', icon: Handshake, onClick: () => setShowFechoDialog(true) },
-  ]
+  const TYPE_PILLS = [
+    { key: 'all', label: 'Todos', icon: LayoutList },
+    { key: 'angariacao', label: 'Angariações', icon: FileSearch },
+    { key: 'negocio', label: 'Negócios', icon: Handshake },
+  ] as const
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Page header — full width, border bottom */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Processos</h1>
-          <p className="text-sm text-muted-foreground hidden sm:block">
-            Gestão de processos documentais
-          </p>
+    <div className="space-y-5 p-4 md:p-6">
+      {/* ═══ Hero header ═══ */}
+      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 px-6 sm:px-8 py-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+        <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Processos</h1>
+            <p className="text-neutral-400 text-sm">
+              {filteredProcesses.length} processo{filteredProcesses.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* View toggle — desktop only */}
+            <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-full bg-white/10 border border-white/15">
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  'inline-flex items-center justify-center h-7 w-7 rounded-full transition-all',
+                  viewMode === 'list' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-400 hover:text-white',
+                )}
+                title="Vista de lista"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn(
+                  'inline-flex items-center justify-center h-7 w-7 rounded-full transition-all',
+                  viewMode === 'grid' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-400 hover:text-white',
+                )}
+                title="Vista de grelha"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={() => { if (selectionMode) exitSelectionMode(); else setSelectionMode(true) }}
+              className={cn(
+                'inline-flex items-center gap-1.5 backdrop-blur-sm border px-3 py-2 rounded-full text-xs font-medium transition-colors',
+                selectionMode
+                  ? 'bg-white text-neutral-900 border-white shadow-sm'
+                  : 'bg-white/15 text-white border-white/20 hover:bg-white/25',
+              )}
+              title={selectionMode ? 'Sair da selecção' : 'Seleccionar processos'}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{selectionMode ? 'Sair' : 'Seleccionar'}</span>
+            </button>
+            <button
+              onClick={() => setExportOpen(true)}
+              className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
+              title="Exportar para CSV"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Exportar</span>
+            </button>
+            <button
+              onClick={() => setShowFechoDialog(true)}
+              className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
+              title="Novo fecho de negócio"
+            >
+              <Handshake className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Novo Fecho</span>
+            </button>
+            <button
+              onClick={() => { setResumeDraftId(undefined); setDraftDialogOpen(true) }}
+              className="inline-flex items-center gap-1.5 bg-white text-neutral-900 px-4 py-2 rounded-full text-xs font-semibold hover:bg-neutral-100 transition-colors shadow-sm"
+              title="Nova angariação"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Nova Angariação</span>
+            </button>
+          </div>
         </div>
-        {/* Mobile actions */}
-        <div className="flex sm:hidden items-center gap-2">
-          <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => setExportOpen(true)}>
-            <Download className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => { setResumeDraftId(undefined); setDraftDialogOpen(true) }}>
-            <Plus className="h-3.5 w-3.5" />
-            Angariação
-          </Button>
-          <Button size="sm" variant="outline" className="rounded-full gap-1.5" onClick={() => setShowFechoDialog(true)}>
-            <Handshake className="h-3.5 w-3.5" />
-            Fecho
-          </Button>
-        </div>
-        {/* Desktop export */}
-        <Button size="sm" variant="outline" className="hidden sm:inline-flex rounded-full gap-1.5" onClick={() => setExportOpen(true)}>
-          <Download className="h-3.5 w-3.5" />
-          Exportar
-        </Button>
       </div>
 
-      {/* Sidebar + Content */}
-      <div className="flex flex-1 min-h-0">
-        {/* Desktop sidebar */}
-        <div className="hidden sm:block">
-          <PageSidebar
-            items={TYPE_SIDEBAR_ITEMS}
-            activeKey={activeType}
-            onSelect={setActiveType}
-            actions={sidebarActions}
+      {/* ═══ Quick toolbar — search + type pills ═══ */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar por referência, imóvel..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 rounded-full"
           />
         </div>
+        {TYPE_PILLS.map((pill) => {
+          const Icon = pill.icon
+          const isActive = activeType === pill.key
+          return (
+            <Button
+              key={pill.key}
+              size="sm"
+              variant={isActive ? 'default' : 'outline'}
+              onClick={() => setActiveType(pill.key)}
+              className={cn(
+                'h-9 rounded-full text-xs gap-1.5 shrink-0',
+                isActive && 'bg-foreground text-background',
+              )}
+              aria-pressed={isActive}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{pill.label}</span>
+            </Button>
+          )
+        })}
+      </div>
 
-        {/* Main content */}
-        <div className="flex-1 min-w-0 space-y-4 p-4 md:p-6 overflow-y-auto">
-
-        {/* Mobile type filter */}
-        <div className="flex sm:hidden items-center gap-1.5 overflow-x-auto pb-1">
-          {TYPE_SIDEBAR_ITEMS.map((item) => {
-            const Icon = item.icon
-            const isActive = activeType === item.key
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveType(item.key)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors shrink-0',
-                  isActive
-                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                    : 'text-muted-foreground hover:bg-muted'
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Status filter tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+      {/* ═══ Status filter pills (horizontal scroll) ═══ */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
         {STATUS_TABS.map((tab) => {
           const isActive = statusFilter === tab.value
-          const count = tab.value === ''
+          // For comma-bundled values (e.g. "A decorrer"), count is the sum of
+          // member statuses. For single values, count is statusCounts[value].
+          const isBundle = tab.value.includes(',')
+          const count = !tab.value
             ? processes.length
-            : statusCounts[tab.value] || 0
-          const statusConfig = tab.value ? (PROCESS_STATUS as Record<string, { bg: string; text: string }>)[tab.value] : null
+            : isBundle
+              ? tab.value.split(',').reduce((acc, s) => acc + (statusCounts[s] || 0), 0)
+              : statusCounts[tab.value] || 0
+          // Bundles and "Todos" share the neutral foreground styling; specific
+          // statuses use their own colour from PROCESS_STATUS.
+          const statusConfig = tab.value && !isBundle
+            ? (PROCESS_STATUS as Record<string, { bg: string; text: string }>)[tab.value]
+            : null
+          const Icon = isBundle ? Activity : null
 
           return (
             <button
               key={tab.value}
               onClick={() => setStatusFilter(tab.value)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap',
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0',
                 isActive
                   ? statusConfig
                     ? `${statusConfig.bg} ${statusConfig.text}`
                     : 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  : 'border border-border text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
+              {Icon && <Icon className="h-3.5 w-3.5" />}
               {tab.label}
               {count > 0 && (
-                <span className={cn(
-                  'ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
-                  isActive
-                    ? statusConfig
-                      ? 'bg-background/30'
-                      : 'bg-background/20 text-background'
-                    : 'bg-muted text-muted-foreground'
-                )}>
+                <span
+                  className={cn(
+                    'ml-0.5 inline-flex items-center justify-center rounded-full px-1.5 min-w-[20px] h-5 text-[10px] font-semibold tabular-nums',
+                    isActive
+                      ? statusConfig
+                        ? 'bg-background/30'
+                        : 'bg-background/20 text-background'
+                      : 'bg-muted text-muted-foreground',
+                  )}
+                >
                   {count}
                 </span>
               )}
@@ -443,64 +509,49 @@ export default function ProcessosPage() {
         })}
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Pesquisar..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex border rounded-md">
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="rounded-r-none"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="rounded-l-none"
-            onClick={() => setViewMode('grid')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Bulk action bar */}
+      {/* ═══ Selection bar ═══ */}
       {selectionMode && (
-        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
-          <Checkbox
-            checked={selectedIds.size === processes.length}
-            onCheckedChange={toggleSelectAll}
-          />
-          <span className="text-sm font-medium">
-            {selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}
-          </span>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="ml-auto"
-            disabled={selectedIds.size === 0}
-            onClick={() => setBulkDeleteDialogOpen(true)}
-          >
-            <Trash2 className="mr-2 h-3.5 w-3.5" />
-            Eliminar ({selectedIds.size})
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={exitSelectionMode}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap rounded-2xl border border-border/60 bg-card/50 supports-[backdrop-filter]:bg-card/40 backdrop-blur-sm shadow-sm px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-2 mr-auto">
+            <span className="inline-flex items-center justify-center h-6 min-w-[1.5rem] rounded-full bg-primary/10 text-primary text-[11px] font-semibold px-2 tabular-nums">
+              {selectedIds.size}
+            </span>
+            <span className="text-sm font-medium">
+              seleccionado{selectedIds.size !== 1 ? 's' : ''}
+            </span>
+            <span className="h-4 w-px bg-border/60 mx-0.5" />
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {selectedIds.size === filteredProcesses.length
+                ? 'Desmarcar tudo'
+                : `Seleccionar tudo (${filteredProcesses.length})`}
+            </button>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={selectedIds.size === 0}
+              onClick={() => setBulkDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Eliminar
+            </Button>
+            <span className="h-5 w-px bg-border/60 mx-1" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={exitSelectionMode}
+              title="Sair da selecção"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       )}
 
@@ -551,7 +602,7 @@ export default function ProcessosPage() {
             ))}
           </div>
         )
-      ) : processes.length === 0 ? (
+      ) : filteredProcesses.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="Nenhum processo encontrado"
@@ -582,7 +633,7 @@ export default function ProcessosPage() {
                 {selectionMode && (
                   <TableHead className="w-[40px]">
                     <Checkbox
-                      checked={selectedIds.size === processes.length}
+                      checked={selectedIds.size === filteredProcesses.length}
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
@@ -598,7 +649,7 @@ export default function ProcessosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {processes.map((proc) => {
+              {filteredProcesses.map((proc) => {
                 const isDraft = proc.current_status === 'draft'
                 const isSelected = selectedIds.has(proc.id)
                 const canDeleteRow =
@@ -744,7 +795,7 @@ export default function ProcessosPage() {
         </div>
       ) : (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {processes.map((proc) => {
+          {filteredProcesses.map((proc) => {
             const isDraft = proc.current_status === 'draft'
 
             const handleCardClick = (e: React.MouseEvent) => {
@@ -1012,8 +1063,6 @@ export default function ProcessosPage() {
         endpoint="/api/export/processes"
         title="Processos"
       />
-      </div>
-      </div>
     </div>
   )
 }

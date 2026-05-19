@@ -53,12 +53,14 @@ export function StepLocation({ form }: StepLocationProps) {
         postalCode={form.watch('postal_code')}
         city={form.watch('city')}
         zone={form.watch('zone')}
+        parish={form.watch('address_parish')}
         latitude={form.watch('latitude')}
         longitude={form.watch('longitude')}
         onAddressChange={(v) => form.setValue('address_street', v, { shouldDirty: true })}
         onPostalCodeChange={(v) => form.setValue('postal_code', v, { shouldDirty: true })}
         onCityChange={(v) => form.setValue('city', v, { shouldDirty: true })}
         onZoneChange={(v) => form.setValue('zone', v, { shouldDirty: true })}
+        onParishChange={(v) => form.setValue('address_parish', v, { shouldDirty: true })}
         onLatitudeChange={(v) => form.setValue('latitude', v)}
         onLongitudeChange={(v) => form.setValue('longitude', v)}
       />

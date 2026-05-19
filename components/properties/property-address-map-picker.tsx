@@ -31,6 +31,7 @@ interface MapboxSuggestion {
     postcode?: { name: string }
     place?: { name: string }
     locality?: { name: string }
+    neighborhood?: { name: string }
     region?: { name: string }
     district?: { name: string }
     country?: { name: string }
@@ -42,12 +43,19 @@ interface AddressMapPickerProps {
   postalCode?: string
   city?: string
   zone?: string
+  /** Freguesia / address_parish. Quando indicado, é actualizada pelo
+   *  reverse-geocode/retrieve a partir de `context.locality` ou
+   *  `context.neighborhood`. */
+  parish?: string
   latitude?: number | null
   longitude?: number | null
   onAddressChange: (value: string) => void
   onPostalCodeChange: (value: string) => void
   onCityChange: (value: string) => void
   onZoneChange: (value: string) => void
+  /** Callback opcional para o campo freguesia. Quando omitido, a
+   *  freguesia não é actualizada automaticamente. */
+  onParishChange?: (value: string) => void
   onLatitudeChange: (value: number | null) => void
   onLongitudeChange: (value: number | null) => void
 }
@@ -73,12 +81,14 @@ export function PropertyAddressMapPicker({
   postalCode = '',
   city = '',
   zone = '',
+  parish = '',
   latitude = null,
   longitude = null,
   onAddressChange,
   onPostalCodeChange,
   onCityChange,
   onZoneChange,
+  onParishChange,
   onLatitudeChange,
   onLongitudeChange,
 }: AddressMapPickerProps) {
@@ -147,6 +157,16 @@ export function PropertyAddressMapPicker({
         reverseGeocode(lngLat.lng, lngLat.lat)
       })
 
+      // Click no mapa move o marcador para esse ponto e dispara o
+      // reverse-geocode — UX preferida pelo consultor (não tem de arrastar).
+      map.on('click', (e) => {
+        const { lng, lat } = e.lngLat
+        marker.setLngLat([lng, lat])
+        onLatitudeChange(lat)
+        onLongitudeChange(lng)
+        reverseGeocode(lng, lat)
+      })
+
       mapRef.current = map
       markerRef.current = marker
 
@@ -212,16 +232,16 @@ export function PropertyAddressMapPicker({
       onAddressChange(suggestion.full_address || suggestion.name)
       setQuery(suggestion.full_address || suggestion.name)
 
-      // Fill context fields
+      // Fill context fields. Mapping para a hierarquia administrativa
+      // portuguesa:
+      //   • Distrito (zone)        ← Mapbox region / district
+      //   • Concelho (city)        ← Mapbox place
+      //   • Freguesia (parish)     ← Mapbox locality / neighborhood
       if (suggestion.context?.postcode?.name) {
         onPostalCodeChange(suggestion.context.postcode.name)
       }
-      if (suggestion.context?.place?.name || suggestion.context?.locality?.name) {
-        onCityChange(
-          suggestion.context.place?.name ||
-            suggestion.context.locality?.name ||
-            ''
-        )
+      if (suggestion.context?.place?.name) {
+        onCityChange(suggestion.context.place.name)
       }
       if (suggestion.context?.region?.name || suggestion.context?.district?.name) {
         onZoneChange(
@@ -229,6 +249,11 @@ export function PropertyAddressMapPicker({
             suggestion.context.district?.name ||
             ''
         )
+      }
+      const parishFromSuggest =
+        suggestion.context?.locality?.name || suggestion.context?.neighborhood?.name
+      if (parishFromSuggest && onParishChange) {
+        onParishChange(parishFromSuggest)
       }
 
       setPopoverOpen(false)
@@ -258,11 +283,13 @@ export function PropertyAddressMapPicker({
           const ctx = feature.properties?.context
           if (ctx) {
             if (ctx.postcode?.name) onPostalCodeChange(ctx.postcode.name)
-            if (ctx.place?.name || ctx.locality?.name) {
-              onCityChange(ctx.place?.name || ctx.locality?.name || '')
-            }
+            if (ctx.place?.name) onCityChange(ctx.place.name)
             if (ctx.region?.name || ctx.district?.name) {
               onZoneChange(ctx.region?.name || ctx.district?.name || '')
+            }
+            const parishFromRetrieve = ctx.locality?.name || ctx.neighborhood?.name
+            if (parishFromRetrieve && onParishChange) {
+              onParishChange(parishFromRetrieve)
             }
           }
 
@@ -291,6 +318,7 @@ export function PropertyAddressMapPicker({
       onPostalCodeChange,
       onCityChange,
       onZoneChange,
+      onParishChange,
       onLatitudeChange,
       onLongitudeChange,
     ]
@@ -317,24 +345,33 @@ export function PropertyAddressMapPicker({
             setQuery(feature.place_name)
           }
 
-          // Extract context fields
-          const context = feature.context || []
-          for (const ctx of context) {
+          // Extract context fields — Geocoding v5 usa `id` prefixado.
+          // Mapping idêntico ao da SearchBox API.
+          let parishFromContext: string | null = null
+          for (const ctx of feature.context || []) {
             const id = ctx.id || ''
             if (id.startsWith('postcode')) {
               onPostalCodeChange(ctx.text)
-            } else if (id.startsWith('place') || id.startsWith('locality')) {
+            } else if (id.startsWith('place')) {
               onCityChange(ctx.text)
             } else if (id.startsWith('region') || id.startsWith('district')) {
               onZoneChange(ctx.text)
+            } else if (id.startsWith('locality') || id.startsWith('neighborhood')) {
+              // Prefere locality sobre neighborhood se ambos existirem.
+              if (id.startsWith('locality') || !parishFromContext) {
+                parishFromContext = ctx.text
+              }
             }
+          }
+          if (parishFromContext && onParishChange) {
+            onParishChange(parishFromContext)
           }
         }
       } catch (err) {
         console.error('Erro na geocodificação inversa:', err)
       }
     },
-    [token, onAddressChange, onPostalCodeChange, onCityChange, onZoneChange]
+    [token, onAddressChange, onPostalCodeChange, onCityChange, onZoneChange, onParishChange]
   )
 
   // --- Input Handler ---
@@ -431,8 +468,7 @@ export function PropertyAddressMapPicker({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Arraste o marcador no mapa para ajustar a localização exacta. A morada
-        será actualizada automaticamente.
+        Clica no mapa ou arrasta o marcador para ajustar a localização exacta. A morada, freguesia, concelho e distrito são actualizados automaticamente.
       </p>
     </div>
   )

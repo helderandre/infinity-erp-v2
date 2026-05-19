@@ -45,10 +45,14 @@ export async function GET(request: Request) {
       .order('updated_at', { ascending: false, nullsFirst: false })
 
     if (status) {
-      query = query.eq('current_status', status)
-    } else {
-      // By default, exclude drafts unless explicitly filtered
-      // (drafts appear only when the "Rascunhos" tab is selected)
+      // Accept comma-separated list (e.g. "draft,pending_approval,active")
+      // for tabs that bundle multiple statuses like "A decorrer".
+      const statuses = status.split(',').map((s) => s.trim()).filter(Boolean)
+      if (statuses.length === 1) {
+        query = query.eq('current_status', statuses[0])
+      } else if (statuses.length > 1) {
+        query = query.in('current_status', statuses)
+      }
     }
 
     if (processType) {
