@@ -299,18 +299,25 @@ export const TASK_STATUS = {
   },
 } as const
 
-// Tipos de Imóvel
+// Tipos de Imóvel — lista canónica partilhada entre Imóveis (form de Nova
+// Angariação + Edit Sheet) e CRM/Negócios/Contactos. Ambas as colunas
+// (`dev_properties.property_type` e `negocios.tipo_imovel`) guardam labels
+// directas — chave === valor. Opções fora desta lista (ex.: Prédio, Quinta)
+// vivem em `taxonomy_extras` (scope='property_type').
 export const PROPERTY_TYPES = {
-  apartamento: 'Apartamento',
-  moradia: 'Moradia',
-  terreno: 'Terreno',
-  escritorio: 'Escritório',
-  loja: 'Loja',
-  armazem: 'Armazém',
-  garagem: 'Garagem',
-  quintinha: 'Quintinha',
-  outro: 'Outro',
+  Apartamento: 'Apartamento',
+  Moradia: 'Moradia',
+  Terreno: 'Terreno',
+  Escritório: 'Escritório',
+  Loja: 'Loja',
+  Armazém: 'Armazém',
+  Garagem: 'Garagem',
+  Quintinha: 'Quintinha',
 } as const
+
+// Compat alias — referenciado em alguns CRM forms antes da unificação.
+// Aponta para a mesma lista canónica como array de labels.
+export const NEGOCIO_PROPERTY_TYPES: ReadonlyArray<string> = Object.keys(PROPERTY_TYPES)
 
 // Tipos de Negócio
 export const BUSINESS_TYPES = {
@@ -806,7 +813,10 @@ export const FEATURES = [
   'Suite',
 ] as const
 
-// Tipologias
+// Tipologias — lista canónica partilhada por todos os formulários (Imóveis,
+// Angariação, Negócios, Marketing). Valores fora desta lista (ex.: 'T6+',
+// 'Loft', 'Duplex') vivem em `taxonomy_extras` (scope='typology') e são
+// adicionados via "Outro…" pelos consultores.
 export const TYPOLOGIES = [
   'T0',
   'T1',
@@ -814,11 +824,7 @@ export const TYPOLOGIES = [
   'T3',
   'T4',
   'T5',
-  'T6+',
-  'Loft',
-  'Estúdio',
-  'Duplex',
-  'Triplex',
+  'T6',
 ] as const
 
 // Módulos do Sistema (para permissões)

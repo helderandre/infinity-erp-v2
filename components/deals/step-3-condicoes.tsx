@@ -11,7 +11,9 @@ import {
 } from '@/components/acquisitions/acquisition-field'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { BUSINESS_TYPES, PROPERTY_TYPES_OPTIONS, TYPOLOGY_OPTIONS } from '@/types/deal'
+import { BUSINESS_TYPES, PROPERTY_TYPES_OPTIONS } from '@/types/deal'
+import { TYPOLOGIES } from '@/lib/constants'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import type { DealFormData } from '@/lib/validations/deal'
 import type { DealScenario, BusinessType } from '@/types/deal'
 
@@ -103,12 +105,16 @@ export function StepCondicoes({ form, errors }: StepCondicoesProps) {
           <AcqFieldWrapper fullWidth isMissing={isEmpty('external_property_typology')}>
             <AcqFieldLabel required>Tipologia</AcqFieldLabel>
             <div className="mt-2">
-              <DealToggleGroup
-                value={form.watch('external_property_typology')}
+              <SelectWithOther
+                scope="typology"
+                value={form.watch('external_property_typology') || undefined}
                 onChange={(v) => form.setValue('external_property_typology', v)}
-                options={TYPOLOGY_OPTIONS.map((t) => ({ value: t, label: t }))}
-                error={errors.external_property_typology}
+                options={TYPOLOGIES.map((t) => ({ value: t, label: t }))}
+                placeholder="Seleccionar"
               />
+              {errors.external_property_typology && (
+                <p className="text-xs text-destructive mt-1">{errors.external_property_typology}</p>
+              )}
             </div>
           </AcqFieldWrapper>
 

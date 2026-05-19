@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { PropertyAddressMapPicker } from './property-address-map-picker'
 import { Spinner } from '@/components/kibo-ui/spinner'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import { cn } from '@/lib/utils'
 import {
   PROPERTY_TYPES,
@@ -330,14 +331,18 @@ export function PropertyForm({
                 <FormField control={form.control} name="property_type" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo de Imóvel *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {Object.entries(PROPERTY_TYPES).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SelectWithOther
+                        scope="property_type"
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={Object.entries(PROPERTY_TYPES)
+                          .filter(([key]) => key !== 'outro')
+                          .map(([key, label]) => ({ value: key, label }))}
+                        legacyLabels={PROPERTY_TYPES as unknown as Record<string, string>}
+                        placeholder="Seleccione..."
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

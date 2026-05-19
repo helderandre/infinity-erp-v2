@@ -16,6 +16,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { SelectWithOther } from '@/components/shared/select-with-other'
+import { NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
 import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
 import type { NegocioZone } from '@/lib/matching'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -553,19 +555,15 @@ export function NewNegocioDialog({ open, onOpenChange, onCreated, presetLeadId }
                         <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                           Tipo de Imóvel
                         </Label>
-                        <Select
+                        <SelectWithOther
+                          scope="property_type"
                           value={tipoImovel || undefined}
-                          onValueChange={(v) => setTipoImovel(v)}
-                        >
-                          <SelectTrigger className="rounded-full h-9 text-xs">
-                            <SelectValue placeholder="Qualquer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {['Apartamento', 'Moradia', 'Quinta', 'Prédio', 'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico'].map((t) => (
-                              <SelectItem key={t} value={t}>{t}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(v) => setTipoImovel(v)}
+                          options={NEGOCIO_PROPERTY_TYPES.map((t) => ({ value: t, label: t }))}
+                          placeholder="Qualquer"
+                          triggerClassName="rounded-full h-9 text-xs"
+                          inputClassName="rounded-full h-9 text-xs"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">

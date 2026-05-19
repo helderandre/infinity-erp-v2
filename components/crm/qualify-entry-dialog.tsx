@@ -12,6 +12,8 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { SelectWithOther } from '@/components/shared/select-with-other'
+import { NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
@@ -65,10 +67,6 @@ const TIPO_LABELS: Record<string, string> = {
   Senhorio:     'Senhorio',
 }
 
-const PROPERTY_TYPES = [
-  'Apartamento', 'Moradia', 'Quinta', 'Prédio',
-  'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico',
-]
 
 const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
   meta_ads: { label: 'Meta Ads', class: 'bg-blue-500/10 text-blue-600' },
@@ -504,17 +502,17 @@ export function QualifyEntryDialog({
           {/* Property type */}
           <div>
             <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Imóvel</Label>
-            <Select value={form.tipo_imovel || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, tipo_imovel: v === '_none' ? '' : v }))}>
-              <SelectTrigger className="rounded-lg mt-1 h-9 text-xs">
-                <SelectValue placeholder="Qualquer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">Qualquer</SelectItem>
-                {PROPERTY_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="mt-1">
+              <SelectWithOther
+                scope="property_type"
+                value={form.tipo_imovel || undefined}
+                onChange={(v) => setForm((p) => ({ ...p, tipo_imovel: v }))}
+                options={NEGOCIO_PROPERTY_TYPES.map((t) => ({ value: t, label: t }))}
+                placeholder="Qualquer"
+                triggerClassName="rounded-lg h-9 text-xs"
+                inputClassName="rounded-lg h-9 text-xs"
+              />
+            </div>
           </div>
 
           {/* Location */}

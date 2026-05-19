@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  NEGOCIO_TIPOS_IMOVEL,
+  PROPERTY_TYPES,
   NEGOCIO_ESTADOS_IMOVEL,
   NEGOCIO_MOTIVACOES,
   NEGOCIO_PRAZOS,
@@ -25,6 +25,7 @@ import {
   NEGOCIO_DURACOES_CONTRATO,
   LOCALIZACOES_PT,
 } from '@/lib/constants'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import { TagsInput, TagsDisplay } from '@/components/ui/tags-input'
 import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
 import { AdminAreaAutocomplete } from '@/components/negocios/zonas/admin-area-autocomplete'
@@ -380,7 +381,18 @@ export function NegocioDataCard({
               />
             </div>
           </div>
-          <SelectDisplayField label="Tipo de imóvel" value={val('tipo_imovel')} options={NEGOCIO_TIPOS_IMOVEL} onChange={(v) => onFieldChange('tipo_imovel', v)} isEditing />
+          <div className="rounded-xl border px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Tipo de imóvel</p>
+            <SelectWithOther
+              scope="property_type"
+              value={val('tipo_imovel') || undefined}
+              onChange={(v) => onFieldChange('tipo_imovel', v)}
+              options={Object.keys(PROPERTY_TYPES).map((t) => ({ value: t, label: t }))}
+              placeholder="Selecionar..."
+              triggerClassName="h-8 border-0 p-0 shadow-none focus:ring-0 text-sm font-medium"
+              inputClassName="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+            />
+          </div>
           <EditField label="Quartos mínimos" value={numVal('quartos_min')} type="number" onChange={(v) => onFieldChange('quartos_min', v ? Number(v) : null)} />
           <EditField label="Nº de WC" value={numVal('num_wc')} type="number" onChange={(v) => onFieldChange('num_wc', v ? Number(v) : null)} />
           <EditField label="Área mínima útil" value={numVal('area_min_m2')} type="number" suffix="m²" onChange={(v) => onFieldChange('area_min_m2', v ? Number(v) : null)} />
@@ -459,7 +471,18 @@ export function NegocioDataCard({
       {isEditing ? (
         <>
           <EditField label="Preço de venda" value={numVal('preco_venda')} type="number" suffix="€" onChange={(v) => onFieldChange('preco_venda', v ? Number(v) : null)} />
-          <SelectDisplayField label="Tipo de imóvel" value={val(vendaTipoField)} options={NEGOCIO_TIPOS_IMOVEL} onChange={(v) => onFieldChange(vendaTipoField, v)} isEditing />
+          <div className="rounded-xl border px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Tipo de imóvel</p>
+            <SelectWithOther
+              scope="property_type"
+              value={val(vendaTipoField) || undefined}
+              onChange={(v) => onFieldChange(vendaTipoField, v)}
+              options={Object.keys(PROPERTY_TYPES).map((t) => ({ value: t, label: t }))}
+              placeholder="Selecionar..."
+              triggerClassName="h-8 border-0 p-0 shadow-none focus:ring-0 text-sm font-medium"
+              inputClassName="h-8 border-0 p-0 shadow-none focus-visible:ring-0 text-sm font-medium"
+            />
+          </div>
           <EditField label="Quartos" value={numVal('quartos')} type="number" onChange={(v) => onFieldChange('quartos', v ? Number(v) : null)} />
           <EditField label="Casas de banho" value={numVal('casas_banho')} type="number" onChange={(v) => onFieldChange('casas_banho', v ? Number(v) : null)} />
           <EditField label="Área" value={numVal('area_m2')} type="number" suffix="m²" onChange={(v) => onFieldChange('area_m2', v ? Number(v) : null)} />

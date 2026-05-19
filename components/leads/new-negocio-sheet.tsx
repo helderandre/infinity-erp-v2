@@ -24,13 +24,10 @@ import { cn } from '@/lib/utils'
 import {
   NEGOCIO_BUSINESS_TYPES,
   NEGOCIO_PERSPECTIVAS_BY_BUSINESS_TYPE,
+  NEGOCIO_PROPERTY_TYPES,
   type NegocioBusinessType,
 } from '@/lib/constants'
-
-const PROPERTY_TYPES = [
-  'Apartamento', 'Moradia', 'Quinta', 'Prédio',
-  'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico',
-] as const
+import { SelectWithOther } from '@/components/shared/select-with-other'
 
 interface NewNegocioSheetProps {
   open: boolean
@@ -228,19 +225,15 @@ export function NewNegocioSheet({
                 </p>
                 <div className="space-y-2">
                   <Label className="text-[11px] font-medium">Tipo de Imóvel</Label>
-                  <Select
+                  <SelectWithOther
+                    scope="property_type"
                     value={tipoImovel || undefined}
-                    onValueChange={(v) => setTipoImovel(v)}
-                  >
-                    <SelectTrigger className="rounded-xl text-xs">
-                      <SelectValue placeholder="Qualquer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROPERTY_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setTipoImovel(v)}
+                    options={NEGOCIO_PROPERTY_TYPES.map((t) => ({ value: t, label: t }))}
+                    placeholder="Qualquer"
+                    triggerClassName="rounded-xl text-xs"
+                    inputClassName="rounded-xl text-xs"
+                  />
                 </div>
                 <NegocioZonasField
                   value={zonas}

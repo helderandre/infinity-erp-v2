@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { TagsInput } from '@/components/ui/tags-input'
 import {
-  NEGOCIO_TIPOS_IMOVEL,
+  PROPERTY_TYPES,
   NEGOCIO_ESTADOS_IMOVEL,
   NEGOCIO_MOTIVACOES,
   NEGOCIO_PRAZOS,
@@ -23,6 +23,7 @@ import {
   NEGOCIO_DURACOES_CONTRATO,
   LOCALIZACOES_PT,
 } from '@/lib/constants'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
 import type { NegocioZone } from '@/lib/matching'
 
@@ -189,7 +190,16 @@ export function NegocioForm({ tipo, form, updateField }: NegocioFormProps) {
     <div className="space-y-6">
       {/* Shared top fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SelectField label="Tipo de Imóvel" field="tipo_imovel" form={form} updateField={updateField} options={NEGOCIO_TIPOS_IMOVEL} />
+        <div className="space-y-2">
+          <Label>Tipo de Imóvel</Label>
+          <SelectWithOther
+            scope="property_type"
+            value={(form.tipo_imovel as string) || undefined}
+            onChange={(v) => updateField('tipo_imovel', v)}
+            options={Object.keys(PROPERTY_TYPES).map((t) => ({ value: t, label: t }))}
+            placeholder="Seleccionar"
+          />
+        </div>
         <LocationTagsField label="Localização" field="localizacao" form={form} updateField={updateField} />
       </div>
       {(isCompra || isArrendatario) && (

@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/popover'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
-import { LEAD_ORIGENS } from '@/lib/constants'
+import { LEAD_ORIGENS, NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import {
   Mic, MicOff, Loader2, Sparkles, Users,
 } from 'lucide-react'
@@ -448,17 +449,15 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
                   </p>
                   <div className="space-y-2">
                     <Label className="text-[11px] font-medium">Tipo de Imóvel</Label>
-                    <Select
+                    <SelectWithOther
+                      scope="property_type"
                       value={negocioFields.tipo_imovel || undefined}
-                      onValueChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v }))}
-                    >
-                      <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
-                      <SelectContent>
-                        {['Apartamento', 'Moradia', 'Quinta', 'Prédio', 'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico'].map((t) => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v }))}
+                      options={NEGOCIO_PROPERTY_TYPES.map((t) => ({ value: t, label: t }))}
+                      placeholder="Qualquer"
+                      triggerClassName="rounded-xl text-xs"
+                      inputClassName="rounded-xl text-xs"
+                    />
                   </div>
                   <NegocioZonasField
                     value={negocioZonas}

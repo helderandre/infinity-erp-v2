@@ -6,7 +6,8 @@ import type {
   MarketingCatalogAddon,
   CartPropertyBundle,
 } from '@/types/marketing'
-import { formatCurrency, MARKETING_CATEGORIES } from '@/lib/constants'
+import { formatCurrency, MARKETING_CATEGORIES, TYPOLOGIES } from '@/lib/constants'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import {
   Dialog,
   DialogClose,
@@ -98,7 +99,6 @@ const PROPERTY_TYPES = [
   'Outro',
 ] as const
 
-const TYPOLOGIES = ['T0', 'T1', 'T2', 'T3', 'T4', 'T5+'] as const
 
 // ---------------------------------------------------------------------------
 // Types
@@ -673,21 +673,17 @@ export function PropertyServiceDialog({
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Tipologia</Label>
-                        <Select
-                          value={propertyInfo.typology || ''}
-                          onValueChange={(v) => updateInfo('typology', v)}
-                        >
-                          <SelectTrigger className="rounded-lg mt-1 h-8 text-sm">
-                            <SelectValue placeholder="Seleccionar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TYPOLOGIES.map((t) => (
-                              <SelectItem key={t} value={t}>
-                                {t}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="mt-1">
+                          <SelectWithOther
+                            scope="typology"
+                            value={propertyInfo.typology || undefined}
+                            onChange={(v) => updateInfo('typology', v)}
+                            options={TYPOLOGIES.map((t) => ({ value: t, label: t }))}
+                            placeholder="Seleccionar"
+                            triggerClassName="rounded-lg h-8 text-sm"
+                            inputClassName="rounded-lg h-8 text-sm"
+                          />
+                        </div>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Area (m2)</Label>

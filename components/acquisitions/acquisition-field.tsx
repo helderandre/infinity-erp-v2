@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import { cn } from '@/lib/utils'
 
 /* ─── Section Header ─── */
@@ -277,6 +278,56 @@ export function AcqSelectField({
           ))}
         </SelectContent>
       </Select>
+      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+    </AcqFieldWrapper>
+  )
+}
+
+/* ─── Select Field with "Outro…" (taxonomy_extras-backed) ─────────────────
+ * Same chrome as `AcqSelectField` but the dropdown is augmented with
+ * user-contributed extras for `scope`. Picking "+ Outro…" turns the trigger
+ * into an inline input; on save the new value is added globally and selected.
+ */
+export function AcqSelectFieldWithOther({
+  label,
+  value,
+  onChange,
+  options,
+  scope,
+  legacyLabels,
+  placeholder,
+  required,
+  fullWidth,
+  error,
+  isAiFilled,
+  isMissing,
+}: {
+  label: string
+  value?: string | null
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  scope: string
+  legacyLabels?: Record<string, string>
+  placeholder?: string
+  required?: boolean
+  fullWidth?: boolean
+  error?: string
+  isAiFilled?: boolean
+  isMissing?: boolean
+}) {
+  return (
+    <AcqFieldWrapper fullWidth={fullWidth} isAiFilled={isAiFilled} isMissing={isMissing} className={cn(error && 'border-destructive')}>
+      <AcqFieldLabel required={required}>{label}</AcqFieldLabel>
+      <SelectWithOther
+        scope={scope}
+        value={value ?? undefined}
+        onChange={onChange}
+        options={options}
+        legacyLabels={legacyLabels}
+        placeholder={placeholder || 'Seleccionar...'}
+        triggerClassName="h-8 border-0 px-2 shadow-none focus:ring-0 text-sm font-medium [&>svg]:ml-2"
+        inputClassName="h-8 border-0 px-2 shadow-none focus-visible:ring-0 text-sm font-medium"
+      />
       {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </AcqFieldWrapper>
   )

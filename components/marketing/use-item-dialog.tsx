@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { MarketingOrderItem } from '@/types/marketing'
-import { MARKETING_TIME_SLOTS, MARKETING_CONTACT_RELATIONSHIPS, formatCurrency } from '@/lib/constants'
+import { MARKETING_TIME_SLOTS, MARKETING_CONTACT_RELATIONSHIPS, formatCurrency, TYPOLOGIES } from '@/lib/constants'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,6 @@ import {
 const PROPERTY_TYPES = [
   'Apartamento', 'Moradia', 'Loja', 'Terreno', 'Escritório', 'Armazém', 'Garagem', 'Outros'
 ]
-const TYPOLOGIES = ['T0', 'T1', 'T2', 'T3', 'T4', 'T5+']
 
 const useItemSchema = z.object({
   property_id: z.string().optional().nullable(),
@@ -413,15 +413,13 @@ export function UseItemDialog({ open, onOpenChange, orderItem, propertyId, prope
                   </div>
                   <div className="space-y-1.5">
                     <Label>Tipologia</Label>
-                    <Select
-                      value={form.watch('typology') || ''}
-                      onValueChange={(v) => form.setValue('typology', v)}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Tipologia" /></SelectTrigger>
-                      <SelectContent>
-                        {TYPOLOGIES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SelectWithOther
+                      scope="typology"
+                      value={form.watch('typology') || undefined}
+                      onChange={(v) => form.setValue('typology', v)}
+                      options={TYPOLOGIES.map((t) => ({ value: t, label: t }))}
+                      placeholder="Tipologia"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Área (m²)</Label>

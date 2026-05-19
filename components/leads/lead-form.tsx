@@ -11,6 +11,8 @@ import type { NegocioZone } from '@/lib/matching'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { SelectWithOther } from '@/components/shared/select-with-other'
+import { NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
@@ -77,10 +79,6 @@ const PERSPECTIVAS_BY_BT: Record<string, Array<{ value: string; label: string; i
   ],
 }
 
-const PROPERTY_TYPES = [
-  'Apartamento', 'Moradia', 'Quinta', 'Prédio',
-  'Comércio', 'Garagem', 'Terreno Urbano', 'Terreno Rústico',
-]
 
 export function LeadForm({ consultants, onSuccess, onCancel, initialValues, autoExtractText }: LeadFormProps) {
   const router = useRouter()
@@ -536,13 +534,17 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Detalhes do negócio (opcional)</p>
             <div>
               <Label className="text-[11px] text-muted-foreground font-medium">Tipo de Imóvel</Label>
-              <Select value={negocioFields.tipo_imovel || '_none'} onValueChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v === '_none' ? '' : v }))}>
-                <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">Qualquer</SelectItem>
-                  {PROPERTY_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-                </SelectContent>
-              </Select>
+              <div className="mt-1">
+                <SelectWithOther
+                  scope="property_type"
+                  value={negocioFields.tipo_imovel || undefined}
+                  onChange={(v) => setNegocioFields((p) => ({ ...p, tipo_imovel: v }))}
+                  options={NEGOCIO_PROPERTY_TYPES.map((t) => ({ value: t, label: t }))}
+                  placeholder="Qualquer"
+                  triggerClassName="rounded-lg h-9 text-xs"
+                  inputClassName="rounded-lg h-9 text-xs"
+                />
+              </div>
             </div>
             <NegocioZonasField value={negocioZonas} onChange={setNegocioZonas} tipo={negocioTipo} />
             <div className="grid grid-cols-3 gap-3">

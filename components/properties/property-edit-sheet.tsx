@@ -38,6 +38,7 @@ import {
 } from '@/lib/validations/property'
 import {
   PROPERTY_TYPES, BUSINESS_TYPES, PROPERTY_CONDITIONS, ENERGY_CERTIFICATES,
+  // Used by SelectWithOther: hardcoded options + extras for the taxonomy.
   PROPERTY_STATUS, CONTRACT_REGIMES, TYPOLOGIES, SOLAR_ORIENTATIONS, VIEWS,
   EQUIPMENT, FEATURES,
 } from '@/lib/constants'
@@ -62,6 +63,7 @@ import {
 import { useUser } from '@/hooks/use-user'
 import { ADMIN_ROLES, classifyMember } from '@/lib/auth/roles'
 import { cn } from '@/lib/utils'
+import { SelectWithOther } from '@/components/shared/select-with-other'
 import { buildPropertyDisplayLabel } from '@/lib/properties/display-label'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
@@ -425,7 +427,7 @@ export function PropertyEditSheet({
   const handleSubmit = async (values: FormValues) => {
     setSaving(true)
     try {
-      const { property: propPayload, specifications, internal } = splitPayload(values)
+      const { property: propPayload, specifications, internal } = splitPayload(values, property)
       if (isCreate) {
         const res = await fetch('/api/properties', {
           method: 'POST',
@@ -835,14 +837,18 @@ function GeralPanel({
         <FormField control={form.control} name="property_type" render={({ field }) => (
           <FormItem>
             <FormLabel>Tipo de imóvel *</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value ?? ''}>
-              <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-              <SelectContent>
-                {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v as string}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FormControl>
+              <SelectWithOther
+                scope="property_type"
+                value={field.value ?? undefined}
+                onChange={field.onChange}
+                options={Object.entries(PROPERTY_TYPES)
+                  .filter(([k]) => k !== 'outro')
+                  .map(([value, label]) => ({ value, label: label as string }))}
+                legacyLabels={PROPERTY_TYPES as unknown as Record<string, string>}
+                placeholder="Seleccione..."
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -1016,12 +1022,14 @@ function LocalizacaoPanel({ form }: { form: any }) {
         postalCode={form.watch('postal_code') || ''}
         city={form.watch('city') || ''}
         zone={form.watch('zone') || ''}
+        parish={form.watch('address_parish') || ''}
         latitude={form.watch('latitude') ?? null}
         longitude={form.watch('longitude') ?? null}
         onAddressChange={(v) => form.setValue('address_street', v)}
         onPostalCodeChange={(v) => form.setValue('postal_code', v)}
         onCityChange={(v) => form.setValue('city', v)}
         onZoneChange={(v) => form.setValue('zone', v)}
+        onParishChange={(v) => form.setValue('address_parish', v)}
         onLatitudeChange={(v) => form.setValue('latitude', v ?? undefined)}
         onLongitudeChange={(v) => form.setValue('longitude', v ?? undefined)}
       />
@@ -1086,13 +1094,15 @@ function EspecsPanel({ form }: { form: any }) {
         <FormField control={form.control} name="typology" render={({ field }) => (
           <FormItem>
             <FormLabel>Tipologia</FormLabel>
-            <Select onValueChange={(v) => field.onChange(v === NONE_VALUE ? '' : v)} value={field.value || NONE_VALUE}>
-              <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
-                {TYPOLOGIES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <FormControl>
+              <SelectWithOther
+                scope="typology"
+                value={field.value || undefined}
+                onChange={field.onChange}
+                options={TYPOLOGIES.map((t) => ({ value: t, label: t }))}
+                placeholder="Seleccione..."
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -1813,7 +1823,10 @@ function buildDefaults(p: PropertyFullData): Partial<FormValues> {
   }
 }
 
-function splitPayload(values: FormValues): {
+function splitPayload(
+  values: FormValues,
+  originalProperty: PropertyFullData | null,
+): {
   property: Partial<PropertyFormData>
   specifications: Partial<PropertySpecsFormData>
   internal: Partial<PropertyInternalFormData> & Record<string, unknown>
@@ -1835,14 +1848,41 @@ function splitPayload(values: FormValues): {
     ...propertyData
   } = values
 
+  // Strip empty strings dos campos property-level — `updatePropertySchema`
+  // é `propertySchema.partial()`, portanto `undefined` é skipped (não
+  // valida, não persiste). Mas um `''` falha o `.min(1)` de campos como
+  // `property_type` / `business_type` e o `.uuid()` de `consultant_id`.
+  // Bug observado: edição de uma angariação devolvia 400 "property_type,
+  // consultant_id" mesmo quando o consultor não os tinha tocado, porque o
+  // toFormValues coerce null → '' e o spread punha '' no payload.
+  const cleanedProperty: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(propertyData)) {
+    if (v === '') continue
+    cleanedProperty[k] = v
+  }
+
   const property: Partial<PropertyFormData> = {
-    ...propertyData,
+    ...(cleanedProperty as Partial<PropertyFormData>),
     listing_price: cleanNumber(propertyData.listing_price),
     // Date columns reject empty strings — coerce to null when blank.
     remax_published_date: propertyData.remax_published_date || null,
     // Strip empty consultant_id (the Select sets undefined for "Não atribuído"
     // but defensively normalise empty strings too — the column is uuid-typed).
     consultant_id: propertyData.consultant_id || undefined,
+  }
+
+  // Só envia `status` se realmente mudou. Sem este guard, qualquer edit
+  // (mesmo um simples toggle) reescreve a coluna `status` com o valor
+  // que o form tem em memória — que pode estar dessincronizado (e.g.
+  // ficou em `pending_approval` por defeito antes do form.reset chegar a
+  // correr). Sintoma observado: imóvel ficava `pending_approval` depois
+  // de qualquer save.
+  if (
+    originalProperty &&
+    property.status !== undefined &&
+    property.status === originalProperty.status
+  ) {
+    delete property.status
   }
 
   const specifications: Partial<PropertySpecsFormData> = {}

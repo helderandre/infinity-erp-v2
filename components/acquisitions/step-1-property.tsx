@@ -1,17 +1,18 @@
 'use client'
 
 import { UseFormReturn } from 'react-hook-form'
-import { useState } from 'react'
 import {
   AcqSectionHeader,
   AcqInputField,
   AcqSelectField,
+  AcqSelectFieldWithOther,
 } from './acquisition-field'
 import {
   PROPERTY_TYPES,
   BUSINESS_TYPES,
   PROPERTY_CONDITIONS,
   ENERGY_CERTIFICATES,
+  TYPOLOGIES,
 } from '@/lib/constants'
 
 interface StepPropertyProps {
@@ -30,25 +31,7 @@ export function StepProperty({ form }: StepPropertyProps) {
     return v === undefined || v === null || v === '' || v === 0
   }
 
-  // Sentinela `_na` ("Não aplicável") aparece como opção mas grava sempre como
-  // string vazia — assim a coluna no DB fica null/empty e o imóvel não tem
-  // tipologia atribuída. `_outro` é também sentinela: muda para input livre.
-  const TYPOLOGY_OPTIONS = [
-    { value: '_na', label: 'Não aplicável' },
-    { value: 'T0', label: 'T0' },
-    { value: 'T1', label: 'T1' },
-    { value: 'T2', label: 'T2' },
-    { value: 'T3', label: 'T3' },
-    { value: 'T4', label: 'T4' },
-    { value: 'T5', label: 'T5' },
-    { value: 'T5+', label: 'T5+' },
-    { value: '_outro', label: 'Outro...' },
-  ]
   const currentTypology = form.watch('specifications.typology') || ''
-  const isStandardTypology = TYPOLOGY_OPTIONS.some(
-    o => o.value === currentTypology && o.value !== '_outro' && o.value !== '_na'
-  )
-  const [customTypology, setCustomTypology] = useState(!isStandardTypology && currentTypology.length > 0)
 
   return (
     <div className="space-y-5">
@@ -76,12 +59,16 @@ export function StepProperty({ form }: StepPropertyProps) {
           isMissing={isEmpty('title')}
         />
 
-        <AcqSelectField
+        <AcqSelectFieldWithOther
           label="Tipo de Imóvel"
           required
+          scope="property_type"
           value={form.watch('property_type')}
           onChange={(v) => form.setValue('property_type', v, { shouldDirty: true })}
-          options={toOptions(PROPERTY_TYPES)}
+          options={Object.entries(PROPERTY_TYPES)
+            .filter(([key]) => key !== 'outro')
+            .map(([value, label]) => ({ value, label }))}
+          legacyLabels={PROPERTY_TYPES as unknown as Record<string, string>}
           placeholder="Seleccionar tipo"
           error={errors.property_type?.message as string}
           isAiFilled={ai('property_type')}
@@ -143,31 +130,15 @@ export function StepProperty({ form }: StepPropertyProps) {
       <AcqSectionHeader title="Especificações" className="pt-2" />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {customTypology ? (
-          <AcqInputField
-            label="Tipologia"
-            value={currentTypology}
-            onChange={(v) => {
-              if (!v) { setCustomTypology(false); form.setValue('specifications.typology', '') }
-              else form.setValue('specifications.typology', v)
-            }}
-            placeholder="Escrever tipologia..."
-            isAiFilled={ai('specifications.typology')}
-          />
-        ) : (
-          <AcqSelectField
-            label="Tipologia"
-            value={currentTypology}
-            onChange={(v) => {
-              if (v === '_outro') { setCustomTypology(true); form.setValue('specifications.typology', '') }
-              else if (v === '_na') { form.setValue('specifications.typology', '') }
-              else form.setValue('specifications.typology', v)
-            }}
-            options={TYPOLOGY_OPTIONS}
-            placeholder="Seleccionar"
-            isAiFilled={ai('specifications.typology')}
-          />
-        )}
+        <AcqSelectFieldWithOther
+          label="Tipologia"
+          scope="typology"
+          value={currentTypology}
+          onChange={(v) => form.setValue('specifications.typology', v, { shouldDirty: true })}
+          options={TYPOLOGIES.map((t) => ({ value: t, label: t }))}
+          placeholder="Seleccionar"
+          isAiFilled={ai('specifications.typology')}
+        />
 
         <AcqInputField
           label="Quartos"

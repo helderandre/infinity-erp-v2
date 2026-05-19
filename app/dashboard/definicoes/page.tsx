@@ -25,8 +25,10 @@ import {
 import {
   Plus, Pencil, Trash2, Shield, ShieldCheck, Settings, Euro,
   Save, Loader2, Users, Landmark, Layers, Plug, Bell, MessageSquare,
+  Tags,
 } from 'lucide-react'
 import { MetaIntegrationsClient } from './integracoes/meta/meta-client'
+import { TaxonomyExtrasManager } from '@/components/settings/taxonomy-extras-manager'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { RoleDialog } from '@/components/roles/role-dialog'
@@ -311,6 +313,10 @@ function DefinicoesPageInner() {
             <MessageSquare className="h-4 w-4" />
             CRM
           </TabsTrigger>
+          <TabsTrigger value="taxonomias" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Tags className="h-4 w-4" />
+            Taxonomias
+          </TabsTrigger>
         </TabsList>
 
         {/* ═══ Roles Tab ═══ */}
@@ -539,6 +545,11 @@ function DefinicoesPageInner() {
         <TabsContent value="crm" className="mt-6 space-y-4">
           <p className="text-sm text-muted-foreground">Configurações do CRM e comunicações.</p>
           <WhatsAppActivitySettings />
+        </TabsContent>
+
+        {/* ═══ Taxonomias Tab ═══ */}
+        <TabsContent value="taxonomias" className="mt-6">
+          <TaxonomyExtrasManager />
         </TabsContent>
       </Tabs>
 
