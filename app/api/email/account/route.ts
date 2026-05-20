@@ -121,11 +121,19 @@ export async function POST(req: Request) {
       )
     }
 
+    // Auto-detect secure transport per protocol convention:
+    // - SMTP: 465 = SMTPS (implicit TLS); 587 = STARTTLS (negotiated)
+    // - IMAP: 993 = IMAPS (implicit TLS); 143 = STARTTLS
+    const smtpSecure = smtp_port === 465
+    const smtpRequireTLS = smtp_port === 587
+    const imapSecure = imap_port === 993
+
     // 1. Verify SMTP connection
     const smtpResult = await verifySmtp({
       host: smtp_host,
       port: smtp_port,
-      secure: true,
+      secure: smtpSecure,
+      requireTLS: smtpRequireTLS,
       user: email_address,
       pass: password,
     })
@@ -141,7 +149,7 @@ export async function POST(req: Request) {
     const imapResult = await verifyImap({
       host: imap_host,
       port: imap_port,
-      secure: true,
+      secure: imapSecure,
       user: email_address,
       pass: password,
     })
@@ -174,10 +182,10 @@ export async function POST(req: Request) {
         encrypted_password: encResult,
         smtp_host,
         smtp_port,
-        smtp_secure: true,
+        smtp_secure: smtpSecure,
         imap_host,
         imap_port,
-        imap_secure: true,
+        imap_secure: imapSecure,
         is_verified: true,
         is_active: true,
         last_error: null,

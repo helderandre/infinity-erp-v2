@@ -83,7 +83,7 @@ export function AccountSetupForm() {
       password: '',
       display_name: '',
       smtp_host: 'mail.sooma.com',
-      smtp_port: 465,
+      smtp_port: 587,
       imap_host: 'mail.sooma.com',
       imap_port: 993,
     },

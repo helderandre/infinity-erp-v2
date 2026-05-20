@@ -7,6 +7,8 @@ interface SmtpConfig {
   secure: boolean
   user: string
   pass: string
+  /** Force STARTTLS upgrade (typical for port 587). Ignored when `secure: true`. */
+  requireTLS?: boolean
 }
 
 /**
@@ -17,6 +19,7 @@ export async function verifySmtp(config: SmtpConfig): Promise<{ ok: boolean; err
     host: config.host,
     port: config.port,
     secure: config.secure,
+    requireTLS: config.requireTLS,
     auth: { user: config.user, pass: config.pass },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
@@ -56,6 +59,7 @@ export async function sendViaSMTP(
     host: config.host,
     port: config.port,
     secure: config.secure,
+    requireTLS: config.requireTLS,
     auth: { user: config.user, pass: config.pass },
     connectionTimeout: 15000,
     greetingTimeout: 10000,
