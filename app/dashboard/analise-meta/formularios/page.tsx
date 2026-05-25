@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { Globe } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -16,12 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  formatLocale,
+  formatMetaStatus,
+  metaStatusVariant,
+} from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
 import { MetaEmptyState } from '../_components/meta-empty-state'
 import { MetaSearchInput } from '../_components/search-input'
 import { MetaPaginationNav } from '../_components/pagination-nav'
-import { MetaStatusBadge } from '../_components/status-badge'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Formulários — Análise Meta' }
@@ -127,21 +133,26 @@ export default async function FormulariosMetaPage({
                   <TableRow key={form.id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">
+                        <Link
+                          href={`/dashboard/analise-meta/formularios/${form.form_id}`}
+                          className="font-medium hover:underline"
+                        >
                           {form.form_name ?? form.form_id}
-                        </span>
+                        </Link>
                         <span className="text-muted-foreground font-mono text-[10px]">
                           {form.form_id}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <MetaStatusBadge status={form.status} />
+                      <Badge variant={metaStatusVariant(form.status)} className="text-[10px]">
+                        {formatMetaStatus(form.status)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <span className="text-muted-foreground flex items-center gap-1 text-xs">
                         <Globe className="h-3 w-3" />
-                        {form.locale ?? '—'}
+                        {formatLocale(form.locale)}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden font-mono text-xs lg:table-cell">

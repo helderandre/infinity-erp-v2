@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { Target } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -16,12 +18,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  formatCampaignObjective,
+  formatMetaBudgetCents,
+  formatMetaStatus,
+  metaStatusVariant,
+} from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
 import { MetaEmptyState } from '../_components/meta-empty-state'
 import { MetaSearchInput } from '../_components/search-input'
 import { MetaPaginationNav } from '../_components/pagination-nav'
-import { MetaStatusBadge } from '../_components/status-badge'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Campanhas — Análise Meta' }
@@ -49,18 +56,6 @@ type CampaignRow = {
 function fmtRelative(iso: string | null): string {
   if (!iso) return '—'
   return formatDistanceToNow(new Date(iso), { locale: pt, addSuffix: true })
-}
-
-/** Converte centavos string (wire format Meta) para euros formatados. */
-function fmtBudgetCents(cents: string | null): string {
-  if (!cents) return '—'
-  const n = Number(cents)
-  if (!Number.isFinite(n)) return '—'
-  return new Intl.NumberFormat('pt-PT', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(n / 100)
 }
 
 export default async function CampanhasMetaPage({
@@ -145,10 +140,13 @@ export default async function CampanhasMetaPage({
                   <TableRow key={c.id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="flex items-center gap-1.5 font-medium">
+                        <Link
+                          href={`/dashboard/analise-meta/campanhas/${c.campaign_id}`}
+                          className="flex items-center gap-1.5 font-medium hover:underline"
+                        >
                           <Target className="text-muted-foreground h-3.5 w-3.5" />
                           {c.name ?? c.campaign_id}
-                        </span>
+                        </Link>
                         <span className="text-muted-foreground font-mono text-[10px]">
                           {c.campaign_id}
                           {c.ad_account_id && ` · ${c.ad_account_id}`}
@@ -156,16 +154,18 @@ export default async function CampanhasMetaPage({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <MetaStatusBadge status={c.status} />
+                      <Badge variant={metaStatusVariant(c.status)} className="text-[10px]">
+                        {formatMetaStatus(c.status)}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground hidden text-xs md:table-cell">
-                      {c.objective ?? '—'}
+                    <TableCell className="hidden text-xs md:table-cell">
+                      {formatCampaignObjective(c.objective)}
                     </TableCell>
                     <TableCell className="hidden text-xs tabular-nums md:table-cell">
                       <div className="flex flex-col">
-                        <span>diário: {fmtBudgetCents(c.daily_budget)}</span>
+                        <span>diário: {formatMetaBudgetCents(c.daily_budget)}</span>
                         <span className="text-muted-foreground">
-                          total: {fmtBudgetCents(c.lifetime_budget)}
+                          total: {formatMetaBudgetCents(c.lifetime_budget)}
                         </span>
                       </div>
                     </TableCell>

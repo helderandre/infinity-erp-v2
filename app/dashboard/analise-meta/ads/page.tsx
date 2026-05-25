@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { Image as ImageIcon } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -16,12 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatMetaStatus, metaStatusVariant } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
 import { MetaEmptyState } from '../_components/meta-empty-state'
 import { MetaSearchInput } from '../_components/search-input'
 import { MetaPaginationNav } from '../_components/pagination-nav'
-import { MetaStatusBadge } from '../_components/status-badge'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Anúncios — Análise Meta' }
@@ -91,6 +93,21 @@ export default async function AdsMetaPage({
   const ads = (data ?? []) as AdRow[]
   const total = count ?? 0
 
+  // Batch lookup dos nomes de campanha para mostrar humanizado
+  const campaignIds = Array.from(
+    new Set(ads.map((a) => a.campaign_id).filter(Boolean) as string[]),
+  )
+  const campaignsRes = campaignIds.length
+    ? await supabase
+        .schema('meta')
+        .from('meta_campaigns_raw')
+        .select('campaign_id, name')
+        .in('campaign_id', campaignIds)
+    : { data: [] as { campaign_id: string; name: string | null }[] }
+  const campaignNameById = new Map(
+    (campaignsRes.data ?? []).map((c) => [c.campaign_id, c.name]),
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -131,16 +148,21 @@ export default async function AdsMetaPage({
                   <TableRow key={ad.id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">
+                        <Link
+                          href={`/dashboard/analise-meta/ads/${ad.ad_id}`}
+                          className="font-medium hover:underline"
+                        >
                           {ad.name ?? ad.ad_id}
-                        </span>
+                        </Link>
                         <span className="text-muted-foreground font-mono text-[10px]">
                           {ad.ad_id}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <MetaStatusBadge status={ad.status} />
+                      <Badge variant={metaStatusVariant(ad.status)} className="text-[10px]">
+                        {formatMetaStatus(ad.status)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden text-xs md:table-cell">
                       <div className="flex items-start gap-1">
@@ -157,10 +179,24 @@ export default async function AdsMetaPage({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground hidden font-mono text-[10px] lg:table-cell">
-                      <div className="flex flex-col">
-                        <span>cmp: {ad.campaign_id ?? '—'}</span>
-                        <span>ads: {ad.adset_id ?? '—'}</span>
+                    <TableCell className="hidden text-xs lg:table-cell">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-muted-foreground">
+                          cmp:{' '}
+                          {ad.campaign_id ? (
+                            <Link
+                              href={`/dashboard/analise-meta/campanhas/${ad.campaign_id}`}
+                              className="text-foreground hover:underline"
+                            >
+                              {campaignNameById.get(ad.campaign_id) ?? ad.campaign_id}
+                            </Link>
+                          ) : (
+                            '—'
+                          )}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-[10px]">
+                          adset: {ad.adset_id ?? '—'}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
