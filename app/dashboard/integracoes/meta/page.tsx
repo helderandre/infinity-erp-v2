@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Facebook, Link2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Facebook, Link2, AlertCircle, CheckCircle2, Settings2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { createClient } from '@/lib/supabase/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
+import { goToScopePicker } from './actions'
 import { DisconnectMetaButton } from './disconnect-button'
 import { MetaSyncCard } from './sync-card'
 
@@ -38,6 +39,14 @@ const ERROR_MESSAGE: Record<string, string> = {
     'O tenant ainda não foi cadastrado no meta-api. Contacta a Mube Systems para concluir o setup.',
   read_failed:
     'Não foi possível ler o estado da integração. Tenta recarregar a página.',
+  forbidden:
+    'Não tens permissão para configurar o scope. Pede a um administrador.',
+  server_misconfigured:
+    'Variáveis de ambiente em falta (MUBE_API_BASE_URL / MUBE_TENANT_ID / MUBE_SIGNING_SECRET).',
+  connection_fetch_failed:
+    'Falha a contactar o meta-api para descobrir a conexão activa. Tenta novamente.',
+  no_active_connection:
+    'Não existe nenhuma conexão Meta activa para este tenant. Liga primeiro a conta Facebook.',
   update_failed: 'Não foi possível iniciar o pedido de ligação. Tenta novamente.',
 }
 
@@ -178,6 +187,12 @@ export default async function MetaIntegrationPage({
                 )}
                 {isConnected && (
                   <>
+                    <form action={goToScopePicker}>
+                      <Button type="submit" variant="outline" size="sm">
+                        <Settings2 className="mr-2 h-4 w-4" />
+                        Configurar scope
+                      </Button>
+                    </form>
                     <Button asChild variant="outline" size="sm">
                       <Link href="/api/integrations/meta/connect" prefetch={false}>Reconectar</Link>
                     </Button>

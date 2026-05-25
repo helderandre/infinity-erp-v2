@@ -87,6 +87,15 @@ export default async function MetaCallbackPage({
     }
   }
 
+  // Após OAuth bem-sucedido, manda directo ao scope picker (em vez de mostrar
+  // o card de sucesso). O admin tem de confirmar/ajustar que ad accounts ficam
+  // no scope do tenant — sem isto o sync ia puxar TUDO o que o admin tem acesso.
+  if (status === 'success' && connection_id) {
+    redirect(
+      `/dashboard/integracoes/meta/scope?connection_id=${connection_id}&from=oauth`,
+    )
+  }
+
   const isSuccess = status === 'success'
   const parsedPagesCount = pages_count
     ? Number.parseInt(pages_count, 10)
