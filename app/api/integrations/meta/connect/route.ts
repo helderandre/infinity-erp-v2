@@ -19,7 +19,25 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+/**
+ * Detecta se o request é um prefetch (Next.js Link, Chrome speculation rules,
+ * crawler agressivo, etc.) e rejeita silenciosamente com 204 — caso contrário
+ * o GET com side-effect (escrever `connecting` na DB) é disparado sozinho
+ * sempre que a página renderiza o Link.
+ */
+function isPrefetch(req: NextRequest): boolean {
+  if (req.headers.get('next-router-prefetch') === '1') return true
+  if (req.headers.get('purpose') === 'prefetch') return true
+  const secPurpose = req.headers.get('sec-purpose')
+  if (secPurpose && secPurpose.includes('prefetch')) return true
+  return false
+}
+
 export async function GET(req: NextRequest) {
+  if (isPrefetch(req)) {
+    return new NextResponse(null, { status: 204 })
+  }
+
   const mubeApiBaseUrl = process.env.MUBE_API_BASE_URL
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL
 

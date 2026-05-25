@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
 import { DisconnectMetaButton } from './disconnect-button'
+import { MetaSyncCard } from './sync-card'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Integração Meta — ERP Infinity' }
@@ -166,7 +167,10 @@ export default async function MetaIntegrationPage({
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 {!isConnected && (
                   <Button asChild>
-                    <Link href="/api/integrations/meta/connect">
+                    {/* prefetch={false}: a rota tem side-effect (escreve `connecting`
+                        na DB). Sem isto o Next.js prefecha-a no render e o status
+                        flipa sozinho. */}
+                    <Link href="/api/integrations/meta/connect" prefetch={false}>
                       <Facebook className="mr-2 h-4 w-4" />
                       {isConnecting ? 'Continuar ligação…' : 'Ligar à conta Facebook'}
                     </Link>
@@ -175,7 +179,7 @@ export default async function MetaIntegrationPage({
                 {isConnected && (
                   <>
                     <Button asChild variant="outline" size="sm">
-                      <Link href="/api/integrations/meta/connect">Reconectar</Link>
+                      <Link href="/api/integrations/meta/connect" prefetch={false}>Reconectar</Link>
                     </Button>
                     <DisconnectMetaButton />
                   </>
@@ -191,6 +195,8 @@ export default async function MetaIntegrationPage({
           )}
         </CardContent>
       </Card>
+
+      {integration && <MetaSyncCard enabled={isConnected} />}
 
       <Card>
         <CardHeader>
