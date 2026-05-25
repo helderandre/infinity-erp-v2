@@ -293,10 +293,13 @@ export default async function AdDetailPage({
                   <TableRow key={lead.id}>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1.5 font-medium">
+                        <Link
+                          href={`/dashboard/analise-meta/leads/${lead.id}`}
+                          className="flex items-center gap-1.5 font-medium hover:underline"
+                        >
                           <User className="text-muted-foreground h-3.5 w-3.5" />
                           {lead.full_name ?? '—'}
-                        </span>
+                        </Link>
                         {lead.email && (
                           <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
                             <Mail className="h-3 w-3" />

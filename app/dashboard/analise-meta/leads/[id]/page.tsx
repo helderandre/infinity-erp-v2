@@ -239,22 +239,24 @@ export default async function LeadDetailPage({
                 return (
                   <li key={fd.name} className="space-y-1 p-3">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                      <p className="text-sm font-medium">
                         {q?.label ?? fd.name}
                       </p>
                       {q?.type && (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
                           {formatQuestionType(q.type)}
                         </Badge>
                       )}
                     </div>
-                    <div className="text-sm">
+                    <div className="text-muted-foreground text-sm">
                       {fd.values.length === 0 ? (
-                        <span className="text-muted-foreground">—</span>
+                        <span>—</span>
                       ) : fd.values.length === 1 ? (
-                        <span>{resolveAnswerValue(fd.values[0], q)}</span>
+                        <span className="text-foreground">
+                          {resolveAnswerValue(fd.values[0], q)}
+                        </span>
                       ) : (
-                        <ul className="list-disc pl-5">
+                        <ul className="text-foreground list-disc pl-5">
                           {fd.values.map((v, i) => (
                             <li key={`${v}-${i}`}>
                               {resolveAnswerValue(v, q)}
@@ -263,11 +265,6 @@ export default async function LeadDetailPage({
                         </ul>
                       )}
                     </div>
-                    {q && q.label !== fd.name && (
-                      <p className="text-muted-foreground font-mono text-[10px]">
-                        key: {fd.name}
-                      </p>
-                    )}
                   </li>
                 )
               })}
