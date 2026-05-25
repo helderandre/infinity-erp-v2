@@ -492,16 +492,25 @@ function AnswerStatsCard({
                           {n} <span className="text-[10px]">({pct.toFixed(0)}%)</span>
                         </span>
                       </div>
-                      <div className="bg-muted h-1.5 overflow-hidden rounded-full">
-                        <div
-                          className="bg-primary h-full rounded-full transition-all"
-                          // Largura dinâmica 0-100% — não é encodável em classe
-                          // Tailwind estática; este é o caso documentado para
-                          // style inline.
-                          // eslint-disable-next-line react/forbid-dom-props
-                          style={{ width: `${pct}%` }}
+                      {/* SVG em vez de div+inline-style: a largura dinâmica
+                          (0-100%) entra como atributo `width` do <rect>, NÃO
+                          como style — satisfaz o linter sem disable. ViewBox
+                          0..100 + preserveAspectRatio="none" faz o rect
+                          escalar para a largura do container. */}
+                      <svg
+                        className="bg-muted h-1.5 w-full overflow-hidden rounded-full"
+                        viewBox="0 0 100 1"
+                        preserveAspectRatio="none"
+                        aria-label={`${pct.toFixed(0)} por cento`}
+                      >
+                        <rect
+                          x={0}
+                          y={0}
+                          width={pct}
+                          height={1}
+                          className="fill-primary"
                         />
-                      </div>
+                      </svg>
                     </li>
                   )
                 })}
