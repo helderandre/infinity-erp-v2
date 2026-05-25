@@ -17,6 +17,8 @@
  * em paralelo a /api/webhooks/mube/events à medida que cada etapa termina.
  */
 
+import { timingSafeEqual } from 'node:crypto'
+
 import { NextRequest, NextResponse } from 'next/server'
 
 import { signMubeRequest } from '@/lib/mube/signature'
@@ -26,6 +28,13 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const REPLAY_PATH = '/api/integrations/meta/replay'
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8')
+  const bufB = Buffer.from(b, 'utf8')
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
+}
 
 export async function POST(req: NextRequest) {
   // 1. Auth
@@ -38,9 +47,9 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Body
-  let body: { since_days?: unknown }
+  let body: { since_days?: unknown; api_key?: unknown }
   try {
-    body = (await req.json()) as { since_days?: unknown }
+    body = (await req.json()) as { since_days?: unknown; api_key?: unknown }
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
   }
@@ -72,6 +81,15 @@ export async function POST(req: NextRequest) {
       signingSecret: !!signingSecret,
     })
     return NextResponse.json({ error: 'server_misconfigured' }, { status: 500 })
+  }
+
+  // 3b. Gate por API key (== signing secret). Sem fuga de timing.
+  const providedKey = typeof body.api_key === 'string' ? body.api_key : ''
+  if (!providedKey || !safeEqual(providedKey, signingSecret)) {
+    return NextResponse.json(
+      { error: 'invalid_api_key', message: 'API key inválida.' },
+      { status: 401 },
+    )
   }
 
   // 4. Body upstream + assinatura

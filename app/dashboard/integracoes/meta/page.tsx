@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Facebook, Link2, AlertCircle, CheckCircle2, Settings2 } from 'lucide-react'
+import { Facebook, Link2, AlertCircle, CheckCircle2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { createClient } from '@/lib/supabase/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
-import { goToScopePicker } from './actions'
 import { DisconnectMetaButton } from './disconnect-button'
 import { MetaSyncCard } from './sync-card'
 
@@ -187,12 +186,6 @@ export default async function MetaIntegrationPage({
                 )}
                 {isConnected && (
                   <>
-                    <form action={goToScopePicker}>
-                      <Button type="submit" variant="outline" size="sm">
-                        <Settings2 className="mr-2 h-4 w-4" />
-                        Configurar scope
-                      </Button>
-                    </form>
                     <Button asChild variant="outline" size="sm">
                       <Link href="/api/integrations/meta/connect" prefetch={false}>Reconectar</Link>
                     </Button>
@@ -219,22 +212,22 @@ export default async function MetaIntegrationPage({
         </CardHeader>
         <CardContent className="text-muted-foreground space-y-2 text-sm">
           <p>
-            1. Clicas em <strong>Ligar à conta Facebook</strong>. És redirecionado
-            para o meta-api e depois para o consent screen do Facebook.
+            1. Clicas em <strong>Ligar à conta Facebook</strong> e autorizas o
+            acesso na janela do Facebook.
           </p>
           <p>
-            2. Autorizas as Pages que tens permissão para gerir. O meta-api
-            grava tokens criptografados na Mube Vault.
+            2. Escolhes as páginas e contas publicitárias que queres ligar ao
+            ERP. As credenciais ficam guardadas em segurança na Mube Systems —
+            nunca neste ERP.
           </p>
           <p>
-            3. O meta-api inscreve cada Page no evento <code className="text-xs">leadgen</code> e
-            começa a enviar webhooks assinados (X-Mube-Signature-256) para este
-            ERP em <code className="text-xs">/api/webhooks/mube/events</code>.
+            3. A partir desse momento, os leads dos teus formulários do Facebook
+            e Instagram entram automaticamente no ERP, sem precisares de
+            verificar manualmente.
           </p>
           <p>
-            4. Os 4 tipos de eventos (lead.created, form.synced, campaign.synced,
-            ad.synced) são persistidos em <code className="text-xs">meta.meta_*_raw</code> e
-            ficam disponíveis em <em>Análise Meta</em>.
+            4. As campanhas, anúncios e leads ficam disponíveis em{' '}
+            <em>Análise Meta</em> para consultares o desempenho.
           </p>
         </CardContent>
       </Card>
