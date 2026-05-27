@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { Loader2, Inbox } from 'lucide-react'
 import { toast } from 'sonner'
+import { PropertySearchField } from '@/components/shared/property-search-field'
 
 const SOURCES = [
   { value: 'meta_ads', label: 'Meta Ads' },
@@ -42,6 +43,7 @@ export interface LeadEntryFormProps {
 
 export function LeadEntryForm({ consultants, onSuccess, onCancel }: LeadEntryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [property, setProperty] = useState<{ id: string | null; label: string | null }>({ id: null, label: null })
   const [form, setForm] = useState({
     raw_name: '',
     raw_email: '',
@@ -76,6 +78,7 @@ export function LeadEntryForm({ consultants, onSuccess, onCancel }: LeadEntryFor
         sector: form.sector || null,
         assigned_consultant_id: form.assigned_consultant_id || null,
         notes: form.notes.trim() || null,
+        property_id: property.id,
       }
       const res = await fetch('/api/lead-entries', {
         method: 'POST',
@@ -199,6 +202,13 @@ export function LeadEntryForm({ consultants, onSuccess, onCancel }: LeadEntryFor
             </SelectContent>
           </Select>
         </div>
+
+        <PropertySearchField
+          valueId={property.id}
+          valueLabel={property.label}
+          onChange={(id, label) => setProperty({ id, label })}
+          helpText="Associa esta lead a um imóvel — aparece na página do imóvel (Interessados)."
+        />
 
         <div className="grid gap-2">
           <Label htmlFor="notes" className="text-xs font-medium">Notas</Label>

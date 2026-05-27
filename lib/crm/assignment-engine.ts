@@ -10,7 +10,22 @@
 type SupabaseClient = import('@supabase/supabase-js').SupabaseClient<any, any, any>
 import type { LeadsAssignmentRule, LeadsEntry, LeadsCampaign } from '@/types/leads-crm'
 
-interface AssignmentResult {
+interface RuleReferral {
+  has_referral: boolean
+  referral_consultant_id: string | null
+  referral_pct: number | null
+  referral_basis: 'agency_commission' | 'sale_value' | 'fixed'
+  referral_fixed_amount: number | null
+}
+
+interface RuleLeadType {
+  // Defaults declared on the campaign/ad rule; stamped onto the entry so the
+  // qualify dialog pre-fills. sector = perspective (buy/sell/rent/landlord).
+  lead_sector: string | null
+  lead_business_type: string | null
+}
+
+interface AssignmentResult extends RuleReferral, RuleLeadType {
   agent_id: string | null
   rule_id: string | null
   method: 'direct' | 'round_robin' | 'gestora_pool'
@@ -28,6 +43,21 @@ interface AssignmentContext {
   // Meta ad attribution — extracted from form_data by the caller.
   meta_ad_id?: string | null
   meta_adset_id?: string | null
+  // Meta campaign attribution (campaign_external_id_match on the rule).
+  meta_campaign_id?: string | null
+}
+
+const NO_REFERRAL: RuleReferral = {
+  has_referral: false,
+  referral_consultant_id: null,
+  referral_pct: null,
+  referral_basis: 'agency_commission',
+  referral_fixed_amount: null,
+}
+
+const NO_LEAD_TYPE: RuleLeadType = {
+  lead_sector: null,
+  lead_business_type: null,
 }
 
 /**
@@ -45,7 +75,7 @@ export async function assignLeadEntry(
     .order('priority', { ascending: false })
 
   if (error || !rules?.length) {
-    return { agent_id: null, rule_id: null, method: 'gestora_pool', property_external_ref: null, property_id: null }
+    return { agent_id: null, rule_id: null, method: 'gestora_pool', property_external_ref: null, property_id: null, ...NO_REFERRAL, ...NO_LEAD_TYPE }
   }
 
   // 2. Evaluate each rule in priority order
@@ -53,20 +83,22 @@ export async function assignLeadEntry(
     if (!matchesRule(rule, context)) continue
 
     const ruleProperty = pickRuleProperty(rule)
+    const ruleReferral = pickRuleReferral(rule)
+    const ruleLeadType = pickRuleLeadType(rule)
 
     // Rule matches — try to assign
     if (rule.consultant_id) {
       // Direct assignment — check overflow
       const overloaded = await isAgentOverloaded(supabase, rule.consultant_id, rule.overflow_threshold)
       if (!overloaded) {
-        return { agent_id: rule.consultant_id, rule_id: rule.id, method: 'direct', ...ruleProperty }
+        return { agent_id: rule.consultant_id, rule_id: rule.id, method: 'direct', ...ruleProperty, ...ruleReferral, ...ruleLeadType }
       }
       // Agent overloaded — apply fallback
       if (rule.fallback_action === 'skip') continue
       if (rule.fallback_action === 'gestora_pool') {
         // Pool fallback still surfaces the property — the entry should
         // remember which imóvel originou o pedido even sem dono atribuído.
-        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool', ...ruleProperty }
+        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool', ...ruleProperty, ...ruleReferral, ...ruleLeadType }
       }
       // round_robin fallback — but no team defined, skip
       continue
@@ -76,11 +108,11 @@ export async function assignLeadEntry(
       // Round-robin within team
       const agent = await pickRoundRobin(supabase, rule)
       if (agent) {
-        return { agent_id: agent, rule_id: rule.id, method: 'round_robin', ...ruleProperty }
+        return { agent_id: agent, rule_id: rule.id, method: 'round_robin', ...ruleProperty, ...ruleReferral, ...ruleLeadType }
       }
       // All team members overloaded
       if (rule.fallback_action === 'gestora_pool') {
-        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool', ...ruleProperty }
+        return { agent_id: null, rule_id: rule.id, method: 'gestora_pool', ...ruleProperty, ...ruleReferral, ...ruleLeadType }
       }
       continue
     }
@@ -90,7 +122,31 @@ export async function assignLeadEntry(
   }
 
   // No rule matched — gestora pool
-  return { agent_id: null, rule_id: null, method: 'gestora_pool', property_external_ref: null, property_id: null }
+  return { agent_id: null, rule_id: null, method: 'gestora_pool', property_external_ref: null, property_id: null, ...NO_REFERRAL, ...NO_LEAD_TYPE }
+}
+
+/**
+ * Side-effect-free check: return the highest-priority rule that matches the
+ * given context, or null when none match. Used as a gate by the Meta/Mube
+ * bridge — leads with no matching rule stay in the Análise Meta "Por atribuir"
+ * inbox and never enter a consultor's queue. Does NOT touch round_robin_index.
+ */
+export async function findMatchingRule(
+  supabase: SupabaseClient,
+  context: AssignmentContext
+): Promise<LeadsAssignmentRule | null> {
+  const { data: rules, error } = await supabase
+    .from('leads_assignment_rules')
+    .select('*')
+    .eq('is_active', true)
+    .order('priority', { ascending: false })
+
+  if (error || !rules?.length) return null
+
+  for (const rule of rules as LeadsAssignmentRule[]) {
+    if (matchesRule(rule, context)) return rule
+  }
+  return null
 }
 
 /**
@@ -105,6 +161,30 @@ function pickRuleProperty(rule: LeadsAssignmentRule): { property_external_ref: s
 }
 
 /**
+ * Extract the referral defaults declared on a matched rule. ingestLead stamps
+ * these onto the leads_entries row, from where they flow to the negócio and the
+ * Referências page. has_referral is true only when a beneficiary is set.
+ */
+function pickRuleReferral(rule: LeadsAssignmentRule): RuleReferral {
+  if (!rule.has_referral || !rule.referral_consultant_id) return NO_REFERRAL
+  return {
+    has_referral: true,
+    referral_consultant_id: rule.referral_consultant_id,
+    referral_pct: rule.referral_pct ?? null,
+    referral_basis: rule.referral_basis ?? 'agency_commission',
+    referral_fixed_amount: rule.referral_fixed_amount ?? null,
+  }
+}
+
+/** Lead-type defaults declared on the rule (campaign/ad intent). */
+function pickRuleLeadType(rule: LeadsAssignmentRule): RuleLeadType {
+  return {
+    lead_sector: rule.lead_sector ?? null,
+    lead_business_type: rule.lead_business_type ?? null,
+  }
+}
+
+/**
  * Check if a rule's criteria match the incoming entry context.
  */
 function matchesRule(rule: LeadsAssignmentRule, context: AssignmentContext): boolean {
@@ -113,8 +193,15 @@ function matchesRule(rule: LeadsAssignmentRule, context: AssignmentContext): boo
     return false
   }
 
-  // Campaign match
+  // Campaign match (internal leads_campaigns UUID)
   if (rule.campaign_id_match && rule.campaign_id_match !== context.entry.campaign_id) {
+    return false
+  }
+
+  // Campaign match by Meta campaign_id (text). Lets the Análise Meta attribution
+  // panel pin a rule to a campaign without a leads_campaigns row. Campaign-level
+  // is the least specific Meta match — keep its rule priority below ad/adset.
+  if (rule.campaign_external_id_match && rule.campaign_external_id_match !== context.meta_campaign_id) {
     return false
   }
 

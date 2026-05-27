@@ -32,8 +32,7 @@ import {
 } from '@/components/ui/table'
 import { formatMetaStatus, metaStatusVariant } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
-
-import { RawPayloadCard } from '../../_components/raw-payload'
+import { AttributionPanel } from '@/components/analise-meta/attribution-panel'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Anúncio — Análise Meta' }
@@ -53,10 +52,16 @@ function fmtPt(iso: string | null): string {
 
 export default async function AdDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ ad_id: string }>
+  searchParams: Promise<{ from?: string }>
 }) {
   const { ad_id } = await params
+  const { from } = await searchParams
+  // "Voltar" honra a página de origem (ex.: imóvel → Interessados → Campanhas).
+  const backHref = from && from.startsWith('/dashboard/') ? from : '/dashboard/analise-meta/ads'
+  const backLabel = backHref === '/dashboard/analise-meta/ads' ? 'Anúncios' : 'Voltar'
   const supabase = createCrmAdminClient()
 
   const adRes = await supabase
@@ -120,9 +125,9 @@ export default async function AdDetailPage({
     <div className="space-y-6">
       <div className="space-y-2">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link href="/dashboard/analise-meta/ads">
+          <Link href={backHref}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Voltar
+            {backLabel}
           </Link>
         </Button>
         <div className="flex flex-wrap items-center gap-2">
@@ -153,6 +158,9 @@ export default async function AdDetailPage({
           icon={<Clock className="h-4 w-4" />}
         />
       </div>
+
+      {/* Attribution */}
+      <AttributionPanel scope="ad" targetId={ad.ad_id} targetName={ad.name} />
 
       {/* Parent campaign */}
       <Card>
@@ -352,8 +360,6 @@ export default async function AdDetailPage({
           )}
         </CardContent>
       </Card>
-
-      <RawPayloadCard payload={ad.payload} />
     </div>
   )
 }

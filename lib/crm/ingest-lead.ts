@@ -7,7 +7,7 @@
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = import('@supabase/supabase-js').SupabaseClient<any, any, any>
-import { assignLeadEntry } from './assignment-engine'
+import { assignLeadEntry, findMatchingRule } from './assignment-engine'
 import { calculateSlaDeadline } from './sla-engine'
 import type { EntrySource, LeadSector, EntryPriority } from '@/types/leads-crm'
 
@@ -45,13 +45,51 @@ export interface IngestLeadResult {
   sla_deadline: string | null
 }
 
+export interface IngestLeadOptions {
+  /**
+   * When true, abort (return null) if no active assignment rule matches the
+   * lead — no contact/entry is created. Used by the Meta/Mube bridge so leads
+   * without an attribution rule stay in the Análise Meta "Por atribuir" inbox
+   * instead of landing in the gestora pool. The match is evaluated against
+   * source + meta_ad_id / meta_adset_id / meta_campaign_id (from form_data).
+   */
+  requireMatchedRule?: boolean
+}
+
 /**
  * Ingest a lead from any source. Returns the created contact + entry IDs.
  */
 export async function ingestLead(
   supabase: SupabaseClient,
   input: IngestLeadInput
-): Promise<IngestLeadResult> {
+): Promise<IngestLeadResult>
+export async function ingestLead(
+  supabase: SupabaseClient,
+  input: IngestLeadInput,
+  opts: IngestLeadOptions
+): Promise<IngestLeadResult | null>
+export async function ingestLead(
+  supabase: SupabaseClient,
+  input: IngestLeadInput,
+  opts?: IngestLeadOptions
+): Promise<IngestLeadResult | null> {
+  // 0. Attribution gate (Meta bridge). Bail out early — before creating any
+  //    contact or entry — when no rule matches. Side-effect-free check.
+  if (opts?.requireMatchedRule) {
+    const gateMetaAdId = typeof input.form_data?.meta_ad_id === 'string' ? (input.form_data.meta_ad_id as string) : null
+    const gateMetaAdsetId = typeof input.form_data?.meta_adset_id === 'string' ? (input.form_data.meta_adset_id as string) : null
+    const gateMetaCampaignId = typeof input.form_data?.meta_campaign_id === 'string' ? (input.form_data.meta_campaign_id as string) : null
+    const matched = await findMatchingRule(supabase, {
+      entry: { source: input.source, campaign_id: input.campaign_id || null, sector: input.sector || null },
+      campaign: null,
+      contact_city: null,
+      meta_ad_id: gateMetaAdId,
+      meta_adset_id: gateMetaAdsetId,
+      meta_campaign_id: gateMetaCampaignId,
+    })
+    if (!matched) return null
+  }
+
   // 1. Resolve campaign sector if not provided
   let sector = input.sector
   if (!sector && input.campaign_id) {
@@ -123,12 +161,25 @@ export async function ingestLead(
   let rulePropertyExternalRef: string | null = null
   let rulePropertyId: string | null = null
 
-  // Meta ad attribution lives inside form_data (set by sync-meta-leads cron).
+  // Referral defaults pulled from the matched rule (Meta campaign/ad attribution).
+  // Stamped onto the entry → inherited by the negócio → Referências page.
+  let entryHasReferral = false
+  let entryReferralConsultantId: string | null = null
+  let entryReferralPct: number | null = null
+
+  // Lead-type defaults declared on the campaign/ad rule. Stamped onto the entry
+  // so the qualify dialog pre-fills (sector → perspective, business_type).
+  let entryBusinessType: string | null = null
+
+  // Meta ad attribution lives inside form_data (set by the Mube bridge / sync cron).
   const metaAdId = typeof input.form_data?.meta_ad_id === 'string'
     ? (input.form_data.meta_ad_id as string)
     : null
   const metaAdsetId = typeof input.form_data?.meta_adset_id === 'string'
     ? (input.form_data.meta_adset_id as string)
+    : null
+  const metaCampaignId = typeof input.form_data?.meta_campaign_id === 'string'
+    ? (input.form_data.meta_campaign_id as string)
     : null
 
   if (!assignedAgentId) {
@@ -139,11 +190,18 @@ export async function ingestLead(
       contact_city: contactCity,
       meta_ad_id: metaAdId,
       meta_adset_id: metaAdsetId,
+      meta_campaign_id: metaCampaignId,
     })
     assignedAgentId = assignment.agent_id
     assignmentMethod = assignment.method
     rulePropertyExternalRef = assignment.property_external_ref
     rulePropertyId = assignment.property_id
+    entryHasReferral = assignment.has_referral
+    entryReferralConsultantId = assignment.referral_consultant_id
+    entryReferralPct = assignment.referral_pct
+    // Rule's declared lead type takes precedence for the entry stamp.
+    if (assignment.lead_sector) sector = assignment.lead_sector as LeadSector
+    entryBusinessType = assignment.lead_business_type
   }
 
   // Resolve property linkage to stamp on the entry. Priority:
@@ -196,6 +254,12 @@ export async function ingestLead(
       campaign_id: input.campaign_id || null,
       partner_id: input.partner_id || null,
       assigned_agent_id: assignedAgentId,
+      // Mirror onto assigned_consultant_id — the column the entries UI/API
+      // (inbox "Leads por qualificar", Leads kanban, GET /api/lead-entries)
+      // filters by. Without this, ingested leads (Meta bridge, site forms,
+      // voice, bulk import) carry only assigned_agent_id and stay invisible
+      // to the assigned consultant. Same person, two denormalised columns.
+      assigned_consultant_id: assignedAgentId,
       property_id: entryPropertyId,
       property_external_ref: entryPropertyExternalRef,
       sector,
@@ -212,6 +276,12 @@ export async function ingestLead(
       form_data: input.form_data || null,
       form_url: input.form_url || null,
       notes: input.notes || null,
+      // Referral inherited from the matched attribution rule (Meta campaign/ad).
+      has_referral: entryHasReferral,
+      referral_consultant_id: entryReferralConsultantId,
+      referral_pct: entryReferralPct,
+      // Lead-type declared on the campaign/ad — pre-fills the qualify dialog.
+      business_type: entryBusinessType,
     })
     .select('id')
     .single()
@@ -261,6 +331,17 @@ export async function ingestLead(
       entry_id: entry.id,
       contact_id: contactId!,
     })
+
+    // Web push (fire-and-forget) — click abre o sheet "Leads por qualificar"
+    // no topo (via ?openLeads=1, captado pelo <LeadsInboxButton>).
+    import('./send-push').then(({ sendPushToUser }) => {
+      sendPushToUser(supabase, assignedAgentId!, {
+        title: 'Nova lead recebida',
+        body: `${input.name} — via ${formatSource(input.source)}`,
+        url: '/dashboard?openLeads=1',
+        tag: `lead-${entry.id}`,
+      }).catch(() => {})
+    }).catch(() => {})
 
     // Send email notification (fire-and-forget)
     import('./send-notification-email').then(({ sendNotificationEmail }) => {

@@ -47,6 +47,9 @@ export async function GET(
     // 2. Construir filtro OR para PostgREST. Cada predicado mira a JSON key
     //    correspondente (operador `->>` em jsonb), que aceita igualdade exacta.
     const filters: string[] = []
+    // Coluna property_id (carimbada pelo ingest a partir de regras de campanha
+    // Meta, formulários, voz, etc.) — traz os leads de campanhas para aqui.
+    filters.push(`property_id.eq.${property.id}`)
     filters.push(`form_data->>property_id.eq.${property.id}`)
     if (property.slug) {
       filters.push(`form_data->>property_slug.eq.${property.slug}`)

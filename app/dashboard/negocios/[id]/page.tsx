@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { useSmartBack } from '@/hooks/use-previous-pathname'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
   Folder,
   Workflow,
   Euro,
+  Pencil,
 } from 'lucide-react'
 
 import {
@@ -25,6 +26,7 @@ import { MomentosTab } from '@/components/negocios/detail/tabs/momentos-tab'
 import { DocumentosTab } from '@/components/negocios/detail/tabs/documentos-tab'
 import { ProcessoTab } from '@/components/negocios/detail/tabs/processo-tab'
 import { FinanceiroTab } from '@/components/negocios/detail/tabs/financeiro-tab'
+import { EditNegocioSheet } from '@/components/negocios/edit-negocio-sheet'
 
 type TabKey = 'apresentacao' | 'resumo' | 'momentos' | 'documentos' | 'processo' | 'financeiro'
 
@@ -142,11 +144,11 @@ export default function NegocioDetailPage() {
   const [bundle, setBundle] = useState<NegocioBundle | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    async function fetchAll() {
-      setIsLoading(true)
+  const fetchBundle = useCallback(
+    async (opts: { silent?: boolean } = {}) => {
+      if (!opts.silent) setIsLoading(true)
       setError(null)
       try {
         // Fallback: se `id` é um deal_id (vem da listing), resolve para negocio_id primeiro
@@ -170,8 +172,6 @@ export default function NegocioDetailPage() {
         const res = await fetch(`/api/negocios/${negocioId}/related`)
         if (!res.ok) throw new Error('Oportunidade não encontrada')
         const payload = await res.json()
-
-        if (cancelled) return
 
         // Map joined consultant payload to flat shape
         const consRaw = (payload.negocio?.consultant ?? null) as
@@ -208,16 +208,17 @@ export default function NegocioDetailPage() {
           moments: payload.moments ?? [],
         })
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Erro a carregar oportunidade')
+        setError(err instanceof Error ? err.message : 'Erro a carregar oportunidade')
       } finally {
-        if (!cancelled) setIsLoading(false)
+        if (!opts.silent) setIsLoading(false)
       }
-    }
-    fetchAll()
-    return () => {
-      cancelled = true
-    }
-  }, [id, router, searchParams])
+    },
+    [id, router, searchParams],
+  )
+
+  useEffect(() => {
+    void fetchBundle()
+  }, [fetchBundle])
 
   // Sync tab in URL
   useEffect(() => {
@@ -305,7 +306,7 @@ export default function NegocioDetailPage() {
 
   return (
     <div className="space-y-4 p-4 sm:p-6 max-w-7xl mx-auto w-full">
-      {/* ── Top bar: Voltar (left) + Tabs + Edit/Delete (right) ── */}
+      {/* ── Top bar: Voltar (left) + Tabs + Edit (right) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 sm:justify-between">
         <Button
           variant="outline"
@@ -343,6 +344,16 @@ export default function NegocioDetailPage() {
               )
             })}
           </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditOpen(true)}
+            className="rounded-full h-9 gap-1.5"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Editar
+          </Button>
         </div>
       </div>
 
@@ -372,6 +383,22 @@ export default function NegocioDetailPage() {
       {activeTab === 'financeiro' && (
         <FinanceiroTab deal={bundle.deal} payments={bundle.payments} />
       )}
+
+      <EditNegocioSheet
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        negocioId={bundle.negocio.id}
+        initial={{
+          assigned_consultant_id: bundle.negocio.assigned_consultant_id ?? null,
+          expected_value: bundle.negocio.expected_value ?? null,
+          expected_close_date: bundle.negocio.expected_close_date ?? null,
+          temperatura: (bundle.negocio.temperatura as 'Frio' | 'Morno' | 'Quente' | null) ?? null,
+          observacoes: bundle.negocio.observacoes ?? null,
+        }}
+        onSaved={() => {
+          void fetchBundle({ silent: true })
+        }}
+      />
     </div>
   )
 }

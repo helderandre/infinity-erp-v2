@@ -91,6 +91,16 @@ export async function PUT(
       return NextResponse.json({ id })
     }
 
+    // Gate: a re-atribuição do consultor responsável é reservada a management.
+    // Sem isto, um consultor poderia "passar" o négocio para outro colega via
+    // DevTools e contornar o gate de visibilidade (que filtra por
+    // assigned_consultant_id). Silenciosamente removemos o campo do payload
+    // antes do update para consultor não-management.
+    const isManagement = isManagementRole(auth.roles)
+    if (!isManagement && 'assigned_consultant_id' in data) {
+      delete (data as Record<string, unknown>).assigned_consultant_id
+    }
+
     // Trim strings e converter strings vazias em null
     const updateData: NegocioUpdate = {}
     for (const [key, value] of Object.entries(data)) {
@@ -124,7 +134,7 @@ export async function PUT(
       .maybeSingle()
 
     // Gate: consultor só pode editar negócios em que é o assigned_consultant_id.
-    if (!isManagementRole(auth.roles)) {
+    if (!isManagement) {
       if (!existing || (existing as any).assigned_consultant_id !== auth.user.id) {
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }

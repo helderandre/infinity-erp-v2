@@ -19,10 +19,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
+import { createClient } from '@/lib/supabase/server'
+import { canManageAttribution } from '@/lib/analise-meta/can-manage-attribution'
+import { cn } from '@/lib/utils'
 
 import { MetaEmptyState } from '../_components/meta-empty-state'
 import { MetaSearchInput } from '../_components/search-input'
 import { MetaPaginationNav } from '../_components/pagination-nav'
+import { AssignLeadButton } from '@/components/analise-meta/assign-lead-button'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Leads Meta — Análise Meta' }
@@ -30,7 +34,7 @@ export const metadata = { title: 'Leads Meta — Análise Meta' }
 const PAGE_SIZE = 50
 const BASE_PATH = '/dashboard/analise-meta/leads'
 
-type SearchParams = Promise<{ q?: string; page?: string }>
+type SearchParams = Promise<{ q?: string; page?: string; status?: string }>
 
 type LeadRow = {
   id: string
@@ -62,11 +66,18 @@ export default async function LeadsMetaPage({
 }) {
   const sp = await searchParams
   const q = sp.q?.trim() ?? ''
+  const onlyUnattributed = sp.status === 'por_atribuir'
   const page = Math.max(1, Number(sp.page) || 1)
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
   const supabase = createCrmAdminClient()
+
+  // Who can assign leads manually from the inbox.
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  const canManage = user ? await canManageAttribution(supabase, user.id) : false
+
   let query = supabase
     .schema('meta')
     .from('meta_leads_raw')
@@ -74,6 +85,11 @@ export default async function LeadsMetaPage({
       'id, leadgen_id, email, full_name, phone, page_id, form_id, ad_id, campaign_id, signature_valid, received_at, fb_created_time, processed, processed_at, lead_id',
       { count: 'exact' },
     )
+
+  // "Por atribuir" = ainda não entrou no CRM (sem regra que o atribuísse).
+  if (onlyUnattributed) {
+    query = query.eq('processed', false)
+  }
 
   if (q) {
     // OR sobre email, full_name, phone, leadgen_id
@@ -158,8 +174,18 @@ export default async function LeadsMetaPage({
           placeholder="Pesquisar por nome, email, telefone, leadgen_id…"
         />
         <p className="text-muted-foreground text-xs tabular-nums">
-          {total} lead{total === 1 ? '' : 's'} no total
+          {total} lead{total === 1 ? '' : 's'} {onlyUnattributed ? 'por atribuir' : 'no total'}
         </p>
+      </div>
+
+      {/* Quick filters */}
+      <div className="flex items-center gap-2">
+        <FilterChip href={BASE_PATH} active={!onlyUnattributed} label="Todos" />
+        <FilterChip
+          href={`${BASE_PATH}?status=por_atribuir`}
+          active={onlyUnattributed}
+          label="Por atribuir"
+        />
       </div>
 
       {leads.length === 0 ? (
@@ -266,6 +292,9 @@ export default async function LeadsMetaPage({
                             Associado
                           </Badge>
                         )}
+                        {!lead.processed && canManage && (
+                          <AssignLeadButton leadId={lead.id} leadName={lead.full_name} />
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -295,6 +324,30 @@ export default async function LeadsMetaPage({
  * recente), cai para o ID em monospace small como pista de debug. Quando não
  * existe sequer um ID associado ao lead, mostra "—".
  */
+function FilterChip({
+  href,
+  active,
+  label,
+}: {
+  href: string
+  active: boolean
+  label: string
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+        active
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'text-muted-foreground hover:bg-muted',
+      )}
+    >
+      {label}
+    </Link>
+  )
+}
+
 function RelatedLink({
   label,
   id,

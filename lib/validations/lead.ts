@@ -139,6 +139,11 @@ export const updateNegocioSchema = z.object({
   pipeline_stage_id: z.string().optional().nullable(),
   temperatura: z.enum(['Frio', 'Morno', 'Quente']).optional().nullable(),
   observacoes: z.string().optional().nullable(),
+  // Re-atribuição do consultor responsável (gated server-side a management).
+  // Permite ao broker criar/transferir um négocio em nome de outro consultor.
+  assigned_consultant_id: z.string().uuid().optional().nullable(),
+  expected_value: z.number().optional().nullable(),
+  expected_close_date: z.string().optional().nullable(),
   tipo_imovel: z.string().optional().nullable(),
   localizacao: z.string().optional().nullable(),
   estado_imovel: z.string().optional().nullable(),

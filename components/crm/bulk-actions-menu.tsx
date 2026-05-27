@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import {
   ChevronDown, Building2, MessageSquare, Mail,
   Sparkles, Move, UserCheck, AlertCircle, Thermometer,
-  CalendarPlus, Workflow, Download,
+  CalendarPlus, Workflow, Download, Send,
 } from 'lucide-react'
 
 export type BulkAction =
@@ -28,6 +28,7 @@ export type BulkAction =
   | 'send_matches'
   | 'move_stage'
   | 'reassign_consultant'
+  | 'refer'
   | 'mark_lost'
   | 'change_temperature'
   | 'add_task'
@@ -94,6 +95,10 @@ export function BulkActionsMenu({ count, onAction }: BulkActionsMenuProps) {
         <DropdownMenuItem onClick={() => onAction('reassign_consultant')}>
           <UserCheck className="h-4 w-4" />
           Reatribuir consultor
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onAction('refer')}>
+          <Send className="h-4 w-4" />
+          Referenciar (manter referência)
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onAction('mark_lost')}>
           <AlertCircle className="h-4 w-4" />

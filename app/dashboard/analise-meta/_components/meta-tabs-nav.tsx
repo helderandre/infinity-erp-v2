@@ -5,20 +5,21 @@ import { usePathname } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 
+// Funnel-centric nav: campaigns are the entry point (ads + forms live inside a
+// campaign), with the leads inbox alongside. Ad/form detail pages stay routable
+// (linked from the funnel) but are no longer separate top-level tabs.
 const TABS = [
-  { label: 'Leads', href: '/dashboard/analise-meta/leads' },
-  { label: 'Formulários', href: '/dashboard/analise-meta/formularios' },
   { label: 'Campanhas', href: '/dashboard/analise-meta/campanhas' },
-  { label: 'Anúncios', href: '/dashboard/analise-meta/ads' },
+  { label: 'Leads', href: '/dashboard/analise-meta/leads' },
 ]
 
 export function MetaTabsNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="bg-muted/40 inline-flex rounded-full border p-1">
+    <nav className="bg-background/50 supports-[backdrop-filter]:bg-background/40 inline-flex rounded-full border border-border/40 p-1 backdrop-blur-xl">
       {TABS.map((tab) => {
-        const isActive = pathname === tab.href
+        const isActive = pathname.startsWith(tab.href)
         return (
           <Link
             key={tab.href}

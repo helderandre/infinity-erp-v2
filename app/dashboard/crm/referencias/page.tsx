@@ -10,9 +10,9 @@
  * filter feed.
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import {
-  ShoppingCart, Store, Key, Building2, Send, ChevronDown, Inbox,
+  ShoppingCart, Store, Key, Building2, Send, ChevronDown,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,6 @@ import {
 import { KanbanBoard } from '@/components/crm/kanban-board'
 import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { SummaryBar } from '@/components/crm/summary-bar'
-import { ReferenciadasPendingSheet } from '@/components/crm/referenciadas-pending-sheet'
 import { useUser } from '@/hooks/use-user'
 import type { PipelineType } from '@/types/leads-crm'
 
@@ -47,32 +46,6 @@ export default function ReferenciasPage() {
   const { user, loading: userLoading } = useUser()
   const [activeTab, setActiveTab] = useState<PipelineType>('comprador')
   const [openNegocioId, setOpenNegocioId] = useState<string | null>(null)
-  const [pendingOpen, setPendingOpen] = useState(false)
-  const [pendingCount, setPendingCount] = useState<number | null>(null)
-
-  // Lead-entries the current user has referred but that haven't been
-  // qualified yet — surfaces the "Tens X por qualificar" pill.
-  const fetchPendingCount = useCallback(async () => {
-    if (!user?.id) return
-    try {
-      const params = new URLSearchParams({
-        from_consultant_id: user.id,
-        status: 'pending',
-        per_page: '100',
-      })
-      const res = await fetch(`/api/crm/referrals?${params}`)
-      if (!res.ok) return
-      const json = await res.json()
-      const count = (json.data ?? []).filter((r: { entry_id: string | null }) => !!r.entry_id).length
-      setPendingCount(count)
-    } catch {
-      // best-effort — pill just doesn't show a count
-    }
-  }, [user?.id])
-
-  useEffect(() => {
-    fetchPendingCount()
-  }, [fetchPendingCount])
 
   if (userLoading) {
     return (
@@ -92,34 +65,15 @@ export default function ReferenciasPage() {
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
-          {/* Top row: "Tens X por qualificar" pill — mirrors the
-              "Tens X leads" pill on the Pipeline page. Only renders when
-              the user has at least one pending entry-referral. */}
-          {pendingCount !== null && pendingCount > 0 && (
-            <div className="mb-2 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setPendingOpen(true)}
-                className="relative inline-flex items-center gap-1.5 rounded-full bg-white text-neutral-900 px-3.5 py-1.5 text-xs font-semibold shadow-md ring-1 ring-black/5 hover:bg-white/90 transition-colors"
-              >
-                <Inbox className="h-3.5 w-3.5" />
-                Tens {pendingCount} {pendingCount === 1 ? 'referência' : 'referências'} por qualificar
-                <span
-                  className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-neutral-900 animate-pulse"
-                  aria-label={`${pendingCount} referências por qualificar`}
-                />
-              </button>
-            </div>
-          )}
-
-          {(pendingCount === null || pendingCount === 0) && (
-            <div className="mb-2 flex justify-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 px-3 py-1 text-[11px] font-medium">
-                <Send className="h-3 w-3" />
-                Negócios que referenciaste
-              </span>
-            </div>
-          )}
+          {/* Leads you referred that aren't qualified yet live on the Leads
+              pipeline's "Referenciadas" tab; this board shows the referred
+              oportunidades (deals). */}
+          <div className="mb-2 flex justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 px-3 py-1 text-[11px] font-medium">
+              <Send className="h-3 w-3" />
+              Negócios que referenciaste
+            </span>
+          </div>
 
           <div className="flex items-center justify-center gap-2">
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -212,14 +166,6 @@ export default function ReferenciasPage() {
         open={!!openNegocioId}
         onOpenChange={(o) => { if (!o) setOpenNegocioId(null) }}
         readOnly
-      />
-
-      {/* Pending entry-referrals — leads I sent that aren't yet qualified. */}
-      <ReferenciadasPendingSheet
-        open={pendingOpen}
-        onOpenChange={setPendingOpen}
-        consultantId={user.id}
-        onChange={fetchPendingCount}
       />
     </div>
   )

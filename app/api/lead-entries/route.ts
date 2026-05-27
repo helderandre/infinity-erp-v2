@@ -41,6 +41,17 @@ export async function GET(request: Request) {
     // entries que lhes foram atribuídas (`assigned_consultant_id = me`).
     const canSeeAll = isManagementRole(auth.roles)
     const consultant_id = canSeeAll ? consultantParam : auth.user.id
+    // `scope=inbox` → vista "Leads por qualificar" no topo. Cada utilizador
+    // (incl. gestão) vê SÓ os seus leads atribuídos + o pool Meta ainda não
+    // atribuído a ninguém. NUNCA leads atribuídos a outro consultor. Override
+    // explícito ao canSeeAll (que é para a vista de pipeline da secção Leads).
+    const scope = searchParams.get('scope')
+    const isInbox = scope === 'inbox'
+    // `scope=referred` → vista "Referenciadas" na pipeline de Leads: entries
+    // que EU referenciei a outro consultor (independentemente de a quem estão
+    // agora atribuídas). Mostra-as nas suas fases actuais para o referrer ver
+    // o progresso. Resolvido server-side via leads_referrals.from_consultant_id.
+    const isReferred = scope === 'referred'
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
 
@@ -74,7 +85,34 @@ export async function GET(request: Request) {
       }
     }
     if (source) query = query.eq('source', source)
-    if (consultant_id) query = query.eq('assigned_consultant_id', consultant_id)
+    if (isReferred) {
+      // Entries que EU referenciei (from_consultant_id = me). Two-step para
+      // evitar a complexidade de filtrar o parent por uma relação nested.
+      const { data: refs } = await supabase
+        .from('leads_referrals')
+        .select('entry_id')
+        .eq('from_consultant_id', auth.user.id)
+        .not('entry_id', 'is', null)
+        .neq('status', 'cancelled')
+      const entryIds = Array.from(
+        new Set(
+          ((refs ?? []) as Array<{ entry_id: string | null }>)
+            .map((r) => r.entry_id)
+            .filter((id): id is string => !!id),
+        ),
+      )
+      if (entryIds.length === 0) {
+        return NextResponse.json({ data: [], total: 0 })
+      }
+      query = query.in('id', entryIds)
+    } else if (isInbox) {
+      // Sheet do topo = SÓ os leads próprios (atribuídos a mim), seja qual for
+      // o role. O pool Meta por atribuir NÃO aparece aqui — vive na página da
+      // Gestora de Leads ("Por atribuir"), de onde é distribuído.
+      query = query.eq('assigned_consultant_id', auth.user.id)
+    } else if (consultant_id) {
+      query = query.eq('assigned_consultant_id', consultant_id)
+    }
     if (contact_id) query = query.eq('contact_id', contact_id)
 
     const { data, error, count } = await query
@@ -85,7 +123,7 @@ export async function GET(request: Request) {
     // Redact raw_*/notes/form_data/referral_external_* na entry + a lead
     // aninhada em `.contact` quando o caller é gestão e não é o próprio
     // dono da entry.
-    const redactedRows = canSeeAll
+    const redactedRows = (canSeeAll && !isInbox)
       ? rows.map((row: Record<string, unknown>) => {
           const ownerId = row.assigned_consultant_id as string | null | undefined
           if (!shouldRedactLead(auth.roles, ownerId, auth.user.id)) return row

@@ -25,6 +25,10 @@ const QuickActions = dynamic(
   () => import('@/components/layout/quick-actions').then((m) => m.QuickActions),
   { ssr: false }
 )
+const LeadsInboxButton = dynamic(
+  () => import('@/components/leads/leads-inbox-button').then((m) => m.LeadsInboxButton),
+  { ssr: false }
+)
 const DocumentsQuickAccess = dynamic(
   () => import('@/components/layout/documents-quick-access').then((m) => m.DocumentsQuickAccess),
   { ssr: false }
@@ -167,10 +171,13 @@ export default function DashboardLayout({
               <div className="hidden sm:block">
                 <SearchCommand />
               </div>
+              <LeadsInboxButton />
+              {/* Mic only on desktop — em mobile o assistente de voz abre-se
+                  com o triple-tap global, por isso escondemos o botão. */}
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new Event('open-voice-assistant'))}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/70 hover:bg-zinc-900/85 text-white backdrop-blur-md border border-white/10 transition-colors"
+                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/70 hover:bg-zinc-900/85 text-white backdrop-blur-md border border-white/10 transition-colors"
                 title="Assistente de voz"
               >
                 <Mic className="size-4" />

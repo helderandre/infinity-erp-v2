@@ -72,12 +72,17 @@ export const bottomItems = [
 ]
 
 export const crmItems = [
+  { title: 'Leads', icon: Target, href: '/dashboard/crm/leads', permission: 'leads' },
   { title: 'Oportunidades', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
   // Gestão de Leads: triagem do inbox + métricas de SLA. Gated pela permissão
   // `leads_management`, que vem do role "Gestora de Leads" (M:N — pode ser
   // acumulado com Consultor). Admin/Broker/CEO recebem auto via merge.
   { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'leads_management' },
+  // Leads Meta que chegaram SEM regra de atribuição (campanha não atribuída a
+  // ninguém) — ficam aqui "Por atribuir" para a Gestora de Leads distribuir.
+  // É também o destino da push de "lead por atribuir".
+  { title: 'Leads por atribuir', icon: ClipboardList, href: '/dashboard/analise-meta/leads?status=por_atribuir', permission: 'leads_management' },
   // Automatismos: configuração de eventos custom + cascatas de templates;
   // operacional para gestão, ruído para o consultor (que ainda assim consome
   // os automatismos via leads próprias).

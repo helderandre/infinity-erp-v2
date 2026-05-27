@@ -18,6 +18,7 @@ import {
   BulkPipelineActionDialog,
   type BulkPipelineMode,
 } from '@/components/crm/bulk-pipeline-action-dialog'
+import { BulkReferralDialog } from '@/components/crm/bulk-referral-dialog'
 import {
   BulkSendMessageDialog,
   type BulkMessageContact,
@@ -878,6 +879,20 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
         }
         negocioIds={Array.from(selectedIds)}
         stages={pipelineStages}
+        onDone={() => {
+          fetchBoard({ silent: true })
+          clearSelection()
+        }}
+      />
+
+      {/* Bulk "Referenciar" — hand off every selected deal to one consultor
+          while keeping the current user as the referrer (commission slice).
+          Distinct from "Reatribuir consultor", which keeps no reference. */}
+      <BulkReferralDialog
+        open={bulkAction === 'refer'}
+        onOpenChange={(o) => !o && setBulkAction(null)}
+        kind="negocio"
+        ids={Array.from(selectedIds)}
         onDone={() => {
           fetchBoard({ silent: true })
           clearSelection()

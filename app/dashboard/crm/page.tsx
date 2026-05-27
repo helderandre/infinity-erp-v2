@@ -49,13 +49,12 @@ import {
 import type { PipelineType } from '@/types/leads-crm'
 import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
-import { MyLeadsSheet } from '@/components/leads/my-leads-sheet'
 import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useCrmInvalidator } from '@/hooks/use-crm-invalidator'
 import { isManagementRole } from '@/lib/auth/roles'
-import { Inbox, Plus, Send } from 'lucide-react'
+import { Plus, Send } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -996,9 +995,7 @@ export default function CRMPage() {
   const [activeTab, setActiveTab] = useState<PipelineType>('comprador')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [exportOpen, setExportOpen] = useState(false)
-  const [myLeadsOpen, setMyLeadsOpen] = useState(false)
   const [newNegocioOpen, setNewNegocioOpen] = useState(false)
-  const [myLeadsCount, setMyLeadsCount] = useState<number | null>(null)
   const [detailNegocioId, setDetailNegocioId] = useState<string | null>(null)
   // Bumped sempre que algo muda do lado do servidor que pode invalidar a
   // lista que estamos a ver: qualificar uma lead (cria negócio), criar
@@ -1058,25 +1055,6 @@ export default function CRMPage() {
 
   // Pipeline counts (tab badges) — moved abaixo da declaração do `filters`
   // useState porque agora depende dele. Ver ~linha 1180.
-
-  // Fetch the count of pending lead-entries (status=new — need to be contacted).
-  // Quando uma lead é qualificada, ela deixa o estado 'new' — bumpamos a key
-  // para o badge "As minhas leads" cair imediatamente.
-  useEffect(() => {
-    let cancelled = false
-    const params = new URLSearchParams({ status: 'new', limit: '1' })
-    fetch(`/api/lead-entries?${params}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (cancelled) return
-        const count = typeof json?.total === 'number'
-          ? json.total
-          : (json?.data?.length ?? 0)
-        setMyLeadsCount(count)
-      })
-      .catch(() => !cancelled && setMyLeadsCount(0))
-    return () => { cancelled = true }
-  }, [myLeadsOpen, kanbanRefreshKey])
 
   // Shared filters across kanban + list
   const [filters, setFilters] = useState<CrmFilters>({
@@ -1475,33 +1453,6 @@ export default function CRMPage() {
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
-          {/* Top row: "Tens X leads" pill (replaces the previous eyebrow). */}
-          {myLeadsCount !== null && (
-            <div className="mb-2 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setMyLeadsOpen(true)}
-                className="relative inline-flex items-center gap-1.5 rounded-full bg-white text-neutral-900 px-3.5 py-1.5 text-xs font-semibold shadow-md ring-1 ring-black/5 hover:bg-white/90 transition-colors"
-              >
-                <Inbox className="h-3.5 w-3.5" />
-                Tens {myLeadsCount} lead{myLeadsCount === 1 ? '' : 's'}
-                {myLeadsCount > 0 ? (
-                  <span
-                    className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-neutral-900 animate-pulse"
-                    aria-label={`${myLeadsCount} leads para qualificar`}
-                  />
-                ) : (
-                  <span
-                    className="absolute -top-1 -right-1 inline-flex items-center justify-center h-[16px] w-[16px] rounded-full bg-amber-400 text-neutral-900 ring-2 ring-neutral-900"
-                    aria-label="Adicionar lead"
-                  >
-                    <Plus className="h-2.5 w-2.5" strokeWidth={3} />
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-
           {/* Centered "Oportunidades" title with chevron → Referências dropdown. */}
           <div className="flex items-center justify-center gap-2">
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Oportunidades</h2>
@@ -1638,13 +1589,6 @@ export default function CRMPage() {
         onOpenChange={setExportOpen}
         endpoint="/api/export/negocios"
         title="Oportunidades"
-      />
-
-      <MyLeadsSheet
-        open={myLeadsOpen}
-        onOpenChange={setMyLeadsOpen}
-        consultantId={user?.id ?? null}
-        onNegocioCreated={bumpRefresh}
       />
 
       <NewNegocioDialog

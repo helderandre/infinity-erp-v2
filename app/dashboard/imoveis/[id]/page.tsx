@@ -26,6 +26,7 @@ import { PropertyImpicTab } from '@/components/properties/property-impic-tab'
 import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
 import { PropertyVisitasTab } from '@/components/properties/property-visitas-tab'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
+import { PropertyCampaignsTab } from '@/components/properties/property-campaigns-tab'
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
@@ -144,11 +145,12 @@ const PROCESS_SUBTABS: { key: ProcessSubTab; label: string; icon: React.ElementT
   { key: 'impic', label: 'IMPIC', icon: ShieldCheck },
 ]
 
-type InteressadosSubTab = 'pipeline' | 'site' | 'propostas'
+type InteressadosSubTab = 'pipeline' | 'site' | 'campanhas' | 'propostas'
 
 const INTERESSADOS_SUBTABS: { key: InteressadosSubTab; label: string }[] = [
   { key: 'pipeline', label: 'Leads Infinity' },
   { key: 'site', label: 'Leads Gerados' },
+  { key: 'campanhas', label: 'Campanhas' },
   { key: 'propostas', label: 'Propostas' },
 ]
 
@@ -199,7 +201,7 @@ export default function ImovelDetalhePage() {
     const tabParam = searchParams.get('tab')
     if (tabParam !== 'interessados') return 'pipeline'
     const sub = searchParams.get('sub')
-    if (sub === 'pipeline' || sub === 'site' || sub === 'propostas') return sub
+    if (sub === 'pipeline' || sub === 'site' || sub === 'campanhas' || sub === 'propostas') return sub
     return 'pipeline'
   })
   // Leads gerados: entradas em leads_entries que referenciam este imóvel
@@ -1412,6 +1414,13 @@ export default function ImovelDetalhePage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ══ Campanhas Meta ══ */}
+          {interessadosSubTab === 'campanhas' && (
+            <div className="animate-in fade-in duration-200">
+              <PropertyCampaignsTab propertyId={property.id} />
             </div>
           )}
 

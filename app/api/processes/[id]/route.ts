@@ -33,25 +33,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Processo já foi eliminado' }, { status: 400 })
     }
 
-    // Política de eliminação:
-    //   - Consultor (não-management) só pode eliminar os SEUS PRÓPRIOS rascunhos
-    //     (`current_status === 'draft'` && `requested_by === auth.user.id`).
-    //   - Management (broker/CEO/Gestor Processual/Office Manager/Team Leader)
-    //     pode eliminar qualquer processo.
+    // Política de eliminação: só management (Broker/CEO, admin, Gestor
+    // Processual, Office Manager, Team Leader) pode eliminar processos. Para
+    // consultores rejeitamos qualquer DELETE — inclusive nos seus próprios
+    // rascunhos. Tem de pedir a gestão. A UI espelha esta regra (botão
+    // "Seleccionar" e item "Eliminar rascunho" escondidos para consultores).
     const isManagement = isManagementRole(auth.roles)
     if (!isManagement) {
-      if (proc.current_status !== 'draft') {
-        return NextResponse.json(
-          { error: 'Não pode eliminar uma angariação. Só rascunhos.' },
-          { status: 403 },
-        )
-      }
-      if (proc.requested_by !== auth.user.id) {
-        return NextResponse.json(
-          { error: 'Só pode eliminar os seus próprios rascunhos.' },
-          { status: 403 },
-        )
-      }
+      return NextResponse.json(
+        { error: 'Sem permissão para eliminar processos. Contacte a gestão.' },
+        { status: 403 },
+      )
     }
 
     const adminSupabase = createAdminClient()

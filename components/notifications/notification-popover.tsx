@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, BellRing, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useNotifications } from '@/hooks/use-notifications'
+import { usePushSubscription } from '@/hooks/use-push-subscription'
 import { classifyBucket, type NotificationBucket } from '@/lib/notifications/types'
 import { NotificationItem } from './notification-item'
 import { useUser } from '@/hooks/use-user'
@@ -20,6 +21,10 @@ function formatBadge(count: number) {
 
 export function NotificationPopover() {
   const { user } = useUser()
+  // Activação de push — mostramos sempre o botão dentro do popup enquanto o
+  // utilizador não tiver subscrito (até aceitar), além do banner no topo.
+  const { isSubscribed, permission, isLoading: pushLoading, subscribe } = usePushSubscription()
+  const showPushCta = permission !== 'unsupported' && !isSubscribed
   const {
     notifications,
     unreadCount,
@@ -160,6 +165,32 @@ export function NotificationPopover() {
             </Button>
           </div>
         </div>
+
+        {/* ─── Push CTA — visível até o utilizador activar as notificações ─── */}
+        {showPushCta && (
+          <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+            <BellRing className="h-4 w-4 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-medium leading-tight">Ative as notificações</p>
+              <p className="text-muted-foreground text-[11px] leading-tight">
+                {permission === 'denied'
+                  ? 'Bloqueadas no navegador — ative-as nas definições do site.'
+                  : 'Receba um alerta no dispositivo quando chega uma nova lead.'}
+              </p>
+            </div>
+            {permission !== 'denied' && (
+              <Button
+                size="sm"
+                className="h-7 shrink-0 rounded-full bg-amber-600 px-3 text-[11px] text-white hover:bg-amber-700"
+                onClick={() => subscribe()}
+                disabled={pushLoading}
+              >
+                {pushLoading && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                Ativar
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* ─── Pill tabs ──────────────────────────────────────────── */}
         <div className="px-4 pt-3 pb-2 shrink-0">

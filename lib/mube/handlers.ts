@@ -18,11 +18,16 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { ingestLead } from '@/lib/crm/ingest-lead'
+import { metaLeadToIngestInput } from '@/lib/mube/lead-to-ingest'
+import { getGestoraLeadsUserIds } from '@/lib/crm/gestora-leads'
+import { sendPushToUser } from '@/lib/crm/send-push'
 import type {
   MubeAdEvent,
   MubeCampaignEvent,
   MubeFormEvent,
   MubeLeadEvent,
+  MubeLeadPayload,
 } from '@/lib/mube/types'
 
 // Untyped client (admin/service_role). O schema meta não está nos types gerados.
@@ -84,7 +89,142 @@ export async function handleLeadCreated(
     deliveryId,
     leadgenId: lead.leadgen_id,
   })
+
+  // Bridge into the CRM (gated by attribution rules). Best-effort — never
+  // affects the 200 we return to Mube. The raw row is already safely stored.
+  const rawId = data[0]?.id as string | undefined
+  if (rawId) {
+    await bridgeMetaLeadToCrm(lead, supabase, rawId, deliveryId)
+  }
+
   return NextResponse.json({ ok: true })
+}
+
+export interface BridgeResult {
+  status: 'ingested' | 'already' | 'unattributed' | 'error'
+  contact_id?: string
+  entry_id?: string
+}
+
+/**
+ * Bridge: turn a stored Mube lead into a CRM lead via the unified ingestLead
+ * pipeline. By default it is GATED — ingests only when an attribution rule
+ * matches (leads with no matching campaign/ad rule stay in meta_leads_raw,
+ * processed=false, in the "Por atribuir" inbox). Pass `forceAgentId` to assign
+ * a specific consultor regardless of rules (manual assign from the inbox).
+ *
+ * Reused by: the webhook (gated), the retroactive backfill on rule creation
+ * (gated), and the manual-assign endpoint (forced).
+ *
+ * Idempotent: skips ingest when a leads_entries already carries this leadgen_id
+ * (Mube re-delivers on retry, and the raw upsert resets processed=false).
+ *
+ * Best-effort: never throws. Webhook callers must NOT bubble a 500, since Mube
+ * would retry and ingestLead is not idempotent on entry creation.
+ */
+export async function bridgeMetaLeadToCrm(
+  lead: MubeLeadPayload,
+  supabase: AdminSupabase,
+  rawId: string,
+  deliveryId: string | null,
+  opts?: { forceAgentId?: string },
+): Promise<BridgeResult> {
+  try {
+    // 1. Idempotency guard — already ingested for this leadgen_id?
+    const { data: existing } = await supabase
+      .from('leads_entries')
+      .select('id, contact_id')
+      .eq('form_data->>leadgen_id', lead.leadgen_id)
+      .limit(1)
+      .maybeSingle()
+
+    if (existing?.id) {
+      await supabase
+        .schema('meta')
+        .from('meta_leads_raw')
+        .update({
+          processed: true,
+          processed_at: new Date().toISOString(),
+          lead_id: existing.contact_id,
+        })
+        .eq('id', rawId)
+      return { status: 'already', contact_id: existing.contact_id }
+    }
+
+    // 2. Enrich adset_id from the synced ad (the lead payload doesn't carry it).
+    let adsetId: string | null = null
+    if (lead.ad_id) {
+      const { data: ad } = await supabase
+        .schema('meta')
+        .from('meta_ads_raw')
+        .select('adset_id')
+        .eq('ad_id', lead.ad_id)
+        .maybeSingle()
+      adsetId = (ad?.adset_id as string | null) ?? null
+    }
+
+    const input = metaLeadToIngestInput(lead, adsetId)
+
+    // 3. Ingest — forced (manual) or gated (webhook/backfill).
+    let result
+    if (opts?.forceAgentId) {
+      result = await ingestLead(supabase, { ...input, assigned_agent_id: opts.forceAgentId })
+    } else {
+      result = await ingestLead(supabase, input, { requireMatchedRule: true })
+      if (!result) {
+        // Lead sem regra de atribuição → fica no "Por atribuir". Avisa a(s)
+        // Gestora(s) de Leads por push; o click abre a página por atribuir.
+        try {
+          const gestoras = await getGestoraLeadsUserIds(supabase)
+          await Promise.all(
+            gestoras.map((uid) =>
+              sendPushToUser(supabase, uid, {
+                title: 'Nova lead por atribuir',
+                body: `${input.name} — via Meta Ads`,
+                url: '/dashboard/analise-meta/leads?status=por_atribuir',
+                tag: `lead-unattributed-${lead.leadgen_id}`,
+              }),
+            ),
+          )
+        } catch {
+          /* best-effort — nunca bloqueia o webhook */
+        }
+        console.info('[mube-webhook] lead unattributed — left in inbox', {
+          deliveryId,
+          leadgenId: lead.leadgen_id,
+        })
+        return { status: 'unattributed' }
+      }
+    }
+
+    // 4. Stamp the back-reference onto the raw row.
+    await supabase
+      .schema('meta')
+      .from('meta_leads_raw')
+      .update({
+        processed: true,
+        processed_at: new Date().toISOString(),
+        lead_id: result.contact_id,
+      })
+      .eq('id', rawId)
+
+    console.info('[mube-webhook] lead ingested to CRM', {
+      deliveryId,
+      leadgenId: lead.leadgen_id,
+      contactId: result.contact_id,
+      entryId: result.entry_id,
+      agent: result.assigned_agent_id ?? 'pool',
+      forced: !!opts?.forceAgentId,
+    })
+    return { status: 'ingested', contact_id: result.contact_id, entry_id: result.entry_id }
+  } catch (err) {
+    console.error('[mube-webhook] bridge to CRM failed (left unprocessed)', {
+      deliveryId,
+      leadgenId: lead.leadgen_id,
+      err,
+    })
+    return { status: 'error' }
+  }
 }
 
 export async function handleFormSynced(

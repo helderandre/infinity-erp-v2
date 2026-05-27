@@ -65,6 +65,23 @@ const SECTOR_LABELS: Record<string, { label: string; icon: React.ElementType }> 
   real_estate_landlord: { label: 'Senhorio',   icon: Building2 },
 }
 
+/**
+ * Turn a Meta lead-form field key into a readable label.
+ * `nome_completo` → "Nome completo", `e-mail` → "E-mail",
+ * `número_de_telefone` → "Número de telefone", `tem_interesse_em:_` →
+ * "Tem interesse em". Underscores become spaces; hyphens are preserved.
+ */
+function humanizeFieldKey(key: string): string {
+  const cleaned = key
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[:\s]+$/, '')
+    .trim()
+  if (!cleaned) return key
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+}
+
 interface LeadEntrySheetProps {
   entryId: string | null
   open: boolean
@@ -485,13 +502,31 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                 const propertySlug = typeof entry.form_data.property_slug === 'string' ? entry.form_data.property_slug : null
                 const propertyTitle = typeof entry.form_data.property_title === 'string' ? entry.form_data.property_title : null
                 const propertyExternalRef = typeof entry.form_data.property_external_ref === 'string' ? entry.form_data.property_external_ref : null
-                const HIDDEN_KEYS = new Set(['property_id', 'property_slug'])
-                const visibleEntries = Object.entries(entry.form_data).filter(([k]) => !HIDDEN_KEYS.has(k))
+
+                // Leads do Meta guardam as respostas reais do formulário em
+                // `form_data.raw_fields`; o nível de topo só tem IDs técnicos
+                // (meta_*/leadgen_id/form_id/page_id). Quando existe raw_fields,
+                // é essa a fonte das perguntas/respostas — caso contrário usamos
+                // o próprio form_data (formulários do site, voz, etc.).
+                const rawFields =
+                  entry.form_data.raw_fields && typeof entry.form_data.raw_fields === 'object'
+                    ? (entry.form_data.raw_fields as Record<string, unknown>)
+                    : null
+                // Chaves técnicas nunca mostradas como pergunta do formulário.
+                const HIDDEN_KEYS = new Set([
+                  'property_id', 'property_slug', 'property_title', 'property_external_ref',
+                  'raw_fields', 'leadgen_id', 'form_id', 'page_id',
+                  'meta_campaign_id', 'meta_ad_id', 'meta_adset_id',
+                ])
+                const source: Record<string, unknown> = rawFields ?? (entry.form_data as Record<string, unknown>)
+                const visibleEntries = Object.entries(source).filter(
+                  ([k, v]) => !HIDDEN_KEYS.has(k) && v != null && String(v).trim() !== '',
+                )
                 if (!propertyId && visibleEntries.length === 0) return null
                 return (
                   <div className="rounded-xl border overflow-hidden">
                     <div className="px-4 py-2.5 border-b bg-muted/20">
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Dados do formulário</p>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Respostas do formulário</p>
                     </div>
                     <div className="divide-y divide-border/50">
                       {propertyId && (
@@ -510,9 +545,9 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                         </button>
                       )}
                       {visibleEntries.map(([key, value]) => (
-                        <div key={key} className="flex items-center justify-between px-4 py-2.5">
-                          <span className="text-[10px] text-muted-foreground uppercase">{key}</span>
-                          <span className="text-xs font-medium text-foreground/80">{String(value ?? '—')}</span>
+                        <div key={key} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                          <span className="text-[10px] text-muted-foreground uppercase shrink-0">{humanizeFieldKey(key)}</span>
+                          <span className="text-xs font-medium text-foreground/80 sm:text-right break-words">{String(value ?? '—')}</span>
                         </div>
                       ))}
                     </div>

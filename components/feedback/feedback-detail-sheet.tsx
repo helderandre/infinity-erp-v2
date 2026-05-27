@@ -5,13 +5,14 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import {
   Bug, Lightbulb, Loader2, Trash2, User, Image as ImageIcon, Sparkles,
-  MessageCircle, Send, Forward,
+  MessageCircle, Send, Forward, Pencil, Check, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -84,6 +85,14 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // ─── Inline edit (title + description) ────────────────────────────
+  // Autor pode editar o conteúdo do próprio ticket sem ter de abrir um
+  // novo no mesmo tema. Management pode editar qualquer item.
+  const canEditContent = canManage || isSubmitter
+  const [editingField, setEditingField] = useState<'title' | 'description' | null>(null)
+  const [titleDraft, setTitleDraft] = useState('')
+  const [descDraft, setDescDraft] = useState('')
+
   const itemId = item?.id
 
   const loadComments = useCallback(async (id: string) => {
@@ -118,6 +127,11 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
   useEffect(() => {
     if (item) setChatRecipientId(item.submitted_by || null)
   }, [item?.id, item?.submitted_by])
+
+  // Sai do modo de edição quando o item muda ou o sheet fecha.
+  useEffect(() => {
+    setEditingField(null)
+  }, [item?.id, open])
 
   if (!item) return null
 
@@ -251,9 +265,77 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">
                 {FEEDBACK_TYPE_LABELS[item.type]}
               </p>
-              <h2 className="mt-0.5 text-[18px] sm:text-[20px] font-semibold leading-tight tracking-tight break-words">
-                {item.title}
-              </h2>
+              {editingField === 'title' ? (
+                <div className="mt-0.5 flex items-start gap-2">
+                  <Input
+                    value={titleDraft}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        const next = titleDraft.trim()
+                        if (next && next !== item.title) {
+                          handleUpdate({ title: next }, 'title').then(() => setEditingField(null))
+                        } else {
+                          setEditingField(null)
+                        }
+                      }
+                      if (e.key === 'Escape') setEditingField(null)
+                    }}
+                    autoFocus
+                    disabled={isSaving}
+                    className="text-[18px] sm:text-[20px] font-semibold h-9 rounded-lg"
+                  />
+                  <div className="flex items-center gap-1 pt-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-emerald-600"
+                      disabled={isSaving || !titleDraft.trim() || titleDraft.trim() === item.title}
+                      onClick={() => {
+                        const next = titleDraft.trim()
+                        if (next && next !== item.title) {
+                          handleUpdate({ title: next }, 'title').then(() => setEditingField(null))
+                        } else {
+                          setEditingField(null)
+                        }
+                      }}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground"
+                      onClick={() => setEditingField(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-0.5 flex items-start gap-2 group">
+                  <h2 className="text-[18px] sm:text-[20px] font-semibold leading-tight tracking-tight break-words flex-1 min-w-0">
+                    {item.title}
+                  </h2>
+                  {canEditContent && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTitleDraft(item.title)
+                        setEditingField('title')
+                      }}
+                      className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      aria-label="Editar título"
+                      title="Editar título"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
@@ -350,12 +432,82 @@ export function FeedbackDetailSheet({ item, open, onOpenChange, onUpdate, consul
             </div>
           )}
 
-          {/* Description */}
-          {item.description && (
-            <div className="rounded-2xl border border-border/40 bg-card/60 p-4">
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{item.description}</p>
+          {/* Description — editável inline pelo autor + management. Autor
+              que esqueceu detalhes não tem de abrir um ticket novo no mesmo
+              tema; pode acrescentar contexto aqui. */}
+          {editingField === 'description' ? (
+            <div className="space-y-2">
+              <Textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setEditingField(null)
+                }}
+                autoFocus
+                disabled={isSaving}
+                rows={6}
+                className="rounded-2xl bg-card/60 text-sm leading-relaxed"
+                placeholder="Adiciona contexto, passos para reproduzir, screenshots..."
+              />
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-full h-8"
+                  onClick={() => setEditingField(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="rounded-full h-8"
+                  disabled={isSaving || descDraft === (item.description ?? '')}
+                  onClick={() => {
+                    const next = descDraft.trim() || null
+                    handleUpdate({ description: next }, 'description').then(() =>
+                      setEditingField(null),
+                    )
+                  }}
+                >
+                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Guardar'}
+                </Button>
+              </div>
             </div>
-          )}
+          ) : item.description ? (
+            <div className="group relative rounded-2xl border border-border/40 bg-card/60 p-4">
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">{item.description}</p>
+              {canEditContent && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDescDraft(item.description ?? '')
+                    setEditingField('description')
+                  }}
+                  className="absolute top-2 right-2 h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  aria-label="Editar descrição"
+                  title="Editar descrição"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ) : canEditContent ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDescDraft('')
+                setEditingField('description')
+              }}
+              className="w-full rounded-2xl border border-dashed border-border/60 bg-card/30 p-4 text-left text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Pencil className="h-3.5 w-3.5" />
+                Adicionar descrição
+              </span>
+            </button>
+          ) : null}
 
           {/* Images grid */}
           {item.images && item.images.length > 0 && (

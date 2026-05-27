@@ -405,6 +405,9 @@ export interface LeadsAssignmentRule {
   description: string | null
   source_match: string[] | null
   campaign_id_match: string | null
+  // Meta campaign_id (text) — campaign-level attribution keyed directly off the
+  // Meta ID (matched against form_data.meta_campaign_id), independent of leads_campaigns.
+  campaign_external_id_match: string | null
   ad_id_match: string | null
   adset_id_match: string | null
   zone_match: string[] | null
@@ -421,6 +424,18 @@ export interface LeadsAssignmentRule {
   round_robin_index: number
   priority: number
   is_active: boolean
+  // Referral defaults — stamped onto every leads_entries this rule attributes.
+  // referral_basis: 'agency_commission' (default, only one computed downstream) |
+  // 'sale_value' | 'fixed'. referral_pct used for the % bases; referral_fixed_amount for 'fixed'.
+  has_referral: boolean
+  referral_consultant_id: string | null
+  referral_pct: number | null
+  referral_basis: 'agency_commission' | 'sale_value' | 'fixed'
+  referral_fixed_amount: number | null
+  // Lead-type defaults declared on the campaign/ad — stamped onto each entry so
+  // the qualify dialog pre-fills. sector = perspective (buy/sell/rent/landlord).
+  lead_sector: string | null
+  lead_business_type: 'Venda' | 'Arrendamento' | 'Trespasse' | null
   created_at: string
   updated_at: string
   // Joins

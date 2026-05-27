@@ -48,13 +48,6 @@ export async function PUT(
     const auth = await requireAuth()
     if (!auth.authorized) return auth.response
 
-    if (!isManagementRole(auth.roles)) {
-      return NextResponse.json(
-        { error: 'Sem permissão para editar tickets/ideias' },
-        { status: 403 }
-      )
-    }
-
     const { id } = await params
     const body = await request.json()
     const validation = updateFeedbackSchema.safeParse(body)
@@ -74,6 +67,28 @@ export async function PUT(
       .select('status, type, title, submitted_by, notify_on_resolution, resolution_notification_sent_at')
       .eq('id', id)
       .single()
+
+    // Permissão: management edita tudo; autor pode editar APENAS o conteúdo
+    // (title/description) do próprio ticket — campos de triagem (status,
+    // priority, assigned_to, tech_notes) permanecem exclusivos da gestão.
+    const isManagement = isManagementRole(auth.roles)
+    const isAuthor = !!before && before.submitted_by === auth.user.id
+    if (!isManagement) {
+      if (!isAuthor) {
+        return NextResponse.json(
+          { error: 'Sem permissão para editar este item' },
+          { status: 403 }
+        )
+      }
+      const triageFields = ['status', 'priority', 'assigned_to', 'tech_notes'] as const
+      const touchesTriage = triageFields.some((f) => (validation.data as Record<string, unknown>)[f] !== undefined)
+      if (touchesTriage) {
+        return NextResponse.json(
+          { error: 'Sem permissão para alterar campos de triagem' },
+          { status: 403 }
+        )
+      }
+    }
 
     const { data, error } = await supabase
       .from('feedback_submissions')

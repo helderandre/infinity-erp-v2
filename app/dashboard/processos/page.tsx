@@ -44,11 +44,14 @@ import { toast } from 'sonner'
 import { AcquisitionDialog } from '@/components/acquisitions/acquisition-dialog'
 import { DealDialog } from '@/components/deals/deal-dialog'
 
-function ProcessDropdownMenu({ isDraft, canDelete, selectionMode, onResumeDraft, onViewDetails, onSelectMultiple, onDelete }: {
+function ProcessDropdownMenu({ isDraft, canDelete, canSelectMultiple, selectionMode, onResumeDraft, onViewDetails, onSelectMultiple, onDelete }: {
   isDraft: boolean
-  /** Política: consultor só pode eliminar os seus rascunhos; management pode
-   *  eliminar tudo. Resolvido pelo caller; aqui apenas escondemos o item. */
+  /** Política: só management pode eliminar processos. Consultor não vê o
+   *  item — mesmo nos seus próprios rascunhos tem de pedir à gestão. */
   canDelete: boolean
+  /** Selecção em massa só faz sentido com permissão de eliminar em bloco —
+   *  reservado a management. Consultor não vê este item. */
+  canSelectMultiple: boolean
   selectionMode: boolean
   onResumeDraft: () => void
   onViewDetails: () => void
@@ -88,7 +91,7 @@ function ProcessDropdownMenu({ isDraft, canDelete, selectionMode, onResumeDraft,
             Ver detalhes
           </DropdownMenuItem>
         )}
-        {!selectionMode && (
+        {!selectionMode && canSelectMultiple && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -444,19 +447,24 @@ export default function ProcessosPage() {
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
             </div>
-            <button
-              onClick={() => { if (selectionMode) exitSelectionMode(); else setSelectionMode(true) }}
-              className={cn(
-                'inline-flex items-center gap-1.5 backdrop-blur-sm border px-3 py-2 rounded-full text-xs font-medium transition-colors',
-                selectionMode
-                  ? 'bg-white text-neutral-900 border-white shadow-sm'
-                  : 'bg-white/15 text-white border-white/20 hover:bg-white/25',
-              )}
-              title={selectionMode ? 'Sair da selecção' : 'Seleccionar processos'}
-            >
-              <CheckSquare className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{selectionMode ? 'Sair' : 'Seleccionar'}</span>
-            </button>
+            {/* Selecção em massa só para management — consultor pode apagar
+                rascunhos próprios via menu da row, mas não tem acesso ao
+                modo de selecção/eliminação em bloco. */}
+            {isManagement && (
+              <button
+                onClick={() => { if (selectionMode) exitSelectionMode(); else setSelectionMode(true) }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 backdrop-blur-sm border px-3 py-2 rounded-full text-xs font-medium transition-colors',
+                  selectionMode
+                    ? 'bg-white text-neutral-900 border-white shadow-sm'
+                    : 'bg-white/15 text-white border-white/20 hover:bg-white/25',
+                )}
+                title={selectionMode ? 'Sair da selecção' : 'Seleccionar processos'}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{selectionMode ? 'Sair' : 'Seleccionar'}</span>
+              </button>
+            )}
             <button
               onClick={() => setExportOpen(true)}
               className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white border border-white/20 px-3 py-2 rounded-full text-xs font-medium hover:bg-white/25 transition-colors"
@@ -578,8 +586,9 @@ export default function ProcessosPage() {
         })}
       </div>
 
-      {/* ═══ Selection bar ═══ */}
-      {selectionMode && (
+      {/* ═══ Selection bar ═══ Management-only — gated belt-and-braces in
+            case selectionMode somehow becomes true for a consultor. */}
+      {selectionMode && isManagement && (
         <div className="flex items-center gap-2 flex-wrap rounded-2xl border border-border/60 bg-card/50 supports-[backdrop-filter]:bg-card/40 backdrop-blur-sm shadow-sm px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex items-center gap-2 mr-auto">
             <span className="inline-flex items-center justify-center h-6 min-w-[1.5rem] rounded-full bg-primary/10 text-primary text-[11px] font-semibold px-2 tabular-nums">
@@ -848,7 +857,8 @@ export default function ProcessosPage() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <ProcessDropdownMenu
                         isDraft={isDraft}
-                        canDelete={isManagement || (isDraft && proc.requested_by === user?.id)}
+                        canDelete={isManagement}
+                        canSelectMultiple={isManagement}
                         selectionMode={selectionMode}
                         onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}
                         onViewDetails={() => router.push(`/dashboard/processos/${proc.id}`)}
@@ -904,7 +914,8 @@ export default function ProcessosPage() {
                 <div className="absolute top-3 right-3 z-10">
                   <ProcessDropdownMenu
                     isDraft={isDraft}
-                    canDelete={isManagement || (isDraft && proc.requested_by === user?.id)}
+                    canDelete={isManagement}
+                    canSelectMultiple={isManagement}
                     selectionMode={selectionMode}
                     onResumeDraft={() => { setResumeDraftId(proc.id); setDraftDialogOpen(true) }}
                     onViewDetails={() => router.push(`/dashboard/processos/${proc.id}`)}

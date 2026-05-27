@@ -52,6 +52,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       updateData.processed_by = user.id
     }
 
+    if (parsed.data.status === 'discarded') {
+      if (parsed.data.lost_reason !== undefined) updateData.lost_reason = parsed.data.lost_reason
+      if (parsed.data.lost_notes !== undefined) updateData.lost_notes = parsed.data.lost_notes
+    }
+
     const { data, error } = await supabase
       .from('leads_entries')
       .update(updateData)

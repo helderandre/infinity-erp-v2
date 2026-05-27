@@ -18,8 +18,6 @@
  * app/api/crm/kanban, app/api/lead-entries.
  */
 
-import { isManagementRole } from './roles'
-
 /**
  * Campos PII que ficam null para vistas redacted. Inclui dados pessoais,
  * contactos, identificação, dados da empresa do contacto, fragmentos de
@@ -79,12 +77,17 @@ const DEFAULT_NESTED_LEAD_KEYS = ['lead', 'leads', 'contact'] as const
 /**
  * Decisão central: o caller deve redact a row para este viewer?
  *
- * Regras:
- *  - Não-management → SEMPRE PII completa (vê só os seus, é o owner).
- *  - Management → redact, EXCEPTO quando o viewer é o owner do registo
- *    (caso raro mas possível: um Broker/CEO que também trabalha leads —
- *    nas suas próprias leads vê PII completa) OU é o `referrerId`
- *    (originou a lead; mantém visibilidade plena pós hand-off).
+ * POLÍTICA REVERTIDA (2026-05-27): a gestão passa a ver TODA a informação
+ * das leads/contactos/oportunidades — nome completo, contactos, identificação,
+ * etc. A masking de PII para management foi descontinuada por decisão do
+ * stakeholder. Esta função devolve agora SEMPRE `false` (nunca redact).
+ *
+ * A infra-estrutura de redaction (`redactLead`, `redactNestedLead`,
+ * `PII_NULL_FIELDS`, `maskLeadName`) mantém-se intacta e os call-sites
+ * continuam a passar por aqui — basta esta função voltar a discriminar para
+ * reactivar a política antiga, sem tocar nos endpoints.
+ *
+ * Parâmetros mantidos por compatibilidade com os call-sites existentes.
  */
 export function shouldRedactLead(
   roles: ReadonlyArray<string | null | undefined>,
@@ -92,10 +95,13 @@ export function shouldRedactLead(
   viewerId: string,
   referrerId?: string | null | undefined,
 ): boolean {
-  if (!isManagementRole(roles)) return false
-  if (ownerId === viewerId) return false
-  if (referrerId && referrerId === viewerId) return false
-  return true
+  // Política revertida (2026-05-27): nunca redact. Params referenciados via
+  // `void` para manter a assinatura (call-sites passam-nos) sem warnings.
+  void roles
+  void ownerId
+  void viewerId
+  void referrerId
+  return false
 }
 
 /**
