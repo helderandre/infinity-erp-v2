@@ -7,7 +7,7 @@ import {
   LogOut, ChevronDown, Sun, Moon, Monitor, ChevronRight,
   Zap, Mail, FileCode2, Workflow, Braces, Bot,
   MessageCircle, MessageSquareText, Instagram, BarChart3,
-  Plug, Store, ClipboardList, UserPlus, Target,
+  Plug, Store, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
   Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Shield, MessagesSquare,
   CheckSquare, Cpu, Infinity, KeyRound, Library, Bell, FolderOpen,
@@ -78,11 +78,10 @@ export const crmItems = [
   // Gestão de Leads: triagem do inbox + métricas de SLA. Gated pela permissão
   // `leads_management`, que vem do role "Gestora de Leads" (M:N — pode ser
   // acumulado com Consultor). Admin/Broker/CEO recebem auto via merge.
+  // Gestão de Leads inclui as tabs Distribuição / Em Atraso / Pool / Por
+  // atribuir (esta última = leads Meta sem regra de atribuição, antes uma
+  // página própria — ver components/crm/gestora-por-atribuir-tab.tsx).
   { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'leads_management' },
-  // Leads Meta que chegaram SEM regra de atribuição (campanha não atribuída a
-  // ninguém) — ficam aqui "Por atribuir" para a Gestora de Leads distribuir.
-  // É também o destino da push de "lead por atribuir".
-  { title: 'Leads por atribuir', icon: ClipboardList, href: '/dashboard/analise-meta/leads?status=por_atribuir', permission: 'leads_management' },
   // Automatismos: configuração de eventos custom + cascatas de templates;
   // operacional para gestão, ruído para o consultor (que ainda assim consome
   // os automatismos via leads próprias).

@@ -38,9 +38,13 @@ interface Consultant {
 export function AssignLeadButton({
   leadId,
   leadName,
+  onAssigned,
 }: {
   leadId: string
   leadName?: string | null
+  /** Called after a successful assign — lets a client list refetch itself.
+   *  router.refresh() still fires for server-rendered call-sites. */
+  onAssigned?: () => void
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -84,6 +88,7 @@ export function AssignLeadButton({
         json.status === 'already' ? 'Este lead já estava no CRM.' : 'Lead atribuído.',
       )
       setOpen(false)
+      onAssigned?.()
       router.refresh()
     } catch {
       toast.error('Erro de rede.')

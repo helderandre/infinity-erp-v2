@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import {
   AlertTriangle, Users, Clock, Inbox, RefreshCw, ArrowRight,
   Loader2, UserX, Shield, Plus, Search, Filter, ChevronLeft, ChevronRight,
-  Upload, Target,
+  Upload, Target, ClipboardList,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,12 +17,14 @@ import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { BulkImportEntriesDialog } from '@/components/leads/bulk-import-entries-dialog'
 import { AssignmentRulesManager } from '@/components/crm/assignment-rules-manager'
 import { SlaConfigsManager } from '@/components/crm/sla-configs-manager'
+import { GestoraPorAtribuirTab } from '@/components/crm/gestora-por-atribuir-tab'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { ContactActionButtons } from '@/components/crm/contact-action-buttons'
 import { usePermissions } from '@/hooks/use-permissions'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ShieldAlert } from 'lucide-react'
 
@@ -143,7 +145,15 @@ function GestoraContent() {
   const [isReassigning, setIsReassigning] = useState(false)
   const [agentFilter, setAgentFilter] = useState<string>('')
   const [sectorFilter, setSectorFilter] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'distribution' | 'overdue' | 'unassigned'>('distribution')
+  // Deep-link support: ?tab=por_atribuir (used by the "lead por atribuir" push).
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<'distribution' | 'overdue' | 'unassigned' | 'por_atribuir'>(
+    tabParam === 'por_atribuir' || tabParam === 'overdue' || tabParam === 'unassigned'
+      ? tabParam
+      : 'distribution',
+  )
+  const [porAtribuirCount, setPorAtribuirCount] = useState(0)
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showRulesDialog, setShowRulesDialog] = useState(false)
@@ -164,6 +174,21 @@ function GestoraContent() {
   }, [agentFilter, sectorFilter])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // "Por atribuir" (raw Meta leads, processed=false) count — drives the tab
+  // badge. Independent of the gestora overview (different data source).
+  const fetchPorAtribuirCount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/analise-meta/unattributed-leads?count_only=1')
+      if (!res.ok) return
+      const json = await res.json()
+      setPorAtribuirCount(typeof json.total === 'number' ? json.total : 0)
+    } catch {
+      // best-effort — badge just stays at its last value
+    }
+  }, [])
+
+  useEffect(() => { fetchPorAtribuirCount() }, [fetchPorAtribuirCount])
 
   const handleSelectEntry = (entryId: string, checked: boolean) => {
     setSelectedEntries(prev => {
@@ -360,9 +385,26 @@ function GestoraContent() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => { setActiveTab('por_atribuir'); setSelectedEntries(new Set()) }}
+            className={cn(
+              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
+              activeTab === 'por_atribuir'
+                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
+            )}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Por atribuir
+            {porAtribuirCount > 0 && (
+              <span className="ml-1 text-[10px] bg-sky-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                {porAtribuirCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        {activeTab !== 'distribution' && (
+        {(activeTab === 'overdue' || activeTab === 'unassigned') && (
           <>
             <Select value={sectorFilter || 'all'} onValueChange={v => setSectorFilter(v === 'all' ? '' : v)}>
               <SelectTrigger className="w-[160px] h-8 rounded-full text-xs">
@@ -524,8 +566,13 @@ function GestoraContent() {
         </div>
       )}
 
+      {/* Tab: Por atribuir — raw Meta leads waiting for ingestion/assignment */}
+      {activeTab === 'por_atribuir' && (
+        <GestoraPorAtribuirTab onChanged={fetchPorAtribuirCount} />
+      )}
+
       {/* Tab: Em Atraso / Pool — Entries List */}
-      {activeTab === 'distribution' ? null : isLoading && !data ? (
+      {activeTab === 'distribution' || activeTab === 'por_atribuir' ? null : isLoading && !data ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-2xl" />

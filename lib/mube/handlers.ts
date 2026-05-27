@@ -173,7 +173,8 @@ export async function bridgeMetaLeadToCrm(
       result = await ingestLead(supabase, input, { requireMatchedRule: true })
       if (!result) {
         // Lead sem regra de atribuição → fica no "Por atribuir". Avisa a(s)
-        // Gestora(s) de Leads por push; o click abre a página por atribuir.
+        // Gestora(s) de Leads por push; o click abre a tab "Por atribuir"
+        // dentro da Gestão de Leads.
         try {
           const gestoras = await getGestoraLeadsUserIds(supabase)
           await Promise.all(
@@ -181,7 +182,7 @@ export async function bridgeMetaLeadToCrm(
               sendPushToUser(supabase, uid, {
                 title: 'Nova lead por atribuir',
                 body: `${input.name} — via Meta Ads`,
-                url: '/dashboard/analise-meta/leads?status=por_atribuir',
+                url: '/dashboard/crm/gestora?tab=por_atribuir',
                 tag: `lead-unattributed-${lead.leadgen_id}`,
               }),
             ),
