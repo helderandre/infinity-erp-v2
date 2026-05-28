@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { getInsightTotalsByObject } from '@/lib/meta/insights-kpis'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,11 @@ interface Item {
   has_referral: boolean
   referral_pct: number | null
   assigned_to: string | null
+  /** gasto total (insights, EUR). null se não há dados de desempenho */
+  spend: number | null
+  /** custo por lead = spend ÷ total_leads (aproximação) */
+  cost_per_lead: number | null
+  currency: string | null
 }
 
 export async function GET() {
@@ -99,6 +105,9 @@ export async function GET() {
           has_referral: !!rule?.has_referral,
           referral_pct: rule?.referral_pct ?? null,
           assigned_to: rule?.consultant_id ? nameById.get(rule.consultant_id) ?? null : null,
+          spend: null,
+          cost_per_lead: null,
+          currency: null,
         }
       })
       items.sort((a, b) => b.total_leads - a.total_leads)
@@ -138,14 +147,37 @@ export async function GET() {
           has_referral: !!r.has_referral,
           referral_pct: r.referral_pct ?? null,
           assigned_to: null,
+          spend: null,
+          cost_per_lead: null,
+          currency: null,
         }
       })
       items.sort((a, b) => (a.scope === b.scope ? b.total_leads - a.total_leads : a.scope === 'ad' ? -1 : 1))
     }
 
+    // Enrich com spend/CPL do mirror de insights (somável por campanha/anúncio).
+    // CPL = spend ÷ total_leads (aproximação ligada ao nº de leads mostrado).
+    const campIds = items.filter((i) => i.scope === 'campaign').map((i) => i.target_id)
+    const adIds = items.filter((i) => i.scope === 'ad').map((i) => i.target_id)
+    const [campTotals, adTotals] = await Promise.all([
+      getInsightTotalsByObject(db, 'campaign', campIds),
+      getInsightTotalsByObject(db, 'ad', adIds),
+    ])
+    for (const it of items) {
+      const t = it.scope === 'ad' ? adTotals[it.target_id] : campTotals[it.target_id]
+      if (!t) continue
+      it.spend = t.spend
+      it.currency = t.currency
+      it.cost_per_lead = it.total_leads > 0 ? t.spend / it.total_leads : null
+    }
+
     const totals = items.reduce(
-      (acc, it) => ({ total_leads: acc.total_leads + it.total_leads, in_crm: acc.in_crm + it.in_crm }),
-      { total_leads: 0, in_crm: 0 },
+      (acc, it) => ({
+        total_leads: acc.total_leads + it.total_leads,
+        in_crm: acc.in_crm + it.in_crm,
+        spend: acc.spend + (it.spend ?? 0),
+      }),
+      { total_leads: 0, in_crm: 0, spend: 0 },
     )
 
     return NextResponse.json({ items, totals, mode: canSeeAll ? 'all' : 'mine' })

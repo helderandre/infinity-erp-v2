@@ -19,9 +19,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import {
+  handleAdObjectIssue,
   handleAdSynced,
   handleCampaignSynced,
   handleFormSynced,
+  handleInsightsSynced,
   handleLeadCreated,
 } from '@/lib/mube/handlers'
 import { isValidMubeSignature } from '@/lib/mube/signature'
@@ -90,6 +92,10 @@ export async function POST(req: NextRequest) {
       return handleCampaignSynced(event, supabase, deliveryId)
     case 'ad.synced':
       return handleAdSynced(event, supabase, deliveryId)
+    case 'insights.synced':
+      return handleInsightsSynced(event, supabase, deliveryId)
+    case 'ad_object.issue':
+      return handleAdObjectIssue(event, supabase, deliveryId)
     default: {
       const unknown = (event as { event?: string }).event
       console.warn('[mube-webhook] Unknown event type', {

@@ -12,6 +12,8 @@ import {
 } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
+import { MetaRefreshControls } from '@/components/analise-meta/meta-refresh-controls'
+
 import { MetaEmptyState } from '../_components/meta-empty-state'
 import { MetaSearchInput } from '../_components/search-input'
 import { MetaPaginationNav } from '../_components/pagination-nav'
@@ -117,9 +119,12 @@ export default async function CampanhasMetaPage({
           defaultValue={q}
           placeholder="Pesquisar campanha…"
         />
-        <p className="text-muted-foreground text-xs tabular-nums">
-          {total} campanha{total === 1 ? '' : 's'}
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <MetaRefreshControls show="both" />
+          <p className="text-muted-foreground text-xs tabular-nums">
+            {total} campanha{total === 1 ? '' : 's'}
+          </p>
+        </div>
       </div>
 
       {campaigns.length === 0 ? (

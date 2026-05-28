@@ -11,11 +11,14 @@ import {
   metaStatusVariant,
 } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
+import { getInsightKpis } from '@/lib/meta/insights-kpis'
 import {
   CampaignDetailTabs,
   type FunnelAdset,
   type FunnelAd,
 } from '@/components/analise-meta/campaign-detail-tabs'
+import { PerformanceKpis } from '@/components/analise-meta/performance-kpis'
+import { MetaRefreshControls } from '@/components/analise-meta/meta-refresh-controls'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Campanha — Análise Meta' }
@@ -46,7 +49,7 @@ export default async function CampanhaDetailPage({
   const backLabel = backHref === '/dashboard/analise-meta/campanhas' ? 'Campanhas' : 'Voltar'
   const supabase = createCrmAdminClient()
 
-  const [campRes, adsRes, leadsCountRes, leadsRes] = await Promise.all([
+  const [campRes, adsRes, leadsCountRes, leadsRes, insightKpis] = await Promise.all([
     supabase.schema('meta').from('meta_campaigns_raw').select('*').eq('campaign_id', campaign_id).maybeSingle(),
     supabase
       .schema('meta')
@@ -61,6 +64,7 @@ export default async function CampanhaDetailPage({
       .select('id, ad_id, form_id, processed')
       .eq('campaign_id', campaign_id)
       .limit(LEAD_SCAN),
+    getInsightKpis(supabase, 'campaign', campaign_id),
   ])
 
   if (!campRes.data) notFound()
@@ -144,6 +148,14 @@ export default async function CampanhaDetailPage({
           </Badge>
         </div>
         <p className="text-muted-foreground text-sm">{formatCampaignObjective(campaign.objective)}</p>
+      </div>
+
+      {/* Desempenho (insights) + refresh */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-end">
+          <MetaRefreshControls show="performance" />
+        </div>
+        <PerformanceKpis kpis={insightKpis} />
       </div>
 
       <CampaignDetailTabs

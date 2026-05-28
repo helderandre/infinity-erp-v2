@@ -175,6 +175,38 @@ export function formatMetaBudgetCents(
 }
 
 // ---------------------------------------------------------------------------
+// Insights — formatação de métricas de desempenho
+// (spend/cpc/cpm/cost_per_lead vêm já em unidades monetárias, NÃO em cents)
+// ---------------------------------------------------------------------------
+
+export function formatEur(
+  value: number | null | undefined,
+  currency: string | null = 'EUR',
+  opts?: { maximumFractionDigits?: number },
+): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  try {
+    return new Intl.NumberFormat('pt-PT', {
+      style: 'currency',
+      currency: currency ?? 'EUR',
+      maximumFractionDigits: opts?.maximumFractionDigits ?? 2,
+    }).format(value)
+  } catch {
+    return `${value.toFixed(2)} ${currency ?? ''}`.trim()
+  }
+}
+
+export function formatMetaInt(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(value)
+}
+
+export function formatMetaPct(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—'
+  return `${value.toFixed(2)}%`
+}
+
+// ---------------------------------------------------------------------------
 // Form question type
 // ---------------------------------------------------------------------------
 

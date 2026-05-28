@@ -32,7 +32,10 @@ import {
 } from '@/components/ui/table'
 import { formatMetaStatus, metaStatusVariant } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
+import { getInsightKpis } from '@/lib/meta/insights-kpis'
 import { AttributionPanel } from '@/components/analise-meta/attribution-panel'
+import { PerformanceKpis } from '@/components/analise-meta/performance-kpis'
+import { MetaRefreshControls } from '@/components/analise-meta/meta-refresh-controls'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Anúncio — Análise Meta' }
@@ -76,7 +79,7 @@ export default async function AdDetailPage({
   const ad = adRes.data
 
   // Segundo round (depende do ad para descobrir campaign_id)
-  const [campRes, leadsCountRes, leadsRes] = await Promise.all([
+  const [campRes, leadsCountRes, leadsRes, insightKpis] = await Promise.all([
     ad.campaign_id
       ? supabase
           .schema('meta')
@@ -100,6 +103,7 @@ export default async function AdDetailPage({
       .order('fb_created_time', { ascending: false, nullsFirst: false })
       .order('received_at', { ascending: false })
       .limit(20),
+    getInsightKpis(supabase, 'ad', ad_id),
   ])
 
   const parentCampaign = campRes.data
@@ -157,6 +161,14 @@ export default async function AdDetailPage({
           value={fmtRelative(ad.received_at)}
           icon={<Clock className="h-4 w-4" />}
         />
+      </div>
+
+      {/* Desempenho (insights) + refresh */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-end">
+          <MetaRefreshControls show="performance" />
+        </div>
+        <PerformanceKpis kpis={insightKpis} />
       </div>
 
       {/* Attribution */}

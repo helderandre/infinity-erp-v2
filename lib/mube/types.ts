@@ -14,6 +14,20 @@ export interface MubeLeadFieldData {
   values: string[]
 }
 
+/**
+ * Custo por lead anexado ao payload de lead.created.
+ *
+ * `per_lead` chega NULL num lead acabado de criar (o gasto do dia ainda não
+ * fechou) — é preenchido depois pelo sync de insights. `basis` indica que é
+ * uma aproximação (gasto diário do anúncio ÷ leads do dia), não o custo exacto
+ * daquele lead.
+ */
+export interface MubeLeadCost {
+  per_lead: number | null
+  currency: string | null
+  basis: 'ad_daily_average'
+}
+
 export interface MubeLeadPayload {
   /** ID interno do lead no meta-api (UUID) */
   id: string
@@ -23,6 +37,10 @@ export interface MubeLeadPayload {
   page_id: string
   /** Facebook Form ID (pode ser null em alguns casos) */
   form_id: string | null
+  /** Nome do formulário (enriquecido pelo meta-api) */
+  form_name?: string | null
+  /** Perguntas do formulário (estrutura bruta da Meta) */
+  form_questions?: unknown | null
   /** Facebook Ad ID (null se lead orgânico) */
   ad_id: string | null
   /** Facebook Campaign ID (null se lead orgânico) */
@@ -39,6 +57,8 @@ export interface MubeLeadPayload {
   fb_created_time: string | null
   /** Quando o meta-api recebeu o webhook da Meta (ISO 8601) */
   received_at: string
+  /** Custo por lead (aproximação). null em leads novos. */
+  cost?: MubeLeadCost | null
 }
 
 export interface MubeLeadEvent {
@@ -142,6 +162,50 @@ export interface MubeAdEvent {
 }
 
 // ============================================================
+// insights.synced — PING (não traz métricas)
+// ============================================================
+
+export interface MubeInsightsPayload {
+  /** Ad Account a que o refresh diz respeito ("act_<num>") */
+  ad_account_id: string
+  /** Início da janela refrescada (YYYY-MM-DD) */
+  since: string
+  /** Fim da janela refrescada (YYYY-MM-DD) */
+  until: string
+  /** Quantas linhas de insights foram upserted na meta-api */
+  rows_upserted: number
+  /** Quantos custos de lead foram actualizados */
+  leads_cost_updated: number
+}
+
+export interface MubeInsightsEvent {
+  version: '1'
+  event: 'insights.synced'
+  delivered_at: string
+  tenant_id: string
+  insights: MubeInsightsPayload
+}
+
+// ============================================================
+// ad_object.issue — alerta de estado/problema (webhook de Ad Account)
+// ============================================================
+
+export interface MubeAdObjectIssuePayload {
+  ad_account_id: string
+  field: 'with_issues_ad_objects' | 'in_process_ad_objects'
+  /** Payload bruto da Meta para esse campo */
+  value: unknown
+}
+
+export interface MubeAdObjectIssueEvent {
+  version: '1'
+  event: 'ad_object.issue'
+  delivered_at: string
+  tenant_id: string
+  ad_object: MubeAdObjectIssuePayload
+}
+
+// ============================================================
 // Discriminated union para a rota multiplex
 // ============================================================
 
@@ -150,3 +214,61 @@ export type MubeEvent =
   | MubeFormEvent
   | MubeCampaignEvent
   | MubeAdEvent
+  | MubeInsightsEvent
+  | MubeAdObjectIssueEvent
+
+// ============================================================
+// GET /api/insights — tipos de leitura (tenant-facing, HMAC server-side)
+// ============================================================
+
+/** value vem como string da Graph API */
+export interface InsightActionStat {
+  action_type: string
+  value: string
+}
+
+export type InsightLevel = 'account' | 'campaign' | 'adset' | 'ad'
+
+export interface Insight {
+  id: string
+  ad_account_id: string
+  level: InsightLevel
+  /** id do objecto no nível indicado */
+  object_id: string
+  campaign_id: string | null
+  adset_id: string | null
+  ad_id: string | null
+  /** "2026-05-01" (1 linha por dia) */
+  date_start: string
+  date_stop: string
+  spend: number | null
+  impressions: number | null
+  reach: number | null
+  frequency: number | null
+  clicks: number | null
+  inline_link_clicks: number | null
+  cpc: number | null
+  cpm: number | null
+  ctr: number | null
+  /** soma dos action_type de lead */
+  leads: number | null
+  /** spend ÷ leads (aproximação). null se leads=0 */
+  cost_per_lead: number | null
+  actions: InsightActionStat[] | null
+  action_values: InsightActionStat[] | null
+  cost_per_action_type: InsightActionStat[] | null
+  /** normalmente vazio em lead-gen (sem pixel de compra) */
+  purchase_roas: InsightActionStat[] | null
+  account_currency: string | null
+  fetched_at: string
+}
+
+export interface InsightsResponse {
+  insights: Insight[]
+  pagination: {
+    total: number
+    limit: number
+    offset: number
+    has_more: boolean
+  }
+}

@@ -22,10 +22,13 @@ import { ingestLead } from '@/lib/crm/ingest-lead'
 import { metaLeadToIngestInput } from '@/lib/mube/lead-to-ingest'
 import { getGestoraLeadsUserIds } from '@/lib/crm/gestora-leads'
 import { sendPushToUser } from '@/lib/crm/send-push'
+import { refreshInsightsMirror } from '@/lib/mube/insights-client'
 import type {
   MubeAdEvent,
+  MubeAdObjectIssueEvent,
   MubeCampaignEvent,
   MubeFormEvent,
+  MubeInsightsEvent,
   MubeLeadEvent,
   MubeLeadPayload,
 } from '@/lib/mube/types'
@@ -61,6 +64,11 @@ export async function handleLeadCreated(
         full_name: lead.full_name,
         phone: lead.phone,
         fb_created_time: lead.fb_created_time,
+        // Custo por lead (aproximação). Chega null em leads novos — preenchido
+        // depois pelo sync de insights. Só sobrepõe quando o payload o traz.
+        cost_per_lead: lead.cost?.per_lead ?? null,
+        cost_currency: lead.cost?.currency ?? null,
+        cost_basis: lead.cost?.basis ?? null,
         signature_valid: true,
         received_at: new Date().toISOString(),
         processed: false,
@@ -395,6 +403,103 @@ export async function handleAdSynced(
   console.info('[mube-webhook] ad.synced received', {
     deliveryId,
     adId: ad.ad_id,
+  })
+  return NextResponse.json({ ok: true })
+}
+
+/**
+ * insights.synced — PING (sem métricas). Usamos como gatilho para re-buscar os
+ * insights da meta-api (GET /api/insights, HMAC server-side) e fazer upsert no
+ * mirror local meta.meta_insights_raw, na mesma janela [since, until] que o
+ * ping reporta. Best-effort: nunca falha o webhook (insights.synced é
+ * fire-and-forget — re-emitido no próximo sync).
+ */
+export async function handleInsightsSynced(
+  event: MubeInsightsEvent,
+  supabase: AdminSupabase,
+  deliveryId: string | null,
+): Promise<NextResponse> {
+  const { insights } = event
+  if (!insights?.ad_account_id) {
+    console.warn('[mube-webhook] insights.synced without ad_account_id', { deliveryId })
+    return NextResponse.json({ error: 'invalid_event' }, { status: 400 })
+  }
+
+  try {
+    const result = await refreshInsightsMirror(supabase, {
+      adAccountId: insights.ad_account_id,
+      from: insights.since,
+      to: insights.until,
+    })
+    console.info('[mube-webhook] insights.synced refreshed mirror', {
+      deliveryId,
+      adAccountId: insights.ad_account_id,
+      since: insights.since,
+      until: insights.until,
+      pingRows: insights.rows_upserted,
+      ...result,
+    })
+  } catch (err) {
+    // Best-effort — o ping é re-emitido no próximo sync e há o botão manual.
+    console.error('[mube-webhook] insights.synced mirror refresh threw', {
+      deliveryId,
+      err: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+/**
+ * ad_object.issue — alerta de estado/problema (webhook de Ad Account). Log de
+ * eventos: uma linha por entrega (insert, não upsert) para manter o histórico.
+ */
+export async function handleAdObjectIssue(
+  event: MubeAdObjectIssueEvent,
+  supabase: AdminSupabase,
+  deliveryId: string | null,
+): Promise<NextResponse> {
+  const { ad_object } = event
+  if (!ad_object?.ad_account_id) {
+    console.warn('[mube-webhook] ad_object.issue without ad_account_id', { deliveryId })
+    return NextResponse.json({ error: 'invalid_event' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .schema('meta')
+    .from('meta_ad_object_issues')
+    .insert({
+      payload: event,
+      mube_tenant_id: event.tenant_id,
+      ad_account_id: ad_object.ad_account_id,
+      field: ad_object.field,
+      value: ad_object.value,
+      delivery_id: deliveryId,
+      signature_valid: true,
+      received_at: new Date().toISOString(),
+    })
+    .select('id')
+
+  if (error) {
+    console.error('[mube-webhook] ad_object.issue insert failed', {
+      deliveryId,
+      adAccountId: ad_object.ad_account_id,
+      err: error,
+    })
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 })
+  }
+  if (!data || data.length === 0) {
+    console.error('[mube-webhook] ad_object.issue insert returned no rows', {
+      deliveryId,
+      adAccountId: ad_object.ad_account_id,
+    })
+    return NextResponse.json({ error: 'insert_silent_fail' }, { status: 500 })
+  }
+
+  console.info('[mube-webhook] ad_object.issue received', {
+    deliveryId,
+    adAccountId: ad_object.ad_account_id,
+    field: ad_object.field,
   })
   return NextResponse.json({ ok: true })
 }
