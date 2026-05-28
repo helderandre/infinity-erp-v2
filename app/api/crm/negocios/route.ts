@@ -27,7 +27,25 @@ export async function GET(request: Request) {
 
     const pipeline_type = searchParams.get('pipeline_type')
     const assignedParam = searchParams.get('assigned_consultant_id')
-    const assigned_consultant_id = canSeeAll ? assignedParam : auth.user.id
+    const referrerParam = searchParams.get('referrer_consultant_id')
+    // Referrer scope (used by "Referenciadas" view + its tab counters).
+    // For non-management users `referrer_consultant_id` is locked to self —
+    // we can't trust the client to claim referrer status for someone else.
+    // In referrer mode we DON'T also force assigned_consultant_id = self,
+    // because a deal you referred is by definition worked by someone else.
+    const referrerMode = !!referrerParam
+    let assigned_consultant_id: string | null
+    let referrer_consultant_id: string | null
+    if (canSeeAll) {
+      assigned_consultant_id = assignedParam
+      referrer_consultant_id = referrerParam
+    } else if (referrerMode) {
+      assigned_consultant_id = null
+      referrer_consultant_id = auth.user.id
+    } else {
+      assigned_consultant_id = auth.user.id
+      referrer_consultant_id = null
+    }
     const pipeline_stage_id = searchParams.get('pipeline_stage_id')
     const temperatura = searchParams.get('temperatura')
     const only_referenced = searchParams.get('only_referenced') === '1'
@@ -66,6 +84,7 @@ export async function GET(request: Request) {
       }
     }
     if (assigned_consultant_id) query = query.eq('assigned_consultant_id', assigned_consultant_id)
+    if (referrer_consultant_id) query = query.eq('referrer_consultant_id', referrer_consultant_id)
     if (only_referenced) query = query.not('referrer_consultant_id', 'is', null)
     if (pipeline_stage_id) query = query.eq('pipeline_stage_id', pipeline_stage_id)
     if (temperatura) query = query.eq('temperatura', temperatura)

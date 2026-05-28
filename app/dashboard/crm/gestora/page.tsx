@@ -18,6 +18,7 @@ import { BulkImportEntriesDialog } from '@/components/leads/bulk-import-entries-
 import { AssignmentRulesManager } from '@/components/crm/assignment-rules-manager'
 import { SlaConfigsManager } from '@/components/crm/sla-configs-manager'
 import { GestoraPorAtribuirTab } from '@/components/crm/gestora-por-atribuir-tab'
+import { EMPTY_GESTORA_FILTERS, GestoraFilters, type GestoraFiltersValue } from '@/components/crm/gestora-filters'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -51,6 +52,7 @@ interface OverdueEntry {
   sla_status: string
   created_at: string
   assigned_agent_id: string | null
+  campaign_id: string | null
   leads: { nome: string; email: string | null; telemovel: string | null }
 }
 
@@ -143,8 +145,7 @@ function GestoraContent() {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set())
   const [reassignTarget, setReassignTarget] = useState<string>('')
   const [isReassigning, setIsReassigning] = useState(false)
-  const [agentFilter, setAgentFilter] = useState<string>('')
-  const [sectorFilter, setSectorFilter] = useState<string>('')
+  const [filters, setFilters] = useState<GestoraFiltersValue>(EMPTY_GESTORA_FILTERS)
   // Deep-link support: ?tab=por_atribuir (used by the "lead por atribuir" push).
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab')
@@ -163,15 +164,21 @@ function GestoraContent() {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
-      if (agentFilter) params.set('agent_id', agentFilter)
-      if (sectorFilter) params.set('sector', sectorFilter)
+      if (filters.agentId) params.set('agent_id', filters.agentId)
+      if (filters.sector) params.set('sector', filters.sector)
+      if (filters.q) params.set('q', filters.q)
+      if (filters.source) params.set('source', filters.source)
+      if (filters.campaignId) params.set('campaign_id', filters.campaignId)
+      if (filters.from) params.set('from', filters.from)
+      if (filters.to) params.set('to', filters.to)
+      if (filters.overdueBucket) params.set('overdue_bucket', filters.overdueBucket)
       const url = `/api/crm/gestora/overview?${params}`
       const res = await fetch(url)
       if (res.ok) setData(await res.json())
     } finally {
       setIsLoading(false)
     }
-  }, [agentFilter, sectorFilter])
+  }, [filters])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -254,17 +261,95 @@ function GestoraContent() {
   const summary = data?.summary
   const activeEntries = activeTab === 'overdue' ? data?.overdue_entries : data?.unassigned_entries
 
+  // ─── Hero tabs definition (mesmo padrão de Oportunidades) ──────────────
+  const heroTabs = [
+    { key: 'distribution' as const, label: 'Distribuição', Icon: Users, count: null as number | null },
+    { key: 'overdue' as const, label: 'Em Atraso', Icon: AlertTriangle, count: summary?.total_overdue ?? null },
+    { key: 'unassigned' as const, label: 'Pool', Icon: Inbox, count: summary?.total_unassigned ?? null },
+    { key: 'por_atribuir' as const, label: 'Por atribuir', Icon: ClipboardList, count: porAtribuirCount },
+  ]
+
+  const kpiStats = [
+    { Icon: AlertTriangle, label: 'Em atraso', value: summary?.total_overdue ?? null },
+    { Icon: Inbox, label: 'Sem atribuição', value: summary?.total_unassigned ?? null },
+    { Icon: Clock, label: 'Novas hoje', value: summary?.total_new_today ?? null },
+    { Icon: Users, label: 'Consultores', value: summary?.total_agents ?? null },
+  ]
+
   return (
     <div className="space-y-6">
-      {/* Hero */}
+      {/* Hero — mesmo padrão da página Oportunidades:
+          título centrado · pill picker de tabs com badges · KPIs segmentados. */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Gestão de Leads</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Monitorize SLAs, reatribua leads e garanta que nenhum contacto fica sem resposta.
-          </p>
+        <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
+          {/* Centered title */}
+          <div className="flex items-center justify-center">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Gestão de Leads</h2>
+          </div>
+
+          {/* Tabs pill picker — Distribuição / Em Atraso / Pool / Por atribuir */}
+          <div className="mt-4 flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto max-w-full overflow-x-auto scrollbar-none">
+            {heroTabs.map(({ key, label, Icon, count }) => {
+              const isActive = activeTab === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => { setActiveTab(key); setSelectedEntries(new Set()) }}
+                  title={label}
+                  className={cn(
+                    'inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[11px] font-medium transition-colors duration-300 shrink-0',
+                    isActive
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{label}</span>
+                  {count != null && count > 0 && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[16px] sm:min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
+                        isActive ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/15 text-white/80',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* KPI segmentado — 4 indicadores antes mostrados em cards soltos. */}
+          <div className="mt-4 flex justify-center">
+            <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden max-w-full">
+              {kpiStats.map(({ Icon, label, value }, idx) => (
+                <div
+                  key={label}
+                  className={cn(
+                    'flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-3 sm:px-4 py-2 min-w-[78px] md:min-w-0',
+                    idx > 0 && 'border-l border-white/10',
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="hidden md:block h-3 w-3 text-white/50" />
+                    <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
+                      {label}
+                    </span>
+                  </div>
+                  {value === null ? (
+                    <Skeleton className="h-3.5 w-10 bg-white/10" />
+                  ) : (
+                    <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{value}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* Top-right actions */}
         <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
           <Button
             size="sm"
@@ -280,7 +365,7 @@ function GestoraContent() {
             onClick={() => setShowNewDialog(true)}
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Nova Lead
+            <span className="hidden sm:inline">Nova</span>
           </Button>
           <Button
             size="sm"
@@ -292,7 +377,9 @@ function GestoraContent() {
             <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
           </Button>
         </div>
-        <div className="absolute bottom-6 right-6 z-20 flex flex-wrap items-center justify-end gap-2">
+
+        {/* Bottom-right secondary actions (config) */}
+        <div className="absolute bottom-6 right-6 z-20 hidden sm:flex flex-wrap items-center justify-end gap-2">
           <Button
             size="sm"
             variant="ghost"
@@ -300,7 +387,7 @@ function GestoraContent() {
             className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
           >
             <Target className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden sm:inline">Regras de Atribuição</span>
+            <span className="hidden sm:inline">Regras</span>
           </Button>
           <Button
             size="sm"
@@ -309,129 +396,35 @@ function GestoraContent() {
             className="rounded-full bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20"
           >
             <Clock className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden sm:inline">Config. SLA</span>
+            <span className="hidden sm:inline">SLA</span>
           </Button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Em atraso', value: summary?.total_overdue ?? 0, icon: AlertTriangle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950' },
-          { label: 'Sem atribuição', value: summary?.total_unassigned ?? 0, icon: Inbox, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950' },
-          { label: 'Novas hoje', value: summary?.total_new_today ?? 0, icon: Clock, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950' },
-          { label: 'Consultores', value: summary?.total_agents ?? 0, icon: Users, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="rounded-2xl border bg-card/50 backdrop-blur-sm p-5 transition-all hover:shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2.5 rounded-xl", bg)}>
-                <Icon className={cn("h-5 w-5", color)} />
-              </div>
-              <div>
-                <p className="text-lg sm:text-2xl font-bold truncate">{value}</p>
-                <p className="text-[11px] text-muted-foreground">{label}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 3 Tabs: Distribuição / Em Atraso / Pool */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm overflow-x-auto scrollbar-none max-w-full">
-          <button
-            onClick={() => { setActiveTab('distribution'); setSelectedEntries(new Set()) }}
-            className={cn(
-              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
-              activeTab === 'distribution'
-                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-          >
-            <Users className="h-3.5 w-3.5" />
-            Distribuição
-          </button>
-          <button
-            onClick={() => { setActiveTab('overdue'); setSelectedEntries(new Set()) }}
-            className={cn(
-              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
-              activeTab === 'overdue'
-                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Em Atraso
-            {(summary?.total_overdue ?? 0) > 0 && (
-              <span className="ml-1 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none">
-                {summary?.total_overdue}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setActiveTab('unassigned'); setSelectedEntries(new Set()) }}
-            className={cn(
-              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
-              activeTab === 'unassigned'
-                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-          >
-            <Inbox className="h-3.5 w-3.5" />
-            Pool
-            {(summary?.total_unassigned ?? 0) > 0 && (
-              <span className="ml-1 text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5 leading-none">
-                {summary?.total_unassigned}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setActiveTab('por_atribuir'); setSelectedEntries(new Set()) }}
-            className={cn(
-              'inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-colors duration-300 shrink-0',
-              activeTab === 'por_atribuir'
-                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
-            )}
-          >
-            <ClipboardList className="h-3.5 w-3.5" />
-            Por atribuir
-            {porAtribuirCount > 0 && (
-              <span className="ml-1 text-[10px] bg-sky-500 text-white rounded-full px-1.5 py-0.5 leading-none">
-                {porAtribuirCount}
-              </span>
-            )}
-          </button>
+      {/* "Seleccionar tudo" — fica fora do hero, contextual à tab activa */}
+      {(activeTab === 'overdue' || activeTab === 'unassigned') && (
+        <div className="flex items-center justify-end gap-2">
+          {(activeEntries?.length ?? 0) > 0 && (
+            <Checkbox
+              checked={activeEntries?.every(e => selectedEntries.has(e.id))}
+              onCheckedChange={(checked) => handleSelectAll(activeEntries ?? [], !!checked)}
+            />
+          )}
+          <span className="text-xs text-muted-foreground">Seleccionar tudo</span>
         </div>
+      )}
 
-        {(activeTab === 'overdue' || activeTab === 'unassigned') && (
-          <>
-            <Select value={sectorFilter || 'all'} onValueChange={v => setSectorFilter(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px] h-8 rounded-full text-xs">
-                <SelectValue placeholder="Sector" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os sectores</SelectItem>
-                <SelectItem value="real_estate_buy">Compra</SelectItem>
-                <SelectItem value="real_estate_sell">Venda</SelectItem>
-                <SelectItem value="real_estate_rent">Arrendamento</SelectItem>
-                <SelectItem value="recruitment">Recrutamento</SelectItem>
-                <SelectItem value="credit">Crédito</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="ml-auto flex items-center gap-2">
-              {(activeEntries?.length ?? 0) > 0 && (
-                <Checkbox
-                  checked={activeEntries?.every(e => selectedEntries.has(e.id))}
-                  onCheckedChange={(checked) => handleSelectAll(activeEntries ?? [], !!checked)}
-                />
-              )}
-              <span className="text-xs text-muted-foreground">Seleccionar tudo</span>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Filter bar — Em Atraso + Pool. "Pool" has no assigned consultor so the
+          consultor and overdue filters don't apply there. */}
+      {(activeTab === 'overdue' || activeTab === 'unassigned') && (
+        <GestoraFilters
+          value={filters}
+          onChange={setFilters}
+          agents={data?.agents.map(a => ({ id: a.id, name: a.name })) ?? []}
+          showAgent={activeTab === 'overdue'}
+          showOverdueBucket={activeTab === 'overdue'}
+        />
+      )}
 
       {/* Tab: Distribuição — Agent Workload */}
       {activeTab === 'distribution' && (
@@ -441,8 +434,8 @@ function GestoraContent() {
               <Users className="h-4 w-4 text-muted-foreground" />
               Carga por Consultor
             </h3>
-            {agentFilter && (
-              <Button variant="ghost" size="sm" className="text-xs rounded-full h-7" onClick={() => setAgentFilter('')}>
+            {filters.agentId && (
+              <Button variant="ghost" size="sm" className="text-xs rounded-full h-7" onClick={() => setFilters({ ...filters, agentId: '' })}>
                 Limpar filtro
               </Button>
             )}
@@ -450,7 +443,7 @@ function GestoraContent() {
           <div className="divide-y">
             {data?.agents.map(agent => {
               const totalSla = agent.sla.warning + agent.sla.breached
-              const isFiltered = agentFilter === agent.id
+              const isFiltered = filters.agentId === agent.id
               return (
                 <div
                   key={agent.id}
@@ -494,7 +487,7 @@ function GestoraContent() {
                       variant="ghost"
                       size="sm"
                       className="text-xs rounded-full h-7"
-                      onClick={() => { setAgentFilter(isFiltered ? '' : agent.id); setActiveTab('overdue') }}
+                      onClick={() => { setFilters({ ...filters, agentId: isFiltered ? '' : agent.id }); setActiveTab('overdue') }}
                     >
                       Ver leads
                     </Button>

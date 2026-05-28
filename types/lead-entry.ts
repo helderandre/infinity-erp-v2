@@ -47,7 +47,45 @@ export interface LeadEntry {
     agent_id: string | null
     agent?: { id: string; commercial_name: string } | null
   }
-  campaign?: { id: string; name: string; platform: string } | null
+  campaign?: {
+    id: string
+    name: string
+    platform: string
+    external_campaign_id?: string | null
+    status?: string | null
+    start_date?: string | null
+    end_date?: string | null
+  } | null
+  // Hydrated server-side from meta.meta_campaigns_raw when the joined `campaign`
+  // is missing but form_data carries the Meta IDs — used to render the Campanha
+  // card for Meta Ads leads that bypassed the leads_campaigns mirror.
+  meta_campaign?: {
+    id: string
+    name: string | null
+    platform: 'meta'
+    status?: string | null
+    objective?: string | null
+    start_date?: string | null
+    end_date?: string | null
+  } | null
+  meta_ad?: {
+    id: string
+    name: string | null
+    status?: string | null
+    creative_name?: string | null
+  } | null
+  // Joined from leads_entries.property_id → dev_properties. This is the
+  // canonical source for "imóvel associado a esta entrada" — consultants can
+  // attach a property to a lead-entry after ingestion, so always prefer this
+  // over form_data.property_* (which is only populated by some ingestion paths).
+  property?: {
+    id: string
+    title: string | null
+    slug: string | null
+    external_ref: string | null
+  } | null
+  property_id?: string | null
+  property_external_ref?: string | null
   assigned_consultant?: { id: string; commercial_name: string } | null
 }
 

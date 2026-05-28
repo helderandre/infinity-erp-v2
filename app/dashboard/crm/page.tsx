@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { KanbanBoard } from '@/components/crm/kanban-board'
@@ -55,7 +55,6 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useCrmInvalidator } from '@/hooks/use-crm-invalidator'
 import { isManagementRole } from '@/lib/auth/roles'
 import { Plus, Send } from 'lucide-react'
-import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -1071,6 +1070,22 @@ export default function CRMPage() {
     dateTo: '',
   })
 
+  // View scope: 'minhas' = my negocios (default), 'referenciadas' = negocios
+  // where I'm the referrer (commission slice owner) — folded into this page
+  // from the old standalone /dashboard/crm/referencias.
+  const [view, setView] = useState<'minhas' | 'referenciadas'>('minhas')
+  const isReferenciadas = view === 'referenciadas'
+  // Filters propagated to the kanban / list / summary bar. When viewing
+  // Referenciadas, inject the referrer filter so the API returns négocios
+  // whose slice the user is owed (across consultores).
+  const effectiveFilters = useMemo(
+    () =>
+      isReferenciadas
+        ? { ...filters, referrerConsultantId: user?.id ?? '' }
+        : filters,
+    [filters, isReferenciadas, user?.id],
+  )
+
   // Stage list for the active pipeline + consultants list
   const [stages, setStages] = useState<PipelineStageOption[]>([])
   const [consultants, setConsultants] = useState<ConsultantOption[]>([])
@@ -1107,6 +1122,13 @@ export default function CRMPage() {
       if (filters.orcamentoMax) params.set('orcamento_max', filters.orcamentoMax)
       if (filters.dateFrom) params.set('date_from', filters.dateFrom)
       if (filters.dateTo) params.set('date_to', filters.dateTo)
+      // Em modo "Referenciadas" os contadores das tabs têm de reflectir os
+      // négocios em que o utilizador é referrer (não os que lhe estão
+      // atribuídos). Sem isto, ao alternar para Referenciadas o badge de
+      // cada tab continuava a mostrar a contagem das "Minhas".
+      if (isReferenciadas && user?.id) {
+        params.set('referrer_consultant_id', user.id)
+      }
       return params.toString()
     }
     Promise.all(
@@ -1137,6 +1159,8 @@ export default function CRMPage() {
     filters.orcamentoMax,
     filters.dateFrom,
     filters.dateTo,
+    isReferenciadas,
+    user?.id,
   ])
 
   // Load stages for the active pipeline
@@ -1453,33 +1477,31 @@ export default function CRMPage() {
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
         <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
-          {/* Centered "Oportunidades" title with chevron → Referências dropdown. */}
-          <div className="flex items-center justify-center gap-2">
+          {/* Centered "Oportunidades" title. */}
+          <div className="flex items-center justify-center">
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Oportunidades</h2>
-            <Popover>
-              <PopoverTrigger asChild>
+          </div>
+
+          {/* Minhas / Referenciadas scope toggle — folds the old Referências page in. */}
+          <div className="mt-3 flex items-center justify-center gap-0.5 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto">
+            {(['minhas', 'referenciadas'] as const).map((v) => {
+              const isActive = view === v
+              return (
                 <button
+                  key={v}
                   type="button"
-                  aria-label="Outras vistas"
-                  className="h-7 w-7 rounded-full inline-flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  onClick={() => setView(v)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 rounded-full text-[11px] sm:text-xs font-medium transition-colors duration-300',
+                    isActive
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
+                  )}
                 >
-                  <ChevronDown className="h-4 w-4" />
+                  {v === 'minhas' ? 'Minhas' : 'Referenciadas'}
                 </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="center"
-                sideOffset={6}
-                className="w-44 p-1"
-              >
-                <Link
-                  href="/dashboard/crm/referencias"
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-foreground/80 hover:bg-muted/60 transition-colors"
-                >
-                  <Send className="size-4" />
-                  <span>Referências</span>
-                </Link>
-              </PopoverContent>
-            </Popover>
+              )
+            })}
           </div>
 
           {/* Pipeline type tabs (inside the hero) — pluralised, with count badges.
@@ -1528,13 +1550,16 @@ export default function CRMPage() {
           {/* Data points only — filter row moved out of the hero.
               `filters` é passado para que os 3 KPIs reflictam os
               filtros activos (consultor, stage, temperatura, etc.)
-              em vez de mostrarem sempre os totais brutos. */}
+              em vez de mostrarem sempre os totais brutos. Em
+              Referenciadas, `referrerConsultantId` faz o backend
+              multiplicar as comissões pela slice do referrer. */}
           <div className="mt-4 flex justify-center">
             <SummaryBar
               pipelineType={activeTab}
               inHero
               refreshKey={kanbanRefreshKey}
               filters={filters}
+              referrerConsultantId={isReferenciadas ? user?.id : undefined}
             />
           </div>
         </div>
@@ -1564,15 +1589,16 @@ export default function CRMPage() {
         {viewMode === 'kanban' ? (
           <KanbanBoard
             pipelineType={activeTab}
-            filters={filters}
+            filters={effectiveFilters}
             onCardClick={(n) => openNegocioSheet(n.id)}
             refreshKey={kanbanRefreshKey}
             onMutated={bumpRefresh}
+            readOnly={isReferenciadas}
           />
         ) : (
           <NegociosListView
             pipelineType={activeTab}
-            filters={filters}
+            filters={effectiveFilters}
             stages={stages}
             onStageChange={(stageId) =>
               setFilters((f) => ({ ...f, pipelineStageId: stageId || '' }))
@@ -1604,6 +1630,7 @@ export default function CRMPage() {
         negocioId={detailNegocioId}
         open={!!detailNegocioId}
         onOpenChange={handleSheetOpenChange}
+        readOnly={isReferenciadas}
       />
     </div>
   )

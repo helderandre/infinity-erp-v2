@@ -15,6 +15,36 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl
     const agentFilter = searchParams.get("agent_id")
     const sectorFilter = searchParams.get("sector")
+    const q = searchParams.get("q")?.trim() || null
+    const fromDate = searchParams.get("from") || null // YYYY-MM-DD
+    const toDate = searchParams.get("to") || null    // YYYY-MM-DD (inclusive end-of-day)
+    const sourceFilter = searchParams.get("source") || null
+    const campaignFilter = searchParams.get("campaign_id") || null
+    // Overdue bucket: how long the entry has been past its SLA deadline.
+    // One of: 'lt_24h', '1_3d', '3_7d', 'gt_7d'. Only applied when set.
+    const overdueBucket = searchParams.get("overdue_bucket") || null
+
+    // Build a date-range cutoff window for `created_at` filtering.
+    const fromIso = fromDate ? new Date(`${fromDate}T00:00:00.000Z`).toISOString() : null
+    const toIso = toDate ? new Date(`${toDate}T23:59:59.999Z`).toISOString() : null
+
+    // Bucket → (lowerBound, upperBound) on `sla_deadline`.
+    // Bucket semantics measure "time since deadline" (now - sla_deadline).
+    const now = new Date()
+    let slaUpperIso: string | null = null // sla_deadline must be <= this
+    let slaLowerIso: string | null = null // sla_deadline must be >= this
+    if (overdueBucket === 'lt_24h') {
+      slaUpperIso = now.toISOString()
+      slaLowerIso = new Date(now.getTime() - 24 * 3600 * 1000).toISOString()
+    } else if (overdueBucket === '1_3d') {
+      slaUpperIso = new Date(now.getTime() - 24 * 3600 * 1000).toISOString()
+      slaLowerIso = new Date(now.getTime() - 3 * 24 * 3600 * 1000).toISOString()
+    } else if (overdueBucket === '3_7d') {
+      slaUpperIso = new Date(now.getTime() - 3 * 24 * 3600 * 1000).toISOString()
+      slaLowerIso = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString()
+    } else if (overdueBucket === 'gt_7d') {
+      slaUpperIso = new Date(now.getTime() - 7 * 24 * 3600 * 1000).toISOString()
+    }
 
     // 1. Agent workload summary
     const { data: agents } = await db
@@ -63,7 +93,7 @@ export async function GET(req: NextRequest) {
     let overdueQuery = db
       .from("leads_entries")
       .select(`
-        id, contact_id, source, sector, priority, status,
+        id, contact_id, source, sector, priority, status, campaign_id,
         sla_deadline, sla_status, created_at, assigned_agent_id,
         leads!inner(nome, email, telemovel)
       `)
@@ -72,11 +102,22 @@ export async function GET(req: NextRequest) {
       .order("sla_deadline", { ascending: true })
       .limit(100)
 
-    if (agentFilter) {
-      overdueQuery = overdueQuery.eq("assigned_agent_id", agentFilter)
-    }
-    if (sectorFilter) {
-      overdueQuery = overdueQuery.eq("sector", sectorFilter)
+    if (agentFilter) overdueQuery = overdueQuery.eq("assigned_agent_id", agentFilter)
+    if (sectorFilter) overdueQuery = overdueQuery.eq("sector", sectorFilter)
+    if (sourceFilter) overdueQuery = overdueQuery.eq("source", sourceFilter)
+    if (campaignFilter) overdueQuery = overdueQuery.eq("campaign_id", campaignFilter)
+    if (fromIso) overdueQuery = overdueQuery.gte("created_at", fromIso)
+    if (toIso) overdueQuery = overdueQuery.lte("created_at", toIso)
+    if (slaUpperIso) overdueQuery = overdueQuery.lte("sla_deadline", slaUpperIso)
+    if (slaLowerIso) overdueQuery = overdueQuery.gte("sla_deadline", slaLowerIso)
+    if (q) {
+      // OR against joined `leads` columns. PostgREST supports targeting a
+      // foreign table via the `foreignTable` option.
+      const escaped = q.replace(/[%_,]/g, (m) => `\\${m}`)
+      overdueQuery = overdueQuery.or(
+        `nome.ilike.%${escaped}%,email.ilike.%${escaped}%,telemovel.ilike.%${escaped}%`,
+        { referencedTable: "leads" }
+      )
     }
 
     const { data: overdueEntries } = await overdueQuery
@@ -85,7 +126,7 @@ export async function GET(req: NextRequest) {
     let unassignedQuery = db
       .from("leads_entries")
       .select(`
-        id, contact_id, source, sector, priority, status,
+        id, contact_id, source, sector, priority, status, campaign_id,
         sla_deadline, sla_status, created_at,
         leads!inner(nome, email, telemovel)
       `)
@@ -94,8 +135,17 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(50)
 
-    if (sectorFilter) {
-      unassignedQuery = unassignedQuery.eq("sector", sectorFilter)
+    if (sectorFilter) unassignedQuery = unassignedQuery.eq("sector", sectorFilter)
+    if (sourceFilter) unassignedQuery = unassignedQuery.eq("source", sourceFilter)
+    if (campaignFilter) unassignedQuery = unassignedQuery.eq("campaign_id", campaignFilter)
+    if (fromIso) unassignedQuery = unassignedQuery.gte("created_at", fromIso)
+    if (toIso) unassignedQuery = unassignedQuery.lte("created_at", toIso)
+    if (q) {
+      const escaped = q.replace(/[%_,]/g, (m) => `\\${m}`)
+      unassignedQuery = unassignedQuery.or(
+        `nome.ilike.%${escaped}%,email.ilike.%${escaped}%,telemovel.ilike.%${escaped}%`,
+        { referencedTable: "leads" }
+      )
     }
 
     const { data: unassigned } = await unassignedQuery

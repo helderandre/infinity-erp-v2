@@ -79,7 +79,7 @@ export function InicioExtras({ negocioId, leadId, onCreateTask, refreshKey }: In
 
 // ─── Por fazer ──────────────────────────────────────────────────────────
 
-function PorFazerPanel({
+export function PorFazerPanel({
   pending,
   isLoading,
   onToggle,
@@ -215,7 +215,7 @@ function TaskRow({
 
 // ─── Merge tasks done → activity feed ──────────────────────────────────
 
-function mergeActivitiesAndCompletedTasks(
+export function mergeActivitiesAndCompletedTasks(
   activities: NegocioActivity[],
   completedTasks: NegocioTask[],
   negocioId: string,

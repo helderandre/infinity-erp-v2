@@ -76,9 +76,22 @@ interface LeadEntry {
   referrals?: ReferralLite[] | null
 }
 
-export function LeadsKanban() {
+interface LeadsKanbanProps {
+  /**
+   * Optional controlled view. When provided, the kanban hides its internal
+   * Minhas/Referenciadas toggle and follows the parent's state — used when
+   * the toggle is lifted to the page hero (see app/dashboard/crm/leads/page.tsx).
+   */
+  view?: View
+  onViewChange?: (v: View) => void
+}
+
+export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanProps = {}) {
   const { user } = useUser()
-  const [view, setView] = useState<View>('minhas')
+  const [internalView, setInternalView] = useState<View>('minhas')
+  const view = controlledView ?? internalView
+  const setView = onViewChange ?? setInternalView
+  const isControlled = controlledView !== undefined
   const readOnly = view === 'referenciadas'
 
   const [entries, setEntries] = useState<LeadEntry[]>([])
@@ -147,7 +160,12 @@ export function LeadsKanban() {
   const switchView = useCallback((v: View) => {
     setView(v)
     setSelectedIds(new Set())
-  }, [])
+  }, [setView])
+
+  // When the page lifts the view, clear selection on view change too.
+  useEffect(() => {
+    if (isControlled) setSelectedIds(new Set())
+  }, [view, isControlled])
 
   const byColumn = useMemo(() => {
     const map: Record<ColumnKey, LeadEntry[]> = { novo: [], contactado: [], qualificado: [], perdido: [] }
@@ -234,31 +252,33 @@ export function LeadsKanban() {
 
   return (
     <>
-      {/* Minhas / Referenciadas toggle */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="bg-muted inline-flex items-center gap-0.5 rounded-full p-0.5">
-          {(['minhas', 'referenciadas'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => switchView(v)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                view === v
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {v === 'minhas' ? 'Minhas' : 'Referenciadas'}
-            </button>
-          ))}
+      {/* Minhas / Referenciadas toggle — hidden when the page lifts the view. */}
+      {!isControlled && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="bg-muted inline-flex items-center gap-0.5 rounded-full p-0.5">
+            {(['minhas', 'referenciadas'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => switchView(v)}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                  view === v
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {v === 'minhas' ? 'Minhas' : 'Referenciadas'}
+              </button>
+            ))}
+          </div>
+          {readOnly && (
+            <span className="text-muted-foreground text-[11px]">
+              Leads que referenciaste a outros consultores — vê em que fase estão.
+            </span>
+          )}
         </div>
-        {readOnly && (
-          <span className="text-muted-foreground text-[11px]">
-            Leads que referenciaste a outros consultores — vê em que fase estão.
-          </span>
-        )}
-      </div>
+      )}
 
       {loading ? (
         <div className="text-muted-foreground flex items-center gap-2 py-16 text-sm">

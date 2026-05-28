@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Sheet, SheetContent, SheetTitle,
@@ -14,7 +15,7 @@ import {
   Phone, Mail, MessageSquare, ArrowRight, X,
   Megaphone, Calendar, User, FileText, Hash,
   History, Sparkles, Copy, Check, ShoppingCart, Store, Key, Building2,
-  Handshake, Percent, UserCheck, Send,
+  Handshake, Percent, UserCheck, Send, ChevronRight, Home,
 } from 'lucide-react'
 
 // Inline WhatsApp brand glyph (Lucide doesn't ship one)
@@ -31,7 +32,6 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
 import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
-import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -139,8 +139,8 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const [copied, setCopied] = useState<string | null>(null)
   const [outcomeOpen, setOutcomeOpen] = useState(false)
   const [contactMethod, setContactMethod] = useState<'phone' | 'email' | 'whatsapp'>('phone')
-  const [propertySheetId, setPropertySheetId] = useState<string | null>(null)
   const [referOpen, setReferOpen] = useState(false)
+  const router = useRouter()
 
   const triggerContact = useCallback((method: 'phone' | 'email' | 'whatsapp', value: string) => {
     setContactMethod(method)
@@ -493,16 +493,9 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                 </div>
               )}
 
-              {/* Form data */}
+              {/* Form data — the "Imóvel associado" details live in their own
+                  card above; here we only render the actual form answers. */}
               {entry.form_data && Object.keys(entry.form_data).length > 0 && (() => {
-                // Consolidamos property_id/property_slug numa linha única
-                // "Imóvel" com link para a sheet do imóvel — escondemos os
-                // campos brutos para não duplicar informação.
-                const propertyId = typeof entry.form_data.property_id === 'string' ? entry.form_data.property_id : null
-                const propertySlug = typeof entry.form_data.property_slug === 'string' ? entry.form_data.property_slug : null
-                const propertyTitle = typeof entry.form_data.property_title === 'string' ? entry.form_data.property_title : null
-                const propertyExternalRef = typeof entry.form_data.property_external_ref === 'string' ? entry.form_data.property_external_ref : null
-
                 // Leads do Meta guardam as respostas reais do formulário em
                 // `form_data.raw_fields`; o nível de topo só tem IDs técnicos
                 // (meta_*/leadgen_id/form_id/page_id). Quando existe raw_fields,
@@ -522,28 +515,13 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                 const visibleEntries = Object.entries(source).filter(
                   ([k, v]) => !HIDDEN_KEYS.has(k) && v != null && String(v).trim() !== '',
                 )
-                if (!propertyId && visibleEntries.length === 0) return null
+                if (visibleEntries.length === 0) return null
                 return (
                   <div className="rounded-xl border overflow-hidden">
                     <div className="px-4 py-2.5 border-b bg-muted/20">
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Respostas do formulário</p>
                     </div>
                     <div className="divide-y divide-border/50">
-                      {propertyId && (
-                        <button
-                          type="button"
-                          onClick={() => setPropertySheetId(propertyId)}
-                          className="w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors group focus-visible:outline-none focus-visible:bg-muted/30"
-                        >
-                          <span className="text-[10px] text-muted-foreground uppercase shrink-0">Imóvel</span>
-                          <span className="flex items-center gap-1.5 text-xs font-medium text-primary text-right truncate">
-                            <span className="truncate">{propertyTitle || propertySlug || propertyExternalRef || propertyId}</span>
-                            <svg className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                          </span>
-                        </button>
-                      )}
                       {visibleEntries.map(([key, value]) => (
                         <div key={key} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                           <span className="text-[10px] text-muted-foreground uppercase shrink-0">{humanizeFieldKey(key)}</span>
@@ -551,6 +529,86 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                         </div>
                       ))}
                     </div>
+                  </div>
+                )
+              })()}
+
+              {/* Linked entities — thin one-tap cards below the form answers.
+                  Campaign → /dashboard/analise-meta/campanhas/{externalId}.
+                  Imóvel  → /dashboard/imoveis/{propertyId}. */}
+              {(() => {
+                const fd = (entry.form_data ?? {}) as Record<string, unknown>
+                const joinedCamp = entry.campaign
+                const metaCamp = entry.meta_campaign
+                const metaCampaignIdRaw = fd.meta_campaign_id
+                const metaCampaignIdStr =
+                  typeof metaCampaignIdRaw === 'string' || typeof metaCampaignIdRaw === 'number'
+                    ? String(metaCampaignIdRaw)
+                    : null
+                const campaignName = joinedCamp?.name || metaCamp?.name || (metaCampaignIdStr ? `Meta · ${metaCampaignIdStr}` : null)
+                const campaignHref =
+                  metaCampaignIdStr || joinedCamp?.external_campaign_id || metaCamp?.id
+                    ? `/dashboard/analise-meta/campanhas/${metaCampaignIdStr || joinedCamp?.external_campaign_id || metaCamp?.id}`
+                    : null
+
+                // Prefer the canonical join (entry.property) and the direct
+                // columns over form_data.property_*. Consultants can attach a
+                // property to an entry after creation — joined data reflects
+                // the current state, form_data is only a snapshot at ingestion.
+                const propertyId =
+                  entry.property?.id ||
+                  entry.property_id ||
+                  (typeof fd.property_id === 'string' ? fd.property_id : null)
+                const propertyTitle =
+                  entry.property?.title ||
+                  (typeof fd.property_title === 'string' ? fd.property_title : null)
+                const propertyExternalRef =
+                  entry.property?.external_ref ||
+                  entry.property_external_ref ||
+                  (typeof fd.property_external_ref === 'string' ? fd.property_external_ref : null)
+                const propertySlug =
+                  entry.property?.slug ||
+                  (typeof fd.property_slug === 'string' ? fd.property_slug : null)
+                const propertyLabel = propertyTitle || propertySlug || propertyExternalRef || propertyId
+                const propertyHref = propertyId ? `/dashboard/imoveis/${propertyId}` : null
+
+                if (!campaignName && !propertyLabel) return null
+                return (
+                  <div className="space-y-2">
+                    {campaignName && (
+                      <button
+                        type="button"
+                        onClick={() => campaignHref && router.push(campaignHref)}
+                        disabled={!campaignHref}
+                        className="w-full text-left rounded-xl border bg-card/50 px-4 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors group focus-visible:outline-none focus-visible:bg-muted/30 disabled:cursor-default disabled:hover:bg-transparent"
+                      >
+                        <Megaphone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Campanha</p>
+                          <p className="text-sm font-medium truncate">{campaignName}</p>
+                        </div>
+                        {campaignHref && (
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100" />
+                        )}
+                      </button>
+                    )}
+                    {propertyLabel && (
+                      <button
+                        type="button"
+                        onClick={() => propertyHref && router.push(propertyHref)}
+                        disabled={!propertyHref}
+                        className="w-full text-left rounded-xl border bg-card/50 px-4 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors group focus-visible:outline-none focus-visible:bg-muted/30 disabled:cursor-default disabled:hover:bg-transparent"
+                      >
+                        <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Imóvel</p>
+                          <p className="text-sm font-medium truncate">{propertyLabel}</p>
+                        </div>
+                        {propertyHref && (
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 )
               })()}
@@ -638,11 +696,6 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
           }}
         />
       )}
-      <PropertyDetailSheet
-        propertyId={propertySheetId}
-        open={propertySheetId !== null}
-        onOpenChange={(o) => { if (!o) setPropertySheetId(null) }}
-      />
     </>
   )
 }

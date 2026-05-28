@@ -40,6 +40,8 @@ function ContactosPageContent() {
   const [contacts, setContacts] = useState<LeadsContactWithRelations[]>([])
   const [stages, setStages] = useState<LeadsContactStage[]>([])
   const [total, setTotal] = useState(0)
+  const [stageCounts, setStageCounts] = useState<Record<string, number | null>>({})
+  const [totalAll, setTotalAll] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [importOpen, setImportOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -77,19 +79,134 @@ function ContactosPageContent() {
   useEffect(() => { fetchContacts() }, [fetchContacts])
   useEffect(() => { setPage(1) }, [debouncedSearch, stageFilter])
 
+  // Per-stage counters for the hero pill picker. Re-fetched alongside the
+  // main list whenever the search query changes — match-aware counts > raw
+  // totals, otherwise the filter chip would lie about how many results sit
+  // behind each stage given the current query.
+  useEffect(() => {
+    let cancelled = false
+    const buildParams = (id?: string) => {
+      const p = new URLSearchParams({ per_page: '1', page: '1' })
+      if (debouncedSearch) p.set('search', debouncedSearch)
+      if (id) p.set('lifecycle_stage_id', id)
+      return p.toString()
+    }
+    const fetchTotal = (id?: string) =>
+      fetch(`/api/crm/contacts?${buildParams(id)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (typeof j?.total === 'number' ? j.total : 0))
+        .catch(() => 0)
+    Promise.all([
+      fetchTotal(),
+      ...stages.map((s) => fetchTotal(s.id).then((n) => [s.id, n] as const)),
+    ]).then((res) => {
+      if (cancelled) return
+      const [allTotal, ...stageEntries] = res as [number, ...(readonly [string, number])[]]
+      setTotalAll(allTotal)
+      const next: Record<string, number | null> = {}
+      for (const entry of stageEntries) {
+        const [id, n] = entry as readonly [string, number]
+        next[id] = n
+      }
+      setStageCounts(next)
+    })
+    return () => { cancelled = true }
+  }, [stages, debouncedSearch])
+
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const getInitials = (name: string) => name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
+      {/* Hero — mesmo padrão da página Oportunidades:
+          título centrado · pill picker de stages com badges · KPI segmentado. */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            {total} contacto{total !== 1 ? 's' : ''} no sistema
-          </p>
+        <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
+          {/* Centered title */}
+          <div className="flex items-center justify-center">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
+          </div>
+
+          {/* Stage pill picker — Todos + uma pílula por stage, com badge de contagem */}
+          <div className="mt-4 flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto max-w-full overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => setStageFilter('')}
+              className={cn(
+                'inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[11px] font-medium transition-colors duration-300 shrink-0',
+                !stageFilter
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
+              )}
+            >
+              <span>Todos</span>
+              {totalAll !== null && (
+                <span
+                  className={cn(
+                    'inline-flex items-center justify-center min-w-[16px] sm:min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
+                    !stageFilter ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/15 text-white/80',
+                  )}
+                >
+                  {totalAll}
+                </span>
+              )}
+            </button>
+            {stages.map((s) => {
+              const isActive = stageFilter === s.id
+              const count = stageCounts[s.id]
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setStageFilter(s.id)}
+                  title={s.name}
+                  className={cn(
+                    'inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[11px] font-medium transition-colors duration-300 shrink-0',
+                    isActive
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
+                  )}
+                >
+                  <span className="truncate max-w-[120px]">{s.name}</span>
+                  {count != null && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[16px] sm:min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
+                        isActive ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/15 text-white/80',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* KPI segmentado — total filtrado + total geral */}
+          <div className="mt-4 flex justify-center">
+            <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
+              <div className="flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
+                    {stageFilter ? 'Resultado' : 'Total'}
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">
+                  {total}
+                </span>
+              </div>
+              <div className="flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0 border-l border-white/10">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">No sistema</span>
+                </div>
+                {totalAll === null ? (
+                  <Skeleton className="h-3.5 w-10 bg-white/10" />
+                ) : (
+                  <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{totalAll}</span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
           <Button
@@ -114,12 +231,12 @@ function ContactosPageContent() {
             onClick={() => router.push('/dashboard/crm/contactos/novo')}
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Novo Contacto
+            <span className="hidden sm:inline">Novo</span>
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search row — stages migraram para o pill picker dentro do hero. */}
       <div className="flex items-center gap-2 sm:gap-3">
         <div className="relative flex-1 min-w-0 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -134,35 +251,6 @@ function ContactosPageContent() {
               <X className="h-3.5 w-3.5" />
             </button>
           )}
-        </div>
-
-        {/* Lifecycle stage pills */}
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
-          <button
-            onClick={() => setStageFilter('')}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
-              !stageFilter
-                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            )}
-          >
-            Todos
-          </button>
-          {stages.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStageFilter(s.id)}
-              className={cn(
-                'px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-300',
-                stageFilter === s.id
-                  ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              {s.name}
-            </button>
-          ))}
         </div>
       </div>
 

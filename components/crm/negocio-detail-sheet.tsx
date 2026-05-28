@@ -78,7 +78,6 @@ import { NEGOCIO_PROPERTY_STATUS, STATUS_COLORS, VISIT_STATUS_COLORS } from '@/l
 
 import { type Temperatura } from '@/components/negocios/temperatura-selector'
 import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
-import { parseObservations } from '@/components/crm/observations-dialog'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
 import {
@@ -109,6 +108,9 @@ import {
   buildDealPropertyContextFromNegocio,
 } from '@/lib/negocios/prefill-from-negocio'
 import { InicioExtras } from '@/components/crm/negocio-inicio-extras'
+import { NegocioContactosSheet } from '@/components/crm/negocio-contactos-sheet'
+import { NegocioAcoesSheet } from '@/components/crm/negocio-acoes-sheet'
+import { NegocioImovelSheet } from '@/components/crm/negocio-imovel-sheet'
 import { MarketStudiesCard } from '@/components/crm/market-studies-card'
 import { NegocioProposalsTab } from '@/components/crm/negocio-proposals-tab'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
@@ -149,7 +151,7 @@ interface NegocioDetailSheetProps {
   onChanged?: () => void
 }
 
-type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao' | 'observacoes'
+type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao'
 
 const TEMP_COLORS: Record<string, string> = {
   Frio: '#3b82f6',
@@ -344,7 +346,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
         { key: 'interessados', label: 'Interessados', icon: Users },
         { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
         { key: 'angariacao', label: 'Angariação', icon: Briefcase },
-        { key: 'observacoes', label: 'Observações', icon: StickyNote },
       ]
     }
     // Compra / Arrendatário (e Compra-e-Venda — perspectiva de comprador)
@@ -354,7 +355,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
       { key: 'propostas', label: 'Propostas', icon: FileText },
       { key: 'fecho', label: 'Fecho', icon: Briefcase },
-      { key: 'observacoes', label: 'Observações', icon: StickyNote },
     ]
   }, [isBuyerType, isSellerType, readOnly])
 
@@ -401,7 +401,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
             <span />
           )}
           {negocio?.id && (
-            <div className="flex items-center gap-1.5 sm:mr-10 shrink-0 flex-wrap">
+            <div className="flex items-center gap-1.5 mr-12 sm:mr-10 shrink-0 flex-wrap">
               {!readOnly && (
                 <>
                   <Button
@@ -552,13 +552,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
               )}
               {activeTab === 'angariacao' && negocio.id && (
                 <AngariacaoTab negocioId={negocio.id} negocio={negocio} />
-              )}
-              {activeTab === 'observacoes' && negocio.id && leadId && (
-                <NegocioObservacoesTab
-                  negocioId={negocio.id}
-                  contactId={leadId}
-                  negocioRef={negocio.tipo ? `${negocio.tipo}${negocio.localizacao ? ` · ${negocio.localizacao}` : ''}` : 'Negócio'}
-                />
               )}
             </div>
           </div>
@@ -859,6 +852,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           open={quickNoteOpen}
           onOpenChange={setQuickNoteOpen}
           contactId={leadId}
+          negocioId={negocio?.id ?? null}
           onSaved={() => setInicioRefreshKey((k) => k + 1)}
         />
       </>
@@ -941,111 +935,11 @@ function DetalhesTab({
   const pipelineStageId =
     (form.pipeline_stage_id as string) || (negocio.pipeline_stage_id as string | undefined) || null
   const temperatura = (form.temperatura as Temperatura) || null
-  const observacoes = (form.observacoes as string | null) ?? null
 
-  const isArrendatario = tipo === 'Arrendatário'
-  const isArrendador = tipo === 'Senhorio' || tipo === 'Arrendador'
-
-  const priceLabel = isArrendatario
-    ? 'Renda máxima'
-    : isArrendador
-      ? 'Renda pretendida'
-      : isBuyerType
-        ? 'Orçamento'
-        : 'Preço pretendido'
-
-  const price = (() => {
-    if (isArrendatario) return formatRange(null, (form.renda_max_mensal as number) ?? null, '/mês')
-    if (isArrendador) return formatRange(null, (form.renda_pretendida as number) ?? null, '/mês')
-    if (isBuyerType) return formatRange((form.orcamento as number) ?? null, (form.orcamento_max as number) ?? null)
-    return formatRange((form.preco_venda as number) ?? null, (form.preco_venda_max as number) ?? null)
-  })()
-
-  const quartosLabel = (() => {
-    const min = (form.quartos_min as number | null) ?? null
-    const max = (form.quartos_max as number | null) ?? null
-    const exact = (form.quartos as number | null) ?? null
-    if (exact != null && min == null && max == null) return `T${exact}`
-    if (min == null && max == null) return null
-    if (min != null && max != null) {
-      if (min === max) return `T${min}`
-      return `T${min} – T${max}`
-    }
-    if (min != null) return `T${min}+`
-    return `até T${max}`
-  })()
-
-  const wc = (form.wc_min as number | null) ?? (form.num_wc as number | null) ?? (form.casas_banho as number | null) ?? null
-  const areaMin = (form.area_min_m2 as number | null) ?? null
-  const areaExact = (form.area_m2 as number | null) ?? null
-  const areaLabel = areaMin != null ? `≥ ${areaMin} m²` : areaExact != null ? `${areaExact} m²` : null
-
-  // Zonas chip list — prioridades:
-  //   1. `form.zonas` (jsonb estruturado, alimentado pelo picker novo)
-  //   2. `form.localizacao` (texto livre legado)
-  //   3. distrito/concelho/freguesia (fallback para vendedor antigo)
-  const zones: string[] = (() => {
-    const structured = form.zonas as Array<{ label?: string }> | null | undefined
-    if (Array.isArray(structured) && structured.length > 0) {
-      const labels = structured
-        .map((z) => (typeof z?.label === 'string' ? z.label : null))
-        .filter((s): s is string => !!s && s.trim() !== '')
-      if (labels.length > 0) return labels
-    }
-    const raw = (form.localizacao as string | null) ?? ''
-    const split = raw.split(',').map((z) => z.trim()).filter(Boolean)
-    if (split.length > 0) return split
-    const fallback = [form.distrito, form.concelho, form.freguesia]
-      .filter(Boolean)
-      .map((v) => String(v))
-    return fallback
-  })()
-
-  const motivacao = (form.motivacao_compra as string | null) ?? null
-  const prazo = (form.prazo_compra as string | null) ?? null
-  const financiamento = (form.financiamento_necessario as boolean | null) ?? null
-  const capitalProprio = (form.capital_proprio as number | null) ?? null
-  const creditoPreAprovado = (form.credito_pre_aprovado as boolean | null) ?? null
-  const valorCredito = (form.valor_credito as number | null) ?? null
-  const situacaoProfissional = (form.situacao_profissional as string | null) ?? null
-  const rendimento = (form.rendimento_mensal as number | null) ?? null
-  const fiador = (form.tem_fiador as boolean | null) ?? null
-  const animais = (form.aceita_animais as boolean | null) ?? null
-
-  const estadoImovel = (form.estado_imovel as string | null) ?? null
-  const classeImovel = (form.classe_imovel as string | null) ?? null
-
-  // Pre-compute sections para o novo layout unificado
-  const procuraItems: { label: string; value: string }[] = []
-  if (form.tipo_imovel) procuraItems.push({ label: 'Tipo', value: String(form.tipo_imovel) })
-  if (quartosLabel) procuraItems.push({ label: 'Tipologia', value: quartosLabel })
-  if (wc != null) procuraItems.push({ label: 'WCs', value: `≥ ${wc}` })
-  if (areaLabel) procuraItems.push({ label: 'Área', value: areaLabel })
-  if (estadoImovel) procuraItems.push({ label: 'Estado', value: estadoImovel })
-  if (classeImovel) procuraItems.push({ label: 'Classe', value: classeImovel })
-
-  const contextoItems: { label: string; value: string }[] = []
-  if (motivacao) contextoItems.push({ label: 'Motivação', value: motivacao })
-  if (prazo) contextoItems.push({ label: 'Prazo', value: prazo })
-  if (financiamento !== null) {
-    contextoItems.push({ label: 'Financiamento', value: financiamento ? 'Necessário' : 'Não necessário' })
-  }
-  if (isArrendatario) {
-    if (situacaoProfissional) contextoItems.push({ label: 'Situação', value: situacaoProfissional })
-    if (rendimento != null) contextoItems.push({ label: 'Rendimento', value: `${eur.format(rendimento)}/mês` })
-    if (fiador !== null) contextoItems.push({ label: 'Fiador', value: fiador ? 'Sim' : 'Não' })
-    if (animais !== null) contextoItems.push({ label: 'Aceita animais', value: animais ? 'Sim' : 'Não' })
-  }
-
-  const hasZones = zones.length > 0
-  const hasProcura = procuraItems.length > 0
-  const hasContexto = contextoItems.length > 0
-  const hasImovelSection = hasZones || hasProcura || hasContexto
-
-  const enabledAmenities = AMENITY_ITEMS.filter((a) => !!form[a.field])
-  const hasFeatures = enabledAmenities.length > 0
-
-  const sectionLabel = isArrendador || tipo === 'Vendedor' || tipo === 'Venda' ? 'Imóvel' : 'O que procura'
+  // 3 nested sheets — Contactos / Ações / Imóvel
+  const [contactosOpen, setContactosOpen] = useState(false)
+  const [acoesOpen, setAcoesOpen] = useState(false)
+  const [imovelOpen, setImovelOpen] = useState(false)
 
 
   return (
@@ -1087,10 +981,10 @@ function DetalhesTab({
 
         {/* Inner content */}
         <div className="p-5 space-y-5">
-          {/* HERO — Nome do cliente (clicável → perfil) + chips de contacto.
-              Nome centrado em mobile; desktop volta a alinhar à esquerda. */}
+          {/* HERO — Nome do cliente (clicável → perfil), centrado em todas
+              as larguras para alinhar com os 3 botões abaixo. */}
           {lead && (
-            <div className="text-center sm:text-left">
+            <div className="text-center">
               {leadId && !readOnly ? (
                 <Link
                   href={`/dashboard/leads/${leadId}`}
@@ -1114,232 +1008,63 @@ function DetalhesTab({
                   {lead.nipc ? ` · ${lead.nipc}` : ''}
                 </p>
               )}
-              {(phone || email) && (
-                <div className="flex items-center gap-2 mt-3 flex-wrap justify-center sm:justify-start">
-                  {phone && (
-                    <span onClick={(e) => e.stopPropagation()} className="inline-block max-w-full">
-                      <CallContactButton
-                        phone={phone}
-                        contactName={clientName}
-                        defaultSide={
-                          ['Vendedor','Senhorio','Arrendador','Venda'].includes(tipo) ? 'vendedor'
-                          : ['Comprador','Arrendatário','Compra'].includes(tipo) ? 'comprador'
-                          : undefined
-                        }
-                        leadId={lead?.id ?? null}
-                        sourceRefType="lead"
-                        sourceRefId={lead?.id ?? null}
-                        ariaLabel={`Ligar ${phone}`}
-                        className="inline-flex items-center gap-2 h-9 rounded-full border border-border/70 bg-card hover:bg-muted active:scale-[0.98] px-3.5 text-[12px] font-medium text-foreground transition-all shadow-sm max-w-full"
-                      >
-                        <Phone className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span className="truncate">{phone}</span>
-                      </CallContactButton>
-                    </span>
-                  )}
-                  {email && (
-                    <a
-                      href={`mailto:${email}`}
-                      className="inline-flex items-center gap-2 h-9 rounded-full border border-border/70 bg-card hover:bg-muted active:scale-[0.98] px-3.5 text-[12px] font-medium text-foreground transition-all shadow-sm truncate max-w-full"
-                      title={`Escrever para ${email}`}
-                    >
-                      <Mail className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
-                      <span className="truncate">{email}</span>
-                    </a>
-                  )}
-                </div>
-              )}
             </div>
           )}
 
-          {/* Quick actions — Tarefa / Evento / Nota linkadas ao contacto.
-              Mesmo padrão da página do contacto (consistência visual). */}
-          {!readOnly && lead && (
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => onCreateTask?.()}
-                className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-teal-700/25 bg-teal-700/8 backdrop-blur-sm px-3 text-xs font-medium text-teal-800 dark:text-teal-300 hover:bg-teal-700/12 transition-colors shadow-sm"
-                title="Criar tarefa para este contacto"
-              >
-                <CheckSquare className="h-3.5 w-3.5" />
-                Tarefa
-              </button>
-              <button
-                type="button"
-                onClick={() => onCreateEvent?.()}
-                className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-indigo-700/25 bg-indigo-700/8 backdrop-blur-sm px-3 text-xs font-medium text-indigo-800 dark:text-indigo-300 hover:bg-indigo-700/12 transition-colors shadow-sm"
-                title="Criar evento (reunião, visita, follow-up)"
-              >
-                <CalendarPlus className="h-3.5 w-3.5" />
-                Evento
-              </button>
-              <button
-                type="button"
-                onClick={() => onCreateNote?.()}
-                className="group inline-flex items-center justify-center gap-2 h-8 rounded-full border border-stone-600/25 bg-stone-600/8 backdrop-blur-sm px-3 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-600/12 transition-colors shadow-sm"
-                title="Nota rápida"
-              >
-                <StickyNote className="h-3.5 w-3.5" />
-                Nota
-              </button>
-            </div>
-          )}
-
-          {/* Orçamento — proeminente mas subordinado ao nome do cliente.
-              Em mobile, label e valor centrados. */}
-          <CardDivider />
-          <div className="text-center sm:text-left">
-            <SectionLabel icon={Euro} centerOnMobile>{priceLabel}</SectionLabel>
-            {price ? (
-              <p className="text-lg sm:text-xl font-semibold tabular-nums leading-tight">
-                {price}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground italic font-medium">—</p>
-            )}
+          {/* 3 botões — Contactos / Ações / Imóvel.
+              Glassmorphism: superfície neutra translúcida + pílula de ícone
+              com cor subtil; a cor vive apenas no ícone para que a vista de
+              Início pareça uma peça única e não um arco-íris de pastilhas. */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setContactosOpen(true)}
+              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
+              disabled={!phone && !email}
+              title="Telefone, email, WhatsApp e SMS"
+            >
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-emerald-400/25 to-emerald-600/5 ring-1 ring-inset ring-emerald-500/25 group-hover:ring-emerald-500/35 transition-colors">
+                <UserIcon className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" strokeWidth={2.25} />
+              </span>
+              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Contactos</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAcoesOpen(true)}
+              disabled={readOnly}
+              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
+              title="Tarefa, evento, nota — e o que está por fazer"
+            >
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400/25 to-indigo-600/5 ring-1 ring-inset ring-indigo-500/25 group-hover:ring-indigo-500/35 transition-colors">
+                <CheckSquare className="h-3.5 w-3.5 text-indigo-700 dark:text-indigo-300" strokeWidth={2.25} />
+              </span>
+              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Ações</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setImovelOpen(true)}
+              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
+              title="O que o cliente procura"
+            >
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-sky-400/25 to-sky-600/5 ring-1 ring-inset ring-sky-500/25 group-hover:ring-sky-500/35 transition-colors">
+                <Home className="h-3.5 w-3.5 text-sky-700 dark:text-sky-300" strokeWidth={2.25} />
+              </span>
+              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Imóvel</span>
+            </button>
           </div>
 
-          {/* O que procura — só specs principais; "Ver tudo" abre Dialog
-              com zonas + specs + contexto + características completos. */}
-          {hasImovelSection && (
-            <>
-              <CardDivider />
-              <section>
-                <SectionLabel icon={Home} centerOnMobile>{sectionLabel}</SectionLabel>
-                {/* Layout 2-col: specs à esquerda, chips de localização à
-                    direita empilhados verticalmente. Em mobile ficam por
-                    cima/baixo. */}
-                <div className={cn(
-                  'flex flex-col gap-3',
-                  (hasProcura && hasZones) && 'sm:flex-row sm:items-start sm:justify-between'
-                )}>
-                  {hasProcura && (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 flex-1 min-w-0">
-                      {procuraItems.slice(0, 6).map((it) => (
-                        <SpecItem key={it.label} label={it.label} value={it.value} />
-                      ))}
-                    </div>
-                  )}
-                  {hasZones && (
-                    <div className="flex flex-col gap-1.5 shrink-0 sm:max-w-[200px] sm:items-end">
-                      {zones.slice(0, 4).map((z) => (
-                        <span
-                          key={z}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-br from-sky-500/12 via-indigo-500/10 to-violet-500/10 dark:from-sky-400/15 dark:via-indigo-400/12 dark:to-violet-400/12 ring-1 ring-inset ring-indigo-500/20 dark:ring-indigo-300/20 px-3 py-1 text-[11px] font-medium text-indigo-900 dark:text-indigo-100 shadow-sm backdrop-blur-sm max-w-full transition-colors hover:from-sky-500/18 hover:via-indigo-500/16 hover:to-violet-500/16"
-                        >
-                          <MapPin className="h-3 w-3 shrink-0 text-indigo-500 dark:text-indigo-300" strokeWidth={2.25} />
-                          <span className="truncate">{z}</span>
-                        </span>
-                      ))}
-                      {zones.length > 4 && (
-                        <span className="inline-flex items-center rounded-full bg-gradient-to-br from-sky-500/8 to-indigo-500/8 ring-1 ring-inset ring-indigo-500/15 px-3 py-1 text-[11px] font-medium text-indigo-700 dark:text-indigo-300">
-                          +{zones.length - 4} zonas
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Financiamento — só relevante para compradores. Capitais
-                    próprios (não necessita financiamento) é mostrado como
-                    badge verde simples; quando precisa de financiamento,
-                    abre uma linha extra com capital próprio + estado de
-                    aprovação + valor de crédito. */}
-                {isBuyerType && financiamento !== null && (
-                  <div className="mt-3 pt-3 border-t border-border/40 text-center sm:text-left">
-                    {financiamento === false ? (
-                      <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/20 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                        <Landmark className="h-3 w-3" strokeWidth={2.25} />
-                        Capitais próprios
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 sm:items-start">
-                        <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 ring-1 ring-inset ring-amber-500/25 px-3 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                          <Landmark className="h-3 w-3" strokeWidth={2.25} />
-                          Necessita financiamento
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                          {capitalProprio != null && (
-                            <SpecItem
-                              label="Capital próprio"
-                              value={eur.format(capitalProprio)}
-                            />
-                          )}
-                          {creditoPreAprovado !== null && (
-                            <SpecItem
-                              label="Pré-aprovado"
-                              value={creditoPreAprovado ? 'Sim' : 'Não'}
-                            />
-                          )}
-                          {valorCredito != null && (
-                            <SpecItem
-                              label="Valor crédito"
-                              value={eur.format(valorCredito)}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {onOpenFullEdit && (
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={onOpenFullEdit}
-                    >
-                      Ver tudo
-                      <Maximize2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-              </section>
-            </>
+          {/* Notas — feed completo de observações deste negócio (notas,
+              chamadas, emails, WhatsApp, visitas) com o composer inline.
+              Substitui o que vivia na antiga tab "Observações". */}
+          {negocio.id && leadId && (
+            <NotasList
+              leadId={leadId}
+              negocioId={negocio.id}
+              negocioRef={negocio.tipo ? `${negocio.tipo}${negocio.localizacao ? ` · ${negocio.localizacao}` : ''}` : 'Negócio'}
+              refreshKey={inicioRefreshKey}
+              readOnly={readOnly}
+            />
           )}
-
-          {/* Observações */}
-          {(() => {
-            const obsList = parseObservations(observacoes)
-            if (obsList.length === 0) return null
-            return (
-              <>
-                <CardDivider />
-                <section>
-                  <SectionLabel icon={StickyNote}>Observações</SectionLabel>
-                  <div className="mt-1 space-y-2">
-                    {obsList.map((o) => {
-                      let when = ''
-                      if (o.created_at !== new Date(0).toISOString()) {
-                        try {
-                          when = format(parseISO(o.created_at), "d MMM yyyy 'às' HH:mm", { locale: pt })
-                        } catch {
-                          when = ''
-                        }
-                      }
-                      return (
-                        <div
-                          key={o.id}
-                          className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2"
-                        >
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-                            {o.text}
-                          </p>
-                          {when && (
-                            <p className="text-[10px] text-muted-foreground mt-1">{when}</p>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </section>
-              </>
-            )
-          })()}
 
           {/* Estudos de mercado — só em angariação (perspectiva Vendedor / Senhorio) */}
           {(tipo === 'Vendedor' || tipo === 'Venda' || tipo === 'Senhorio' || tipo === 'Arrendador') && negocio.id && (
@@ -1351,15 +1076,125 @@ function DetalhesTab({
         </div>
       </div>
 
-      {/* Por fazer (tarefas pendentes) + Actividade recente — cartões separados abaixo */}
+      {/* Sheets glassmórficos accionados pelos 3 botões */}
+      <NegocioContactosSheet
+        open={contactosOpen}
+        onOpenChange={setContactosOpen}
+        clientName={clientName}
+        phone={phone}
+        email={email}
+      />
       {negocio.id && (
-        <InicioExtras
+        <NegocioAcoesSheet
+          open={acoesOpen}
+          onOpenChange={setAcoesOpen}
+          clientName={clientName}
           negocioId={negocio.id}
           leadId={negocio.lead_id ?? null}
           refreshKey={inicioRefreshKey}
+          onCreateTask={() => { setAcoesOpen(false); onCreateTask?.() }}
+          onCreateEvent={() => { setAcoesOpen(false); onCreateEvent?.() }}
+          onCreateNote={() => { setAcoesOpen(false); onCreateNote?.() }}
         />
       )}
+      <NegocioImovelSheet
+        open={imovelOpen}
+        onOpenChange={setImovelOpen}
+        clientName={clientName}
+        tipo={tipo}
+        isBuyerType={isBuyerType}
+        form={form}
+        onOpenFullEdit={onOpenFullEdit ? () => { setImovelOpen(false); onOpenFullEdit() } : undefined}
+      />
     </div>
+  )
+}
+
+// ─── Notas list ────────────────────────────────────────────────────────
+
+function NotasList({
+  leadId,
+  negocioId,
+  negocioRef,
+  refreshKey,
+  readOnly,
+}: {
+  leadId: string
+  negocioId: string
+  /** Label do negócio para a pílula contextual do composer
+   *  (ex.: "Negócio: Venda · Comprador · Lisboa"). */
+  negocioRef: string
+  refreshKey?: number
+  readOnly?: boolean
+}) {
+  const [activities, setActivities] = useState<ObservationActivity[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/leads/${leadId}/activities?negocio_id=${negocioId}`)
+      if (!res.ok) throw new Error()
+      const json = await res.json()
+      setActivities(json.data ?? [])
+    } catch {
+      setActivities([])
+    } finally {
+      setLoading(false)
+    }
+  }, [leadId, negocioId])
+
+  useEffect(() => { void load() }, [load])
+
+  useEffect(() => {
+    if (refreshKey === undefined) return
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey])
+
+  return (
+    <section className="rounded-2xl bg-background border border-border/50 shadow-sm p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <StickyNote className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold tracking-tight">Notas</h3>
+        {activities.length > 0 && (
+          <span className="text-xs text-muted-foreground">{activities.length}</span>
+        )}
+      </div>
+
+      {!readOnly && (
+        <ObservationComposer
+          contactId={leadId}
+          negocioId={negocioId}
+          negocioLabel={`Negócio: ${negocioRef}`}
+          onSaved={load}
+        />
+      )}
+
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-16 rounded-2xl" />
+          <Skeleton className="h-16 rounded-2xl" />
+        </div>
+      ) : activities.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border/40 py-8 text-center">
+          <p className="text-sm text-muted-foreground">Sem notas para este negócio</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Use o campo acima para registar a primeira</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activities.map((act) => (
+            <ObservationItem
+              key={act.id}
+              activity={act}
+              contactId={leadId}
+              hideNegocioBadge
+              onChanged={load}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -3579,79 +3414,3 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Observações tab — observações scoped ao negocio que TAMBÉM aparecem no
-// histórico do contacto (mesma row em leads_activities, com negocio_id set).
-// ─────────────────────────────────────────────────────────────────────────
-
-function NegocioObservacoesTab({
-  negocioId,
-  contactId,
-  negocioRef,
-}: {
-  negocioId: string
-  contactId: string
-  negocioRef: string
-}) {
-  const [activities, setActivities] = useState<ObservationActivity[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/leads/${contactId}/activities?negocio_id=${negocioId}`)
-      if (!res.ok) throw new Error()
-      const json = await res.json()
-      setActivities(json.data ?? [])
-    } catch {
-      setActivities([])
-    } finally {
-      setLoading(false)
-    }
-  }, [contactId, negocioId])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-2xl bg-blue-500/5 border border-blue-500/20 px-4 py-2.5 flex items-start gap-2.5">
-        <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-foreground/80 leading-relaxed">
-          As observações registadas aqui ficam <span className="font-medium">também no histórico do contacto</span>, com a etiqueta deste negócio. Permite à IA ter contexto cruzado entre todos os negócios desta pessoa.
-        </div>
-      </div>
-
-      <ObservationComposer
-        contactId={contactId}
-        negocioId={negocioId}
-        negocioLabel={`Negócio: ${negocioRef}`}
-        onSaved={load}
-      />
-
-      {loading ? (
-        <div className="space-y-2">
-          {[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
-        </div>
-      ) : activities.length === 0 ? (
-        <div className="rounded-2xl border border-dashed py-10 text-center">
-          <p className="text-sm text-muted-foreground">Sem observações para este negócio</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Use o campo acima para registar a primeira</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {activities.map((act) => (
-            <ObservationItem
-              key={act.id}
-              activity={act}
-              contactId={contactId}
-              hideNegocioBadge
-              onChanged={load}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}

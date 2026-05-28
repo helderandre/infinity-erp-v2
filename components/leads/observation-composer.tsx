@@ -263,26 +263,15 @@ export function ObservationComposer({
           </button>
         )}
 
-        {negocioLabel && (
-          <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400">
-            {negocioLabel}
-          </span>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
-          <span className="hidden sm:inline text-[10px] text-muted-foreground/70">
-            ⌘ + Enter para guardar
-          </span>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!text.trim() || submitting}
-            className="rounded-full h-7 px-3 text-xs"
-          >
-            {submitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
-            Guardar
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={!text.trim() || submitting}
+          className="ml-auto rounded-full h-7 px-3 text-xs"
+        >
+          {submitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+          Guardar
+        </Button>
       </div>
     </div>
   )

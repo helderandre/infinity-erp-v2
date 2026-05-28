@@ -16,6 +16,10 @@ interface QuickNoteSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   contactId: string
+  /** When the note is taken in the context of a specific deal, pass its id so
+   *  the resulting activity is also linked to that negocio (otherwise it only
+   *  surfaces in the contact timeline, never in the deal timeline). */
+  negocioId?: string | null
   /** Called after a save so the parent can refresh activities + AI profile cache */
   onSaved?: () => void
 }
@@ -25,7 +29,7 @@ interface QuickNoteSheetProps {
  * the Notas tab. Opens on click of the amber Nota quick action so the user
  * can capture a thought without switching tabs.
  */
-export function QuickNoteSheet({ open, onOpenChange, contactId, onSaved }: QuickNoteSheetProps) {
+export function QuickNoteSheet({ open, onOpenChange, contactId, negocioId, onSaved }: QuickNoteSheetProps) {
   const isMobile = useIsMobile()
 
   return (
@@ -61,6 +65,7 @@ export function QuickNoteSheet({ open, onOpenChange, contactId, onSaved }: Quick
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
           <ObservationComposer
             contactId={contactId}
+            negocioId={negocioId ?? undefined}
             hideTypePicker
             hidePin
             onSaved={() => {
