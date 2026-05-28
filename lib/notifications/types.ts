@@ -30,6 +30,8 @@ export type NotificationType =
   | 'owner_doc_submitted'
   | 'owner_cmi_signed'
   | 'owner_field_edited'
+  | 'meta_sync_completed'
+  | 'meta_sync_failed'
 
 export type NotificationEntityType =
   | 'proc_instance'
@@ -42,6 +44,7 @@ export type NotificationEntityType =
   | 'lead'
   | 'visit'
   | 'deal'
+  | 'meta_sync'
 
 export const PROCESS_NOTIFICATION_TYPES = [
   'comment_mention',
