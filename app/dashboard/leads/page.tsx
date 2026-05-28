@@ -120,6 +120,10 @@ function LeadsPageContent() {
 
   const [leads, setLeads] = useState<LeadWithAgent[]>([])
   const [total, setTotal] = useState(0)
+  const [tabCounts, setTabCounts] = useState<{ qualified: number | null; unqualified: number | null }>({
+    qualified: null,
+    unqualified: null,
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -200,6 +204,37 @@ function LeadsPageContent() {
   }, [loadConsultants, isManagement])
   useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, qualifiedTab])
 
+  // Counts for the hero pill picker (Qualificados / Por qualificar).
+  // Aplica os mesmos filtros activos para que as badges não mintam quando
+  // o utilizador estreita a vista por estado/origem/etc.
+  useEffect(() => {
+    let cancelled = false
+    const buildParams = (kind: 'qualified' | 'unqualified') => {
+      const p = new URLSearchParams()
+      if (debouncedSearch) p.set('nome', debouncedSearch)
+      if (estado !== 'all') p.set('estado', estado)
+      if (temperatura !== 'all') p.set('temperatura', temperatura)
+      if (origem !== 'all') p.set('origem', origem)
+      if (agentId !== 'all') p.set('agent_id', agentId)
+      if (qualifTipos.length > 0) p.set('qualif_tipos', qualifTipos.join(','))
+      p.set('limit', '1')
+      p.set('offset', '0')
+      if (kind === 'qualified') p.set('qualified_only', 'true')
+      else p.set('unqualified_only', 'true')
+      return p.toString()
+    }
+    const fetchTotal = (kind: 'qualified' | 'unqualified') =>
+      fetch(`/api/leads?${buildParams(kind)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (typeof j?.total === 'number' ? j.total : 0))
+        .catch(() => 0)
+    Promise.all([fetchTotal('qualified'), fetchTotal('unqualified')]).then(([q, u]) => {
+      if (cancelled) return
+      setTabCounts({ qualified: q, unqualified: u })
+    })
+    return () => { cancelled = true }
+  }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos])
+
   const handleDelete = async () => {
     if (!deleteId) return
     try {
@@ -264,14 +299,74 @@ function LeadsPageContent() {
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
+      {/* Hero — mesmo padrão da página Oportunidades:
+          título centrado · pill picker Qualificados/Por qualificar com
+          badges · KPI segmentado com o total filtrado. */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
-        <div className="relative z-10 px-8 py-10 sm:px-10 sm:py-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            {total} contacto{total !== 1 ? 's' : ''} {qualifiedTab === 'qualified' ? 'qualificado' : 'por qualificar'}{total !== 1 ? 's' : ''}
-          </p>
+        <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
+          {/* Centered title */}
+          <div className="flex items-center justify-center">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
+          </div>
+
+          {/* Pill picker — Qualificados / Por qualificar com badges */}
+          <div className="mt-4 flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto">
+            {([
+              { key: 'qualified' as const, label: 'Qualificados' },
+              { key: 'unqualified' as const, label: 'Por qualificar' },
+            ]).map(({ key, label }) => {
+              const isActive = qualifiedTab === key
+              const count = tabCounts[key]
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setQualifiedTab(key)}
+                  className={cn(
+                    'inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1 rounded-full text-[11px] font-medium transition-colors duration-300',
+                    isActive
+                      ? 'bg-white text-neutral-900 shadow-sm'
+                      : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
+                  )}
+                >
+                  <span>{label}</span>
+                  {count != null && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[16px] sm:min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
+                        isActive ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/15 text-white/80',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* KPI segmentado — total da vista actual + total global */}
+          <div className="mt-4 flex justify-center">
+            <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
+              <div className="flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0">
+                <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
+                  {qualifiedTab === 'qualified' ? 'Qualificados' : 'Por qualificar'}
+                </span>
+                <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{total}</span>
+              </div>
+              <div className="flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0 border-l border-white/10">
+                <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">Total</span>
+                {tabCounts.qualified === null || tabCounts.unqualified === null ? (
+                  <Skeleton className="h-3.5 w-10 bg-white/10" />
+                ) : (
+                  <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">
+                    {(tabCounts.qualified ?? 0) + (tabCounts.unqualified ?? 0)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
           <Button
@@ -296,37 +391,9 @@ function LeadsPageContent() {
             onClick={() => setShowNewDialog(true)}
           >
             <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden sm:inline">Novo Contacto</span>
+            <span className="hidden sm:inline">Novo</span>
           </Button>
         </div>
-      </div>
-
-      {/* Qualificados / Por qualificar pill tabs */}
-      <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-muted/60 border border-border/40">
-        <button
-          type="button"
-          onClick={() => setQualifiedTab('qualified')}
-          className={cn(
-            'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
-            qualifiedTab === 'qualified'
-              ? 'bg-foreground text-background shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Qualificados
-        </button>
-        <button
-          type="button"
-          onClick={() => setQualifiedTab('unqualified')}
-          className={cn(
-            'px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
-            qualifiedTab === 'unqualified'
-              ? 'bg-foreground text-background shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Por qualificar
-        </button>
       </div>
 
       {/* Filters + View toggle */}
