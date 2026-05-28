@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ad_
 
   if (!ad) return NextResponse.json({ error: 'not_found' }, { status: 404 })
 
-  const [campRes, countRes, scanRes] = await Promise.all([
+  const [campRes, countRes, scanRes, creativeRes] = await Promise.all([
     ad.campaign_id
       ? db.schema('meta').from('meta_campaigns_raw').select('campaign_id, name, status').eq('campaign_id', ad.campaign_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -49,6 +49,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ad_
       .order('fb_created_time', { ascending: false, nullsFirst: false })
       .order('received_at', { ascending: false })
       .limit(LEAD_SCAN),
+    ad.creative_id
+      ? db
+          .schema('meta')
+          .from('meta_creatives_raw')
+          .select('creative_id, name, title, body, cta_type, link_url, image_url, thumbnail_url, video_id')
+          .eq('creative_id', ad.creative_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const scan = (scanRes.data ?? []) as Array<{
@@ -81,6 +89,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ad_
   return NextResponse.json({
     ad,
     campaign: campRes.data ?? null,
+    creative: creativeRes.data ?? null,
     totalLeads: countRes.count ?? 0,
     inCrm,
     forms,

@@ -1,4 +1,4 @@
-import { ExternalLink, Image as ImageIcon, Video } from 'lucide-react'
+import { ExternalLink, Image as ImageIcon, ImageOff, Video } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 
@@ -45,38 +45,77 @@ export function CreativePreview({
   creative,
   fallbackName,
   fallbackCreativeId,
+  adStatus,
 }: {
   creative: CreativeRow | null
   fallbackName?: string | null
   fallbackCreativeId?: string | null
+  /** effective_status do anúncio — usado para explicar criativos arquivados */
+  adStatus?: string | null
 }) {
   if (!creative) {
-    if (fallbackName || fallbackCreativeId) {
+    const status = (adStatus ?? '').toUpperCase()
+    const archived = status === 'ARCHIVED' || status === 'DELETED'
+
+    // Criativo arquivado/eliminado — a Meta não devolve a imagem até desarquivar.
+    if (archived) {
       return (
-        <div className="space-y-2 text-sm">
-          <p className="text-muted-foreground">
-            Criativo ainda não sincronizado em detalhe. Usa{' '}
-            <strong>Atualizar dados Meta</strong> (com “Criativos”) para puxar
-            imagem/vídeo, copy e CTA.
-          </p>
-          {fallbackName && (
-            <p>
-              Nome:{' '}
-              <span className="font-medium">{fallbackName}</span>
+        <div className="flex items-start gap-3 text-sm">
+          <div className="bg-muted/50 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+            <ImageOff className="text-muted-foreground/60 h-5 w-5" />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <p className="font-medium">
+              Criativo {status === 'DELETED' ? 'eliminado' : 'arquivado'}
             </p>
-          )}
-          {fallbackCreativeId && (
-            <p className="text-muted-foreground font-mono text-[10px]">
-              {fallbackCreativeId}
+            <p className="text-muted-foreground text-xs">
+              A imagem e o texto só ficam disponíveis quando o anúncio for
+              desarquivado no Meta — os criativos arquivados não trazem
+              pré-visualização.
             </p>
-          )}
+            {fallbackName && (
+              <p className="text-muted-foreground/80 truncate pt-0.5 text-xs">
+                {fallbackName}
+              </p>
+            )}
+          </div>
         </div>
       )
     }
+
+    // Anúncio sem criativo de todo (raro) — mensagem neutra, sem sugerir acção.
+    if (!fallbackCreativeId && !fallbackName) {
+      return (
+        <div className="flex items-center gap-3 text-sm">
+          <div className="bg-muted/50 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+            <ImageOff className="text-muted-foreground/60 h-5 w-5" />
+          </div>
+          <p className="text-muted-foreground">
+            Este anúncio não tem um criativo associado.
+          </p>
+        </div>
+      )
+    }
+    // Criativo existe no anúncio mas ainda não temos a imagem/copy guardadas.
     return (
-      <p className="text-muted-foreground text-sm">
-        Este anúncio não tem criativo associado.
-      </p>
+      <div className="flex items-start gap-3 text-sm">
+        <div className="bg-muted/50 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+          <ImageOff className="text-muted-foreground/60 h-5 w-5" />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <p className="font-medium">Pré-visualização ainda por chegar</p>
+          <p className="text-muted-foreground text-xs">
+            Ainda não temos a imagem e o texto deste criativo. Clica em{' '}
+            <strong>Atualizar dados Meta</strong> e escolhe <strong>Criativos</strong>{' '}
+            — costuma resolver em poucos minutos.
+          </p>
+          {fallbackName && (
+            <p className="text-muted-foreground/80 truncate pt-0.5 text-xs">
+              {fallbackName}
+            </p>
+          )}
+        </div>
+      </div>
     )
   }
 

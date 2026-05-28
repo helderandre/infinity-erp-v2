@@ -1,11 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { RefreshCw, Megaphone } from 'lucide-react'
+import { RefreshCw, Megaphone, CalendarIcon } from 'lucide-react'
+import { format, parse, differenceInCalendarDays, subDays } from 'date-fns'
+import { pt } from 'date-fns/locale'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Calendar } from '@/components/ui/calendar'
 import {
   Dialog,
   DialogContent,
@@ -16,12 +19,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 import { useMetaSyncJob, type SyncResource } from '@/hooks/use-meta-sync-job'
 
 const RESOURCES: { key: SyncResource; label: string; hint: string }[] = [
@@ -30,22 +32,30 @@ const RESOURCES: { key: SyncResource; label: string; hint: string }[] = [
   { key: 'creatives', label: 'Criativos', hint: 'Imagem/vídeo, copy, CTA, link' },
   { key: 'insights', label: 'Desempenho', hint: 'Gasto, impressões, cliques, CPL' },
   { key: 'forms', label: 'Formulários', hint: 'Formulários de lead das Pages' },
-  { key: 'leads', label: 'Leads', hint: 'Leads recebidas (janela do período)' },
-]
-
-const PERIODS = [
-  { value: '7', label: 'Últimos 7 dias' },
-  { value: '30', label: 'Últimos 30 dias' },
-  { value: '90', label: 'Últimos 90 dias' },
-  { value: '365', label: 'Último ano' },
+  { key: 'leads', label: 'Leads', hint: 'Leads recebidas (a partir da data)' },
 ]
 
 const DEFAULT_SELECTED: SyncResource[] = ['campaigns', 'ads', 'insights']
 
+type PeriodMode = 'all' | '7' | '30' | '90' | 'custom'
+
+const PERIOD_CHIPS: { mode: PeriodMode; label: string }[] = [
+  { mode: 'all', label: 'Todo o período' },
+  { mode: '7', label: '7 dias' },
+  { mode: '30', label: '30 dias' },
+  { mode: '90', label: '90 dias' },
+  { mode: 'custom', label: 'Outra data' },
+]
+
+function ymd(d: Date): string {
+  return format(d, 'yyyy-MM-dd')
+}
+
 /**
- * Diálogo geral "Atualizar dados Meta": o utilizador escolhe QUE recursos
- * sincronizar (campanhas, anúncios, criativos, formulários, leads, desempenho)
- * e o PERÍODO (since_days). Dispara um sync job assíncrono — ver useMetaSyncJob.
+ * Diálogo geral "Atualizar dados Meta": escolhe QUE recursos sincronizar e o
+ * PERÍODO — atalhos (todo o período / 7 / 30 / 90 dias) ou uma data específica
+ * via calendário. Mostra quantos dias o período representa. Dispara um sync job
+ * assíncrono (ver useMetaSyncJob).
  */
 export function MetaRefreshDialog({
   defaultResources = DEFAULT_SELECTED,
@@ -57,7 +67,31 @@ export function MetaRefreshDialog({
   const [selected, setSelected] = useState<Set<SyncResource>>(
     () => new Set(defaultResources),
   )
-  const [sinceDays, setSinceDays] = useState('30')
+  const [mode, setMode] = useState<PeriodMode>('30')
+  const [customSince, setCustomSince] = useState<string>(() => ymd(subDays(new Date(), 30)))
+  const [calOpen, setCalOpen] = useState(false)
+
+  const customDate = customSince
+    ? parse(customSince, 'yyyy-MM-dd', new Date())
+    : undefined
+
+  // Data efectiva enviada à API (null = todo o período).
+  function effectiveSince(): string | null {
+    if (mode === 'all') return null
+    if (mode === 'custom') return customSince || null
+    return ymd(subDays(new Date(), Number(mode)))
+  }
+
+  // Label "X dias" para o período activo.
+  function daysLabel(): string | null {
+    if (mode === 'all') return null
+    if (mode === 'custom') {
+      if (!customDate) return null
+      const d = Math.max(0, differenceInCalendarDays(new Date(), customDate))
+      return d === 0 ? 'hoje' : `há ${d} dia${d === 1 ? '' : 's'}`
+    }
+    return `últimos ${mode} dias`
+  }
 
   function toggle(key: SyncResource, checked: boolean) {
     setSelected((prev) => {
@@ -69,9 +103,13 @@ export function MetaRefreshDialog({
   }
 
   function submit() {
-    trigger([...selected], Number(sinceDays))
+    trigger([...selected], effectiveSince())
     setOpen(false)
   }
+
+  const label = daysLabel()
+  const canSubmit =
+    !running && selected.size > 0 && (mode !== 'custom' || !!customSince)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -116,25 +154,72 @@ export function MetaRefreshDialog({
             ))}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="sync-period" className="text-xs">
-              Período
-            </Label>
-            <Select value={sinceDays} onValueChange={setSinceDays}>
-              <SelectTrigger id="sync-period">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIODS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Período: atalhos + data específica */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Período</Label>
+              {label && (
+                <span className="text-muted-foreground text-[11px] tabular-nums">
+                  {label}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {PERIOD_CHIPS.map((chip) => (
+                <Button
+                  key={chip.mode}
+                  type="button"
+                  size="sm"
+                  variant={mode === chip.mode ? 'default' : 'outline'}
+                  className="h-8 rounded-full px-3 text-xs"
+                  onClick={() => setMode(chip.mode)}
+                >
+                  {chip.label}
+                </Button>
+              ))}
+            </div>
+
+            {mode === 'custom' && (
+              <Popover open={calOpen} onOpenChange={setCalOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'mt-1 justify-start text-left font-normal',
+                      !customDate && 'text-muted-foreground',
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customDate
+                      ? format(customDate, 'dd/MM/yyyy', { locale: pt })
+                      : 'Escolher data'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customDate}
+                    onSelect={(d) => {
+                      if (d) setCustomSince(ymd(d))
+                      setCalOpen(false)
+                    }}
+                    disabled={{ after: new Date() }}
+                    locale={pt}
+                    captionLayout="dropdown"
+                    defaultMonth={customDate}
+                    fromYear={2015}
+                    toYear={new Date().getFullYear()}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+
             <p className="text-muted-foreground text-[11px]">
-              Aplica-se a leads e desempenho. Campanhas/anúncios/criativos
-              alterados no período também são sincronizados.
+              {mode === 'all'
+                ? 'Sincroniza todo o histórico disponível.'
+                : 'Leads/desempenho a partir da data; campanhas/anúncios/criativos alterados desde então.'}
             </p>
           </div>
         </div>
@@ -143,7 +228,7 @@ export function MetaRefreshDialog({
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={running || selected.size === 0}>
+          <Button onClick={submit} disabled={!canSubmit}>
             Sincronizar
           </Button>
         </DialogFooter>

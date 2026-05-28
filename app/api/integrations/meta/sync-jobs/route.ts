@@ -2,7 +2,8 @@
  * POST /api/integrations/meta/sync-jobs
  *
  * Dispara um sync da meta-api como JOB assíncrono, sem bloquear o cliente.
- * Body: { resources: SyncResource[], since_days?: number }. Cria uma row em
+ * Body: { resources: SyncResource[], since?: string }. `since` é uma data
+ * YYYY-MM-DD (null/ausente = todo o período). Cria uma row em
  * public.meta_sync_jobs (status='running'), arranca o trabalho fire-and-forget
  * no servidor e responde 202 com o job_id imediatamente.
  *
@@ -28,10 +29,7 @@ import { SYNC_RESOURCES, type SyncResource } from '@/lib/mube/internal-client'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function clampSinceDays(value: unknown): number {
-  const n = typeof value === 'number' && Number.isInteger(value) ? value : 30
-  return Math.min(365, Math.max(1, n))
-}
+const SINCE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -47,9 +45,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 
-  let body: { resources?: unknown; since_days?: unknown }
+  let body: { resources?: unknown; since?: unknown }
   try {
-    body = (await req.json()) as { resources?: unknown; since_days?: unknown }
+    body = (await req.json()) as { resources?: unknown; since?: unknown }
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
   }
@@ -66,7 +64,15 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     )
   }
-  const sinceDays = clampSinceDays(body.since_days)
+
+  // `since` é uma data YYYY-MM-DD; null/ausente = "todo o período".
+  let since: string | null = null
+  if (body.since != null && body.since !== '') {
+    if (typeof body.since !== 'string' || !SINCE_RE.test(body.since)) {
+      return NextResponse.json({ error: 'invalid_since' }, { status: 400 })
+    }
+    since = body.since
+  }
 
   const db = createCrmAdminClient()
   const { data, error } = await db
@@ -75,7 +81,7 @@ export async function POST(req: NextRequest) {
       status: 'running',
       requested_by: user.id,
       resources,
-      since_days: sinceDays,
+      since,
     })
     .select('id')
     .single()
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
   const jobId = (data as { id: string }).id
 
   // Fire-and-forget — corre depois da resposta (servidor Node persistente).
-  void runMetaSyncJob(db, jobId, resources, sinceDays, user.id).catch((err) => {
+  void runMetaSyncJob(db, jobId, resources, since, user.id).catch((err) => {
     console.error('[sync-jobs] uncaught job error', { jobId, err })
   })
 

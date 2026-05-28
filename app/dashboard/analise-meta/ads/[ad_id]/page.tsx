@@ -248,6 +248,7 @@ export default async function AdDetailPage({
             creative={creative}
             fallbackName={ad.creative_name}
             fallbackCreativeId={ad.creative_id}
+            adStatus={ad.status}
           />
         </CardContent>
       </Card>

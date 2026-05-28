@@ -6,11 +6,12 @@ import { Target, Megaphone, Users, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   formatCampaignObjective,
-  formatMetaBudgetCents,
+  formatEur,
   formatMetaStatus,
   metaStatusVariant,
 } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
+import { getInsightTotalsByObject } from '@/lib/meta/insights-kpis'
 
 import { MetaRefreshControls } from '@/components/analise-meta/meta-refresh-controls'
 
@@ -99,14 +100,17 @@ export default async function CampanhasMetaPage({
   const total = count ?? 0
   const ids = campaigns.map((c) => c.campaign_id)
 
-  // Batch counts: ads + leads per campaign (one query each, aggregated in JS).
-  const [adsRes, leadsRes] = await Promise.all([
+  // Batch counts: ads + leads per campaign + gasto (insights), aggregados em JS.
+  const [adsRes, leadsRes, spendByCamp] = await Promise.all([
     ids.length
       ? supabase.schema('meta').from('meta_ads_raw').select('campaign_id').in('campaign_id', ids).limit(5000)
       : Promise.resolve({ data: [] as { campaign_id: string | null }[] }),
     ids.length
       ? supabase.schema('meta').from('meta_leads_raw').select('campaign_id').in('campaign_id', ids).limit(8000)
       : Promise.resolve({ data: [] as { campaign_id: string | null }[] }),
+    ids.length
+      ? getInsightTotalsByObject(supabase, 'campaign', ids)
+      : Promise.resolve({} as Record<string, { spend: number; leads: number; currency: string | null }>),
   ])
   const adsByCamp = countBy(adsRes.data ?? [])
   const leadsByCamp = countBy(leadsRes.data ?? [])
@@ -181,7 +185,9 @@ export default async function CampanhasMetaPage({
                     {fmtRelative(c.fb_created_time ?? c.received_at)}
                   </span>
                   <span className="text-muted-foreground/60 text-[11px] tabular-nums">
-                    {formatMetaBudgetCents(c.daily_budget)}/dia
+                    {spendByCamp[c.campaign_id]?.spend
+                      ? `${formatEur(spendByCamp[c.campaign_id].spend, spendByCamp[c.campaign_id].currency, { maximumFractionDigits: 0 })} gasto`
+                      : '—'}
                   </span>
                   <ChevronRight className="text-muted-foreground/40 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </div>

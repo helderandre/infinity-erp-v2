@@ -32,10 +32,12 @@ import { formatMetaStatus, metaStatusVariant } from '@/lib/meta/labels'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { AttributionPanel } from '@/components/analise-meta/attribution-panel'
 import { FormDetailSheet } from '@/components/analise-meta/form-detail-sheet'
+import { CreativePreview, type CreativeRow } from '@/components/analise-meta/creative-preview'
 
 interface Bundle {
-  ad: { id: string; ad_id: string; name: string | null; status: string | null; creative_name: string | null; campaign_id: string | null }
+  ad: { id: string; ad_id: string; name: string | null; status: string | null; creative_id: string | null; creative_name: string | null; campaign_id: string | null }
   campaign: { campaign_id: string; name: string | null; status: string | null } | null
+  creative: CreativeRow | null
   totalLeads: number
   inCrm: number
   forms: { form_id: string; name: string | null; count: number }[]
@@ -147,6 +149,19 @@ export function AdDetailSheet({
                   </p>
                   <p className="mt-0.5 text-xl font-semibold tabular-nums">{data.inCrm}</p>
                 </div>
+              </div>
+
+              {/* Creative */}
+              <div className={`${GLASS} p-4`}>
+                <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
+                  <ImageIcon className="h-4 w-4" /> Criativo
+                </h3>
+                <CreativePreview
+                  creative={data.creative}
+                  fallbackName={data.ad.creative_name}
+                  fallbackCreativeId={data.ad.creative_id}
+                  adStatus={data.ad.status}
+                />
               </div>
 
               {/* Attribution */}

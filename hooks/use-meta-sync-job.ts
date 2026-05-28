@@ -49,7 +49,7 @@ export function useMetaSyncJob() {
   useEffect(() => cleanup, [cleanup])
 
   const trigger = useCallback(
-    async (resources: SyncResource[], sinceDays: number) => {
+    async (resources: SyncResource[], since: string | null) => {
       if (running) return
       if (resources.length === 0) {
         toast.error('Selecciona pelo menos um tipo de dados.')
@@ -59,7 +59,7 @@ export function useMetaSyncJob() {
         const res = await fetch('/api/integrations/meta/sync-jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resources, since_days: sinceDays }),
+          body: JSON.stringify({ resources, since }),
         })
         if (!res.ok) {
           const { error } = await res.json().catch(() => ({ error: 'erro' }))
@@ -122,6 +122,8 @@ function errorLabel(code: string): string {
       return 'Sessão expirada.'
     case 'invalid_resources':
       return 'Selecção de dados inválida.'
+    case 'invalid_since':
+      return 'Data inválida.'
     case 'job_create_failed':
       return 'Falha a criar o pedido.'
     default:

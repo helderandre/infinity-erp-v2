@@ -42,6 +42,10 @@ const RESOURCE_LABELS: Record<SyncResource, string> = {
   insights: 'Desempenho',
 }
 
+// "Todo o período": data-piso suficientemente antiga para apanhar todo o
+// histórico disponível (a meta-api/Meta limitam o que devolvem na prática).
+const ALL_SINCE = '2015-01-01'
+
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
@@ -61,40 +65,57 @@ export async function runMetaSyncJob(
   db: AdminSupabase,
   jobId: string,
   resources: SyncResource[],
-  sinceDays: number,
+  since: string | null,
   userId: string,
 ): Promise<void> {
   try {
     const connectionId = await resolveConnectionId()
     if (!connectionId) throw new Error('no_active_connection')
 
+    // `since` é uma data YYYY-MM-DD; null = todo o período (data-piso).
+    const sinceParam = since ?? ALL_SINCE
+
     // 1. Dispara o sync assíncrono na meta-api.
+    const requestBody = { resources, since: sinceParam, async: true }
+    console.info('[meta-sync-job] → POST /api/internal/sync/connection', {
+      jobId,
+      connectionId,
+      body: requestBody,
+    })
     const start = await callMubeInternal<{ job_id?: string; status?: string } & Record<string, unknown>>(
       `/api/internal/sync/connection/${connectionId}`,
       {
         method: 'POST',
-        body: JSON.stringify({ resources, since_days: sinceDays, async: true }),
+        body: JSON.stringify(requestBody),
       },
     )
     if (!start.ok) throw new Error(start.error)
+    console.info('[meta-sync-job] ← sync/connection response', { jobId, data: start.data })
 
     // 2. Espera concluir (async → job_id + polling). Se a meta-api tiver corrido
     //    inline e devolvido contadores directamente, usa-os.
     let counters: Record<string, unknown> = {}
     const metaJobId = start.data.job_id
     if (metaJobId) {
+      console.info('[meta-sync-job] polling meta job', { jobId, metaJobId })
       const polled = await pollSyncJob(metaJobId)
       if (!polled.ok) throw new Error(polled.error)
       counters = polled.job.result ?? {}
+      console.info('[meta-sync-job] meta job finished', {
+        jobId,
+        metaJobId,
+        status: polled.job.status,
+      })
     } else {
       counters = start.data
     }
 
     // 3. Insights chegam por leitura explícita (os outros vêm por webhook).
     if (resources.includes('insights')) {
-      const to = new Date()
-      const from = new Date(to.getTime() - sinceDays * 24 * 60 * 60 * 1000)
-      const mirror = await refreshInsightsMirror(db, { from: ymd(from), to: ymd(to) })
+      const mirror = await refreshInsightsMirror(db, {
+        from: sinceParam,
+        to: ymd(new Date()),
+      })
       counters = { ...counters, insights_mirror: mirror }
     }
 
@@ -107,6 +128,7 @@ export async function runMetaSyncJob(
       })
       .eq('id', jobId)
 
+    console.info('[meta-sync-job] done', { jobId, resources, counters })
     await notify(db, userId, jobId, resources, 'done')
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown_error'
