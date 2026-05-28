@@ -13,6 +13,39 @@ export type InternalResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; status?: number }
 
+/** Recursos sincronizáveis no /api/internal/sync/connection. */
+export type SyncResource =
+  | 'forms'
+  | 'campaigns'
+  | 'ads'
+  | 'creatives'
+  | 'leads'
+  | 'insights'
+
+export const SYNC_RESOURCES: SyncResource[] = [
+  'forms',
+  'campaigns',
+  'ads',
+  'creatives',
+  'leads',
+  'insights',
+]
+
+/** Estado de um job assíncrono de sync (GET /api/internal/sync/jobs/{id}). */
+export interface SyncJob {
+  id: string
+  connection_id: string
+  tenant_id: string
+  resources: string[]
+  since: string | null
+  status: 'pending' | 'running' | 'done' | 'failed'
+  result: Record<string, unknown> | null
+  error: string | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+}
+
 /**
  * Chama um endpoint /api/internal/* da meta-api com X-Admin-Secret.
  */
@@ -109,4 +142,51 @@ export async function resolveConnectionId(): Promise<string | null> {
     })
     return null
   }
+}
+
+/**
+ * GET /api/internal/sync/jobs/{job_id} — estado de um job assíncrono de sync.
+ */
+export async function getSyncJob(jobId: string): Promise<InternalResult<SyncJob>> {
+  const res = await callMubeInternal<{ job: SyncJob }>(
+    `/api/internal/sync/jobs/${jobId}`,
+  )
+  if (!res.ok) return res
+  return { ok: true, data: res.data.job }
+}
+
+/**
+ * Faz polling a getSyncJob até `done`/`failed` (ou timeout). Devolve o job
+ * final. Corre em background (server) — interval generoso para não martelar.
+ */
+export async function pollSyncJob(
+  jobId: string,
+  opts?: { intervalMs?: number; timeoutMs?: number },
+): Promise<{ ok: true; job: SyncJob } | { ok: false; error: string }> {
+  const intervalMs = opts?.intervalMs ?? 5_000
+  const timeoutMs = opts?.timeoutMs ?? 14 * 60 * 1000
+  const deadline = Date.now() + timeoutMs
+
+  // pequeno atraso inicial — o job acabou de ser enfileirado
+  await sleep(2_000)
+
+  while (Date.now() < deadline) {
+    const res = await getSyncJob(jobId)
+    if (!res.ok) {
+      // 404/erro transitório — tenta mais umas vezes antes de desistir
+      await sleep(intervalMs)
+      continue
+    }
+    const job = res.data
+    if (job.status === 'done') return { ok: true, job }
+    if (job.status === 'failed') {
+      return { ok: false, error: job.error ?? 'sync_job_failed' }
+    }
+    await sleep(intervalMs)
+  }
+  return { ok: false, error: 'sync_job_timeout' }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

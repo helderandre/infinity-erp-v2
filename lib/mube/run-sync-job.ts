@@ -1,19 +1,29 @@
 /**
  * Orquestra um "meta sync job" (public.meta_sync_jobs) em background.
  *
- * Corre o sync demorado no servidor (Coolify = Node de longa duração) fora do
- * ciclo de resposta HTTP — o route handler dispara isto fire-and-forget e
- * responde 202 imediatamente. Quando termina:
+ * Corre o sync (possivelmente demorado) no servidor (Coolify = Node de longa
+ * duração) fora do ciclo de resposta HTTP — o route handler dispara isto
+ * fire-and-forget e responde 202 imediatamente. Quando termina:
  *   - actualiza o job (status done/error + counters) → Realtime avisa a página
  *   - insere uma notification (sino) + web push para QUEM pediu (chega mesmo
  *     que o utilizador saia da página).
+ *
+ * O sync da meta-api é ASSÍNCRONO: POST /sync/connection devolve 202 + job_id
+ * e nós fazemos polling a GET /sync/jobs/{job_id} até concluir. Os recursos
+ * (campanhas/anúncios/criativos/formulários/leads) chegam ao nosso mirror pelos
+ * webhooks; `insights` é puxado explicitamente via refreshInsightsMirror.
  *
  * Nunca lança — todos os erros viram status='error' + notificação de falha.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { callMubeInternal, resolveConnectionId } from '@/lib/mube/internal-client'
+import {
+  callMubeInternal,
+  pollSyncJob,
+  resolveConnectionId,
+  type SyncResource,
+} from '@/lib/mube/internal-client'
 import { refreshInsightsMirror } from '@/lib/mube/insights-client'
 import { sendPushToUser } from '@/lib/crm/send-push'
 import { notificationService } from '@/lib/notifications/service'
@@ -21,61 +31,71 @@ import { notificationService } from '@/lib/notifications/service'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminSupabase = SupabaseClient<any, 'public', any>
 
-export type MetaSyncKind = 'campaigns' | 'insights'
-
 const ANALISE_META_URL = '/dashboard/analise-meta/campanhas'
-const INSIGHTS_SINCE_DAYS = 30
+
+const RESOURCE_LABELS: Record<SyncResource, string> = {
+  forms: 'Formulários',
+  campaigns: 'Campanhas',
+  ads: 'Anúncios',
+  creatives: 'Criativos',
+  leads: 'Leads',
+  insights: 'Desempenho',
+}
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-interface SyncConnectionResponse {
-  ad_assets?: {
-    campaigns?: { fetched: number; upserted: number; errors: number }
-    ads?: { fetched: number; upserted: number; errors: number }
-  }
+function labelFor(resources: SyncResource[]): string {
+  const names = resources.map((r) => RESOURCE_LABELS[r] ?? r)
+  if (names.length === 0) return 'Dados Meta'
+  if (names.length === 1) return names[0]
+  return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`
 }
 
 /**
- * Executa o trabalho do job e fecha-o. Idempotência não é garantida — assume-se
- * 1 job = 1 execução (criado pelo route handler).
+ * Executa o trabalho do job e fecha-o. 1 job = 1 execução (criado pelo route
+ * handler com a lista de recursos + período escolhidos pelo utilizador).
  */
 export async function runMetaSyncJob(
   db: AdminSupabase,
   jobId: string,
-  kind: MetaSyncKind,
+  resources: SyncResource[],
+  sinceDays: number,
   userId: string,
 ): Promise<void> {
   try {
-    let counters: Record<string, unknown> = {}
+    const connectionId = await resolveConnectionId()
+    if (!connectionId) throw new Error('no_active_connection')
 
-    if (kind === 'campaigns') {
-      const connectionId = await resolveConnectionId()
-      if (!connectionId) throw new Error('no_active_connection')
-
-      const res = await callMubeInternal<SyncConnectionResponse>(
-        `/api/internal/sync/connection/${connectionId}`,
-        { method: 'POST', body: JSON.stringify({ since_days: 7 }) },
-      )
-      if (!res.ok) throw new Error(res.error)
-
-      counters = {
-        campaigns: res.data.ad_assets?.campaigns ?? null,
-        ads: res.data.ad_assets?.ads ?? null,
-      }
-    } else {
-      // insights: força re-pull do Graph na meta-api e espelha localmente.
-      await callMubeInternal('/api/internal/sync/insights', {
+    // 1. Dispara o sync assíncrono na meta-api.
+    const start = await callMubeInternal<{ job_id?: string; status?: string } & Record<string, unknown>>(
+      `/api/internal/sync/connection/${connectionId}`,
+      {
         method: 'POST',
-        body: JSON.stringify({ since_days: INSIGHTS_SINCE_DAYS }),
-      })
+        body: JSON.stringify({ resources, since_days: sinceDays, async: true }),
+      },
+    )
+    if (!start.ok) throw new Error(start.error)
 
+    // 2. Espera concluir (async → job_id + polling). Se a meta-api tiver corrido
+    //    inline e devolvido contadores directamente, usa-os.
+    let counters: Record<string, unknown> = {}
+    const metaJobId = start.data.job_id
+    if (metaJobId) {
+      const polled = await pollSyncJob(metaJobId)
+      if (!polled.ok) throw new Error(polled.error)
+      counters = polled.job.result ?? {}
+    } else {
+      counters = start.data
+    }
+
+    // 3. Insights chegam por leitura explícita (os outros vêm por webhook).
+    if (resources.includes('insights')) {
       const to = new Date()
-      const from = new Date(to.getTime() - INSIGHTS_SINCE_DAYS * 24 * 60 * 60 * 1000)
-      const r = await refreshInsightsMirror(db, { from: ymd(from), to: ymd(to) })
-      if (!r.ok && r.fetched === 0) throw new Error('insights_refresh_failed')
-      counters = { fetched: r.fetched, upserted: r.upserted, errors: r.errors }
+      const from = new Date(to.getTime() - sinceDays * 24 * 60 * 60 * 1000)
+      const mirror = await refreshInsightsMirror(db, { from: ymd(from), to: ymd(to) })
+      counters = { ...counters, insights_mirror: mirror }
     }
 
     await db
@@ -87,10 +107,10 @@ export async function runMetaSyncJob(
       })
       .eq('id', jobId)
 
-    await notify(db, userId, jobId, kind, 'done', counters)
+    await notify(db, userId, jobId, resources, 'done')
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown_error'
-    console.error('[meta-sync-job] failed', { jobId, kind, message })
+    console.error('[meta-sync-job] failed', { jobId, resources, message })
 
     await db
       .from('meta_sync_jobs')
@@ -101,7 +121,7 @@ export async function runMetaSyncJob(
       })
       .eq('id', jobId)
 
-    await notify(db, userId, jobId, kind, 'error')
+    await notify(db, userId, jobId, resources, 'error')
   }
 }
 
@@ -109,24 +129,18 @@ async function notify(
   db: AdminSupabase,
   userId: string,
   jobId: string,
-  kind: MetaSyncKind,
+  resources: SyncResource[],
   outcome: 'done' | 'error',
-  counters?: Record<string, unknown>,
 ): Promise<void> {
-  const label = kind === 'campaigns' ? 'Campanhas e anúncios' : 'Desempenho (insights)'
-
-  let title: string
-  let body: string
-  if (outcome === 'done') {
-    title = `${label} actualizados`
-    body =
-      kind === 'insights'
-        ? `${(counters?.upserted as number) ?? 0} linha(s) de desempenho actualizadas.`
-        : 'Os dados mais recentes já estão disponíveis em Análise Meta.'
-  } else {
-    title = `Falha a actualizar ${label.toLowerCase()}`
-    body = 'A sincronização não terminou. Tenta novamente mais tarde.'
-  }
+  const label = labelFor(resources)
+  const title =
+    outcome === 'done'
+      ? `${label} ${resources.length === 1 ? 'actualizado' : 'actualizados'}`
+      : `Falha a sincronizar ${label.toLowerCase()}`
+  const body =
+    outcome === 'done'
+      ? 'Os dados mais recentes já estão disponíveis em Análise Meta.'
+      : 'A sincronização não terminou. Tenta novamente mais tarde.'
 
   // Bell (sobrevive à navegação — subscrição global em useNotifications).
   try {
@@ -138,7 +152,7 @@ async function notify(
       title,
       body,
       actionUrl: ANALISE_META_URL,
-      metadata: { kind, outcome, counters: counters ?? null },
+      metadata: { resources, outcome },
     })
   } catch (err) {
     console.error('[meta-sync-job] notification insert failed', { jobId, err })
@@ -150,7 +164,7 @@ async function notify(
       title,
       body,
       url: ANALISE_META_URL,
-      tag: `meta-sync-${kind}`,
+      tag: `meta-sync-${jobId}`,
     })
   } catch {
     /* best-effort */

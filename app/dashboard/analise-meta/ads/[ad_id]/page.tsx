@@ -36,6 +36,7 @@ import { getInsightKpis } from '@/lib/meta/insights-kpis'
 import { AttributionPanel } from '@/components/analise-meta/attribution-panel'
 import { PerformanceKpis } from '@/components/analise-meta/performance-kpis'
 import { MetaRefreshControls } from '@/components/analise-meta/meta-refresh-controls'
+import { CreativePreview, type CreativeRow } from '@/components/analise-meta/creative-preview'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Anúncio — Análise Meta' }
@@ -79,7 +80,7 @@ export default async function AdDetailPage({
   const ad = adRes.data
 
   // Segundo round (depende do ad para descobrir campaign_id)
-  const [campRes, leadsCountRes, leadsRes, insightKpis] = await Promise.all([
+  const [campRes, leadsCountRes, leadsRes, insightKpis, creativeRes] = await Promise.all([
     ad.campaign_id
       ? supabase
           .schema('meta')
@@ -104,11 +105,22 @@ export default async function AdDetailPage({
       .order('received_at', { ascending: false })
       .limit(20),
     getInsightKpis(supabase, 'ad', ad_id),
+    ad.creative_id
+      ? supabase
+          .schema('meta')
+          .from('meta_creatives_raw')
+          .select(
+            'creative_id, name, title, body, cta_type, link_url, image_url, thumbnail_url, video_id',
+          )
+          .eq('creative_id', ad.creative_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   const parentCampaign = campRes.data
   const totalLeads = leadsCountRes.count ?? 0
   const recentLeads = leadsRes.data ?? []
+  const creative = (creativeRes?.data ?? null) as CreativeRow | null
 
   // Batch lookup dos nomes dos formulários referenciados pelos leads recentes
   const formIds = Array.from(
@@ -166,7 +178,7 @@ export default async function AdDetailPage({
       {/* Desempenho (insights) + refresh */}
       <div className="space-y-3">
         <div className="flex items-center justify-end">
-          <MetaRefreshControls show="performance" />
+          <MetaRefreshControls defaultResources={['insights', 'creatives']} />
         </div>
         <PerformanceKpis kpis={insightKpis} />
       </div>
@@ -232,20 +244,11 @@ export default async function AdDetailPage({
           <CardTitle className="text-base">Criativo</CardTitle>
         </CardHeader>
         <CardContent>
-          {ad.creative_id || ad.creative_name ? (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Row label="Nome" value={ad.creative_name ?? '—'} />
-              <Row
-                label="ID"
-                value={<code className="text-xs">{ad.creative_id ?? '—'}</code>}
-              />
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              Sem detalhes de criativo no payload. Refaz o sync deste anúncio
-              para puxar a info actualizada.
-            </p>
-          )}
+          <CreativePreview
+            creative={creative}
+            fallbackName={ad.creative_name}
+            fallbackCreativeId={ad.creative_id}
+          />
         </CardContent>
       </Card>
 

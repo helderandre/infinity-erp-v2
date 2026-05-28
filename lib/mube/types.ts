@@ -162,6 +162,37 @@ export interface MubeAdEvent {
 }
 
 // ============================================================
+// creative.synced — criativo completo (imagem/vídeo/copy/CTA/link)
+// ============================================================
+
+export interface MubeCreativePayload {
+  /** Meta creative id (chave de dedup). Liga ao ad via ad.creative_id. */
+  creative_id: string
+  ad_account_id: string | null
+  name: string | null
+  /** título e copy do criativo */
+  title: string | null
+  body: string | null
+  /** ex.: "LEARN_MORE", "SIGN_UP" */
+  cta_type: string | null
+  /** link de destino */
+  link_url: string | null
+  image_url: string | null
+  thumbnail_url: string | null
+  video_id: string | null
+  /** spec cru da Meta, para flexibilidade */
+  object_story_spec: Record<string, unknown> | null
+}
+
+export interface MubeCreativeEvent {
+  version: '1'
+  event: 'creative.synced'
+  delivered_at: string
+  tenant_id: string
+  creative: MubeCreativePayload
+}
+
+// ============================================================
 // insights.synced — PING (não traz métricas)
 // ============================================================
 
@@ -214,6 +245,7 @@ export type MubeEvent =
   | MubeFormEvent
   | MubeCampaignEvent
   | MubeAdEvent
+  | MubeCreativeEvent
   | MubeInsightsEvent
   | MubeAdObjectIssueEvent
 

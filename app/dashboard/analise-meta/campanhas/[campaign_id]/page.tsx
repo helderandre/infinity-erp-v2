@@ -153,7 +153,7 @@ export default async function CampanhaDetailPage({
       {/* Desempenho (insights) + refresh */}
       <div className="space-y-3">
         <div className="flex items-center justify-end">
-          <MetaRefreshControls show="performance" />
+          <MetaRefreshControls defaultResources={['insights']} />
         </div>
         <PerformanceKpis kpis={insightKpis} />
       </div>

@@ -22,6 +22,7 @@ import {
   handleAdObjectIssue,
   handleAdSynced,
   handleCampaignSynced,
+  handleCreativeSynced,
   handleFormSynced,
   handleInsightsSynced,
   handleLeadCreated,
@@ -92,6 +93,8 @@ export async function POST(req: NextRequest) {
       return handleCampaignSynced(event, supabase, deliveryId)
     case 'ad.synced':
       return handleAdSynced(event, supabase, deliveryId)
+    case 'creative.synced':
+      return handleCreativeSynced(event, supabase, deliveryId)
     case 'insights.synced':
       return handleInsightsSynced(event, supabase, deliveryId)
     case 'ad_object.issue':

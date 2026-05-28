@@ -120,7 +120,7 @@ export default async function CampanhasMetaPage({
           placeholder="Pesquisar campanha…"
         />
         <div className="flex flex-wrap items-center gap-3">
-          <MetaRefreshControls show="both" />
+          <MetaRefreshControls />
           <p className="text-muted-foreground text-xs tabular-nums">
             {total} campanha{total === 1 ? '' : 's'}
           </p>

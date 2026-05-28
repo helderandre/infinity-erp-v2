@@ -27,6 +27,7 @@ import type {
   MubeAdEvent,
   MubeAdObjectIssueEvent,
   MubeCampaignEvent,
+  MubeCreativeEvent,
   MubeFormEvent,
   MubeInsightsEvent,
   MubeLeadEvent,
@@ -403,6 +404,70 @@ export async function handleAdSynced(
   console.info('[mube-webhook] ad.synced received', {
     deliveryId,
     adId: ad.ad_id,
+  })
+  return NextResponse.json({ ok: true })
+}
+
+/**
+ * creative.synced — criativo completo (imagem/vídeo/copy/CTA/link). Upsert
+ * idempotente por creative_id. Liga-se ao anúncio (meta_ads_raw.creative_id).
+ */
+export async function handleCreativeSynced(
+  event: MubeCreativeEvent,
+  supabase: AdminSupabase,
+  deliveryId: string | null,
+): Promise<NextResponse> {
+  const { creative } = event
+  if (!creative?.creative_id) {
+    console.warn('[mube-webhook] creative.synced without creative_id', { deliveryId })
+    return NextResponse.json({ error: 'invalid_event' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .schema('meta')
+    .from('meta_creatives_raw')
+    .upsert(
+      {
+        payload: event,
+        creative_id: creative.creative_id,
+        ad_account_id: creative.ad_account_id,
+        mube_tenant_id: event.tenant_id,
+        name: creative.name,
+        title: creative.title,
+        body: creative.body,
+        cta_type: creative.cta_type,
+        link_url: creative.link_url,
+        image_url: creative.image_url,
+        thumbnail_url: creative.thumbnail_url,
+        video_id: creative.video_id,
+        object_story_spec: creative.object_story_spec ?? null,
+        signature_valid: true,
+        received_at: new Date().toISOString(),
+        processed: false,
+      },
+      { onConflict: 'creative_id' },
+    )
+    .select('id')
+
+  if (error) {
+    console.error('[mube-webhook] creative.synced upsert failed', {
+      deliveryId,
+      creativeId: creative.creative_id,
+      err: error,
+    })
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 })
+  }
+  if (!data || data.length === 0) {
+    console.error('[mube-webhook] creative.synced upsert returned no rows', {
+      deliveryId,
+      creativeId: creative.creative_id,
+    })
+    return NextResponse.json({ error: 'upsert_silent_fail' }, { status: 500 })
+  }
+
+  console.info('[mube-webhook] creative.synced received', {
+    deliveryId,
+    creativeId: creative.creative_id,
   })
   return NextResponse.json({ ok: true })
 }

@@ -1,17 +1,21 @@
 import { hasPermissionServer } from '@/lib/auth/check-permission-server'
 import { createClient } from '@/lib/supabase/server'
+import type { SyncResource } from '@/hooks/use-meta-sync-job'
 
-import { MetaRefreshButtons } from './meta-refresh-buttons'
+import { MetaRefreshDialog } from './meta-refresh-dialog'
 
 /**
- * Wrapper server-side que só mostra os botões "Atualizar agora" a quem tem
- * permissão `settings` (as server actions enforçam o mesmo — isto é só UX para
- * não mostrar botões que iriam falhar a consultores).
+ * Wrapper server-side que só mostra o diálogo "Atualizar dados Meta" a quem tem
+ * permissão `settings` (a route action enforça o mesmo — isto é só UX para não
+ * mostrar o botão a consultores).
+ *
+ * `defaultResources` pré-selecciona os recursos no diálogo (ex.: nas páginas de
+ * detalhe de campanha/anúncio o foco é o desempenho).
  */
 export async function MetaRefreshControls({
-  show = 'both',
+  defaultResources,
 }: {
-  show?: 'both' | 'campaigns' | 'performance'
+  defaultResources?: SyncResource[]
 }) {
   const supabase = await createClient()
   const {
@@ -22,5 +26,5 @@ export async function MetaRefreshControls({
   const canManage = await hasPermissionServer(supabase, user.id, 'settings')
   if (!canManage) return null
 
-  return <MetaRefreshButtons show={show} />
+  return <MetaRefreshDialog defaultResources={defaultResources} />
 }
