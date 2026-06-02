@@ -43,6 +43,7 @@ import Link from 'next/link'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
+import { parseOccurrenceId } from '@/lib/calendar/occurrence-id'
 import { VisitActionsSection } from './visit-actions-section'
 
 interface RsvpEntry {
@@ -182,8 +183,9 @@ export function CalendarEventDetail({
     const fetchRsvps = async () => {
       setRsvpLoading(true)
       try {
-        const realId = event.id.replace('manual:', '')
-        const res = await fetch(`/api/calendar/events/${realId}/rsvp`)
+        const { eventId: realId, occurrenceDate } = parseOccurrenceId(event.id)
+        const qs = occurrenceDate ? `?occurrence_date=${encodeURIComponent(occurrenceDate)}` : ''
+        const res = await fetch(`/api/calendar/events/${realId}/rsvp${qs}`)
         if (res.ok) {
           const json = await res.json()
           if (!cancelled) setRsvpList(json.data ?? [])

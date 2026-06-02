@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { CalendarEvent } from '@/types/calendar'
 import type { CalendarEventFormData } from '@/lib/validations/calendar'
+import { parseOccurrenceId } from '@/lib/calendar/occurrence-id'
 
 function CalendarioPageInner() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -259,11 +260,11 @@ function CalendarioPageInner() {
 
   const handleRsvp = useCallback(async (eventId: string, status: 'going' | 'not_going', reason?: string) => {
     try {
-      const realId = eventId.replace('manual:', '')
+      const { eventId: realId, occurrenceDate } = parseOccurrenceId(eventId)
       const res = await fetch(`/api/calendar/events/${realId}/rsvp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, reason }),
+        body: JSON.stringify({ status, reason, occurrence_date: occurrenceDate }),
       })
       if (res.ok) {
         const { toast } = await import('sonner')
