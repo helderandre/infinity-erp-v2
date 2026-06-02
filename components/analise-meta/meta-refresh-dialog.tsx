@@ -37,13 +37,14 @@ const RESOURCES: { key: SyncResource; label: string; hint: string }[] = [
 
 const DEFAULT_SELECTED: SyncResource[] = ['campaigns', 'ads', 'insights']
 
-type PeriodMode = 'all' | '7' | '30' | '90' | 'custom'
+type PeriodMode = 'today' | 'all' | '7' | '30' | '90' | 'custom'
 
 const PERIOD_CHIPS: { mode: PeriodMode; label: string }[] = [
-  { mode: 'all', label: 'Todo o período' },
+  { mode: 'today', label: 'Hoje' },
   { mode: '7', label: '7 dias' },
   { mode: '30', label: '30 dias' },
   { mode: '90', label: '90 dias' },
+  { mode: 'all', label: 'Todo o período' },
   { mode: 'custom', label: 'Outra data' },
 ]
 
@@ -67,7 +68,7 @@ export function MetaRefreshDialog({
   const [selected, setSelected] = useState<Set<SyncResource>>(
     () => new Set(defaultResources),
   )
-  const [mode, setMode] = useState<PeriodMode>('30')
+  const [mode, setMode] = useState<PeriodMode>('today')
   const [customSince, setCustomSince] = useState<string>(() => ymd(subDays(new Date(), 30)))
   const [calOpen, setCalOpen] = useState(false)
 
@@ -78,6 +79,7 @@ export function MetaRefreshDialog({
   // Data efectiva enviada à API (null = todo o período).
   function effectiveSince(): string | null {
     if (mode === 'all') return null
+    if (mode === 'today') return ymd(new Date())
     if (mode === 'custom') return customSince || null
     return ymd(subDays(new Date(), Number(mode)))
   }
@@ -85,6 +87,7 @@ export function MetaRefreshDialog({
   // Label "X dias" para o período activo.
   function daysLabel(): string | null {
     if (mode === 'all') return null
+    if (mode === 'today') return 'hoje'
     if (mode === 'custom') {
       if (!customDate) return null
       const d = Math.max(0, differenceInCalendarDays(new Date(), customDate))
