@@ -27,7 +27,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { CalendarEvent } from '@/types/calendar'
 import type { CalendarEventFormData } from '@/lib/validations/calendar'
-import { parseOccurrenceId } from '@/lib/calendar/occurrence-id'
 
 function CalendarioPageInner() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -258,22 +257,6 @@ function CalendarioPageInner() {
     setFormOpen(true)
   }, [])
 
-  const handleRsvp = useCallback(async (eventId: string, status: 'going' | 'not_going', reason?: string) => {
-    try {
-      const { eventId: realId, occurrenceDate } = parseOccurrenceId(eventId)
-      const res = await fetch(`/api/calendar/events/${realId}/rsvp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, reason, occurrence_date: occurrenceDate }),
-      })
-      if (res.ok) {
-        const { toast } = await import('sonner')
-        toast.success(status === 'going' ? 'Presença confirmada!' : 'Ausência registada.')
-        refetch()
-      }
-    } catch {}
-  }, [refetch])
-
   const handleDeleteEvent = useCallback(async (id: string) => {
     const realId = id.replace('manual:', '')
     const success = await deleteEvent(realId)
@@ -406,7 +389,6 @@ function CalendarioPageInner() {
         }}
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
-        onRsvp={handleRsvp}
         onRefresh={refetch}
       />
 

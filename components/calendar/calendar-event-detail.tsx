@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { CalendarEvent } from '@/types/calendar'
 import { CALENDAR_CATEGORY_LABELS } from '@/types/calendar'
 import {
@@ -20,8 +20,6 @@ import {
   ClipboardList,
   MessageCircle,
   MapPin,
-  ThumbsUp,
-  ThumbsDown,
   Video,
   Link2,
   Building2,
@@ -35,25 +33,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
-import { parseOccurrenceId } from '@/lib/calendar/occurrence-id'
+import { RsvpSection } from './rsvp-section'
 import { VisitActionsSection } from './visit-actions-section'
-
-interface RsvpEntry {
-  id: string
-  user_id: string
-  status: 'going' | 'not_going' | 'pending'
-  reason?: string | null
-  responded_at?: string
-  user?: { id: string; commercial_name: string }
-}
 
 // Gate "manager" agora é a fonte canónica em lib/auth/roles.ts
 // (admin, Broker/CEO, Gestor Processual, Office Manager, Team Leader).
@@ -64,7 +51,6 @@ interface CalendarEventDetailProps {
   onClose: () => void
   onEdit?: (event: CalendarEvent) => void
   onDelete?: (id: string) => void
-  onRsvp?: (eventId: string, status: 'going' | 'not_going', reason?: string) => void | Promise<void>
   onRefresh?: () => void
 }
 
@@ -159,76 +145,13 @@ export function CalendarEventDetail({
   onClose,
   onEdit,
   onDelete,
-  onRsvp,
   onRefresh,
 }: CalendarEventDetailProps) {
   const isMobile = useIsMobile()
   const { user: currentUser } = useUser()
-  const [rsvpList, setRsvpList] = useState<RsvpEntry[]>([])
-  const [, setRsvpLoading] = useState(false)
-  const [reasonDialogOpen, setReasonDialogOpen] = useState(false)
-  const [reasonText, setReasonText] = useState('')
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
-  const [confirmType, setConfirmType] = useState<'going' | 'not_going' | null>(null)
   const [imageLightboxOpen, setImageLightboxOpen] = useState(false)
 
   const isManager = isManagementRole(currentUser?.role_names ?? [])
-
-  const eventId = event?.id
-  const requiresRsvp = event?.requires_rsvp
-
-  const fetchRsvps = useCallback(async () => {
-    if (!eventId || !requiresRsvp) {
-      setRsvpList([])
-      return
-    }
-    setRsvpLoading(true)
-    try {
-      const { eventId: realId, occurrenceDate } = parseOccurrenceId(eventId)
-      const qs = occurrenceDate ? `?occurrence_date=${encodeURIComponent(occurrenceDate)}` : ''
-      const res = await fetch(`/api/calendar/events/${realId}/rsvp${qs}`)
-      if (res.ok) {
-        const json = await res.json()
-        setRsvpList(json.data ?? [])
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setRsvpLoading(false)
-    }
-  }, [eventId, requiresRsvp])
-
-  useEffect(() => {
-    if (!open) return
-    fetchRsvps()
-  }, [open, fetchRsvps, event?.rsvp_status])
-
-  // Optimistic + authoritative refresh after the current user responds.
-  const handleRsvpAndRefresh = useCallback(
-    async (status: 'going' | 'not_going', reason?: string) => {
-      if (!event || !onRsvp) return
-      if (currentUser?.id) {
-        // Optimistically reflect the change so the lists/buttons update instantly.
-        setRsvpList((prev) => {
-          const others = prev.filter((r) => r.user_id !== currentUser.id)
-          return [
-            {
-              id: `optimistic-${currentUser.id}`,
-              user_id: currentUser.id,
-              status,
-              reason: reason ?? null,
-              user: { id: currentUser.id, commercial_name: currentUser.commercial_name ?? 'Eu' },
-            },
-            ...others,
-          ]
-        })
-      }
-      await onRsvp(event.id, status, reason)
-      // Reconcile with the server (resolves real id, name, dedupe).
-      fetchRsvps()
-    },
-    [event, onRsvp, currentUser?.id, currentUser?.commercial_name, fetchRsvps],
-  )
 
   if (!event) return null
 
@@ -291,12 +214,6 @@ export function CalendarEventDetail({
   }
 
   const statusInfo = event.status ? STATUS_LABELS[event.status] : null
-
-  const myRsvp = rsvpList.find((r) => r.user_id === currentUser?.id)
-  const rsvpStatus = myRsvp?.status ?? event.rsvp_status
-  const hasResponded = rsvpStatus === 'going' || rsvpStatus === 'not_going'
-  const goingList = rsvpList.filter((r) => r.status === 'going')
-  const notGoingList = rsvpList.filter((r) => r.status === 'not_going')
 
   const hasLinkRows = !!(
     event.registration_url ||
@@ -536,177 +453,16 @@ export function CalendarEventDetail({
               </div>
             )}
 
-            {/* RSVP */}
-            {event.requires_rsvp && onRsvp && isManual && (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground/80">
-                  {hasResponded ? 'Alterar presença' : 'Confirmar presença'}
-                </p>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant={rsvpStatus === 'going' ? 'default' : 'outline'}
-                    size="sm"
-                    className={cn(
-                      'flex-1 rounded-full',
-                      rsvpStatus === 'going' && 'bg-emerald-600 hover:bg-emerald-700',
-                    )}
-                    disabled={rsvpStatus === 'going'}
-                    onClick={() => {
-                      handleRsvpAndRefresh('going')
-                      setConfirmType('going')
-                      setConfirmDialogOpen(true)
-                    }}
-                  >
-                    <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
-                    {rsvpStatus === 'going' ? 'Confirmado' : 'Vou'}
-                  </Button>
-                  <Button
-                    variant={rsvpStatus === 'not_going' ? 'default' : 'outline'}
-                    size="sm"
-                    className={cn(
-                      'flex-1 rounded-full',
-                      rsvpStatus === 'not_going' && 'bg-red-600 hover:bg-red-700',
-                    )}
-                    disabled={rsvpStatus === 'not_going'}
-                    onClick={() => {
-                      setReasonText('')
-                      setReasonDialogOpen(true)
-                    }}
-                  >
-                    <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
-                    {rsvpStatus === 'not_going' ? 'Ausente' : 'Não vou'}
-                  </Button>
-                </div>
-
-                {/* Listas e contadores de presença — apenas management.
-                    Consultor confirma a sua presença (botões acima) mas
-                    não vê quem mais respondeu. */}
-                {isManager && (goingList.length > 0 || notGoingList.length > 0) && (
-                  <div className="space-y-2">
-                    {goingList.length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-xs text-emerald-600 font-medium shrink-0 mt-0.5">
-                          Vão · {goingList.length}
-                        </span>
-                        <div className="flex flex-wrap gap-1 flex-1">
-                          {goingList.map((r) => (
-                            <span
-                              key={r.user_id}
-                              className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px]"
-                            >
-                              {r.user?.commercial_name ?? 'Utilizador'}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {notGoingList.length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-xs text-red-500 font-medium shrink-0 mt-0.5">
-                          Não vão · {notGoingList.length}
-                        </span>
-                        <div className="flex flex-wrap gap-1 flex-1">
-                          {notGoingList.map((r) => (
-                            <div key={r.user_id} className="flex items-center gap-1">
-                              <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px]">
-                                {r.user?.commercial_name ?? 'Utilizador'}
-                              </span>
-                              {r.reason && (
-                                <span className="text-[10.5px] text-muted-foreground italic truncate max-w-[140px]">
-                                  — {r.reason}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {isManager && event.rsvp_counts &&
-                  goingList.length === 0 &&
-                  notGoingList.length === 0 && (
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span className="text-emerald-600 font-medium">
-                        {event.rsvp_counts.going} vão
-                      </span>
-                      <span className="text-red-500 font-medium">
-                        {event.rsvp_counts.not_going} não vão
-                      </span>
-                      <span>{event.rsvp_counts.pending} pendentes</span>
-                    </div>
-                  )}
-
-                {/* Not-going reason dialog */}
-                <Dialog open={reasonDialogOpen} onOpenChange={setReasonDialogOpen}>
-                  <DialogContent className="sm:max-w-sm">
-                    <DialogHeader>
-                      <DialogTitle>Porquê não pode ir?</DialogTitle>
-                    </DialogHeader>
-                    <Input
-                      placeholder="Motivo (opcional)"
-                      value={reasonText}
-                      onChange={(e) => setReasonText(e.target.value)}
-                      autoFocus
-                    />
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setReasonDialogOpen(false)}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          handleRsvpAndRefresh('not_going', reasonText || undefined)
-                          setReasonDialogOpen(false)
-                          setConfirmType('not_going')
-                          setConfirmDialogOpen(true)
-                        }}
-                      >
-                        Confirmar ausência
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Confirmation popup */}
-                <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-                  <DialogContent className="sm:max-w-xs text-center">
-                    {confirmType === 'going' ? (
-                      <div className="py-4 space-y-2">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950">
-                          <ThumbsUp className="h-6 w-6 text-emerald-600" />
-                        </div>
-                        <p className="text-base font-semibold">Presença confirmada!</p>
-                        <p className="text-sm text-muted-foreground">
-                          Obrigado por confirmar. Contamos consigo!
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="py-4 space-y-2">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
-                          <ThumbsDown className="h-6 w-6 text-red-500" />
-                        </div>
-                        <p className="text-base font-semibold">Ausência registada</p>
-                        <p className="text-sm text-muted-foreground">
-                          Que pena não poder estar presente. Fica para a próxima!
-                        </p>
-                      </div>
-                    )}
-                    <DialogFooter className="justify-center">
-                      <Button size="sm" onClick={() => setConfirmDialogOpen(false)}>
-                        Fechar
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+            {/* RSVP — tabbed Vão / Não vão lists with own-entry controls. */}
+            {event.requires_rsvp && isManual && (
+              <RsvpSection
+                eventId={event.id}
+                currentUserId={currentUser?.id}
+                currentUserName={currentUser?.commercial_name}
+                currentUserPhoto={currentUser?.profile_photo_url}
+                isManager={isManager}
+                onChanged={onRefresh}
+              />
             )}
 
             {/* Visit participants */}

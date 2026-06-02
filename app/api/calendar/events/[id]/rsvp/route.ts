@@ -106,7 +106,7 @@ export async function GET(
 
     let query = admin
       .from('calendar_event_rsvp')
-      .select('*, user:dev_users!calendar_event_rsvp_user_id_fkey(id, commercial_name)')
+      .select('*, user:dev_users!calendar_event_rsvp_user_id_fkey(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url))')
       .eq('event_id', id)
     // Filtra pela ocorrência: ?occurrence_date=<iso> para recorrentes, ausente
     // (null) para o evento simples.
@@ -131,6 +131,47 @@ export async function GET(
     return NextResponse.json({ data, counts })
   } catch (err) {
     console.error('[calendar/rsvp GET]', err)
+    return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
+  }
+}
+
+// DELETE — Clear the current user's own RSVP for this event/occurrence.
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const occurrenceDate = searchParams.get('occurrence_date')
+    const admin = createAdminClient() as any
+
+    let del = admin
+      .from('calendar_event_rsvp')
+      .delete()
+      .eq('event_id', id)
+      .eq('user_id', user.id)
+    del = occurrenceDate
+      ? del.eq('occurrence_date', occurrenceDate)
+      : del.is('occurrence_date', null)
+
+    const { error } = await del
+
+    if (error) {
+      console.error('[calendar/rsvp DELETE]', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[calendar/rsvp DELETE]', err)
     return NextResponse.json({ error: 'Erro interno.' }, { status: 500 })
   }
 }
