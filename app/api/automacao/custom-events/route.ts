@@ -7,7 +7,7 @@ import { customEventCreateSchema } from "@/lib/validations/custom-event"
 type SA = any
 
 function canSeeAll(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
 }
 
 // GET /api/automacao/custom-events — listar eventos do consultor autenticado

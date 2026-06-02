@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const isManager = auth.roles.some((r) =>
-      ['admin', 'Broker/CEO', 'team_leader'].includes(r),
+      ['admin', 'Broker/CEO', 'Office Manager', 'team_leader'].includes(r),
     )
     if (parsed.data.consultant_id !== auth.user.id && !isManager) {
       return NextResponse.json(
@@ -94,7 +94,7 @@ export async function DELETE(request: Request) {
     }
 
     const isManager = auth.roles.some((r) =>
-      ['admin', 'Broker/CEO', 'team_leader'].includes(r),
+      ['admin', 'Broker/CEO', 'Office Manager', 'team_leader'].includes(r),
     )
     const isOwner =
       existing.consultant_id === auth.user.id || existing.created_by === auth.user.id

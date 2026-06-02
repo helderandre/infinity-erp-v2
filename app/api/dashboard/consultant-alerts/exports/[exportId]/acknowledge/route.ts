@@ -6,7 +6,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ exportId: string }> },
 ) {
-  const auth = await requireRoles(['Broker/CEO', 'admin'])
+  const auth = await requireRoles(['Broker/CEO', 'admin', 'Office Manager'])
   if (!auth.authorized) return auth.response
 
   const { exportId } = await params

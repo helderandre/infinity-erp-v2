@@ -6,7 +6,7 @@ import { spawnRetry } from "@/lib/automacao/spawn-retry"
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isBroker(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
 }
 
 export async function POST(

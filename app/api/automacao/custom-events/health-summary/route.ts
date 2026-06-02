@@ -23,7 +23,7 @@ interface HealthSummaryRow {
 }
 
 function canSeeAll(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
 }
 
 export async function GET(request: Request) {

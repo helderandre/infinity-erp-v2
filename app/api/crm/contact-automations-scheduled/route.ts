@@ -64,7 +64,7 @@ interface MuteRow {
 }
 
 function canSeeAll(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r)) || roles.length > 1
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r)) || roles.length > 1
 }
 
 /**

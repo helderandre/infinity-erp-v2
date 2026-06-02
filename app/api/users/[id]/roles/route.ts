@@ -5,7 +5,7 @@ import { requireRoles } from '@/lib/auth/permissions'
 
 const ALLOWED_ROLES = ['admin', 'Broker/CEO', 'Office Manager'] as const
 
-const PROTECTED_SELF_ROLES = new Set(['admin', 'Broker/CEO'])
+const PROTECTED_SELF_ROLES = new Set(['admin', 'Broker/CEO', 'Office Manager'])
 
 const assignSchema = z.object({
   role_id: z.string().uuid(),

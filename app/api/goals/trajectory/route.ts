@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     }
 
     const isManager = auth.roles.some((r) =>
-      ['admin', 'Broker/CEO', 'team_leader'].includes(r),
+      ['admin', 'Broker/CEO', 'Office Manager', 'team_leader'].includes(r),
     )
     if (scope === 'team' && !isManager) {
       return NextResponse.json(

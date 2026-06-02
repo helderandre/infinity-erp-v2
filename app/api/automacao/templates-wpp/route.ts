@@ -10,7 +10,7 @@ import {
 type SupabaseAny = any
 
 function isBroker(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
 }
 
 interface DbTemplate {

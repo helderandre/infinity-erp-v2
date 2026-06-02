@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 import { requirePermission } from "@/lib/auth/permissions"
 
 function canSeeAll(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r)) || roles.length > 1
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r)) || roles.length > 1
 }
 
 const VALID_STATUS = ["pending", "sent", "failed", "skipped"] as const

@@ -32,6 +32,7 @@ export type NotificationType =
   | 'owner_field_edited'
   | 'meta_sync_completed'
   | 'meta_sync_failed'
+  | 'event_rsvp_responded'
 
 export type NotificationEntityType =
   | 'proc_instance'
@@ -45,6 +46,7 @@ export type NotificationEntityType =
   | 'visit'
   | 'deal'
   | 'meta_sync'
+  | 'calendar_event'
 
 export const PROCESS_NOTIFICATION_TYPES = [
   'comment_mention',

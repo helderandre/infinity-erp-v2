@@ -4,10 +4,10 @@
  */
 
 /** Roles com acesso total (superadmin) */
-export const ADMIN_ROLES = ['admin', 'Broker/CEO'] as const
+export const ADMIN_ROLES = ['admin', 'Broker/CEO', 'Office Manager'] as const
 
 /** Roles que podem aprovar/rejeitar/pausar/cancelar/devolver processos */
-export const PROCESS_MANAGER_ROLES = ['Broker/CEO', 'Gestor Processual', 'admin'] as const
+export const PROCESS_MANAGER_ROLES = ['Broker/CEO', 'Gestor Processual', 'admin', 'Office Manager'] as const
 
 /**
  * Roles consideradas "gestão" para efeitos de visibilidade entre consultores
@@ -77,7 +77,7 @@ export function canSeeAllProcessTasks(roles: ReadonlyArray<string | null | undef
 }
 
 /** Roles que podem criar/remover tarefas ad-hoc e reverter tarefas concluídas */
-export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+export const ADHOC_TASK_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual', 'Office Manager'] as const
 
 /** Roles consideradas "consultores" (não back-office/admin) */
 export const CONSULTANT_ROLE_NAMES = ['Consultor', 'Consultora Executiva', 'Team Leader'] as const
@@ -148,10 +148,10 @@ export const ACQUISITION_NOTIFICATION_ROLES = [
 ] as const
 
 /** Roles com acesso a TODAS as caixas de email (podem ver e enviar de qualquer conta) */
-export const EMAIL_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+export const EMAIL_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual', 'Office Manager'] as const
 
 /** Roles que podem ver e gerir TODAS as instâncias WhatsApp */
-export const WHATSAPP_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual'] as const
+export const WHATSAPP_ADMIN_ROLES = ['admin', 'Broker/CEO', 'Gestor Processual', 'Office Manager'] as const
 
 /** Lista completa de todos os módulos de permissão */
 export const ALL_PERMISSION_MODULES = [

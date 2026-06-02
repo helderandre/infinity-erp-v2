@@ -67,7 +67,7 @@ function dateKey(d: Date): string {
 }
 
 export async function GET() {
-  const auth = await requireRoles(['Broker/CEO', 'admin'])
+  const auth = await requireRoles(['Broker/CEO', 'admin', 'Office Manager'])
   if (!auth.authorized) return auth.response
 
   const db = createCrmAdminClient()

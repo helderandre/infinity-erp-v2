@@ -31,7 +31,7 @@ const upsertSchema = z
 type UpsertBody = z.infer<typeof upsertSchema>
 
 function isBroker(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

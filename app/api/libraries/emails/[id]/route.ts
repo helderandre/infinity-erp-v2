@@ -75,7 +75,7 @@ export async function PUT(
     const roles = (((roleRow as unknown) as { user_roles?: Array<{ role?: { name?: string } }> })?.user_roles ?? [])
       .map((ur) => ur.role?.name)
       .filter(Boolean) as string[]
-    const isBroker = roles.some((r) => ['admin', 'Broker/CEO'].includes(r))
+    const isBroker = roles.some((r) => ['admin', 'Broker/CEO', 'Office Manager'].includes(r))
     const existingRow = existing as { scope?: string; scope_id?: string | null }
     if (!isBroker && existingRow.scope === 'consultant' && existingRow.scope_id !== user.id) {
       return NextResponse.json({ error: 'Template não é seu' }, { status: 403 })
@@ -142,7 +142,7 @@ export async function DELETE(
     const roles = (((roleRow as unknown) as { user_roles?: Array<{ role?: { name?: string } }> })?.user_roles ?? [])
       .map((ur) => ur.role?.name)
       .filter(Boolean) as string[]
-    const isBroker = roles.some((r) => ['admin', 'Broker/CEO'].includes(r))
+    const isBroker = roles.some((r) => ['admin', 'Broker/CEO', 'Office Manager'].includes(r))
     const existingRow = existing as { scope?: string; scope_id?: string | null; created_by?: string | null }
     const isOwnConsultant = existingRow.scope === 'consultant' && existingRow.scope_id === user.id
     const isOwnLegacyGlobal = existingRow.scope === 'global' && existingRow.created_by === user.id

@@ -7,7 +7,7 @@ import { TEMPLATE_CATEGORY_VALUES } from "@/lib/constants-template-categories"
 type SupabaseAny = any
 
 function isBroker(roles: string[]) {
-  return roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  return roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
 }
 
 async function assertCanMutate(

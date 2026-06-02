@@ -41,7 +41,7 @@ export default function UtilizadoresPage() {
   const canManageOverrides = useMemo(() => {
     if (!user) return false
     if (isBroker()) return true
-    return (user.role_names ?? []).some((r) => r === 'admin')
+    return (user.role_names ?? []).some((r) => r === 'admin' || r === 'Office Manager')
   }, [user, isBroker])
 
   const fetchUsers = useCallback(async () => {

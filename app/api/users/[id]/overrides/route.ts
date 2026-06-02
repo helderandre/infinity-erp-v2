@@ -7,7 +7,7 @@ import { ALL_PERMISSION_MODULES } from '@/lib/auth/roles'
 // Apenas admin/Broker/CEO podem mexer em overrides — Office Manager pode
 // gerir roles mas não overrides (escolha deliberada para evitar fragmentação
 // silenciosa de permissões; ver discussão em CLAUDE.md).
-const ALLOWED_ROLES = ['admin', 'Broker/CEO'] as const
+const ALLOWED_ROLES = ['admin', 'Broker/CEO', 'Office Manager'] as const
 
 const upsertSchema = z.object({
   module: z.enum([...ALL_PERMISSION_MODULES] as [string, ...string[]]),

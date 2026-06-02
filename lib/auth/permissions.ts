@@ -79,7 +79,7 @@ export async function requireAuth(): Promise<AuthResult | AuthError> {
 
   // Merge de permissões (OR lógico) + overrides aplicados por cima
   const isAdmin = userRoles.some((r) =>
-    ['admin', 'Broker/CEO'].includes(r)
+    ['admin', 'Broker/CEO', 'Office Manager'].includes(r)
   )
 
   const mergedPermissions: Record<string, boolean> = {}
@@ -170,7 +170,7 @@ async function loadDevUserAuth(userId: string): Promise<AuthResult | null> {
       .filter(Boolean) as string[]
 
     const isAdmin = userRoles.some((r) =>
-      ['admin', 'Broker/CEO'].includes(r),
+      ['admin', 'Broker/CEO', 'Office Manager'].includes(r),
     )
 
     const mergedPermissions: Record<string, boolean> = {}
@@ -235,7 +235,7 @@ export async function requireRoles(
 
   // Admin/Broker tem sempre acesso
   const isAdmin = auth.roles.some((r) =>
-    ['admin', 'Broker/CEO'].includes(r)
+    ['admin', 'Broker/CEO', 'Office Manager'].includes(r)
   )
 
   if (!isAdmin && !auth.roles.some((r) => allowedRoles.includes(r))) {

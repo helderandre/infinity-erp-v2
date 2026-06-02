@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Enforce scope: consultants always create as 'consultant' with their own scope_id
-    const isBrokerRole = auth.roles.some((r: string) => ['admin', 'Broker/CEO'].includes(r))
+    const isBrokerRole = auth.roles.some((r: string) => ['admin', 'Broker/CEO', 'Office Manager'].includes(r))
     let scope = parsed.data.scope ?? (isBrokerRole ? 'global' : 'consultant')
     let scopeId = parsed.data.scope_id ?? null
 

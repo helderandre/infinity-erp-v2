@@ -10,7 +10,7 @@ export default async function AutomationsHubPage() {
     redirect("/dashboard")
   }
 
-  const isBroker = auth.roles.some((r) => ["admin", "Broker/CEO"].includes(r))
+  const isBroker = auth.roles.some((r) => ["admin", "Broker/CEO", "Office Manager"].includes(r))
   // Utilizadores com mais de uma role podem ver todos os leads (com filtro)
   const canSeeAll = isBroker || auth.roles.length > 1
 

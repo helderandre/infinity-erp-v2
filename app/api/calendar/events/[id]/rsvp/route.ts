@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notificationService } from '@/lib/notifications/service'
 import { z } from 'zod'
 
 const rsvpSchema = z.object({
@@ -36,7 +37,7 @@ export async function POST(
     // Check event exists and requires RSVP
     const { data: event, error: eventErr } = await admin
       .from('calendar_events')
-      .select('id, requires_rsvp')
+      .select('id, title, requires_rsvp')
       .eq('id', id)
       .single()
 
@@ -84,6 +85,39 @@ export async function POST(
     if (error) {
       console.error('[calendar/rsvp POST]', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Notify Office Managers that someone confirmed/rejected presence.
+    // Best-effort: a notification failure must not break the RSVP save.
+    try {
+      const officeManagers = await notificationService.getUserIdsByRoles(['Office Manager'])
+      if (officeManagers.length > 0) {
+        const { data: responder } = await admin
+          .from('dev_users')
+          .select('commercial_name')
+          .eq('id', user.id)
+          .single()
+        const name = responder?.commercial_name ?? 'Um utilizador'
+        const isGoing = parsed.data.status === 'going'
+        const reason = parsed.data.status === 'not_going' ? (parsed.data.reason || null) : null
+        await notificationService.createBatch(officeManagers, {
+          senderId: user.id,
+          notificationType: 'event_rsvp_responded',
+          entityType: 'calendar_event',
+          entityId: id,
+          title: `${name} ${isGoing ? 'confirmou presença' : 'marcou ausência'}`,
+          body: `${event.title}${reason ? ` — ${reason}` : ''}`,
+          actionUrl: '/dashboard/calendario',
+          metadata: {
+            event_id: id,
+            occurrence_date: occurrenceDate,
+            status: parsed.data.status,
+            reason,
+          },
+        })
+      }
+    } catch (notifyErr) {
+      console.error('[calendar/rsvp POST] notify office managers', notifyErr)
     }
 
     return NextResponse.json({ data })
