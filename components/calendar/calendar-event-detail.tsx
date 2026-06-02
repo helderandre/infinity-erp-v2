@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { CalendarEvent } from '@/types/calendar'
 import { CALENDAR_CATEGORY_LABELS } from '@/types/calendar'
 import {
@@ -64,7 +64,7 @@ interface CalendarEventDetailProps {
   onClose: () => void
   onEdit?: (event: CalendarEvent) => void
   onDelete?: (id: string) => void
-  onRsvp?: (eventId: string, status: 'going' | 'not_going', reason?: string) => void
+  onRsvp?: (eventId: string, status: 'going' | 'not_going', reason?: string) => void | Promise<void>
   onRefresh?: () => void
 }
 
@@ -174,31 +174,61 @@ export function CalendarEventDetail({
 
   const isManager = isManagementRole(currentUser?.role_names ?? [])
 
-  useEffect(() => {
-    if (!open || !event || !event.requires_rsvp) {
+  const eventId = event?.id
+  const requiresRsvp = event?.requires_rsvp
+
+  const fetchRsvps = useCallback(async () => {
+    if (!eventId || !requiresRsvp) {
       setRsvpList([])
       return
     }
-    let cancelled = false
-    const fetchRsvps = async () => {
-      setRsvpLoading(true)
-      try {
-        const { eventId: realId, occurrenceDate } = parseOccurrenceId(event.id)
-        const qs = occurrenceDate ? `?occurrence_date=${encodeURIComponent(occurrenceDate)}` : ''
-        const res = await fetch(`/api/calendar/events/${realId}/rsvp${qs}`)
-        if (res.ok) {
-          const json = await res.json()
-          if (!cancelled) setRsvpList(json.data ?? [])
-        }
-      } catch {
-        // silently fail
-      } finally {
-        if (!cancelled) setRsvpLoading(false)
+    setRsvpLoading(true)
+    try {
+      const { eventId: realId, occurrenceDate } = parseOccurrenceId(eventId)
+      const qs = occurrenceDate ? `?occurrence_date=${encodeURIComponent(occurrenceDate)}` : ''
+      const res = await fetch(`/api/calendar/events/${realId}/rsvp${qs}`)
+      if (res.ok) {
+        const json = await res.json()
+        setRsvpList(json.data ?? [])
       }
+    } catch {
+      // silently fail
+    } finally {
+      setRsvpLoading(false)
     }
+  }, [eventId, requiresRsvp])
+
+  useEffect(() => {
+    if (!open) return
     fetchRsvps()
-    return () => { cancelled = true }
-  }, [open, event?.id, event?.requires_rsvp, event?.rsvp_status])
+  }, [open, fetchRsvps, event?.rsvp_status])
+
+  // Optimistic + authoritative refresh after the current user responds.
+  const handleRsvpAndRefresh = useCallback(
+    async (status: 'going' | 'not_going', reason?: string) => {
+      if (!event || !onRsvp) return
+      if (currentUser?.id) {
+        // Optimistically reflect the change so the lists/buttons update instantly.
+        setRsvpList((prev) => {
+          const others = prev.filter((r) => r.user_id !== currentUser.id)
+          return [
+            {
+              id: `optimistic-${currentUser.id}`,
+              user_id: currentUser.id,
+              status,
+              reason: reason ?? null,
+              user: { id: currentUser.id, commercial_name: currentUser.commercial_name ?? 'Eu' },
+            },
+            ...others,
+          ]
+        })
+      }
+      await onRsvp(event.id, status, reason)
+      // Reconcile with the server (resolves real id, name, dedupe).
+      fetchRsvps()
+    },
+    [event, onRsvp, currentUser?.id, currentUser?.commercial_name, fetchRsvps],
+  )
 
   if (!event) return null
 
@@ -523,7 +553,7 @@ export function CalendarEventDetail({
                     )}
                     disabled={rsvpStatus === 'going'}
                     onClick={() => {
-                      onRsvp(event.id, 'going')
+                      handleRsvpAndRefresh('going')
                       setConfirmType('going')
                       setConfirmDialogOpen(true)
                     }}
@@ -633,7 +663,7 @@ export function CalendarEventDetail({
                         size="sm"
                         variant="destructive"
                         onClick={() => {
-                          onRsvp(event.id, 'not_going', reasonText || undefined)
+                          handleRsvpAndRefresh('not_going', reasonText || undefined)
                           setReasonDialogOpen(false)
                           setConfirmType('not_going')
                           setConfirmDialogOpen(true)
