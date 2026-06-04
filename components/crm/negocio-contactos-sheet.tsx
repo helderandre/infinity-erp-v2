@@ -9,6 +9,12 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 
+// Canonical "simple" button — outline pill, neutral surface, icon + label.
+const PILL =
+  'flex w-full items-center justify-center gap-1.5 h-9 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors'
+const COPY_BTN =
+  'shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/60 bg-background hover:bg-muted/50 active:scale-[0.96] transition-colors'
+
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -69,7 +75,7 @@ export function NegocioContactosSheet({
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
           {phone && (
-            <div className="rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] p-4 space-y-3">
+            <div className="rounded-2xl border border-border/50 bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Telefone</p>
@@ -78,51 +84,37 @@ export function NegocioContactosSheet({
                 <button
                   type="button"
                   onClick={() => copyToClipboard(phone, 'Telefone', 'phone')}
-                  className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/40 bg-background/60 backdrop-blur-xl hover:bg-background/80 active:scale-[0.96] transition-all duration-200"
+                  className={COPY_BTN}
                   aria-label="Copiar telefone"
                 >
                   {copied === 'phone' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <a
-                  href={`tel:${phone}`}
-                  className="group inline-flex flex-col items-center justify-center gap-1.5 h-[64px] rounded-xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
-                  aria-label="Ligar"
-                >
-                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-emerald-400/25 to-emerald-600/5 ring-1 ring-inset ring-emerald-500/25 group-hover:ring-emerald-500/35 transition-colors">
-                    <Phone className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" strokeWidth={2.25} />
-                  </span>
-                  <span className="text-[10px] font-medium tracking-tight text-foreground/85">Ligar</span>
+                <a href={`tel:${phone}`} className={PILL} aria-label="Ligar">
+                  <Phone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Ligar
                 </a>
                 <a
                   href={`https://wa.me/${cleanPhone}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group inline-flex flex-col items-center justify-center gap-1.5 h-[64px] rounded-xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
+                  className={PILL}
                   aria-label="WhatsApp"
                 >
-                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-teal-400/25 to-teal-600/5 ring-1 ring-inset ring-teal-500/25 group-hover:ring-teal-500/35 transition-colors">
-                    <WhatsAppIcon className="h-3.5 w-3.5 text-teal-700 dark:text-teal-300" />
-                  </span>
-                  <span className="text-[10px] font-medium tracking-tight text-foreground/85">WhatsApp</span>
+                  <WhatsAppIcon className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                  WhatsApp
                 </a>
-                <a
-                  href={`sms:${phone}`}
-                  className="group inline-flex flex-col items-center justify-center gap-1.5 h-[64px] rounded-xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
-                  aria-label="SMS"
-                >
-                  <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400/25 to-indigo-600/5 ring-1 ring-inset ring-indigo-500/25 group-hover:ring-indigo-500/35 transition-colors">
-                    <MessageSquare className="h-3.5 w-3.5 text-indigo-700 dark:text-indigo-300" strokeWidth={2.25} />
-                  </span>
-                  <span className="text-[10px] font-medium tracking-tight text-foreground/85">SMS</span>
+                <a href={`sms:${phone}`} className={PILL} aria-label="SMS">
+                  <MessageSquare className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                  SMS
                 </a>
               </div>
             </div>
           )}
 
           {email && (
-            <div className="rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] p-4 space-y-3">
+            <div className="rounded-2xl border border-border/50 bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Email</p>
@@ -131,21 +123,15 @@ export function NegocioContactosSheet({
                 <button
                   type="button"
                   onClick={() => copyToClipboard(email, 'Email', 'email')}
-                  className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-full border border-border/40 bg-background/60 backdrop-blur-xl hover:bg-background/80 active:scale-[0.96] transition-all duration-200"
+                  className={COPY_BTN}
                   aria-label="Copiar email"
                 >
                   {copied === 'email' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </div>
-              <a
-                href={`mailto:${email}`}
-                className="group inline-flex items-center justify-center gap-2.5 h-12 w-full rounded-xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
-                aria-label="Enviar email"
-              >
-                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-sky-400/25 to-sky-600/5 ring-1 ring-inset ring-sky-500/25 group-hover:ring-sky-500/35 transition-colors">
-                  <Mail className="h-3.5 w-3.5 text-sky-700 dark:text-sky-300" strokeWidth={2.25} />
-                </span>
-                <span className="text-sm font-medium tracking-tight text-foreground/85">Enviar email</span>
+              <a href={`mailto:${email}`} className={cn(PILL, 'h-10 text-sm')} aria-label="Enviar email">
+                <Mail className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                Enviar email
               </a>
             </div>
           )}

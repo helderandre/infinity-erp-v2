@@ -64,10 +64,12 @@ import { LeadDocumentsFoldersView } from '@/components/leads/lead-documents-fold
 import { LeadEntriesSheet } from '@/components/leads/lead-entries-sheet'
 import { ObservationItem, type ObservationActivity } from '@/components/leads/observation-item'
 import { ClientProfileSheet } from '@/components/leads/client-profile-sheet'
+import { ContactRelationships } from '@/components/crm/contact-relationships'
 import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
 import { NewNegocioSheet } from '@/components/leads/new-negocio-sheet'
 import { LeadAgendaTab } from '@/components/leads/lead-agenda-tab'
 import { NegocioListItem, type NegocioListItemData } from '@/components/negocios/negocio-list-item'
+import { LinkedNegociosGroup } from '@/components/negocios/linked-negocios-group'
 import { LeadAutomationsSheet } from '@/components/leads/lead-automations-sheet'
 import { LeadEditSheet } from '@/components/leads/lead-edit-sheet'
 import { WhatsAppIcon } from '@/components/shared/whatsapp-icon'
@@ -741,59 +743,63 @@ export default function LeadDetailPage() {
           </div>
           {/* ─── /Card 2 ───────────────────────────────────────────── */}
 
-          {/* ─── Card 3: contact info (Telemóvel/Email/Consultor) ──── */}
-          {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
+          {/* ─── Card 3: contacto + Relações + Observações ─────────────
+              Um único cartão que se estende para encompassar contacto,
+              relações e observações (pedido do cliente — em mobile não deve
+              haver cartões soltos a "transbordar" por baixo). */}
+          {lead && (
             <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3 space-y-2.5">
-              <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
-              {lead.telemovel && (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-[11px] text-muted-foreground">Telemóvel</span>
-                  <CallContactButton
-                    phone={lead.telemovel}
-                    contactName={lead.nome}
-                    leadId={lead.id}
-                    sourceRefType="lead"
-                    sourceRefId={lead.id}
-                    className="font-medium text-foreground truncate hover:text-primary transition-colors"
-                  >
-                    {lead.telemovel}
-                  </CallContactButton>
-                </div>
-              )}
-              {lead.email && (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-[11px] text-muted-foreground">Email</span>
-                  <a href={`mailto:${lead.email}`} className="font-medium text-foreground truncate max-w-[180px] hover:text-primary transition-colors">
-                    {lead.email}
-                  </a>
-                </div>
-              )}
-              {lead.agent?.commercial_name && (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-[11px] text-muted-foreground">Consultor</span>
-                  <span className="font-medium text-foreground truncate">{lead.agent.commercial_name}</span>
+              {/* Contacto — só renderiza se houver dados */}
+              {(lead.email || lead.telemovel || lead.agent?.commercial_name) && (
+                <div className="space-y-2.5">
+                  <p className="text-xs font-medium text-muted-foreground/80">Contacto</p>
+                  {lead.telemovel && (
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-[11px] text-muted-foreground">Telemóvel</span>
+                      <CallContactButton
+                        phone={lead.telemovel}
+                        contactName={lead.nome}
+                        leadId={lead.id}
+                        sourceRefType="lead"
+                        sourceRefId={lead.id}
+                        className="font-medium text-foreground truncate hover:text-primary transition-colors"
+                      >
+                        {lead.telemovel}
+                      </CallContactButton>
+                    </div>
+                  )}
+                  {lead.email && (
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-[11px] text-muted-foreground">Email</span>
+                      <a href={`mailto:${lead.email}`} className="font-medium text-foreground truncate max-w-[180px] hover:text-primary transition-colors">
+                        {lead.email}
+                      </a>
+                    </div>
+                  )}
+                  {lead.agent?.commercial_name && (
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-[11px] text-muted-foreground">Consultor</span>
+                      <span className="font-medium text-foreground truncate">{lead.agent.commercial_name}</span>
+                    </div>
+                  )}
+                  {/* Canal "App Mube" — gated on `has_mube_app`. */}
+                  {(lead as { has_mube_app?: boolean }).has_mube_app && (
+                    <div className="pt-2 border-t border-border/30 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toast.info('Envio pela App em desenvolvimento')}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-violet-500/10 border border-violet-500/30 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/15 transition-colors"
+                        title="Enviar via App Mube"
+                      >
+                        <Smartphone className="h-3.5 w-3.5" />
+                        App
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Canal "App Mube" — gated on `has_mube_app`. SMS subiu para
-                  a row de quick-actions junto a tel/WhatsApp/email. */}
-              {(lead as { has_mube_app?: boolean }).has_mube_app && (
-                <div className="pt-2 border-t border-border/30 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toast.info('Envio pela App em desenvolvimento')}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-violet-500/10 border border-violet-500/30 text-[11px] font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-500/15 transition-colors"
-                    title="Enviar via App Mube"
-                  >
-                    <Smartphone className="h-3.5 w-3.5" />
-                    App
-                  </button>
-                </div>
-              )}
-
-              {/* Perfil do cliente (IA) — também acessível aqui no
-                  bottom de Card 3, além de viver na tab Notas. Pattern
-                  pill style consistente com os outros action buttons. */}
+              {/* Perfil do cliente (IA) */}
               <div className="pt-2 border-t border-border/30 flex items-center justify-center">
                 <button
                   type="button"
@@ -805,26 +811,31 @@ export default function LeadDetailPage() {
                   Perfil do cliente
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* Observações legadas — só visível se o campo único antigo
-              ainda tem conteúdo (nova captura passou para a tab Histórico).
-              Read-only com CTA para mover ao histórico. */}
-          {(form.observacoes as string)?.trim() && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground/80">Observações</p>
-                <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Legado</span>
-              </div>
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 backdrop-blur-sm p-3">
-                <p className="text-xs text-foreground whitespace-pre-wrap">
-                  {form.observacoes as string}
-                </p>
-                <p className="mt-2 text-[10px] text-muted-foreground">
-                  Use a tab <span className="font-medium">Histórico</span> para registar novas observações com data.
-                </p>
-              </div>
+              {/* Relações — secção dentro do cartão (bare, sem chrome próprio). */}
+              {lead.id && (
+                <div className="pt-2 border-t border-border/30">
+                  <ContactRelationships contactId={lead.id} bare />
+                </div>
+              )}
+
+              {/* Observações legadas — secção dentro do cartão. */}
+              {(form.observacoes as string)?.trim() && (
+                <div className="pt-2 border-t border-border/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground/80">Observações</p>
+                    <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Legado</span>
+                  </div>
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 backdrop-blur-sm p-3">
+                    <p className="text-xs text-foreground whitespace-pre-wrap">
+                      {form.observacoes as string}
+                    </p>
+                    <p className="mt-2 text-[10px] text-muted-foreground">
+                      Use a tab <span className="font-medium">Histórico</span> para registar novas observações com data.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -913,19 +924,45 @@ export default function LeadDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {negocios.map((neg, idx) => (
-                    <div
-                      key={neg.id as string}
-                      className="animate-in fade-in slide-in-from-bottom-1"
-                      style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
-                    >
-                      <NegocioListItem
-                        negocio={neg as unknown as NegocioListItemData}
-                        onSelect={() => openNegocioSheet(neg.id as string)}
-                        onDelete={() => setNegocioToDelete(neg.id as string)}
-                      />
-                    </div>
-                  ))}
+                  {(() => {
+                    // Group by deal_group_id (preserving first-seen order) so
+                    // linked deals (compra depende da venda) render together
+                    // with a connecting line; standalone deals render solo.
+                    const order: string[] = []
+                    const groups: Record<string, Record<string, unknown>[]> = {}
+                    for (const neg of negocios) {
+                      const key = (neg.deal_group_id as string) || `solo:${neg.id as string}`
+                      if (!groups[key]) { groups[key] = []; order.push(key) }
+                      groups[key].push(neg)
+                    }
+                    return order.map((key, idx) => {
+                      const items = groups[key]
+                      if (items.length > 1) {
+                        return (
+                          <LinkedNegociosGroup
+                            key={key}
+                            negocios={items as unknown as (NegocioListItemData & { id: string })[]}
+                            onSelect={(negId) => openNegocioSheet(negId)}
+                            onDelete={(negId) => setNegocioToDelete(negId)}
+                          />
+                        )
+                      }
+                      const neg = items[0]
+                      return (
+                        <div
+                          key={neg.id as string}
+                          className="animate-in fade-in slide-in-from-bottom-1"
+                          style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'backwards' }}
+                        >
+                          <NegocioListItem
+                            negocio={neg as unknown as NegocioListItemData}
+                            onSelect={() => openNegocioSheet(neg.id as string)}
+                            onDelete={() => setNegocioToDelete(neg.id as string)}
+                          />
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
               )}
 
@@ -959,18 +996,20 @@ export default function LeadDetailPage() {
             <TabsContent value="notas" className="mt-0 space-y-3">
               {/* Legacy observacoes migration banner */}
               {(form.observacoes as string)?.trim() && (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
-                  <StickyNote className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <StickyNote className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                     <p className="text-sm font-medium text-foreground">Observação antiga sem data</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                      {form.observacoes as string}
-                    </p>
                   </div>
+                  {/* Texto completo — sem line-clamp para o consultor poder ler
+                      tudo; preserva quebras de linha. */}
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+                    {form.observacoes as string}
+                  </p>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="rounded-full text-xs h-7 px-3 shrink-0"
+                    className="rounded-full text-xs h-7 px-3 w-full sm:w-auto"
                     onClick={async () => {
                       try {
                         const res = await fetch(`/api/leads/${id}/migrate-observacoes`, { method: 'POST' })

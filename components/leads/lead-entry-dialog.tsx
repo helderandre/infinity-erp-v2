@@ -204,10 +204,11 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
         const bt = next.business_type
         if (!bt || (SECTORS_BY_BT[bt] ?? []).includes(ext.sector)) next.sector = ext.sector
       }
-      // Assignment: only trust consultant_id (UUID) — name alone could collide.
-      if (ext.consultant_id && consultantsList.some((c) => c.id === ext.consultant_id)) {
-        next.assigned_consultant_id = ext.consultant_id
-      }
+      // Atribuição NUNCA é alterada pela transcrição. A regra do produto é
+      // que a lead fica, por defeito, para o utilizador que está a registar;
+      // se quiser atribuí-la a outro consultor, escolhe-o manualmente no
+      // selector "Para quem" abaixo. Isto evita colisões de "Joana lead"
+      // vs "Joana consultora" e garante que nunca há leads sem consultor.
       if (ext.property_id) {
         next.property_id = ext.property_id
         const label = [ext.property_external_ref, ext.property_title].filter(Boolean).join(' — ')
@@ -292,7 +293,10 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
         notes: form.notes,
         sector,
         business_type: category === 'imobiliario' ? (form.business_type || null) : null,
-        assigned_consultant_id: form.assigned_consultant_id || null,
+        // Fallback final: se o campo ficou vazio (ex.: currentUser ainda não
+        // tinha carregado quando o useEffect default correu), usa o id do
+        // utilizador actual. Regra do produto: leads nunca ficam sem consultor.
+        assigned_consultant_id: form.assigned_consultant_id || currentUser?.id || null,
         property_id: form.property_id || null,
       }
 

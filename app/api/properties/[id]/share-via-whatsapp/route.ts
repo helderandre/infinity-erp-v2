@@ -207,7 +207,7 @@ export async function POST(
       .from('negocios')
       .select(
         `id, lead_id,
-         lead:leads!inner(id, nome, telemovel)`
+         lead:leads!negocios_lead_id_fkey!inner(id, nome, telemovel)`
       )
       .in('id', negocio_ids)
 

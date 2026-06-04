@@ -17,20 +17,31 @@
  * Clicking a card opens the same LeadEntrySheet used on the Oportunidades page.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight } from 'lucide-react'
+import { formatDistanceToNow, format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { ENTRY_SOURCE_LABELS } from '@/lib/constants-leads-crm'
 import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
+import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { BulkReferralDialog } from '@/components/crm/bulk-referral-dialog'
 import { invalidate, subscribe } from '@/lib/crm/invalidator'
 import { LeadEntrySheet } from '@/components/leads/lead-entry-sheet'
+import { SourceBadge } from '@/components/leads/source-badge'
+import { PhaseTabs, type PhaseTab } from '@/components/leads/phase-tabs'
 import { useUser } from '@/hooks/use-user'
 
 type ColumnKey = 'novo' | 'contactado' | 'qualificado' | 'perdido'
@@ -69,9 +80,16 @@ interface LeadEntry {
   source: string
   created_at: string
   contact_id: string | null
+  /** For source='portal', form_data.portal holds the portal slug. */
+  form_data?: { portal?: string | null } | null
   has_referral?: boolean
+  /** Set quando a entry é arrastada para "Perdido" (status='discarded'). */
+  lost_reason?: string | null
   contact?: { id: string; nome: string | null; telemovel: string | null; email: string | null } | null
   campaign?: { id: string; name: string | null } | null
+  /** The opportunity generated when this entry was qualified (reverse embed
+   *  of negocios.entry_id). Present only on converted entries. */
+  deal?: { id: string; pipeline_stage_id: string | null }[] | null
   assigned_consultant?: { id: string; commercial_name: string | null } | null
   referrals?: ReferralLite[] | null
 }
@@ -95,17 +113,31 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
   const readOnly = view === 'referenciadas'
 
   const [entries, setEntries] = useState<LeadEntry[]>([])
+  const [search, setSearch] = useState('')
+  const [sourceFilter, setSourceFilter] = useState<string>('')
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
+  const [newOpen, setNewOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<ColumnKey | null>(null)
   const [qualifyEntry, setQualifyEntry] = useState<any | null>(null)
   const [lostEntry, setLostEntry] = useState<LeadEntry | null>(null)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
+  // Opportunity (négocio) detail — opened in place from a qualified card or the
+  // post-qualify toast, so the consultant stays on the pipeline instead of
+  // bouncing to the contact's négocio page.
+  const [dealSheetId, setDealSheetId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
-  // Multi-select → bulk "Referenciar" (Minhas view only).
+  // ── Mobile long-press → toggle selection (same as the desktop checkbox). ──
+  const lpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lpStartRef = useRef<{ x: number; y: number } | null>(null)
+  const suppressOpenRef = useRef(false)
+
+  // Multi-select → bulk "Mover" / "Referenciar" (Minhas view only).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [referOpen, setReferOpen] = useState(false)
+  const [bulkLostOpen, setBulkLostOpen] = useState(false)
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -167,14 +199,42 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
     if (isControlled) setSelectedIds(new Set())
   }, [view, isControlled])
 
+  // Pesquisa + filtros client-side (nome/email/telefone + origem).
+  const filteredEntries = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return entries.filter((e) => {
+      if (sourceFilter && e.source !== sourceFilter) return false
+      if (!q) return true
+      const c = e.contact
+      return (
+        (c?.nome?.toLowerCase().includes(q) ?? false) ||
+        (c?.email?.toLowerCase().includes(q) ?? false) ||
+        (c?.telemovel?.toLowerCase().includes(q) ?? false)
+      )
+    })
+  }, [entries, search, sourceFilter])
+
+  // Origens presentes nas entries carregadas — alimenta o filtro de Origem.
+  const availableSources = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of entries) if (e.source) set.add(e.source)
+    return Array.from(set)
+  }, [entries])
+
+  const hasActiveFilters = search.trim() !== '' || sourceFilter !== ''
+  const clearFilters = useCallback(() => {
+    setSearch('')
+    setSourceFilter('')
+  }, [])
+
   const byColumn = useMemo(() => {
     const map: Record<ColumnKey, LeadEntry[]> = { novo: [], contactado: [], qualificado: [], perdido: [] }
-    for (const e of entries) {
+    for (const e of filteredEntries) {
       const col = COLUMNS.find((c) => c.statuses.includes(e.status))
       if (col) map[col.key].push(e)
     }
     return map
-  }, [entries])
+  }, [filteredEntries])
 
   async function patchStatus(id: string, status: string, extra?: Record<string, unknown>) {
     const res = await fetch(`/api/lead-entries/${id}`, {
@@ -185,28 +245,89 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
     if (!res.ok) throw new Error('patch_failed')
   }
 
+  function applyDrop(col: Column, id: string) {
+    const entry = entries.find((e) => e.id === id)
+    if (!entry || col.statuses.includes(entry.status)) return
+    if (col.qualify) { setQualifyEntry(entry); return }
+    if (col.lost) { setLostEntry(entry); return }
+    void moveStatus(id, col.setStatus!)
+  }
+
   function onDropToColumn(col: Column) {
     setOverCol(null)
     const id = dragId
     setDragId(null)
     if (!id) return
-    const entry = entries.find((e) => e.id === id)
-    if (!entry || col.statuses.includes(entry.status)) return
+    applyDrop(col, id)
+  }
 
-    if (col.qualify) {
-      setQualifyEntry(entry)
-      return
+  // ── Long-press a card to toggle its selection (mobile = desktop checkbox).
+  //    A quick tap still opens the lead; a scroll cancels the press. ──
+  const startLongPress = useCallback((id: string) => (e: React.TouchEvent) => {
+    if (readOnly) return
+    const t = e.touches[0]
+    lpStartRef.current = { x: t.clientX, y: t.clientY }
+    if (lpTimerRef.current) clearTimeout(lpTimerRef.current)
+    lpTimerRef.current = setTimeout(() => {
+      toggleSelect(id)
+      suppressOpenRef.current = true
+      setTimeout(() => { suppressOpenRef.current = false }, 400)
+      try { navigator.vibrate?.(15) } catch {}
+      lpTimerRef.current = null
+    }, 500)
+  }, [readOnly, toggleSelect])
+
+  const moveLongPress = useCallback((e: React.TouchEvent) => {
+    const s = lpStartRef.current
+    if (!s || !lpTimerRef.current) return
+    const t = e.touches[0]
+    if (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) {
+      clearTimeout(lpTimerRef.current)
+      lpTimerRef.current = null
     }
-    if (col.lost) {
-      setLostEntry(entry)
-      return
+  }, [])
+
+  const endLongPress = useCallback(() => {
+    if (lpTimerRef.current) { clearTimeout(lpTimerRef.current); lpTimerRef.current = null }
+  }, [])
+
+  // ── Bulk move the selected cards to a stage at once. ──
+  async function bulkMove(status: string, extra?: Record<string, unknown>) {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    const prev = entries
+    const lostReason = typeof extra?.lost_reason === 'string' ? extra.lost_reason : undefined
+    setEntries((es) =>
+      es.map((e) =>
+        ids.includes(e.id)
+          ? { ...e, status, ...(lostReason !== undefined ? { lost_reason: lostReason } : {}) }
+          : e,
+      ),
+    )
+    clearSelection()
+    try {
+      await Promise.all(ids.map((id) => patchStatus(id, status, extra)))
+      invalidate('lead-entries')
+      toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} movida${ids.length === 1 ? '' : 's'}`)
+    } catch {
+      setEntries(prev)
+      toast.error('Não foi possível mover as leads.')
     }
-    void moveStatus(id, col.setStatus!)
   }
 
   async function moveStatus(id: string, status: string, extra?: Record<string, unknown>) {
     const prev = entries
-    setEntries((es) => es.map((e) => (e.id === id ? { ...e, status } : e)))
+    // Reflecte o motivo na entry para o chip aparecer de imediato, sem
+    // esperar por um refetch.
+    const lostReason =
+      typeof extra?.lost_reason === 'string' ? (extra.lost_reason as string) : undefined
+    setEntries((es) =>
+      es.map((e) =>
+        e.id === id
+          ? { ...e, status, ...(lostReason !== undefined ? { lost_reason: lostReason } : {}) }
+          : e,
+      ),
+    )
     try {
       await patchStatus(id, status, extra)
       invalidate('lead-entries')
@@ -280,6 +401,121 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
         </div>
       )}
 
+      {/* Filtros + vista + Novo — mesmo padrão da página Oportunidades. */}
+      <div className="mb-3 flex items-center gap-1.5 flex-wrap sm:flex-nowrap sm:justify-end">
+        {/* Pesquisa */}
+        <div className="relative flex-1 min-w-[140px] sm:flex-initial sm:w-[220px]">
+          <Search className="text-muted-foreground absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2" />
+          <Input
+            placeholder="Pesquisar por nome, email ou telefone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 pr-7 rounded-full h-8 text-xs bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="text-muted-foreground hover:text-foreground absolute right-2.5 top-1/2 -translate-y-1/2"
+              aria-label="Limpar pesquisa"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Filtros popover */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="relative shrink-0 inline-flex items-center justify-center sm:gap-1.5 h-8 w-8 sm:w-auto sm:px-3 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
+              aria-label="Filtros"
+            >
+              <SlidersHorizontal className="h-3 w-3 text-muted-foreground" />
+              <span className="hidden sm:inline">Filtros</span>
+              {hasActiveFilters && (
+                <span className="absolute sm:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background sm:ring-0" />
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 p-3 space-y-3">
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Origem</p>
+              <Select
+                value={sourceFilter || 'all'}
+                onValueChange={(v) => setSourceFilter(v === 'all' ? '' : v)}
+              >
+                <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                  <SelectValue placeholder="Qualquer origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Qualquer origem</SelectItem>
+                  {availableSources.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {ENTRY_SOURCE_LABELS[s as keyof typeof ENTRY_SOURCE_LABELS] ?? s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="rounded-full text-xs w-full h-8 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Limpar filtros
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
+
+        {/* Toggle Kanban / Lista */}
+        <div className="inline-flex shrink-0 items-center gap-0.5 p-0.5 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm">
+          <button
+            onClick={() => setViewMode('kanban')}
+            aria-label="Kanban"
+            className={cn(
+              'inline-flex items-center justify-center sm:gap-1 h-7 w-7 sm:w-auto sm:px-2.5 rounded-full text-[11px] font-medium transition-colors duration-300',
+              viewMode === 'kanban'
+                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
+            )}
+          >
+            <KanbanIcon className="h-3 w-3" />
+            <span className="hidden sm:inline">Kanban</span>
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            aria-label="Lista"
+            className={cn(
+              'inline-flex items-center justify-center sm:gap-1 h-7 w-7 sm:w-auto sm:px-2.5 rounded-full text-[11px] font-medium transition-colors duration-300',
+              viewMode === 'list'
+                ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                : 'bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
+            )}
+          >
+            <List className="h-3 w-3" />
+            <span className="hidden sm:inline">Lista</span>
+          </button>
+        </div>
+
+        {/* + Novo lead — apenas no modo Minhas. */}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => setNewOpen(true)}
+            className="shrink-0 inline-flex items-center justify-center gap-1 h-8 px-2.5 sm:px-3 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[11px] font-semibold shadow-md ring-1 ring-black/5 hover:bg-neutral-800 dark:hover:bg-white/90 transition-colors"
+            aria-label="Novo lead"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">Novo</span>
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="text-muted-foreground flex items-center gap-2 py-16 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" /> A carregar leads…
@@ -292,11 +528,17 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
             Em &quot;Minhas&quot;, seleciona uma ou mais leads e usa &quot;Referenciar&quot; para as enviar a um colega.
           </p>
         </div>
+      ) : viewMode === 'list' ? (
+        <LeadEntriesList
+          entries={filteredEntries}
+          onOpen={(id) => setSelectedEntryId(id)}
+        />
       ) : (
-        <div className="overflow-x-auto pb-2">
+        <div className="rounded-3xl border border-border/40 bg-card/40 supports-[backdrop-filter]:bg-card/30 backdrop-blur-xl shadow-sm overflow-x-auto p-3">
           <div className="flex min-w-max gap-3">
             {COLUMNS.map((col) => {
               const items = byColumn[col.key]
+              const isOver = overCol === col.key
               return (
                 <div
                   key={col.key}
@@ -317,7 +559,7 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
                     className={cn(
                       'relative flex items-center justify-between gap-2 overflow-hidden px-3 py-2.5',
                       'rounded-t-2xl border border-b-0 border-border/30 backdrop-blur-sm',
-                      overCol === col.key && 'ring-2 ring-primary ring-offset-0',
+                      isOver && 'ring-2 ring-primary ring-offset-0',
                     )}
                     style={{ backgroundImage: `linear-gradient(to bottom right, ${col.color}33, transparent)` }}
                   >
@@ -342,7 +584,7 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
                     className={cn(
                       'flex-1 space-y-2 rounded-b-2xl border border-t-0 border-border/30 bg-muted/20 p-2 shadow-lg',
                       'min-h-[60vh] transition-colors duration-200',
-                      overCol === col.key && 'border-primary/30 bg-primary/5',
+                      isOver && 'border-primary/30 bg-primary/5',
                     )}
                   >
                     {items.length === 0 ? (
@@ -374,6 +616,7 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
                             />
                           )
                         }
+                        const dealId = e.deal?.[0]?.id ?? null
                         return (
                           <LeadCard
                             key={e.id}
@@ -382,14 +625,21 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
                             view="minhas"
                             draggable={!col.qualify}
                             selected={selectedIds.has(e.id)}
+                            selectionActive={selectedIds.size > 0}
                             onToggleSelect={toggleSelect}
                             onDragStart={() => setDragId(e.id)}
-                            onOpen={() => setSelectedEntryId(e.id)}
-                            onQualify={
-                              col.key !== 'qualificado' && col.key !== 'perdido'
-                                ? () => setQualifyEntry(e)
-                                : undefined
-                            }
+                            onTouchStart={startLongPress(e.id)}
+                            onTouchMove={moveLongPress}
+                            onTouchEnd={endLongPress}
+                            onOpen={() => {
+                              if (suppressOpenRef.current) return
+                              // In selection mode, a tap toggles selection
+                              // instead of opening the lead.
+                              if (selectedIds.size > 0) { toggleSelect(e.id); return }
+                              setSelectedEntryId(e.id)
+                            }}
+                            dealId={dealId}
+                            onOpenDeal={dealId ? () => setDealSheetId(dealId) : undefined}
                           />
                         )
                       })
@@ -423,6 +673,16 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
           setQualifyEntry(null)
           fetchEntries()
         }}
+        onViewOpportunity={(negocioId) => setDealSheetId(negocioId)}
+      />
+
+      {/* Opportunity detail — same sheet as the Oportunidades pipeline, opened
+          in place from a qualified card / the post-qualify toast. */}
+      <NegocioDetailSheet
+        negocioId={dealSheetId}
+        open={!!dealSheetId}
+        onOpenChange={(o) => !o && setDealSheetId(null)}
+        onChanged={fetchEntries}
       />
 
       {/* Lost reason — reused from the negócios board */}
@@ -437,41 +697,76 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
       {!readOnly && selectedIds.size > 0 && (
         <div
           className={cn(
-            'fixed left-1/2 -translate-x-1/2 z-50',
-            'inline-flex items-center gap-2 rounded-full',
+            'fixed left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-1rem)]',
+            'inline-flex items-center gap-0.5 sm:gap-1 rounded-full',
             'bg-foreground text-background shadow-2xl',
-            'pl-4 pr-2 py-2 animate-in fade-in slide-in-from-bottom-3 duration-200',
+            'pl-3 pr-1.5 sm:pl-4 sm:pr-2 py-1.5 sm:py-2 animate-in fade-in slide-in-from-bottom-3 duration-200',
           )}
           style={{ bottom: 'calc(var(--mobile-nav-height, 0px) + 1.5rem)' }}
           role="status"
           aria-live="polite"
         >
-          <span className="text-sm font-medium tabular-nums">
-            {selectedIds.size} {selectedIds.size === 1 ? 'selecionado' : 'selecionados'}
+          <span className="text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap pr-1">
+            {selectedIds.size}<span className="hidden sm:inline"> {selectedIds.size === 1 ? 'selecionado' : 'selecionados'}</span>
           </span>
-          <div className="h-4 w-px bg-background/20" />
+          <div className="h-4 w-px bg-background/20 shrink-0" />
+          {/* Mover — bulk move all selected to a stage. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 sm:px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
+              >
+                <MoveRight className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden sm:inline">Mover</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="center" side="top" className="w-44 p-1.5">
+              <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Mover para</p>
+              {COLUMNS.filter((c) => !c.qualify).map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => { if (c.lost) setBulkLostOpen(true); else bulkMove(c.setStatus!) }}
+                  className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-muted/60 transition-colors"
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                  {c.label}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setReferOpen(true)}
-            className="h-7 px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
+            className="h-7 px-2 sm:px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
           >
-            <Send className="h-3.5 w-3.5" />
-            Referenciar
+            <Send className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Referenciar</span>
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={clearSelection}
-            className="h-7 px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
+            className="h-7 px-2 sm:px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
           >
-            <X className="h-3.5 w-3.5" />
-            Cancelar
+            <X className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Cancelar</span>
           </Button>
         </div>
       )}
+
+      {/* Bulk "Perdido" — one shared reason applied to all selected. */}
+      <LostReasonDialog
+        open={bulkLostOpen}
+        onConfirm={(reason, notes) => { setBulkLostOpen(false); bulkMove('discarded', { lost_reason: reason, lost_notes: notes }) }}
+        onCancel={() => setBulkLostOpen(false)}
+      />
 
       {/* Bulk "Referenciar" — entry referrals (flip assigned_consultant_id to
           the recipient + record my slice via leads_referrals). */}
@@ -486,7 +781,267 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
           invalidate('lead-entries')
         }}
       />
+
+      {/* Novo lead — cria uma lead entry manual que aparece de imediato no board. */}
+      <NewLeadEntryDialog
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        onCreated={() => {
+          fetchEntries()
+          invalidate('lead-entries')
+        }}
+      />
     </>
+  )
+}
+
+// ─── List view ──────────────────────────────────────────────────────────────
+
+const STATUS_TO_COLUMN: Record<string, Column> = COLUMNS.reduce((acc, col) => {
+  for (const s of col.statuses) acc[s] = col
+  return acc
+}, {} as Record<string, Column>)
+
+const PHASE_ICONS: Record<ColumnKey, PhaseTab['Icon']> = {
+  novo: Sparkles,
+  contactado: Phone,
+  qualificado: Check,
+  perdido: X,
+}
+
+function LeadEntriesList({
+  entries,
+  onOpen,
+}: {
+  entries: LeadEntry[]
+  onOpen: (id: string) => void
+}) {
+  const [tab, setTab] = useState<ColumnKey>('novo')
+
+  const byPhase = useMemo(() => {
+    const map: Record<ColumnKey, LeadEntry[]> = { novo: [], contactado: [], qualificado: [], perdido: [] }
+    for (const e of entries) {
+      const col = COLUMNS.find((c) => c.statuses.includes(e.status))
+      if (col) map[col.key].push(e)
+    }
+    return map
+  }, [entries])
+
+  const tabs: PhaseTab[] = COLUMNS.map((c) => ({
+    key: c.key,
+    label: c.label,
+    color: c.color,
+    Icon: PHASE_ICONS[c.key],
+    count: byPhase[c.key].length,
+  }))
+
+  const items = byPhase[tab] ?? []
+
+  if (entries.length === 0) {
+    return (
+      <div className="space-y-3">
+        <PhaseTabs tabs={tabs} active={tab} onChange={(k) => setTab(k as ColumnKey)} />
+        <div className="rounded-2xl border border-dashed border-border/50 bg-card/40 py-12 text-center">
+          <p className="text-sm font-medium">Nenhuma lead encontrada</p>
+          <p className="text-muted-foreground mt-1 text-xs">Ajusta a pesquisa ou os filtros.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+    <PhaseTabs tabs={tabs} active={tab} onChange={(k) => setTab(k as ColumnKey)} />
+
+    {items.length === 0 ? (
+      <div className="rounded-2xl border border-dashed border-border/50 bg-card/40 py-10 text-center">
+        <p className="text-muted-foreground text-xs italic">Sem leads em «{COLUMNS.find((c) => c.key === tab)?.label}»</p>
+      </div>
+    ) : (
+    <>
+    {/* Mobile — compact card list (same info as the kanban card). */}
+    <div className="md:hidden space-y-2">
+      {items.map((e) => {
+        const col = STATUS_TO_COLUMN[e.status]
+        const color = col?.color || '#64748b'
+        return (
+          <button
+            key={e.id}
+            type="button"
+            onClick={() => onOpen(e.id)}
+            className="w-full text-left rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3 pl-3.5 shadow-sm transition-shadow active:shadow-md"
+            style={{ boxShadow: `inset 3px 0 0 0 ${color}` }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <SourceBadge source={e.source} portal={e.form_data?.portal} />
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium shrink-0"
+                style={{ backgroundColor: `${color}26`, color }}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+                {col?.label ?? e.status}
+              </span>
+            </div>
+            <p className="mt-2.5 text-[13px] font-semibold leading-snug truncate">{e.contact?.nome ?? 'Sem nome'}</p>
+            <div className="text-muted-foreground mt-1 flex items-center gap-1.5 text-[11px]">
+              <Clock className="h-3 w-3 shrink-0 opacity-70" />
+              <span className="truncate">{formatDistanceToNow(new Date(e.created_at), { locale: pt, addSuffix: true })}</span>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+
+    {/* Desktop — table */}
+    <div className="hidden md:block rounded-3xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/40">
+          <tr className="border-b border-border/40">
+            <th className="text-left px-5 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nome</th>
+            <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
+            <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Origem</th>
+            <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contacto</th>
+            <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((e) => {
+            const col = STATUS_TO_COLUMN[e.status]
+            const color = col?.color || '#64748b'
+            const sourceLabel = ENTRY_SOURCE_LABELS[e.source as keyof typeof ENTRY_SOURCE_LABELS] ?? e.source
+            return (
+              <tr
+                key={e.id}
+                className="border-b border-border/30 cursor-pointer transition-colors hover:bg-[var(--row-hover)]"
+                onClick={() => onOpen(e.id)}
+                style={{
+                  boxShadow: `inset 3px 0 0 0 ${color}`,
+                  ['--row-hover' as never]: `${color}10`,
+                }}
+              >
+                <td className="px-5 py-3 font-medium">{e.contact?.nome ?? 'Sem nome'}</td>
+                <td className="px-4 py-3">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium"
+                    style={{ backgroundColor: `${color}26`, color }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+                    {col?.label ?? e.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{sourceLabel}</td>
+                <td className="px-4 py-3 text-muted-foreground text-xs">
+                  <div className="flex items-center gap-2">
+                    {e.contact?.telemovel && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{e.contact.telemovel}</span>}
+                    {e.contact?.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" /><span className="line-clamp-1 max-w-[180px]">{e.contact.email}</span></span>}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {format(new Date(e.created_at), 'd MMM yyyy', { locale: pt })}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+    </>
+    )}
+    </div>
+  )
+}
+
+// ─── New lead entry dialog ────────────────────────────────────────────────────
+
+function NewLeadEntryDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreated: () => void
+}) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  // Limpa o formulário sempre que o dialog abre.
+  useEffect(() => {
+    if (open) {
+      setName('')
+      setPhone('')
+      setEmail('')
+    }
+  }, [open])
+
+  async function handleSubmit() {
+    if (!name.trim()) {
+      toast.error('Indica o nome do lead.')
+      return
+    }
+    if (!phone.trim() && !email.trim()) {
+      toast.error('Indica pelo menos um telefone ou email.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/lead-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'manual',
+          raw_name: name.trim(),
+          raw_phone: phone.trim() || null,
+          raw_email: email.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json?.error || 'Erro ao criar o lead')
+      }
+      toast.success('Lead criado com sucesso')
+      onOpenChange(false)
+      onCreated()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar o lead')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Novo lead</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Nome *</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do contacto" className="rounded-full" autoFocus />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Telemóvel</label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+351 9XX XXX XXX" className="rounded-full" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Email</label>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="email@exemplo.pt" className="rounded-full" />
+          </div>
+          <p className="text-[11px] text-muted-foreground">Indica pelo menos um telefone ou email.</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)} disabled={submitting}>
+            Cancelar
+          </Button>
+          <Button className="rounded-full" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar lead'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -496,40 +1051,55 @@ function LeadCard({
   view,
   draggable,
   selected = false,
+  selectionActive = false,
   onToggleSelect,
   onDragStart,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
   onOpen,
-  onQualify,
   recipientName,
   referralPct,
   onCancel,
   cancelling = false,
+  dealId,
+  onOpenDeal,
 }: {
   entry: LeadEntry
   stageColor: string
   view: View
   draggable: boolean
   selected?: boolean
+  /** Some card in the board is selected — show the checkbox so taps can
+   *  toggle selection (mobile multi-select affordance). */
+  selectionActive?: boolean
   onToggleSelect?: (id: string) => void
   onDragStart?: () => void
+  onTouchStart?: (e: React.TouchEvent) => void
+  onTouchMove?: (e: React.TouchEvent) => void
+  onTouchEnd?: () => void
   onOpen: () => void
-  onQualify?: () => void
   recipientName?: string | null
   referralPct?: number | null
   onCancel?: () => void
   cancelling?: boolean
+  /** Set on qualified (converted) entries — the opportunity they generated. */
+  dealId?: string | null
+  onOpenDeal?: () => void
 }) {
   const name = entry.contact?.nome ?? 'Sem nome'
-  const sourceLabel = ENTRY_SOURCE_LABELS[entry.source as keyof typeof ENTRY_SOURCE_LABELS] ?? entry.source
   const selectable = view === 'minhas' && !!onToggleSelect
   return (
     <div
       draggable={draggable}
       onDragStart={onDragStart}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       className={cn(
-        'group bg-card relative overflow-hidden rounded-xl border p-2.5 shadow-sm transition-shadow hover:shadow-md',
+        'group bg-card relative overflow-hidden rounded-xl border p-3 shadow-sm transition-all hover:shadow-md',
         draggable && 'cursor-grab active:cursor-grabbing',
-        selected && 'shadow-md',
+        selected && 'shadow-md ring-2 ring-primary',
       )}
       style={selected ? { boxShadow: `0 0 0 2px ${stageColor}` } : undefined}
     >
@@ -551,7 +1121,9 @@ function LeadCard({
             'absolute top-1.5 right-1.5 z-10 h-5 w-5 rounded-md flex items-center justify-center transition-all border',
             selected
               ? 'opacity-100'
-              : 'opacity-0 group-hover:opacity-100 bg-background/95 border-border/60 text-muted-foreground hover:text-foreground hover:bg-background',
+              : selectionActive
+                ? 'opacity-100 bg-background/95 border-border/60 text-muted-foreground'
+                : 'opacity-0 group-hover:opacity-100 bg-background/95 border-border/60 text-muted-foreground hover:text-foreground hover:bg-background',
           )}
           style={selected ? { backgroundColor: stageColor, borderColor: stageColor, color: '#fff' } : undefined}
         >
@@ -570,45 +1142,48 @@ function LeadCard({
           }
           onOpen()
         }}
-        className={cn('block w-full pl-1.5 text-left', selectable && 'pr-6')}
+        className={cn('block w-full pl-2 text-left', selectable && 'pr-6')}
       >
-        <div className="flex items-start justify-between gap-2">
-          <span className="line-clamp-1 text-sm font-medium hover:underline">{name}</span>
+        {/* Top: company/portal icon + origin tag in its colour. */}
+        <div className="flex items-center justify-between gap-2">
+          <SourceBadge source={entry.source} portal={entry.form_data?.portal} />
           {entry.has_referral && <Gift className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
-            {sourceLabel}
+        {/* Name — primary line. */}
+        <p className="mt-2.5 line-clamp-1 text-[13px] font-semibold leading-snug group-hover:underline">{name}</p>
+        {/* Time it arrived — secondary line. */}
+        <div className="text-muted-foreground mt-1 flex items-center gap-1.5 text-[11px]">
+          <Clock className="h-3 w-3 shrink-0 opacity-70" />
+          <span className="truncate">{formatDistanceToNow(new Date(entry.created_at), { locale: pt, addSuffix: true })}</span>
+        </div>
+        {/* Motivo da perda — chip vermelho quando a lead foi descartada. */}
+        {entry.lost_reason && (
+          <span className="mt-2 inline-flex max-w-full items-center gap-0.5 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300">
+            <X className="h-2.5 w-2.5 shrink-0" strokeWidth={3} />
+            <span className="line-clamp-1">{entry.lost_reason}</span>
           </span>
-          {entry.campaign?.name && (
-            <span className="text-muted-foreground line-clamp-1 text-[10px]">{entry.campaign.name}</span>
-          )}
-        </div>
-        <div className="text-muted-foreground mt-1.5 flex flex-col gap-0.5 text-[11px]">
-          {entry.contact?.telemovel && (
-            <span className="flex items-center gap-1">
-              <Phone className="h-3 w-3" />
-              {entry.contact.telemovel}
-            </span>
-          )}
-          {entry.contact?.email && (
-            <span className="flex items-center gap-1">
-              <Mail className="h-3 w-3" />
-              <span className="line-clamp-1">{entry.contact.email}</span>
-            </span>
-          )}
-        </div>
-        <div className="text-muted-foreground/70 mt-1 flex items-center gap-1 text-[10px]">
-          <Clock className="h-3 w-3" />
-          {formatDistanceToNow(new Date(entry.created_at), { locale: pt, addSuffix: true })}
-        </div>
+        )}
       </button>
 
-      {/* Minhas: qualify shortcut. */}
-      {view === 'minhas' && onQualify && (
-        <Button size="sm" variant="outline" className="ml-1.5 mt-2 h-7 text-[11px]" onClick={onQualify}>
-          Qualificar
-        </Button>
+      {/* Qualificado: link to the opportunity it generated so the consultant
+          can keep accompanying it instead of the lead just sitting here. */}
+      {dealId && onOpenDeal && (
+        <div className="mt-2 pl-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenDeal()
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
+            title="Abrir a oportunidade gerada por esta lead"
+          >
+            <Briefcase className="h-3 w-3 shrink-0" />
+            Ver oportunidade
+            <ArrowRight className="h-3 w-3 shrink-0" />
+          </button>
+        </div>
       )}
 
       {/* Referenciadas: recipient + my slice, and a way to pull it back while pending. */}

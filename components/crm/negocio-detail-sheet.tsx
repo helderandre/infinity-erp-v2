@@ -108,7 +108,10 @@ import {
   buildDealPropertyContextFromNegocio,
 } from '@/lib/negocios/prefill-from-negocio'
 import { InicioExtras } from '@/components/crm/negocio-inicio-extras'
+import { NegocioOrigemCard } from '@/components/crm/negocio-origem-card'
+import { NegocioLinkControl } from '@/components/crm/negocio-link-control'
 import { NegocioContactosSheet } from '@/components/crm/negocio-contactos-sheet'
+import { NegocioParticipants } from '@/components/crm/negocio-participants'
 import { NegocioAcoesSheet } from '@/components/crm/negocio-acoes-sheet'
 import { NegocioImovelSheet } from '@/components/crm/negocio-imovel-sheet'
 import { MarketStudiesCard } from '@/components/crm/market-studies-card'
@@ -310,12 +313,45 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   )
 
   const handlePipelineStageChange = useCallback(
-    async (stage: { id: string; name: string }) => {
+    async (
+      stage: { id: string; name: string },
+      lostInfo?: { reason: string; notes: string },
+    ) => {
+      // Fase "Perdido" confirmada no LostReasonDialog → usa o endpoint /stage
+      // (regista lost_date/lost_reason/lost_notes, actividade e sincroniza o
+      // estado da lead). As restantes fases mantêm o save genérico.
+      if (lostInfo) {
+        if (!negocioId) return
+        try {
+          const res = await fetch(`/api/crm/negocios/${negocioId}/stage`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pipeline_stage_id: stage.id,
+              lost_reason: lostInfo.reason,
+              lost_notes: lostInfo.notes,
+            }),
+          })
+          if (!res.ok) throw new Error()
+          setForm((prev) => ({
+            ...prev,
+            pipeline_stage_id: stage.id,
+            estado: stage.name,
+            lost_reason: lostInfo.reason,
+            lost_notes: lostInfo.notes,
+          }))
+          toast.success('Negócio marcado como perdido')
+          onChanged?.()
+        } catch {
+          toast.error('Erro ao guardar')
+        }
+        return
+      }
       updateField('pipeline_stage_id', stage.id)
       updateField('estado', stage.name)
       await saveFields({ pipeline_stage_id: stage.id }, 'Fase actualizada')
     },
-    [saveFields, updateField],
+    [negocioId, onChanged, saveFields, updateField],
   )
 
   const handleQuickFillApply = useCallback(
@@ -522,7 +558,9 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   onCreateTask={() => setTaskFormOpen(true)}
                   onCreateEvent={() => setEventFormOpen(true)}
                   onCreateNote={() => setQuickNoteOpen(true)}
+                  onPreviewProperty={setPreviewPropertyId}
                   inicioRefreshKey={inicioRefreshKey}
+                  onReload={loadNegocio}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -906,7 +944,9 @@ function DetalhesTab({
   onCreateTask,
   onCreateEvent,
   onCreateNote,
+  onPreviewProperty,
   inicioRefreshKey,
+  onReload,
 }: {
   negocio: any
   form: Record<string, unknown>
@@ -914,7 +954,10 @@ function DetalhesTab({
   isBuyerType: boolean
   leadId: string | null
   readOnly?: boolean
-  onPipelineStageChange: (stage: { id: string; name: string }) => void
+  onPipelineStageChange: (
+    stage: { id: string; name: string },
+    lostInfo?: { reason: string; notes: string },
+  ) => void
   onTemperaturaChange: (t: Temperatura) => void
   /** "Ver tudo" abre o mesmo Sheet de edição que o botão Pencil do header. */
   onOpenFullEdit?: () => void
@@ -924,8 +967,12 @@ function DetalhesTab({
   onCreateTask?: () => void
   onCreateEvent?: () => void
   onCreateNote?: () => void
+  /** Abre o PropertyDetailSheet do imóvel de origem (vive no parent). */
+  onPreviewProperty?: (propertyId: string) => void
   /** Bump para forçar refetch das tarefas/actividades em InicioExtras. */
   inicioRefreshKey?: number
+  /** Recarrega o negócio (ex.: após mudar o titular via participantes). */
+  onReload?: () => void
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -940,6 +987,9 @@ function DetalhesTab({
   const [contactosOpen, setContactosOpen] = useState(false)
   const [acoesOpen, setAcoesOpen] = useState(false)
   const [imovelOpen, setImovelOpen] = useState(false)
+  // Merged "Pessoas + Ligações" card — controlled dialogs for the two row buttons.
+  const [addPersonOpen, setAddPersonOpen] = useState(false)
+  const [linkDealOpen, setLinkDealOpen] = useState(false)
 
 
   return (
@@ -1011,47 +1061,94 @@ function DetalhesTab({
             </div>
           )}
 
-          {/* 3 botões — Contactos / Ações / Imóvel.
-              Glassmorphism: superfície neutra translúcida + pílula de ícone
-              com cor subtil; a cor vive apenas no ícone para que a vista de
-              Início pareça uma peça única e não um arco-íris de pastilhas. */}
+          {/* Pessoas no negócio + Negócios ligados — duas acções na mesma
+              linha (Adicionar parceiro · Ligar negócio), com as listas por
+              baixo no mesmo cartão. */}
+          {negocio.id && !readOnly && (
+            <div className="rounded-2xl border border-border/50 bg-muted/20 px-3.5 py-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button" variant="outline" size="sm"
+                  className="h-8 flex-1 rounded-full text-xs gap-1.5"
+                  onClick={() => setAddPersonOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Adicionar parceiro
+                </Button>
+                <Button
+                  type="button" variant="outline" size="sm"
+                  className="h-8 flex-1 rounded-full text-xs gap-1.5"
+                  onClick={() => setLinkDealOpen(true)}
+                >
+                  <Link2 className="h-3.5 w-3.5" /> Ligar negócio
+                </Button>
+              </div>
+              <NegocioParticipants
+                embed
+                negocioId={negocio.id}
+                leadId={leadId}
+                readOnly={readOnly}
+                onPrimaryChanged={onReload}
+                addOpen={addPersonOpen}
+                onAddOpenChange={setAddPersonOpen}
+              />
+              <NegocioLinkControl
+                embed
+                negocioId={negocio.id}
+                leadId={leadId}
+                dealGroupId={(negocio.deal_group_id as string | null) ?? null}
+                onChanged={onReload}
+                pickerOpen={linkDealOpen}
+                onPickerOpenChange={setLinkDealOpen}
+              />
+            </div>
+          )}
+          {/* Read-only (referrer view): keep the people list visible, no actions. */}
+          {negocio.id && readOnly && (
+            <NegocioParticipants
+              negocioId={negocio.id}
+              leadId={leadId}
+              readOnly={readOnly}
+              onPrimaryChanged={onReload}
+            />
+          )}
+
+          {/* 3 botões — Contactos / Ações / Imóvel. Simple outline pills. */}
           <div className="grid grid-cols-3 gap-2.5">
             <button
               type="button"
               onClick={() => setContactosOpen(true)}
-              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-center gap-1.5 h-10 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
               disabled={!phone && !email}
               title="Telefone, email, WhatsApp e SMS"
             >
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-emerald-400/25 to-emerald-600/5 ring-1 ring-inset ring-emerald-500/25 group-hover:ring-emerald-500/35 transition-colors">
-                <UserIcon className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" strokeWidth={2.25} />
-              </span>
-              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Contactos</span>
+              <UserIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Contactos
             </button>
             <button
               type="button"
               onClick={() => setAcoesOpen(true)}
               disabled={readOnly}
-              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-center gap-1.5 h-10 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
               title="Tarefa, evento, nota — e o que está por fazer"
             >
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400/25 to-indigo-600/5 ring-1 ring-inset ring-indigo-500/25 group-hover:ring-indigo-500/35 transition-colors">
-                <CheckSquare className="h-3.5 w-3.5 text-indigo-700 dark:text-indigo-300" strokeWidth={2.25} />
-              </span>
-              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Ações</span>
+              <CheckSquare className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              Ações
             </button>
             <button
               type="button"
               onClick={() => setImovelOpen(true)}
-              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
+              className="flex w-full items-center justify-center gap-1.5 h-10 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors"
               title="O que o cliente procura"
             >
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-sky-400/25 to-sky-600/5 ring-1 ring-inset ring-sky-500/25 group-hover:ring-sky-500/35 transition-colors">
-                <Home className="h-3.5 w-3.5 text-sky-700 dark:text-sky-300" strokeWidth={2.25} />
-              </span>
-              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Imóvel</span>
+              <Home className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+              Imóvel
             </button>
           </div>
+
+          {/* Origem do lead — imóvel de interesse + formulário submetido.
+              Self-hides quando o negócio não veio de uma entry (criação
+              manual). Recupera a "memória" que se perdia na qualificação. */}
+          <NegocioOrigemCard negocio={negocio} onPreviewProperty={onPreviewProperty} />
 
           {/* Notas — feed completo de observações deste negócio (notas,
               chamadas, emails, WhatsApp, visitas) com o composer inline.
@@ -1153,7 +1250,7 @@ function NotasList({
   }, [refreshKey])
 
   return (
-    <section className="rounded-2xl bg-background border border-border/50 shadow-sm p-4 space-y-3">
+    <section className="rounded-2xl border border-border/50 bg-muted/20 px-3.5 py-3 space-y-3">
       <div className="flex items-center gap-2">
         <StickyNote className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold tracking-tight">Notas</h3>
@@ -1176,12 +1273,7 @@ function NotasList({
           <Skeleton className="h-16 rounded-2xl" />
           <Skeleton className="h-16 rounded-2xl" />
         </div>
-      ) : activities.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/40 py-8 text-center">
-          <p className="text-sm text-muted-foreground">Sem notas para este negócio</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Use o campo acima para registar a primeira</p>
-        </div>
-      ) : (
+      ) : activities.length > 0 ? (
         <div className="space-y-2">
           {activities.map((act) => (
             <ObservationItem
@@ -1193,7 +1285,7 @@ function NotasList({
             />
           ))}
         </div>
-      )}
+      ) : null}
     </section>
   )
 }

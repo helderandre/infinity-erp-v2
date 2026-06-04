@@ -294,9 +294,15 @@ function KanbanColumnView({
             onDragStart={onCardDragStart}
             onClick={onCardClick ? () => onCardClick(negocio) : undefined}
             selected={selectedIds.has(negocio.id)}
+            selectionActive={!readOnly && selectedIds.size > 0}
             onToggleSelect={readOnly ? undefined : onToggleSelect}
             readOnly={readOnly}
             stageColor={color}
+            onOpenLinked={
+              onCardClick
+                ? (dealId) => onCardClick({ id: dealId, lead_id: negocio.lead_id ?? negocio.contact_id ?? null })
+                : undefined
+            }
           />
         ))}
 
@@ -715,7 +721,15 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
             if (movedNegocio) {
               return {
                 ...col,
-                negocios: [...col.negocios, { ...movedNegocio, pipeline_stage_id: stageId }],
+                negocios: [
+                  ...col.negocios,
+                  {
+                    ...movedNegocio,
+                    pipeline_stage_id: stageId,
+                    // Surface the motivo immediately on the moved card.
+                    ...(lostReason ? { lost_reason: lostReason } : {}),
+                  },
+                ],
                 count: col.count + 1,
               }
             }
@@ -816,10 +830,10 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
       {selectedIds.size > 0 && (
         <div
           className={cn(
-            'fixed left-1/2 -translate-x-1/2 z-50',
-            'inline-flex items-center gap-2 rounded-full',
+            'fixed left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-1rem)]',
+            'inline-flex items-center gap-0.5 sm:gap-2 rounded-full',
             'bg-foreground text-background shadow-2xl',
-            'pl-4 pr-2 py-2 animate-in fade-in slide-in-from-bottom-3 duration-200',
+            'pl-3 pr-1.5 sm:pl-4 sm:pr-2 py-1.5 sm:py-2 animate-in fade-in slide-in-from-bottom-3 duration-200',
           )}
           // Sit above the mobile bottom-nav (var publishes the real measured
           // height; falls back to 0 on desktop where the nav isn't rendered,
@@ -830,21 +844,23 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
           role="status"
           aria-live="polite"
         >
-          <span className="text-sm font-medium tabular-nums">
-            {selectedIds.size}{' '}
-            {selectedIds.size === 1 ? 'selecionado' : 'selecionados'}
+          <span className="text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap pr-1">
+            {selectedIds.size}
+            <span className="hidden sm:inline">
+              {' '}{selectedIds.size === 1 ? 'selecionado' : 'selecionados'}
+            </span>
           </span>
-          <div className="h-4 w-px bg-background/20" />
+          <div className="h-4 w-px bg-background/20 shrink-0" />
           <BulkActionsMenu count={selectedIds.size} onAction={handleBulkAction} />
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={clearSelection}
-            className="h-7 px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
+            className="h-7 px-2 sm:px-2.5 rounded-full text-background hover:bg-background/15 hover:text-background gap-1.5"
           >
-            <X className="h-3.5 w-3.5" />
-            Cancelar
+            <X className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Cancelar</span>
           </Button>
         </div>
       )}
@@ -1111,12 +1127,13 @@ function ScrollableBoard({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Container do board com fades nas margens */}
+      {/* Container do board com fades nas margens — assente num cartão
+          glassmórfico, em linha com a pipeline de Leads. */}
       <div className="relative">
         <div
           ref={boardRef}
           onScroll={handleBoardScroll}
-          className="overflow-x-auto pb-4"
+          className="overflow-x-auto rounded-3xl border border-border/40 bg-card/40 supports-[backdrop-filter]:bg-card/30 backdrop-blur-xl shadow-sm px-3 pt-3 pb-4"
         >
           {children}
         </div>
@@ -1124,16 +1141,16 @@ function ScrollableBoard({ children }: { children: React.ReactNode }) {
         {/* Fade esquerdo */}
         <div
           className={cn(
-            'pointer-events-none absolute left-0 top-0 bottom-4 w-10 transition-opacity duration-200',
-            'bg-gradient-to-r from-background via-background/70 to-transparent',
+            'pointer-events-none absolute left-px top-px bottom-4 w-10 rounded-l-3xl transition-opacity duration-200',
+            'bg-gradient-to-r from-card via-card/70 to-transparent',
             showLeftFade ? 'opacity-100' : 'opacity-0',
           )}
         />
         {/* Fade direito */}
         <div
           className={cn(
-            'pointer-events-none absolute right-0 top-0 bottom-4 w-10 transition-opacity duration-200',
-            'bg-gradient-to-l from-background via-background/70 to-transparent',
+            'pointer-events-none absolute right-px top-px bottom-4 w-10 rounded-r-3xl transition-opacity duration-200',
+            'bg-gradient-to-l from-card via-card/70 to-transparent',
             showRightFade ? 'opacity-100' : 'opacity-0',
           )}
         />

@@ -314,7 +314,7 @@ export function NegocioImovelSheet({
             <button
               type="button"
               onClick={onOpenFullEdit}
-              className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border/40 bg-background/60 supports-[backdrop-filter]:bg-background/40 backdrop-blur-xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/80 active:scale-[0.97] transition-all duration-200 text-[11px] font-medium tracking-tight text-foreground/85 mr-10"
+              className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border/60 bg-background hover:bg-muted/50 active:scale-[0.97] transition-colors text-[11px] font-medium tracking-tight text-foreground/85 mr-10"
             >
               <Pencil className="h-3 w-3 text-muted-foreground" />
               Editar

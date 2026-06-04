@@ -116,8 +116,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (parsed.data.status === 'discarded') {
-      if (parsed.data.lost_reason !== undefined) updateData.lost_reason = parsed.data.lost_reason
-      if (parsed.data.lost_notes !== undefined) updateData.lost_notes = parsed.data.lost_notes
+      // Marcar como Perdido exige motivo + descrição (alinhado com o
+      // LostReasonDialog, que bloqueia o submit sem ambos).
+      if (!parsed.data.lost_reason || !parsed.data.lost_notes || !parsed.data.lost_notes.trim()) {
+        return NextResponse.json(
+          { error: 'O motivo e a descrição da perda são obrigatórios' },
+          { status: 400 },
+        )
+      }
+      updateData.lost_reason = parsed.data.lost_reason
+      updateData.lost_notes = parsed.data.lost_notes
     }
 
     const { data, error } = await supabase

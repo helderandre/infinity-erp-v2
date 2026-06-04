@@ -107,6 +107,11 @@ export const createNegocioSchema = z.object({
   pipeline_stage_id: z.string().uuid('ID da fase invalido'),
   assigned_consultant_id: z.string().uuid().nullable().optional(),
   property_id: z.string().uuid().nullable().optional(),
+  // Linked opportunities ("compra depende da venda"): a shared group id ties a
+  // sale + dependent purchase born from the same lead/form; depends_on points
+  // the purchase at the sale it's contingent on.
+  deal_group_id: z.string().uuid().nullable().optional(),
+  depends_on_negocio_id: z.string().uuid().nullable().optional(),
   expected_value: z.number().positive('Valor deve ser positivo').nullable().optional(),
   probability_pct: z.number().min(0).max(100).nullable().optional(),
   expected_close_date: z.string().nullable().optional(),

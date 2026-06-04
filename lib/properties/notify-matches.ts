@@ -45,7 +45,7 @@ export async function notifyPropertyMatches(
   // Find open buyer deals that could match
   const { data: deals, error } = await supabase
     .from('negocios')
-    .select('id, lead_id, tipo, localizacao, orcamento, orcamento_max, quartos_min, tipo_imovel, lead:leads!inner(nome, agent_id)')
+    .select('id, lead_id, tipo, localizacao, orcamento, orcamento_max, quartos_min, tipo_imovel, lead:leads!negocios_lead_id_fkey!inner(nome, agent_id)')
     .eq('tipo', 'Compra')
     .in('estado', ['Aberto', 'Em Acompanhamento', 'Em progresso'])
 

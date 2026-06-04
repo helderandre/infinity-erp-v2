@@ -9,7 +9,7 @@ import {
   MessageCircle, MessageSquareText, Instagram, BarChart3,
   Plug, Store, UserPlus, Target,
   Landmark, GraduationCap, Briefcase, TrendingUp,
-  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, Shield, MessagesSquare,
+  Wallet, Handshake, ContactRound, Kanban, Package, Boxes, MessagesSquare,
   CheckSquare, Cpu, Infinity, KeyRound, Library, Bell, FolderOpen,
   Send, Palette,
 } from 'lucide-react'
@@ -75,13 +75,9 @@ export const crmItems = [
   { title: 'Leads', icon: Target, href: '/dashboard/crm/leads', permission: 'leads' },
   { title: 'Oportunidades', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
   { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
-  // Gestão de Leads: triagem do inbox + métricas de SLA. Gated pela permissão
-  // `leads_management`, que vem do role "Gestora de Leads" (M:N — pode ser
-  // acumulado com Consultor). Admin/Broker/CEO recebem auto via merge.
-  // Gestão de Leads inclui as tabs Distribuição / Em Atraso / Pool / Por
-  // atribuir (esta última = leads Meta sem regra de atribuição, antes uma
-  // página própria — ver components/crm/gestora-por-atribuir-tab.tsx).
-  { title: 'Gestão de Leads', icon: Shield, href: '/dashboard/crm/gestora', permission: 'leads_management' },
+  // Gestão de Leads deixou de ter página própria — vive agora num Sheet
+  // aberto pelo botão de definições no topo da página Leads (gated por
+  // `leads_management`). Ver components/crm/gestao-leads-sheet.tsx.
   // Automatismos: configuração de eventos custom + cascatas de templates;
   // operacional para gestão, ruído para o consultor (que ainda assim consome
   // os automatismos via leads próprias).

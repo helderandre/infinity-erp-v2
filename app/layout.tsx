@@ -52,7 +52,6 @@ export default function RootLayout({
     <html lang="pt" className={dmSans.variable} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#09090b" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

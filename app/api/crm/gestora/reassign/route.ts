@@ -40,9 +40,16 @@ export async function POST(req: NextRequest) {
 
       const { entry_ids, target_agent_id } = parsed.data
 
+      // Update BOTH ownership columns. `assigned_agent_id` drives the gestora
+      // overview + active_lead_count trigger; `assigned_consultant_id` is the
+      // column every consultant-facing query (inbox, "as minhas leads") reads.
+      // Writing only one leaves the lead invisible to the new owner's inbox.
       const { error, count } = await db
         .from("leads_entries")
-        .update({ assigned_agent_id: target_agent_id })
+        .update({
+          assigned_agent_id: target_agent_id,
+          assigned_consultant_id: target_agent_id,
+        })
         .in("id", entry_ids)
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -125,9 +132,14 @@ export async function POST(req: NextRequest) {
 
       const entryIds = overdueEntries.map((e: { id: string }) => e.id)
 
+      // Same dual-column update as Option 1 so the new owner (or the gestora
+      // pool, when target is null) is consistent across overview + inbox.
       const { error } = await db
         .from("leads_entries")
-        .update({ assigned_agent_id: target_agent_id ?? null })
+        .update({
+          assigned_agent_id: target_agent_id ?? null,
+          assigned_consultant_id: target_agent_id ?? null,
+        })
         .in("id", entryIds)
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })

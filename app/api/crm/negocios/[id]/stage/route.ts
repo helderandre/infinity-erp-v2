@@ -61,9 +61,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Fase de pipeline não encontrada' }, { status: 404 })
     }
 
-    if (targetStage.is_terminal && targetStage.terminal_type === 'lost' && !lost_reason) {
+    if (
+      targetStage.is_terminal &&
+      targetStage.terminal_type === 'lost' &&
+      (!lost_reason || !lost_notes || !lost_notes.trim())
+    ) {
       return NextResponse.json(
-        { error: 'O motivo da perda é obrigatório para esta fase' },
+        { error: 'O motivo e a descrição da perda são obrigatórios para esta fase' },
         { status: 400 }
       )
     }

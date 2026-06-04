@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       origem, estado, temperatura,
       agent_id, observacoes, created_at,
       dev_users!agent_id(commercial_name),
-      negocios(id, tipo, estado, orcamento, preco_venda)
+      negocios!negocios_lead_id_fkey(id, tipo, estado, orcamento, preco_venda)
     `)
     .order("created_at", { ascending: false })
 

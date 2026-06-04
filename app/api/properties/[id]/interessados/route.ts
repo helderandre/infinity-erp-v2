@@ -55,7 +55,7 @@ export async function GET(
         negocio:negocios!inner(
           id, tipo, estado, orcamento, orcamento_max, localizacao, observacoes,
           assigned_consultant_id, tipo_imovel, quartos_min,
-          lead:leads!inner(
+          lead:leads!negocios_lead_id_fkey!inner(
             id, nome, email, telemovel, agent_id,
             agent:dev_users!leads_agent_id_fkey(id, commercial_name, professional_email,
               profile:dev_consultant_profiles(phone_commercial)
@@ -112,7 +112,7 @@ export async function GET(
           assigned_consultant_id, tipo_imovel, quartos_min, area_min_m2, estado_imovel,
           tem_garagem, tem_estacionamento, tem_elevador, tem_piscina,
           tem_varanda, tem_arrumos, tem_exterior, tem_porteiro,
-          lead:leads!inner(
+          lead:leads!negocios_lead_id_fkey!inner(
             id, nome, email, telemovel, agent_id,
             agent:dev_users!leads_agent_id_fkey(id, commercial_name, professional_email,
               profile:dev_consultant_profiles(phone_commercial)

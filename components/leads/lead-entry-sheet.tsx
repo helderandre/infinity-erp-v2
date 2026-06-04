@@ -33,6 +33,7 @@ import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
 import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
+import { SourceBadge } from '@/components/leads/source-badge'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
@@ -242,6 +243,10 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
             </button>
           )}
           <div className="px-6 pt-8 pb-4">
+              {/* Origem / portal — favicon + colour-coded tag at the top. */}
+              <div className="mb-3">
+                <SourceBadge source={entry.source} portal={entry.form_data?.portal} size="md" />
+              </div>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-muted-foreground text-[10px] font-medium tracking-widest uppercase">Lead</p>
@@ -261,11 +266,6 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-[11px] font-semibold">
                     <sectorInfo.icon className="h-3 w-3" />
                     {sectorInfo.label}
-                  </span>
-                )}
-                {srcInfo && (
-                  <span className="inline-flex items-center rounded-full bg-muted/60 border border-border/40 text-muted-foreground px-2 py-0.5 text-[10px] font-medium">
-                    {srcInfo.label}
                   </span>
                 )}
                 {entry.campaign?.name && (

@@ -39,7 +39,7 @@ export async function GET(
       .select(`
         *,
         pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, pipeline_type),
-        lead:leads(id, nome, full_name, telefone, telemovel, email, empresa, nipc, morada, codigo_postal, localidade, agent_id),
+        lead:leads!negocios_lead_id_fkey(id, nome, full_name, telefone, telemovel, email, empresa, nipc, morada, codigo_postal, localidade, agent_id),
         property:dev_properties!negocios_property_id_fkey(id, address_street, city, zone, address_parish, listing_price, property_type),
         consultant:dev_users!negocios_assigned_consultant_id_fkey(
           id, commercial_name, professional_email,

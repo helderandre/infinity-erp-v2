@@ -47,9 +47,9 @@ import {
   PIPELINE_TYPE_LABELS,
 } from '@/lib/constants-leads-crm'
 import type { PipelineType } from '@/types/leads-crm'
-import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { temperaturaEmoji, type Temperatura } from '@/components/negocios/temperatura-selector'
 import { NewNegocioDialog } from '@/components/crm/new-negocio-dialog'
+import { PhaseTabs } from '@/components/leads/phase-tabs'
 import { useUser } from '@/hooks/use-user'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useCrmInvalidator } from '@/hooks/use-crm-invalidator'
@@ -280,16 +280,6 @@ function NegociosListView({
     onOpenNegocio(n.id)
   }
 
-  const handleSaveObservations = useCallback(async (negocioId: string, next: string | null) => {
-    const res = await fetch(`/api/negocios/${negocioId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ observacoes: next }),
-    })
-    if (!res.ok) throw new Error('Failed to save')
-    setNegocios((prev) => prev.map((n) => (n.id === negocioId ? { ...n, observacoes: next } : n)))
-  }, [])
-
   return (
     <div className="space-y-4">
       {/* ── Desktop: full table — sempre montada para preservar popovers
@@ -351,7 +341,6 @@ function NegociosListView({
                     </HeaderWithFilter>
                   </TableHead>
                   <TableHead>Consultor</TableHead>
-                  <TableHead className="text-center">Obs.</TableHead>
                   <TableHead>
                     <HeaderWithFilter
                       label="Data"
@@ -456,15 +445,6 @@ function NegociosListView({
                       <TableCell className="text-sm tabular-nums">{budget}</TableCell>
                       <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">{n.localizacao || '—'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{n.lead?.agent?.commercial_name || '—'}</TableCell>
-                      <TableCell
-                        className="text-center"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ObservationsCell
-                          observacoes={n.observacoes}
-                          onSave={(next) => handleSaveObservations(n.id, next)}
-                        />
-                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{format(new Date(n.created_at), 'd MMM', { locale: pt })}</TableCell>
                     </TableRow>
                   )
@@ -474,13 +454,26 @@ function NegociosListView({
             </Table>
           </div>
 
-          {/* ── Mobile: stage selector + card list ── */}
+          {/* ── Mobile: phase tabs + card list (same idea as the Leads list) ── */}
           <div className="md:hidden space-y-2">
-            <MobileStageSelector
-              stages={stages}
-              counts={stageCounts}
-              activeStageId={filters.pipelineStageId || null}
-              onChange={onStageChange}
+            <PhaseTabs
+              className="-mx-1 px-1 pb-1"
+              active={filters.pipelineStageId || '__all__'}
+              onChange={(k) => onStageChange(k === '__all__' ? null : k)}
+              tabs={[
+                {
+                  key: '__all__',
+                  label: 'Todas',
+                  color: '#94a3b8',
+                  count: Object.values(stageCounts).reduce((a, b) => a + b, 0),
+                },
+                ...stages.map((s) => ({
+                  key: s.id,
+                  label: s.name,
+                  color: s.color || '#94a3b8',
+                  count: stageCounts[s.id] ?? 0,
+                })),
+              ]}
             />
             {isLoading ? (
               [0, 1, 2, 3].map((i) => (
@@ -523,17 +516,11 @@ function NegociosListView({
                   }}
                 >
                   {/* Top: name + obs */}
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
                     <p className="text-sm font-semibold truncate flex-1 min-w-0 flex items-center gap-1">
                       {clientName}
                       {tempEmoji && <span aria-hidden className="text-sm">{tempEmoji}</span>}
                     </p>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <ObservationsCell
-                        observacoes={n.observacoes}
-                        onSave={(next) => handleSaveObservations(n.id, next)}
-                      />
-                    </div>
                   </div>
 
                   {/* Tags row */}
@@ -946,38 +933,6 @@ function ColumnFilterDateRange({
     </>
   )
 }
-
-// ─── Observations cell ───────────────────────────────────────────────────────
-
-function ObservationsCell({
-  observacoes,
-  onSave,
-}: {
-  observacoes: string | null
-  onSave: (next: string | null) => Promise<void>
-}) {
-  // The ObservationsButton already shows a clickable chip with count badge.
-  // We re-use it but render only the icon variant via a thin wrapper here.
-  // If there are no observations, render a faded chat icon (still clickable to add).
-  return (
-    <div className="inline-flex items-center justify-center">
-      <ObservationsCellInner observacoes={observacoes} onSave={onSave} />
-    </div>
-  )
-}
-
-function ObservationsCellInner({
-  observacoes,
-  onSave,
-}: {
-  observacoes: string | null
-  onSave: (next: string | null) => Promise<void>
-}) {
-  // Reuse the existing ObservationsButton (white pill with count) — but in the
-  // table cell context. The count badge already conveys whether there are obs.
-  return <ObservationsButton observacoes={observacoes} onSave={onSave} />
-}
-
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 

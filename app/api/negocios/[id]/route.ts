@@ -26,7 +26,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('negocios')
-      .select('*, pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days, pipeline_type), lead:leads(id, nome, full_name, telefone, telemovel, email, nif, data_nascimento, nacionalidade, morada, tipo_documento, numero_documento, data_validade_documento, pais_emissor, tem_empresa, empresa, nipc, email_empresa, telefone_empresa, morada_empresa, documento_identificacao_url, documento_identificacao_frente_url, documento_identificacao_verso_url), referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name)')
+      .select('*, pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days, pipeline_type), lead:leads!negocios_lead_id_fkey(id, nome, full_name, telefone, telemovel, email, nif, data_nascimento, nacionalidade, morada, tipo_documento, numero_documento, data_validade_documento, pais_emissor, tem_empresa, empresa, nipc, email_empresa, telefone_empresa, morada_empresa, documento_identificacao_url, documento_identificacao_frente_url, documento_identificacao_verso_url), referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name), entry:leads_entries!negocios_entry_id_fkey(id, source, form_data, form_url, notes, property_external_ref, created_at, utm_source, utm_medium, utm_campaign, utm_content), origin_property:dev_properties!negocios_property_id_fkey(id, title, external_ref, city, slug, listing_price)')
       .eq('id', id)
       .single()
 

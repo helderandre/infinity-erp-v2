@@ -40,7 +40,12 @@ export async function GET(request: Request) {
     const offset = Number(searchParams.get('offset')) || 0
 
     // When qualified_only is true, use inner join to only return contacts with negocios
-    const negociosJoin = qualified_only ? 'negocios!inner(id, tipo)' : 'negocios(id, tipo)'
+    // FK hint required: negocio_contacts makes leads↔negocios ambiguous, so the
+    // direct FK (negocios_lead_id_fkey) must be named. `!inner` is a join modifier,
+    // not a disambiguator, and stacks after the hint.
+    const negociosJoin = qualified_only
+      ? 'negocios!negocios_lead_id_fkey!inner(id, tipo)'
+      : 'negocios!negocios_lead_id_fkey(id, tipo)'
 
     let query = supabase
       .from('leads')
@@ -49,7 +54,14 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (nome) {
-      query = query.ilike('nome', `%${nome}%`)
+      // Pesquisa por nome, email ou telefone. Sanitiza vírgulas/parênteses
+      // que quebrariam a sintaxe do `.or()` do PostgREST.
+      const term = nome.replace(/[(),]/g, ' ').trim()
+      if (term) {
+        query = query.or(
+          `nome.ilike.%${term}%,email.ilike.%${term}%,telemovel.ilike.%${term}%,telefone.ilike.%${term}%`,
+        )
+      }
     }
     if (estado) {
       query = query.eq('estado', estado)

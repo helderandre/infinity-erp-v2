@@ -81,10 +81,10 @@ export async function GET(
       .from('negocios')
       .select(
         `id, lead_id, entry_id, pipeline_stage_id, tipo, expected_value, probability_pct,
-         stage_entered_at, won_date, lost_date, orcamento, orcamento_max, tipo_imovel,
+         stage_entered_at, won_date, lost_date, lost_reason, orcamento, orcamento_max, tipo_imovel,
          preco_venda, renda_pretendida, renda_max_mensal,
          quartos_min, localizacao, has_referral, referral_pct, referral_type, referral_side,
-         referrer_consultant_id, assigned_consultant_id,
+         referrer_consultant_id, assigned_consultant_id, deal_group_id, depends_on_negocio_id,
          temperatura, observacoes, origem,
          leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
          dev_users!assigned_consultant_id(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
@@ -179,6 +179,31 @@ export async function GET(
       const leads = shouldRedact && n.leads ? redactLead(n.leads as Record<string, unknown>) : n.leads
       return { ...n, leads, days_in_stage, sla_overdue, _type: 'negocio' as const }
     })
+
+    // ── 3b. Resolve linked deals (compra depende da venda) ────────────────
+    // The sibling lives in a different pipeline board, so attach its id to
+    // each card to let the 🔗 badge deep-link straight to it.
+    const groupIds = Array.from(
+      new Set(enrichedNegocios.map((n: any) => n.deal_group_id).filter(Boolean)),
+    ) as string[]
+    if (groupIds.length > 0) {
+      const { data: groupMembers } = await supabase
+        .from('negocios')
+        .select('id, deal_group_id, tipo')
+        .in('deal_group_id', groupIds)
+      const byGroup: Record<string, { id: string; tipo: string | null }[]> = {}
+      for (const m of (groupMembers ?? []) as any[]) {
+        ;(byGroup[m.deal_group_id] ??= []).push({ id: m.id, tipo: m.tipo })
+      }
+      for (const n of enrichedNegocios as any[]) {
+        if (!n.deal_group_id) continue
+        const sibling = (byGroup[n.deal_group_id] || []).find((m) => m.id !== n.id)
+        if (sibling) {
+          n.linked_deal_id = sibling.id
+          n.linked_deal_tipo = sibling.tipo
+        }
+      }
+    }
 
     // ── 4. Build columns (negocios only) ─────────────────────────────────
 

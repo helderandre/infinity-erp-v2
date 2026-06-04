@@ -19,9 +19,10 @@ import {
 } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import {
-  Loader2, Sparkles, ArrowRight, History, Mic, MicOff, Phone, Mail,
+  Loader2, Sparkles, ArrowRight, History, Mic, MicOff, Phone, Mail, Home, Link2, Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -34,6 +35,12 @@ interface QualifyEntryDialogProps {
   pipelineType?: string
   targetStageId?: string
   onQualified?: () => void
+  /**
+   * Optional handler to open the generated opportunity. When provided, the
+   * "Ver oportunidade" toast action calls it (e.g. to open the négocio sheet
+   * in place) instead of navigating to the contact's négocio page.
+   */
+  onViewOpportunity?: (negocioId: string, leadId: string) => void
 }
 
 const SECTOR_TO_PIPELINE: Record<string, string> = {
@@ -68,6 +75,81 @@ const TIPO_LABELS: Record<string, string> = {
 }
 
 
+// Internal/plumbing keys in form_data we don't feed to the extractor.
+const HIDDEN_FORM_KEYS = new Set([
+  'leadgen_id', 'form_id', 'meta_campaign_id', 'meta_adset_id', 'meta_ad_id',
+  'property_id', 'property_external_ref', 'portal', 'raw_fields',
+])
+
+/** Flatten an entry's (unstructured, source-dependent) form_data into a plain
+ *  text blob the cheap extractor can read. Handles Meta's `raw_fields` (object
+ *  or array of {name, values}) and flat website/portal payloads. */
+function buildFormDataText(formData: any, notes?: string | null): string {
+  const lines: string[] = []
+  const add = (k: string, v: any) => {
+    if (v == null) return
+    if (Array.isArray(v)) {
+      const s = v.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ')
+      if (s) lines.push(`${k}: ${s}`)
+      return
+    }
+    if (typeof v === 'object') return
+    const s = String(v).trim()
+    if (s) lines.push(`${k}: ${s}`)
+  }
+  if (formData && typeof formData === 'object') {
+    const raw = formData.raw_fields
+    if (Array.isArray(raw)) {
+      for (const f of raw) {
+        const name = f?.name ?? f?.field ?? f?.key
+        const value = f?.values ?? f?.value
+        if (name) add(String(name), value)
+      }
+    } else if (raw && typeof raw === 'object') {
+      for (const [k, v] of Object.entries(raw)) add(k, v)
+    }
+    for (const [k, v] of Object.entries(formData)) {
+      if (HIDDEN_FORM_KEYS.has(k)) continue
+      add(k, v)
+    }
+  }
+  if (notes) lines.push(`Notas: ${notes}`)
+  return lines.join('\n').trim()
+}
+
+// comprador <-> vendedor, arrendatario <-> arrendador
+const OPPOSITE_PIPELINE: Record<string, string> = {
+  comprador: 'vendedor',
+  vendedor: 'comprador',
+  arrendatario: 'arrendador',
+  arrendador: 'arrendatario',
+}
+
+/** Detects the Meta/portal "a compra depende da venda?" question being
+ *  answered affirmatively, so we can offer to spawn the linked sale deal. */
+function detectCompraDependeVenda(formData: any): boolean {
+  if (!formData || typeof formData !== 'object') return false
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const affirmative = (v: any) => {
+    const s = norm(String(Array.isArray(v) ? v.join(' ') : v ?? '')).trim()
+    return /\b(sim|yes|true|verdadeiro)\b/.test(s) || s === 's' || s === '1'
+  }
+  const pairs: Array<[string, any]> = []
+  const raw = formData.raw_fields
+  if (Array.isArray(raw)) {
+    for (const f of raw) { const k = f?.name ?? f?.field ?? f?.key; if (k) pairs.push([String(k), f?.values ?? f?.value]) }
+  } else if (raw && typeof raw === 'object') {
+    for (const [k, v] of Object.entries(raw)) pairs.push([k, v])
+  }
+  for (const [k, v] of Object.entries(formData)) pairs.push([k, v])
+  for (const [k, v] of pairs) {
+    const key = norm(k)
+    if (key.includes('depende') && (key.includes('venda') || key.includes('vender')) && affirmative(v)) return true
+    if (key.replace(/[^a-z]/g, '').includes('compradepende') && affirmative(v)) return true
+  }
+  return false
+}
+
 const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
   meta_ads: { label: 'Meta Ads', class: 'bg-blue-500/10 text-blue-600' },
   google_ads: { label: 'Google Ads', class: 'bg-red-500/10 text-red-600' },
@@ -88,7 +170,9 @@ export function QualifyEntryDialog({
   pipelineType: pipelineTypeProp,
   targetStageId,
   onQualified,
+  onViewOpportunity,
 }: QualifyEntryDialogProps) {
+  const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [stages, setStages] = useState<any[]>([])
   const [contactHistory, setContactHistory] = useState<any[] | null>(null)
@@ -100,6 +184,9 @@ export function QualifyEntryDialog({
   const [isProcessing, setIsProcessing] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  // Tracks the entry whose form_data we already auto-extracted, so the AI
+  // pre-fill runs at most once per entry.
+  const prefilledEntryRef = useRef<string | null>(null)
 
   const detectedPipeline = entry?.sector ? SECTOR_TO_PIPELINE[entry.sector] : null
   const pipelineType = pipelineTypeProp || detectedPipeline || 'comprador'
@@ -122,6 +209,17 @@ export function QualifyEntryDialog({
     observacoes: '',
   })
 
+  // Linked opportunity ("compra depende da venda"): when on, a second négocio
+  // for the opposite side is created and tied to this one via a shared group.
+  const [linkedEnabled, setLinkedEnabled] = useState(false)
+  const [linkedForm, setLinkedForm] = useState({
+    localizacao: '',
+    tipo_imovel: '',
+    valor: '',
+    quartos_min: '',
+    observacoes: '',
+  })
+
   useEffect(() => {
     if (entry) {
       const pt = entry.sector ? SECTOR_TO_PIPELINE[entry.sector] : pipelineType
@@ -140,6 +238,12 @@ export function QualifyEntryDialog({
         orcamento_max: '',
         observacoes: entry.notes || '',
       })
+      setLinkedForm({ localizacao: '', tipo_imovel: '', valor: '', quartos_min: '', observacoes: '' })
+      // Pre-arm the linked sale deal when the form said the purchase depends on
+      // a sale. Only meaningful for sale-type business (not arrendamento).
+      setLinkedEnabled(
+        resolvedBT === 'Venda' && detectCompraDependeVenda((entry as { form_data?: any }).form_data),
+      )
       setContactHistory(null)
       setAiText('')
     }
@@ -184,6 +288,31 @@ export function QualifyEntryDialog({
       observacoes: fields.observacoes ? (p.observacoes ? p.observacoes + '\n' + fields.observacoes : fields.observacoes) : p.observacoes,
     }))
   }
+
+  // ── AI: auto pre-fill from the entry's original form ──────────────
+  // Forms vary by source (Meta Ads / portal / website) and aren't structured,
+  // so a cheap extraction pass beats making the consultant re-type location /
+  // budget / property type that the lead already gave. Runs once per entry on
+  // open; only fills fields the consultant hasn't touched (applyExtracted keeps
+  // existing values), never the perspective/business_type (sector-derived).
+  useEffect(() => {
+    if (!open || !entry?.id) return
+    if (prefilledEntryRef.current === entry.id) return
+    prefilledEntryRef.current = entry.id
+    const text = buildFormDataText(entry.form_data, entry.notes)
+    if (!text) return
+    setIsProcessing(true)
+    fetch('/api/leads/extract-from-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.fields) applyExtracted(d.fields) })
+      .catch(() => {})
+      .finally(() => setIsProcessing(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, entry?.id])
 
   const startRecording = useCallback(async () => {
     try {
@@ -238,13 +367,65 @@ export function QualifyEntryDialog({
   const contactPhone = contact?.telemovel || entry?.raw_phone
   const contactEmail = contact?.email || entry?.raw_email
 
+  // Whether the "compra depende da venda" linked deal is applicable + active.
+  const linkedApplicable = form.business_type === 'Venda'
+    && (pipelineType === 'comprador' || pipelineType === 'vendedor')
+  const linkedActive = linkedApplicable && linkedEnabled
+
+  // Maps a side's generic value onto the semantically correct négocio columns.
+  const buildPayload = (opts: {
+    tipo: string; business_type: string; pipeline: string; stageId: string
+    localizacao?: string; tipo_imovel?: string; valor?: string; valorMax?: string
+    quartos?: string; observacoes?: string
+  }) => {
+    const p: Record<string, any> = {
+      lead_id: contactId,
+      entry_id: entry.id,
+      business_type: opts.business_type,
+      tipo: opts.tipo,
+      pipeline_stage_id: opts.stageId,
+      assigned_consultant_id: entry.assigned_consultant?.id || contact?.agent_id || null,
+      observacoes: opts.observacoes || null,
+    }
+    if (opts.tipo_imovel) p.tipo_imovel = opts.tipo_imovel
+    if (opts.localizacao) p.localizacao = opts.localizacao
+    if (opts.quartos) p.quartos_min = parseInt(opts.quartos)
+    const v = opts.valor ? parseFloat(opts.valor) : null
+    const vMax = opts.valorMax ? parseFloat(opts.valorMax) : null
+    if (v !== null && Number.isFinite(v)) {
+      p.expected_value = v
+      p.orcamento = v
+      if (opts.pipeline === 'vendedor') p.preco_venda = v
+      else if (opts.pipeline === 'arrendador') p.renda_pretendida = v
+      else if (opts.pipeline === 'arrendatario') p.renda_max_mensal = v
+    }
+    if (vMax !== null && Number.isFinite(vMax)) {
+      p.orcamento_max = vMax
+      if (opts.pipeline === 'arrendatario') p.renda_max_mensal = vMax
+    }
+    return p
+  }
+
+  const postNegocio = async (payload: Record<string, any>) => {
+    const res = await fetch('/api/crm/negocios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}))
+      throw new Error(e.error || 'Erro ao criar negócio')
+    }
+    return res.json()
+  }
+
   const handleSubmit = async () => {
     if (!contactId) {
       toast.error('Contacto não encontrado')
       return
     }
 
-    // Mandatory negócio fields — same rule as the CRM "Novo negócio" dialog.
+    // Mandatory négocio fields — same rule as the CRM "Novo negócio" dialog.
     if (!form.localizacao.trim()) {
       toast.error('Localização é obrigatória')
       return
@@ -267,6 +448,19 @@ export function QualifyEntryDialog({
       }
     }
 
+    // Linked deal validation.
+    if (linkedActive) {
+      if (!linkedForm.localizacao.trim()) {
+        toast.error('Localização do negócio ligado é obrigatória')
+        return
+      }
+      const lv = parseFloat(linkedForm.valor)
+      if (!linkedForm.valor || !Number.isFinite(lv) || lv <= 0) {
+        toast.error('Valor do negócio ligado é obrigatório')
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
       const stageId = targetStageId || stages[0]?.id
@@ -275,46 +469,52 @@ export function QualifyEntryDialog({
         return
       }
 
-      const payload: Record<string, any> = {
-        lead_id: contactId,
-        entry_id: entry.id,
-        business_type: form.business_type,
-        tipo: form.tipo,
-        pipeline_stage_id: stageId,
-        assigned_consultant_id: entry.assigned_consultant?.id || contact?.agent_id || null,
-        observacoes: form.observacoes || null,
+      const primaryOpts = {
+        tipo: form.tipo, business_type: form.business_type, pipeline: pipelineType, stageId,
+        localizacao: form.localizacao, tipo_imovel: form.tipo_imovel,
+        valor: form.orcamento, valorMax: form.orcamento_max, quartos: form.quartos_min,
+        observacoes: form.observacoes,
       }
 
-      if (form.tipo_imovel) payload.tipo_imovel = form.tipo_imovel
-      if (form.localizacao) payload.localizacao = form.localizacao
-      if (form.quartos_min) payload.quartos_min = parseInt(form.quartos_min)
+      let primaryNegocioId: string | undefined
 
-      // Map the generic "orçamento" field onto the semantically correct
-      // column for each pipeline. expected_value is always set so the kanban
-      // forecast totals work regardless.
-      const orcVal = form.orcamento ? parseFloat(form.orcamento) : null
-      const orcMaxVal = form.orcamento_max ? parseFloat(form.orcamento_max) : null
-      if (orcVal !== null) {
-        payload.expected_value = orcVal
-        payload.orcamento = orcVal
-        if (pipelineType === 'vendedor') payload.preco_venda = orcVal
-        else if (pipelineType === 'arrendador') payload.renda_pretendida = orcVal
-        else if (pipelineType === 'arrendatario') payload.renda_max_mensal = orcVal
-      }
-      if (orcMaxVal !== null) {
-        payload.orcamento_max = orcMaxVal
-        if (pipelineType === 'arrendatario') payload.renda_max_mensal = orcMaxVal
-      }
+      if (!linkedActive) {
+        // ── Single deal (today's behaviour) ──
+        const created = await postNegocio(buildPayload(primaryOpts))
+        primaryNegocioId = created?.id
+      } else {
+        // ── Two linked deals: a sale + a dependent purchase ──
+        const secPipeline = OPPOSITE_PIPELINE[pipelineType] // comprador<->vendedor
+        const secTipo = secPipeline === 'vendedor' ? 'Vendedor' : 'Comprador'
+        const secStagesRaw = await fetch(`/api/crm/pipeline-stages?pipeline_type=${secPipeline}`)
+          .then((r) => r.json()).catch(() => null)
+        const secStageId = ((secStagesRaw?.data || secStagesRaw || []) as any[])
+          .filter((s) => !s.is_terminal)
+          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))[0]?.id
+        if (!secStageId) {
+          toast.error('Fase do pipeline ligado não encontrada')
+          return
+        }
+        const secondaryOpts = {
+          tipo: secTipo, business_type: 'Venda', pipeline: secPipeline, stageId: secStageId,
+          localizacao: linkedForm.localizacao, tipo_imovel: linkedForm.tipo_imovel,
+          valor: linkedForm.valor,
+          valorMax: secPipeline === 'comprador' ? linkedForm.valor : undefined,
+          quartos: linkedForm.quartos_min, observacoes: linkedForm.observacoes,
+        }
 
-      const res = await fetch('/api/crm/negocios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
+        // The purchase depends on the sale → create the sale first to point at.
+        const groupId = crypto.randomUUID()
+        const saleOpts = primaryOpts.pipeline === 'vendedor' ? primaryOpts : secondaryOpts
+        const buyOpts = primaryOpts.pipeline === 'comprador' ? primaryOpts : secondaryOpts
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao qualificar')
+        const sale = await postNegocio({ ...buildPayload(saleOpts), deal_group_id: groupId })
+        const buy = await postNegocio({
+          ...buildPayload(buyOpts),
+          deal_group_id: groupId,
+          depends_on_negocio_id: sale.id,
+        })
+        primaryNegocioId = pipelineType === 'vendedor' ? sale.id : buy.id
       }
 
       await fetch(`/api/lead-entries/${entry.id}`, {
@@ -323,7 +523,24 @@ export function QualifyEntryDialog({
         body: JSON.stringify({ status: 'converted' }),
       }).catch(() => {})
 
-      toast.success('Lead qualificado — negócio criado no pipeline')
+      // Deep-link to the generated opportunity so the consultant can keep
+      // accompanying it — the qualified lead otherwise just disappears.
+      const successMsg = linkedActive
+        ? 'Lead qualificado — 2 negócios ligados criados'
+        : 'Lead qualificado — negócio criado'
+      if (primaryNegocioId) {
+        toast.success(successMsg, {
+          action: {
+            label: 'Ver oportunidade',
+            onClick: () =>
+              onViewOpportunity
+                ? onViewOpportunity(primaryNegocioId!, contactId)
+                : router.push(`/dashboard/leads/${contactId}/negocios/${primaryNegocioId}`),
+          },
+        })
+      } else {
+        toast.success(successMsg)
+      }
       // Invalida listas (kanban, lead-entries inbox, contactos, négocios)
       // — qualquer vista subscrita ao invalidator vai re-fetch silenciosa.
       // Ver lib/crm/invalidator.ts.
@@ -403,6 +620,28 @@ export function QualifyEntryDialog({
                 <Sparkles className="h-2.5 w-2.5" />Ref.{entry.referral_pct ? ` ${entry.referral_pct}%` : ''}
               </span>
             )}
+            {(entry?.property_external_ref || entry?.property_id) && (() => {
+              // The entry's property is only carried into the négocio for
+              // buyer-side perspectives. For seller/landlord it stays mere
+              // campaign attribution, so the chip says so to avoid implying a
+              // wrong association.
+              const buyerSide = form.tipo === 'Comprador' || form.tipo === 'Arrendatário'
+              return (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] text-sky-300 bg-sky-500/15 rounded-full px-2 py-0.5 max-w-[200px]"
+                  title={
+                    buyerSide
+                      ? 'Imóvel de origem deste lead — será associado ao negócio.'
+                      : 'Anúncio de origem do lead — não associado a um negócio de venda.'
+                  }
+                >
+                  <Home className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate">
+                    {buyerSide ? '' : 'Anúncio: '}{entry.property_external_ref || 'Imóvel'}
+                  </span>
+                </span>
+              )
+            })()}
           </div>
 
           {isRecording && (
@@ -573,6 +812,63 @@ export function QualifyEntryDialog({
               className="rounded-lg mt-1 text-xs"
             />
           </div>
+
+          {/* Compra depende de venda — spawn a linked deal for the other side. */}
+          {linkedApplicable && (
+            <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 space-y-3">
+              <button
+                type="button"
+                onClick={() => setLinkedEnabled((v) => !v)}
+                className="flex w-full items-start gap-2 text-left"
+              >
+                <span
+                  className={cn(
+                    'mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+                    linkedEnabled ? 'bg-sky-600 border-sky-600 text-white' : 'border-muted-foreground/40',
+                  )}
+                >
+                  {linkedEnabled && <Check className="h-3 w-3" strokeWidth={3} />}
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 text-[12px] font-medium">
+                    <Link2 className="h-3.5 w-3.5 text-sky-600 shrink-0" /> Compra depende de venda
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground mt-0.5">
+                    Cria também o negócio {pipelineType === 'comprador' ? 'de venda' : 'de compra'} e liga os dois.
+                  </span>
+                </span>
+              </button>
+
+              {linkedEnabled && (
+                <div className="space-y-2.5 pt-0.5">
+                  <p className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 uppercase tracking-wide">
+                    {pipelineType === 'comprador' ? 'Imóvel que o cliente vai vender' : 'Imóvel que o cliente quer comprar'}
+                  </p>
+                  <Input
+                    placeholder="Localização"
+                    value={linkedForm.localizacao}
+                    onChange={(e) => setLinkedForm((p) => ({ ...p, localizacao: e.target.value }))}
+                    className="rounded-lg h-9 text-xs"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder={pipelineType === 'comprador' ? 'Preço venda €' : 'Orçamento €'}
+                      value={linkedForm.valor}
+                      onChange={(e) => setLinkedForm((p) => ({ ...p, valor: e.target.value }))}
+                      className="rounded-lg h-9 text-xs"
+                    />
+                    <Input
+                      placeholder="Tipo (ex: T2)"
+                      value={linkedForm.tipo_imovel}
+                      onChange={(e) => setLinkedForm((p) => ({ ...p, tipo_imovel: e.target.value }))}
+                      className="rounded-lg h-9 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ─── Footer ─── */}
@@ -589,7 +885,7 @@ export function QualifyEntryDialog({
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 shadow-sm transition-all duration-200 disabled:opacity-50"
           >
             {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-            Qualificar
+            {linkedActive ? 'Qualificar (2 negócios)' : 'Qualificar'}
           </button>
         </div>
       </DialogContent>

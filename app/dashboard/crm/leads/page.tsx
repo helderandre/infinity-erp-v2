@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Facebook,
   PieChart,
@@ -22,12 +23,18 @@ import {
   Sparkles,
   Phone,
   Check,
+  Settings,
+  Upload,
 } from 'lucide-react'
 
 import { LeadsKanban } from '@/components/leads/pipeline/leads-kanban'
 import { MetaTab } from '@/components/leads/pipeline/meta-tab'
 import { DistribuicaoTab } from '@/components/leads/pipeline/distribuicao-tab'
+import { GestaoLeadsSheet } from '@/components/crm/gestao-leads-sheet'
+import { BulkImportEntriesDialog } from '@/components/leads/bulk-import-entries-dialog'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { usePermissions } from '@/hooks/use-permissions'
 import { subscribe } from '@/lib/crm/invalidator'
 import { cn } from '@/lib/utils'
 
@@ -41,9 +48,27 @@ const SUB_TABS: { key: SubTab; label: string; Icon: typeof Target }[] = [
 ]
 
 export default function LeadsPipelinePage() {
+  const searchParams = useSearchParams()
+  const { hasPermission } = usePermissions()
+  const canManageLeads = hasPermission('leads_management')
+
   const [subTab, setSubTab] = useState<SubTab>('pipeline')
   const [view, setView] = useState<View>('minhas')
   const [counts, setCounts] = useState<{ novo: number; contactado: number; qualificado: number } | null>(null)
+  const [gestaoOpen, setGestaoOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+
+  // Deep-link: ?gestao=por_atribuir|overdue|consultor auto-opens the
+  // management sheet (preserves the old /crm/gestora?tab= push targets).
+  const gestaoParam = searchParams.get('gestao')
+  useEffect(() => {
+    if (gestaoParam && canManageLeads) setGestaoOpen(true)
+  }, [gestaoParam, canManageLeads])
+
+  const gestaoInitialTab =
+    gestaoParam === 'overdue' || gestaoParam === 'consultor'
+      ? gestaoParam
+      : 'por_atribuir'
 
   const loadCounts = useCallback(async () => {
     try {
@@ -78,6 +103,29 @@ export default function LeadsPipelinePage() {
       {/* Hero — black card mirroring /dashboard/crm (Oportunidades). */}
       <div className="relative overflow-hidden rounded-xl bg-neutral-900">
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/60 via-neutral-900/80 to-neutral-950" />
+
+        {/* Top-right actions — Importar + Gestão de Leads (management only). */}
+        {canManageLeads && (
+          <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+            <Button
+              size="sm"
+              className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+              onClick={() => setImportOpen(true)}
+            >
+              <Upload className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Importar</span>
+            </Button>
+            <Button
+              size="sm"
+              className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
+              onClick={() => setGestaoOpen(true)}
+              aria-label="Gestão de Leads"
+            >
+              <Settings className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Gestão</span>
+            </Button>
+          </div>
+        )}
         <div className="relative z-10 px-8 pt-6 pb-5 sm:px-10 sm:pt-8 sm:pb-6 space-y-4">
           {/* 1. Pipeline / Meta / Distribuição — primary pill tabs. */}
           <div className="flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto">
@@ -163,6 +211,22 @@ export default function LeadsPipelinePage() {
       {subTab === 'pipeline' && <LeadsKanban view={view} onViewChange={setView} />}
       {subTab === 'meta' && <MetaTab />}
       {subTab === 'distribuicao' && <DistribuicaoTab />}
+
+      {/* Gestão de Leads — management sheet (replaces the old /crm/gestora page). */}
+      {canManageLeads && (
+        <>
+          <GestaoLeadsSheet
+            open={gestaoOpen}
+            onOpenChange={setGestaoOpen}
+            initialTab={gestaoInitialTab}
+          />
+          <BulkImportEntriesDialog
+            open={importOpen}
+            onOpenChange={setImportOpen}
+            onComplete={() => loadCounts()}
+          />
+        </>
+      )}
     </div>
   )
 }

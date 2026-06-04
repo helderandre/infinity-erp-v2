@@ -26,7 +26,7 @@ export async function GET(
     // Buscar dados do negocio + lead
     const { data: negocio, error } = await supabase
       .from('negocios')
-      .select('*, lead:leads(nome, email, telemovel)')
+      .select('*, lead:leads!negocios_lead_id_fkey(nome, email, telemovel)')
       .eq('id', id)
       .single()
 

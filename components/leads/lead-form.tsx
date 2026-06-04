@@ -276,7 +276,10 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
         telemovel: form.telemovel || null,
         origem: form.origem || null,
         observacoes: form.observacoes || null,
-        agent_id: form.agent_id || null,
+        // Fallback: regra do produto = leads nunca ficam sem consultor.
+        // Se `agent_id` ficou vazio (race com o useEffect default), usa o
+        // utilizador autenticado actual.
+        agent_id: form.agent_id || user?.id || null,
         estado: 'Contactado',
       }
 
@@ -319,7 +322,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
           business_type: negocioBusinessType,
           tipo: negocioTipo,
           pipeline_stage_id: stageId,
-          assigned_consultant_id: form.agent_id || null,
+          assigned_consultant_id: form.agent_id || user?.id || null,
         }
         if (negocioFields.tipo_imovel) negPayload.tipo_imovel = negocioFields.tipo_imovel
         if (negocioZonas.length > 0) negPayload.zonas = negocioZonas

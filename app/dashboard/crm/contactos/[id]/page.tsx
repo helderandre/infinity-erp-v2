@@ -36,6 +36,7 @@ import { ContactNegociosList } from '@/components/crm/contact-negocios-list'
 import { AddActivityDialog } from '@/components/crm/add-activity-dialog'
 import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
 import { ObservationsButton } from '@/components/crm/observations-dialog'
+import { ContactRelationships } from '@/components/crm/contact-relationships'
 import { TemperaturaSelector, type Temperatura } from '@/components/negocios/temperatura-selector'
 import type { LeadsContactWithRelations, LeadsEntryWithRelations } from '@/types/leads-crm'
 
@@ -436,6 +437,9 @@ export default function ContactDetailPage() {
               }
             />
           </InfoCard>
+
+          {/* Relações — cônjuge / parceiro / familiar */}
+          <ContactRelationships contactId={id} />
 
           {/* Company info */}
           {(contact.tem_empresa ?? contact.has_company) && (

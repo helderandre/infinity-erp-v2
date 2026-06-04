@@ -13,6 +13,10 @@ import { ActivityStrip } from '@/components/negocios/dashboard/activity-strip'
 import { PorFazerPanel, mergeActivitiesAndCompletedTasks } from '@/components/crm/negocio-inicio-extras'
 import { useEffect } from 'react'
 
+// Canonical "simple" button — outline pill, neutral surface, icon + label.
+const PILL =
+  'flex w-full items-center justify-center gap-1.5 h-9 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors'
+
 interface NegocioAcoesSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -72,56 +76,34 @@ export function NegocioAcoesSheet({
         </SheetHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Quick actions — superfície neutra translúcida + pílula de ícone
-              com cor subtil. Mesma linguagem dos 3 botões principais. */}
+          {/* Quick actions — simple outline pills (Tarefa · Evento · Nota). */}
           <div className="grid grid-cols-3 gap-2.5">
-            <button
-              type="button"
-              onClick={onCreateTask}
-              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
-              title="Criar tarefa para este negócio"
-            >
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-teal-400/25 to-teal-600/5 ring-1 ring-inset ring-teal-500/25 group-hover:ring-teal-500/35 transition-colors">
-                <CheckSquare className="h-3.5 w-3.5 text-teal-700 dark:text-teal-300" strokeWidth={2.25} />
-              </span>
-              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Tarefa</span>
+            <button type="button" onClick={onCreateTask} className={PILL} title="Criar tarefa para este negócio">
+              <CheckSquare className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+              Tarefa
             </button>
-            <button
-              type="button"
-              onClick={onCreateEvent}
-              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
-              title="Criar evento (reunião, visita, follow-up)"
-            >
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400/25 to-indigo-600/5 ring-1 ring-inset ring-indigo-500/25 group-hover:ring-indigo-500/35 transition-colors">
-                <CalendarPlus className="h-3.5 w-3.5 text-indigo-700 dark:text-indigo-300" strokeWidth={2.25} />
-              </span>
-              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Evento</span>
+            <button type="button" onClick={onCreateEvent} className={PILL} title="Criar evento (reunião, visita, follow-up)">
+              <CalendarPlus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              Evento
             </button>
-            <button
-              type="button"
-              onClick={onCreateNote}
-              className="group inline-flex flex-col items-center justify-center gap-1.5 h-[72px] rounded-2xl border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-background/75 hover:shadow-[0_8px_22px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.14)] active:scale-[0.98] transition-all duration-200"
-              title="Nota rápida"
-            >
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-gradient-to-br from-amber-400/25 to-amber-600/5 ring-1 ring-inset ring-amber-500/30 group-hover:ring-amber-500/40 transition-colors">
-                <StickyNote className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" strokeWidth={2.25} />
-              </span>
-              <span className="text-[11px] font-medium tracking-tight text-foreground/85">Nota</span>
+            <button type="button" onClick={onCreateNote} className={PILL} title="Nota rápida">
+              <StickyNote className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              Nota
             </button>
           </div>
 
-          {/* Tabbed Por fazer / Atividade recente — pill picker glassmórfico */}
+          {/* Tabbed Por fazer / Atividade recente */}
           <Tabs defaultValue="por-fazer" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 rounded-full border border-border/40 bg-background/55 supports-[backdrop-filter]:bg-background/35 backdrop-blur-2xl shadow-[0_4px_14px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.1)] p-0.5 h-10">
+            <TabsList className="grid w-full grid-cols-2 rounded-full border border-border/50 bg-muted/50 p-0.5 h-10">
               <TabsTrigger
                 value="por-fazer"
-                className="rounded-full text-xs font-medium tracking-tight data-[state=active]:bg-background/95 data-[state=active]:shadow-sm transition-all"
+                className="rounded-full text-xs font-medium tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
               >
                 Por fazer
               </TabsTrigger>
               <TabsTrigger
                 value="atividade"
-                className="rounded-full text-xs font-medium tracking-tight data-[state=active]:bg-background/95 data-[state=active]:shadow-sm transition-all"
+                className="rounded-full text-xs font-medium tracking-tight data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
               >
                 Atividade
               </TabsTrigger>

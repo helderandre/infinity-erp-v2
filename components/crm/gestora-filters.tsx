@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { format, isValid, parseISO, startOfDay, subDays } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import { CalendarIcon, Search, X } from 'lucide-react'
+import { CalendarIcon, Search, X, SlidersHorizontal } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -192,6 +192,15 @@ export function GestoraFilters({
     !!value.overdueBucket ||
     !!value.sector
 
+  // Filters behind the popover (everything except the inline search box).
+  const hasPopoverActive =
+    !!value.agentId ||
+    value.period !== 'all' ||
+    !!value.source ||
+    !!value.campaignId ||
+    !!value.overdueBucket ||
+    !!value.sector
+
   const handlePeriodChange = (preset: PeriodPreset) => {
     if (preset === 'all') {
       onChange({ ...value, period: 'all', from: null, to: null })
@@ -206,35 +215,15 @@ export function GestoraFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Consultor — first as requested */}
-      {showAgent && (
-        <Select
-          value={value.agentId || 'all'}
-          onValueChange={(v) => onChange({ ...value, agentId: v === 'all' ? '' : v })}
-        >
-          <SelectTrigger className="h-8 rounded-full text-xs w-[180px]">
-            <SelectValue placeholder="Consultor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os consultores</SelectItem>
-            {agents.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {/* Pesquisa */}
-      <div className="relative">
+    <div className="flex items-center gap-2">
+      {/* Pesquisa — sempre visível */}
+      <div className="relative flex-1 min-w-[120px] sm:w-[220px] sm:flex-initial">
         <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={qLocal}
           onChange={(e) => setQLocal(e.target.value)}
-          placeholder="Nome, email, telemóvel..."
-          className="h-8 w-[220px] rounded-full pl-8 text-xs"
+          placeholder="Pesquisar..."
+          className="h-8 w-full rounded-full pl-8 pr-7 text-xs"
         />
         {qLocal && (
           <button
@@ -248,207 +237,241 @@ export function GestoraFilters({
         )}
       </div>
 
-      {/* Período: preset + custom range */}
+      {/* Filtros — um único botão que abre o popover com todos os filtros */}
       <Popover>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn(
-              'h-8 rounded-full text-xs',
-              value.period !== 'all' && 'border-primary/40 bg-primary/5'
-            )}
+          <button
+            className="relative shrink-0 inline-flex items-center justify-center sm:gap-1.5 h-8 w-8 sm:w-auto sm:px-3 rounded-full bg-card/90 backdrop-blur-sm border border-border/30 shadow-sm text-xs text-muted-foreground hover:bg-card transition-colors"
+            aria-label="Filtros"
           >
-            <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-            {periodLabel}
-          </Button>
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Filtros</span>
+            {hasPopoverActive && (
+              <span className="absolute sm:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background sm:ring-0" />
+            )}
+          </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-3" align="start">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  { value: 'all', label: 'Qualquer período' },
-                  { value: 'today', label: 'Hoje' },
-                  { value: '7d', label: 'Últimos 7 dias' },
-                  { value: '30d', label: 'Últimos 30 dias' },
-                  { value: 'custom', label: 'Personalizado' },
-                ] as { value: PeriodPreset; label: string }[]
-              ).map((p) => (
-                <Button
-                  key={p.value}
-                  size="sm"
-                  variant={value.period === p.value ? 'default' : 'outline'}
-                  className="h-7 rounded-full text-[11px]"
-                  onClick={() => handlePeriodChange(p.value)}
-                >
-                  {p.label}
-                </Button>
-              ))}
+        <PopoverContent align="end" className="w-72 p-3 space-y-3">
+          {/* Consultor */}
+          {showAgent && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
+              <Select
+                value={value.agentId || 'all'}
+                onValueChange={(v) => onChange({ ...value, agentId: v === 'all' ? '' : v })}
+              >
+                <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                  <SelectValue placeholder="Consultor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os consultores</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {value.period === 'custom' && (
-              <div className="border-t pt-3 mt-1">
-                <Calendar
-                  mode="range"
-                  selected={{
-                    from: value.from && isValid(parseISO(value.from)) ? parseISO(value.from) : undefined,
-                    to: value.to && isValid(parseISO(value.to)) ? parseISO(value.to) : undefined,
-                  }}
-                  onSelect={(range) => {
-                    onChange({
-                      ...value,
-                      period: 'custom',
-                      from: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
-                      to: range?.to ? format(range.to, 'yyyy-MM-dd') : null,
-                    })
-                  }}
-                  locale={pt}
-                  numberOfMonths={2}
-                  captionLayout="dropdown"
-                  fromYear={2020}
-                  toYear={new Date().getFullYear() + 1}
-                />
-              </div>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
+          )}
 
-      {/* Origem */}
-      <Select
-        value={value.source || 'all'}
-        onValueChange={(v) => onChange({ ...value, source: v === 'all' ? '' : v })}
-      >
-        <SelectTrigger className="h-8 rounded-full text-xs w-[140px]">
-          <SelectValue placeholder="Origem" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas as origens</SelectItem>
-          {SOURCE_OPTIONS.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Campanha / Anúncio — searchable combobox */}
-      <Popover open={campaignsOpen} onOpenChange={setCampaignsOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={campaignsOpen}
-            size="sm"
-            className={cn(
-              'h-8 rounded-full text-xs w-[200px] justify-between font-normal',
-              value.campaignId && 'border-primary/40 bg-primary/5'
-            )}
-          >
-            <span className="truncate">
-              {value.campaignId
-                ? campaigns.find((c) => c.id === value.campaignId)?.name ?? 'Campanha'
-                : campaignsLoading
-                  ? 'A carregar…'
-                  : 'Campanha'}
-            </span>
-            <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[260px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Pesquisar campanha..." className="h-8" />
-            <CommandList>
-              <CommandEmpty>Sem campanhas.</CommandEmpty>
-              <CommandGroup>
-                <CommandItem
-                  value="__all__ todas"
-                  onSelect={() => {
-                    onChange({ ...value, campaignId: '' })
-                    setCampaignsOpen(false)
-                  }}
+          {/* Período */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Período</p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    'h-9 w-full rounded-full text-xs justify-start font-normal',
+                    value.period !== 'all' && 'border-primary/40 bg-primary/5',
+                  )}
                 >
-                  <Check className={cn('mr-2 h-3.5 w-3.5', !value.campaignId ? 'opacity-100' : 'opacity-0')} />
-                  Todas as campanhas
-                </CommandItem>
-                {campaigns.map((c) => (
-                  <CommandItem
-                    key={c.id}
-                    value={`${c.name} ${c.platform ?? ''}`}
-                    onSelect={() => {
-                      onChange({ ...value, campaignId: c.id })
-                      setCampaignsOpen(false)
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-3.5 w-3.5',
-                        value.campaignId === c.id ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    <span className="truncate">{c.name}</span>
-                    {c.platform && (
-                      <span className="ml-auto text-[10px] text-muted-foreground capitalize">
-                        {c.platform}
-                      </span>
-                    )}
-                  </CommandItem>
+                  <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                  {periodLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" align="start">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      [
+                        { value: 'all', label: 'Qualquer período' },
+                        { value: 'today', label: 'Hoje' },
+                        { value: '7d', label: 'Últimos 7 dias' },
+                        { value: '30d', label: 'Últimos 30 dias' },
+                        { value: 'custom', label: 'Personalizado' },
+                      ] as { value: PeriodPreset; label: string }[]
+                    ).map((p) => (
+                      <Button
+                        key={p.value}
+                        size="sm"
+                        variant={value.period === p.value ? 'default' : 'outline'}
+                        className="h-7 rounded-full text-[11px]"
+                        onClick={() => handlePeriodChange(p.value)}
+                      >
+                        {p.label}
+                      </Button>
+                    ))}
+                  </div>
+                  {value.period === 'custom' && (
+                    <div className="border-t pt-3 mt-1">
+                      <Calendar
+                        mode="range"
+                        selected={{
+                          from: value.from && isValid(parseISO(value.from)) ? parseISO(value.from) : undefined,
+                          to: value.to && isValid(parseISO(value.to)) ? parseISO(value.to) : undefined,
+                        }}
+                        onSelect={(range) => {
+                          onChange({
+                            ...value,
+                            period: 'custom',
+                            from: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
+                            to: range?.to ? format(range.to, 'yyyy-MM-dd') : null,
+                          })
+                        }}
+                        locale={pt}
+                        numberOfMonths={1}
+                        captionLayout="dropdown"
+                        fromYear={2020}
+                        toYear={new Date().getFullYear() + 1}
+                      />
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Origem */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Origem</p>
+            <Select
+              value={value.source || 'all'}
+              onValueChange={(v) => onChange({ ...value, source: v === 'all' ? '' : v })}
+            >
+              <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                <SelectValue placeholder="Origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as origens</SelectItem>
+                {SOURCE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Campanha */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Campanha</p>
+            <Popover open={campaignsOpen} onOpenChange={setCampaignsOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={campaignsOpen}
+                  size="sm"
+                  className={cn(
+                    'h-9 w-full rounded-full text-xs justify-between font-normal',
+                    value.campaignId && 'border-primary/40 bg-primary/5',
+                  )}
+                >
+                  <span className="truncate">
+                    {value.campaignId
+                      ? campaigns.find((c) => c.id === value.campaignId)?.name ?? 'Campanha'
+                      : campaignsLoading
+                        ? 'A carregar…'
+                        : 'Todas as campanhas'}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Pesquisar campanha..." className="h-8" />
+                  <CommandList>
+                    <CommandEmpty>Sem campanhas.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="__all__ todas"
+                        onSelect={() => { onChange({ ...value, campaignId: '' }); setCampaignsOpen(false) }}
+                      >
+                        <Check className={cn('mr-2 h-3.5 w-3.5', !value.campaignId ? 'opacity-100' : 'opacity-0')} />
+                        Todas as campanhas
+                      </CommandItem>
+                      {campaigns.map((c) => (
+                        <CommandItem
+                          key={c.id}
+                          value={`${c.name} ${c.platform ?? ''}`}
+                          onSelect={() => { onChange({ ...value, campaignId: c.id }); setCampaignsOpen(false) }}
+                        >
+                          <Check className={cn('mr-2 h-3.5 w-3.5', value.campaignId === c.id ? 'opacity-100' : 'opacity-0')} />
+                          <span className="truncate">{c.name}</span>
+                          {c.platform && (
+                            <span className="ml-auto text-[10px] text-muted-foreground capitalize">{c.platform}</span>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Tempo em atraso */}
+          {showOverdueBucket && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Tempo em atraso</p>
+              <Select
+                value={value.overdueBucket || 'all'}
+                onValueChange={(v) => onChange({ ...value, overdueBucket: v === 'all' ? '' : v })}
+              >
+                <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                  <SelectValue placeholder="Tempo em atraso" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Qualquer atraso</SelectItem>
+                  {OVERDUE_BUCKETS.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Sector */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sector</p>
+            <Select
+              value={value.sector || 'all'}
+              onValueChange={(v) => onChange({ ...value, sector: v === 'all' ? '' : v })}
+            >
+              <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                <SelectValue placeholder="Sector" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os sectores</SelectItem>
+                {SECTOR_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {hasActive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-full rounded-full text-xs text-muted-foreground"
+              onClick={() => onChange(EMPTY_GESTORA_FILTERS)}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Limpar filtros
+            </Button>
+          )}
         </PopoverContent>
       </Popover>
-
-      {/* Tempo em atraso — only on Em Atraso tab */}
-      {showOverdueBucket && (
-        <Select
-          value={value.overdueBucket || 'all'}
-          onValueChange={(v) => onChange({ ...value, overdueBucket: v === 'all' ? '' : v })}
-        >
-          <SelectTrigger className="h-8 rounded-full text-xs w-[150px]">
-            <SelectValue placeholder="Tempo em atraso" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Qualquer atraso</SelectItem>
-            {OVERDUE_BUCKETS.map((b) => (
-              <SelectItem key={b.value} value={b.value}>
-                {b.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {/* Sector — pre-existing filter, kept after the user-requested ones */}
-      <Select
-        value={value.sector || 'all'}
-        onValueChange={(v) => onChange({ ...value, sector: v === 'all' ? '' : v })}
-      >
-        <SelectTrigger className="h-8 rounded-full text-xs w-[140px]">
-          <SelectValue placeholder="Sector" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todos os sectores</SelectItem>
-          {SECTOR_OPTIONS.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {hasActive && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 rounded-full text-xs text-muted-foreground"
-          onClick={() => onChange(EMPTY_GESTORA_FILTERS)}
-        >
-          <X className="h-3.5 w-3.5 mr-1" />
-          Limpar
-        </Button>
-      )}
     </div>
   )
 }

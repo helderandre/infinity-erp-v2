@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { cn } from '@/lib/utils'
 
 export interface PipelineStage {
@@ -48,7 +49,16 @@ interface EstadoPipelineSelectorProps {
   pipelineStageId: string | null | undefined
   /** Fallback if pipeline_stage_id not yet set: shown stage name (legacy estado) */
   fallbackLabel?: string | null
-  onChange: (stage: PipelineStage) => void
+  /**
+   * Disparado quando o utilizador escolhe uma fase. Quando a fase é terminal
+   * "lost", o selector abre primeiro o `LostReasonDialog` e só dispara o
+   * onChange (com `lostInfo` preenchido) após o utilizador confirmar o motivo
+   * + descrição. Para as restantes fases, `lostInfo` vem indefinido.
+   */
+  onChange: (
+    stage: PipelineStage,
+    lostInfo?: { reason: string; notes: string },
+  ) => void
 }
 
 export function EstadoPipelineSelector({
@@ -61,6 +71,9 @@ export function EstadoPipelineSelector({
   const pipelineType = tipoToPipelineType(tipo, perspective)
   const [stages, setStages] = useState<PipelineStage[]>([])
   const [loading, setLoading] = useState(false)
+  // Quando o utilizador escolhe a fase "Perdido", guardamos a stage aqui e
+  // abrimos o LostReasonDialog. O onChange só dispara depois de confirmar.
+  const [pendingLostStage, setPendingLostStage] = useState<PipelineStage | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -89,10 +102,17 @@ export function EstadoPipelineSelector({
 
   function handleChange(stageId: string) {
     const stage = stages.find((s) => s.id === stageId)
-    if (stage) onChange(stage)
+    if (!stage) return
+    // Fase terminal "Perdido" → pedir motivo + descrição antes de avançar.
+    if (stage.is_terminal && stage.terminal_type === 'lost') {
+      setPendingLostStage(stage)
+      return
+    }
+    onChange(stage)
   }
 
   return (
+    <>
     <Select value={pipelineStageId || undefined} onValueChange={handleChange}>
       <SelectTrigger
         className={cn(
@@ -124,5 +144,18 @@ export function EstadoPipelineSelector({
         ))}
       </SelectContent>
     </Select>
+
+    <LostReasonDialog
+      open={!!pendingLostStage}
+      onConfirm={(reason, notes) => {
+        const stage = pendingLostStage
+        setPendingLostStage(null)
+        // notes é sempre fornecido (o diálogo exige descrição), mas mantemos
+        // o fallback por segurança de tipos.
+        if (stage) onChange(stage, { reason, notes: notes ?? '' })
+      }}
+      onCancel={() => setPendingLostStage(null)}
+    />
+    </>
   )
 }

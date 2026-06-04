@@ -33,7 +33,7 @@ export async function POST(
     // Buscar dados actuais do negocio
     const { data: negocio, error: negError } = await supabase
       .from('negocios')
-      .select('*, lead:leads(nome)')
+      .select('*, lead:leads!negocios_lead_id_fkey(nome)')
       .eq('id', id)
       .single()
 

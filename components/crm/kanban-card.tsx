@@ -1,12 +1,13 @@
 'use client'
 
+import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { useUser } from '@/hooks/use-user'
 import {
-  Clock, AlertTriangle, Euro, Home, MapPin, Sparkles, Check, Phone, Send,
+  Clock, AlertTriangle, Euro, Home, MapPin, Sparkles, Check, Phone, Send, X, Link2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -22,6 +23,9 @@ interface KanbanCardProps {
   /** Multi-select state — when true, the card renders a checked checkbox
    *  and a stage-coloured ring around the whole card. */
   selected?: boolean
+  /** Some card in the board is selected — show the checkbox and make a tap
+   *  toggle selection (instead of opening) for mobile multi-select. */
+  selectionActive?: boolean
   /** Toggles the card's id in/out of the selection set. Receives the
    *  card id and is the single way of changing selection from a card. */
   onToggleSelect?: (negocioId: string) => void
@@ -32,6 +36,10 @@ interface KanbanCardProps {
    *  card stays clickable so the détail sheet can still open. Used by the
    *  Referências page where the viewer is the referrer, not the owner. */
   readOnly?: boolean
+  /** Opens the linked deal (compra depende da venda sibling), which lives in
+   *  a different pipeline board. Wired by the column from the card's
+   *  `linked_deal_id`. */
+  onOpenLinked?: (dealId: string) => void
 }
 
 const formatEUR = (value: number) =>
@@ -91,11 +99,45 @@ export function KanbanCard({
   onDragStart,
   onClick: onClickProp,
   selected = false,
+  selectionActive = false,
   onToggleSelect,
   stageColor,
   readOnly = false,
+  onOpenLinked,
 }: KanbanCardProps) {
   const router = useRouter()
+
+  // ── Mobile long-press → toggle selection (same as the desktop checkbox).
+  //    A quick tap opens; once a selection exists, a tap toggles instead. ──
+  const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lpStart = useRef<{ x: number; y: number } | null>(null)
+  const suppressClick = useRef(false)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (readOnly || !onToggleSelect) return
+    const t = e.touches[0]
+    lpStart.current = { x: t.clientX, y: t.clientY }
+    if (lpTimer.current) clearTimeout(lpTimer.current)
+    lpTimer.current = setTimeout(() => {
+      onToggleSelect(negocio.id)
+      suppressClick.current = true
+      setTimeout(() => { suppressClick.current = false }, 400)
+      try { navigator.vibrate?.(15) } catch {}
+      lpTimer.current = null
+    }, 500)
+  }
+  function handleTouchMove(e: React.TouchEvent) {
+    const s = lpStart.current
+    if (!s || !lpTimer.current) return
+    const t = e.touches[0]
+    if (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) {
+      clearTimeout(lpTimer.current)
+      lpTimer.current = null
+    }
+  }
+  function handleTouchEnd() {
+    if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null }
+  }
 
   const contact = negocio.contact ?? negocio.leads
   const { user: currentUser } = useUser()
@@ -153,6 +195,10 @@ export function KanbanCard({
 
   const contactName = contact?.full_name || contact?.nome || 'Sem nome'
 
+  // Lost reason — only populated on deals dragged into the terminal "Perdido"
+  // stage. Surfaced as a red chip so the column scan shows *why* each card
+  // was lost, not just that it was.
+  const lostReason = (negocio.lost_reason as string | null) || null
   const sourceLabel = negocio.origem ? (SOURCE_LABELS[negocio.origem] || negocio.origem) : null
   const typology = [
     tipoImovel,
@@ -182,12 +228,22 @@ export function KanbanCard({
     <div
       draggable={!readOnly}
       onDragStart={readOnly ? undefined : handleDragStart}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       onClick={(e) => {
         // Cmd / Ctrl click also toggles selection — mac/windows convention,
         // handy for quickly multi-selecting without aiming for the checkbox.
         // Disabled in read-only mode (no multi-select surface there).
         if (!readOnly && (e.metaKey || e.ctrlKey) && onToggleSelect) {
           e.stopPropagation()
+          onToggleSelect(negocio.id)
+          return
+        }
+        // Suppress the click that follows a long-press selection.
+        if (suppressClick.current) return
+        // In selection mode, a tap toggles selection instead of opening.
+        if (selectionActive && onToggleSelect) {
           onToggleSelect(negocio.id)
           return
         }
@@ -242,7 +298,9 @@ export function KanbanCard({
             'border',
             selected
               ? 'opacity-100'
-              : 'opacity-0 group-hover/kanban-card:opacity-100 bg-background/95 border-border/60 text-muted-foreground hover:text-foreground hover:bg-background',
+              : selectionActive
+                ? 'opacity-100 bg-background/95 border-border/60 text-muted-foreground'
+                : 'opacity-0 group-hover/kanban-card:opacity-100 bg-background/95 border-border/60 text-muted-foreground hover:text-foreground hover:bg-background',
           )}
           style={
             selected
@@ -338,6 +396,54 @@ export function KanbanCard({
           )}
         </div>
       )}
+
+      {/* Lost reason — red chip with the predefined motivo. Only shows once
+          the deal sits in the terminal "Perdido" stage. */}
+      {lostReason && (
+        <div className="mt-1.5">
+          <Badge
+            variant="secondary"
+            className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-red-500/15 text-red-700 dark:text-red-300 hover:bg-red-500/15 max-w-full"
+          >
+            <X className="h-2.5 w-2.5 shrink-0" strokeWidth={3} />
+            <span className="truncate">{lostReason}</span>
+          </Badge>
+        </div>
+      )}
+
+      {/* Linked deal — sky chip when this négocio is part of a "compra depende
+          da venda" pair (shared deal_group_id). The dependent purchase also
+          shows it carries a dependency. */}
+      {negocio.deal_group_id && (() => {
+        const linkedId = negocio.linked_deal_id as string | undefined
+        const tooltip = negocio.depends_on_negocio_id
+          ? 'Compra dependente de uma venda ligada — abrir'
+          : 'Negócio ligado — compra depende da venda — abrir'
+        const badgeCls =
+          'text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 transition-colors'
+        return (
+          <div className="mt-1.5">
+            {linkedId && onOpenLinked ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenLinked(linkedId) }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title={tooltip}
+              >
+                <Badge variant="secondary" className={cn(badgeCls, 'cursor-pointer')}>
+                  <Link2 className="h-2.5 w-2.5 shrink-0" />
+                  Ligado
+                </Badge>
+              </button>
+            ) : (
+              <Badge variant="secondary" className={badgeCls} title={tooltip}>
+                <Link2 className="h-2.5 w-2.5 shrink-0" />
+                Ligado
+              </Badge>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Value — primary financial signal. Tabular-nums for column alignment. */}
       {hasValue && (

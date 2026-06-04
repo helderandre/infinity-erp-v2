@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     if (negocioId && isManagementRole(auth.roles)) {
       const { data: negocio } = await supabase
         .from('negocios')
-        .select('assigned_consultant_id, lead:leads(agent_id)')
+        .select('assigned_consultant_id, lead:leads!negocios_lead_id_fkey(agent_id)')
         .eq('id', negocioId)
         .maybeSingle()
       const negocioConsultant =
