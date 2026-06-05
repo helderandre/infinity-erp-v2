@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Monorepo: trace deps from the workspace root so the standalone bundle
+  // includes hoisted node_modules (two levels up from apps/app).
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   // Esconde o indicador "N" flutuante do Next.js dev (canto inferior esquerdo).
   // Aparece só em desenvolvimento mas atrapalha a leitura visual de mockups e
   // formulários cheios — sobretudo em mobile.
