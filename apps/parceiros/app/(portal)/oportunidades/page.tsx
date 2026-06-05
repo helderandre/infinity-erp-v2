@@ -18,7 +18,9 @@ const TABS: { key: PipelineType; label: string }[] = [
 
 export default function OportunidadesPage() {
   const { user } = useUser()
-  const [tab, setTab] = useState<PipelineType>('vendedor')
+  // Referred Meta-campaign leads are buyer registrations, so default to the
+  // Compradores pipeline (where the referred deals live).
+  const [tab, setTab] = useState<PipelineType>('comprador')
 
   return (
     <div className="space-y-4">
