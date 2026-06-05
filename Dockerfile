@@ -1,7 +1,9 @@
-# Monorepo Dockerfile for @infinity/app.
-# IMPORTANT: build context must be the REPO ROOT, not apps/app.
-#   docker build -f apps/app/Dockerfile -t infinity-app .
-# In Coolify: set "Base Directory" = / and "Dockerfile Location" = apps/app/Dockerfile.
+# Root Dockerfile = the main ERP (@infinity/app, app.infinitygroup.pt).
+# Build context is the REPO ROOT (needed for the npm-workspace install), and
+# this file lives at the root so Coolify finds it with default settings.
+#   docker build -t infinity-app .
+# Coolify (main app service): Base Directory = /  ·  Dockerfile Location = Dockerfile
+# The parceiros / clientes apps keep their own Dockerfiles at apps/<name>/Dockerfile.
 
 # ---- Base ----
 FROM node:22-alpine AS base

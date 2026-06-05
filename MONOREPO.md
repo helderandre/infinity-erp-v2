@@ -66,7 +66,7 @@ In Coolify, create three services, all pointing at this repo:
 
 | Service     | Base Directory | Dockerfile Location        | Domain                     | Port |
 |-------------|----------------|----------------------------|----------------------------|------|
-| infinity-app| `/`            | `apps/app/Dockerfile`      | app.infinitygroup.pt       | 3000 |
+| infinity-app| `/`            | `Dockerfile` (repo root)   | app.infinitygroup.pt       | 3000 |
 | parceiros   | `/`            | `apps/parceiros/Dockerfile`| parceiros.infinitygroup.pt | 3001 |
 | clientes    | `/`            | `apps/clientes/Dockerfile` | clientes.infinitygroup.pt  | 3003 |
 
