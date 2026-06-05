@@ -1,0 +1,6 @@
+/* Shared design tokens for Infinity apps (Tailwind v4). Import after
+   `@import "tailwindcss"` in each app's globals.css. */
+@theme {
+  --color-infinity: #0f172a;
+  --color-infinity-accent: #2563eb;
+}

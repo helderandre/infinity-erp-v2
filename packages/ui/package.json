@@ -1,0 +1,21 @@
+{
+  "name": "@infinity/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./cn": "./src/cn.ts",
+    "./button": "./src/button.tsx",
+    "./card": "./src/card.tsx",
+    "./styles.css": "./src/styles.css"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.4.1"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19"
+  }
+}
