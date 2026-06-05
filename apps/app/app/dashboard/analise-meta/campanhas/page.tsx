@@ -11,7 +11,7 @@ import {
   metaStatusVariant,
 } from '@/lib/meta/labels'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
-import { getInsightTotalsByObject } from '@/lib/meta/insights-kpis'
+import { listMetaCampaigns } from '@/lib/meta/campaign-queries'
 
 import { MetaRefreshControls } from '@/components/analise-meta/meta-refresh-controls'
 
@@ -26,19 +26,6 @@ const PAGE_SIZE = 30
 const BASE_PATH = '/dashboard/analise-meta/campanhas'
 
 type SearchParams = Promise<{ q?: string; page?: string }>
-
-type CampaignRow = {
-  id: string
-  campaign_id: string
-  ad_account_id: string | null
-  name: string | null
-  status: string | null
-  objective: string | null
-  daily_budget: string | null
-  lifetime_budget: string | null
-  fb_created_time: string | null
-  received_at: string
-}
 
 function fmtRelative(iso: string | null): string {
   if (!iso) return '—'
@@ -62,58 +49,21 @@ export default async function CampanhasMetaPage({
   const sp = await searchParams
   const q = sp.q?.trim() ?? ''
   const page = Math.max(1, Number(sp.page) || 1)
-  const from = (page - 1) * PAGE_SIZE
-  const to = from + PAGE_SIZE - 1
 
   const supabase = createCrmAdminClient()
-  let query = supabase
-    .schema('meta')
-    .from('meta_campaigns_raw')
-    .select(
-      'id, campaign_id, ad_account_id, name, status, objective, daily_budget, lifetime_budget, fb_created_time, received_at',
-      { count: 'exact' },
-    )
-
-  if (q) {
-    const safe = q.replace(/%/g, '\\%').replace(/_/g, '\\_')
-    query = query.or(
-      `name.ilike.%${safe}%,campaign_id.ilike.%${safe}%,objective.ilike.%${safe}%`,
-    )
-  }
-
-  // Most recent first — by the real Facebook creation date (received_at
-  // collapses to "now" on every backfill/replay, so it sorts arbitrarily).
-  const { data, count, error } = await query
-    .order('fb_created_time', { ascending: false, nullsFirst: false })
-    .order('received_at', { ascending: false })
-    .range(from, to)
-
-  if (error) {
+  let campaigns: Awaited<ReturnType<typeof listMetaCampaigns>>['campaigns']
+  let total: number
+  try {
+    const res = await listMetaCampaigns(supabase, { q, page, pageSize: PAGE_SIZE })
+    campaigns = res.campaigns
+    total = res.total
+  } catch (e) {
     return (
       <div className="text-destructive text-sm">
-        Erro a carregar campanhas: {error.message}
+        Erro a carregar campanhas: {e instanceof Error ? e.message : 'erro desconhecido'}
       </div>
     )
   }
-
-  const campaigns = (data ?? []) as CampaignRow[]
-  const total = count ?? 0
-  const ids = campaigns.map((c) => c.campaign_id)
-
-  // Batch counts: ads + leads per campaign + gasto (insights), aggregados em JS.
-  const [adsRes, leadsRes, spendByCamp] = await Promise.all([
-    ids.length
-      ? supabase.schema('meta').from('meta_ads_raw').select('campaign_id').in('campaign_id', ids).limit(5000)
-      : Promise.resolve({ data: [] as { campaign_id: string | null }[] }),
-    ids.length
-      ? supabase.schema('meta').from('meta_leads_raw').select('campaign_id').in('campaign_id', ids).limit(8000)
-      : Promise.resolve({ data: [] as { campaign_id: string | null }[] }),
-    ids.length
-      ? getInsightTotalsByObject(supabase, 'campaign', ids)
-      : Promise.resolve({} as Record<string, { spend: number; leads: number; currency: string | null }>),
-  ])
-  const adsByCamp = countBy(adsRes.data ?? [])
-  const leadsByCamp = countBy(leadsRes.data ?? [])
 
   return (
     <div className="space-y-4">
@@ -172,11 +122,11 @@ export default async function CampanhasMetaPage({
                 <div className="text-muted-foreground mt-3 flex items-center gap-4 text-xs">
                   <span className="flex items-center gap-1">
                     <Megaphone className="h-3.5 w-3.5" />
-                    <span className="text-foreground font-medium tabular-nums">{adsByCamp[c.campaign_id] ?? 0}</span> anúncios
+                    <span className="text-foreground font-medium tabular-nums">{c.ads_count}</span> anúncios
                   </span>
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" />
-                    <span className="text-foreground font-medium tabular-nums">{leadsByCamp[c.campaign_id] ?? 0}</span> leads
+                    <span className="text-foreground font-medium tabular-nums">{c.leads_count}</span> leads
                   </span>
                 </div>
 
@@ -185,8 +135,8 @@ export default async function CampanhasMetaPage({
                     {fmtRelative(c.fb_created_time ?? c.received_at)}
                   </span>
                   <span className="text-muted-foreground/60 text-[11px] tabular-nums">
-                    {spendByCamp[c.campaign_id]?.spend
-                      ? `${formatEur(spendByCamp[c.campaign_id].spend, spendByCamp[c.campaign_id].currency, { maximumFractionDigits: 0 })} gasto`
+                    {c.spend
+                      ? `${formatEur(c.spend, c.currency, { maximumFractionDigits: 0 })} gasto`
                       : '—'}
                   </span>
                   <ChevronRight className="text-muted-foreground/40 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -208,13 +158,4 @@ export default async function CampanhasMetaPage({
       )}
     </div>
   )
-}
-
-function countBy(rows: { campaign_id: string | null }[]): Record<string, number> {
-  const map: Record<string, number> = {}
-  for (const r of rows) {
-    if (!r.campaign_id) continue
-    map[r.campaign_id] = (map[r.campaign_id] ?? 0) + 1
-  }
-  return map
 }

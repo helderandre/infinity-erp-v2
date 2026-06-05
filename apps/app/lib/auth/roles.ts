@@ -98,6 +98,20 @@ export const STAFF_ROLE_NAMES = [
   'admin',
 ] as const
 
+/**
+ * Roles de parceiros externos. NÃO fazem parte da equipa interna (Infinity):
+ * não aparecem na página de Equipa (caem no bucket 'other' de
+ * `classifyUserMembership`) nem no separador "Chat" geral — só no separador
+ * dedicado "Parceiros" do chat.
+ */
+export const PARTNER_ROLE_NAMES = ['Parceiro'] as const
+
+/** Helper case-insensitive para detectar se o utilizador é parceiro externo. */
+export function isPartner(roles: ReadonlyArray<string | null | undefined>): boolean {
+  const lc = roles.filter((r): r is string => !!r).map((r) => r.toLowerCase())
+  return PARTNER_ROLE_NAMES.some((m) => lc.includes(m.toLowerCase()))
+}
+
 /** Classifica um role pelo bucket da UI de Equipa. */
 export function classifyMember(
   roleName: string | null | undefined

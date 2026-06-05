@@ -14,7 +14,7 @@ import { useState } from 'react'
 import { BarChart3, Facebook } from 'lucide-react'
 
 import { AnaliseTab } from '@/components/leads/pipeline/analise-tab'
-import { MetaTab } from '@/components/leads/pipeline/meta-tab'
+import { MetaCampaignsView } from '@/components/leads/pipeline/meta-campaigns-view'
 import { cn } from '@/lib/utils'
 
 type Tab = 'analise' | 'meta'
@@ -64,7 +64,7 @@ export default function AnalisePage() {
       </div>
 
       {tab === 'analise' && <AnaliseTab />}
-      {tab === 'meta' && <MetaTab />}
+      {tab === 'meta' && <MetaCampaignsView />}
     </div>
   )
 }

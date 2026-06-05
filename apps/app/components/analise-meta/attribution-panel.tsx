@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Loader2, UserCog, Gift, Pencil, Building2, X, ChevronsUpDown } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -34,7 +35,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 type Scope = 'campaign' | 'ad'
 type ReferralBasis = 'agency_commission' | 'sale_value' | 'fixed'
@@ -94,13 +105,14 @@ export function AttributionPanel({
   /** Render without the outer Card (for embedding inside another card). */
   bare?: boolean
 }) {
+  const isMobile = useIsMobile()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [canManage, setCanManage] = useState(false)
   const [consultants, setConsultants] = useState<Consultant[]>([])
   const [rule, setRule] = useState<AttributionRule | null>(null)
-  // Collapsed once attributed; expanded when unattributed or while editing.
-  const [expanded, setExpanded] = useState(false)
+  // The panel shows a read-only summary; editing happens in a glass sheet.
+  const [editing, setEditing] = useState(false)
 
   // form state
   const [consultantId, setConsultantId] = useState('')
@@ -128,8 +140,8 @@ export function AttributionPanel({
     setPropertyLabel(
       property ? [property.title, property.external_ref].filter(Boolean).join(' · ') || null : null,
     )
-    // Collapse when attributed (show summary); expand to attribute when empty.
-    setExpanded(!r?.consultant_id)
+    // Hydrating always closes the edit sheet (initial load, after save/remove).
+    setEditing(false)
   }, [])
 
   useEffect(() => {
@@ -160,6 +172,14 @@ export function AttributionPanel({
 
   const nameOf = (id: string | null) =>
     consultants.find((c) => c.id === id)?.commercial_name ?? '—'
+
+  const initialsOf = (name: string) =>
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? '')
+      .join('') || '?'
 
   async function handleSave() {
     if (!consultantId) {
@@ -220,6 +240,21 @@ export function AttributionPanel({
     }
   }
 
+  // Open the edit sheet, resetting form fields to the saved rule so any
+  // discarded edits from a previous open don't linger.
+  function openEditor() {
+    setConsultantId(rule?.consultant_id ?? '')
+    setHasReferral(rule?.has_referral ?? false)
+    setReferralConsultantId(rule?.referral_consultant_id ?? '')
+    setReferralBasis(rule?.referral_basis ?? 'agency_commission')
+    setReferralPct(rule?.referral_pct != null ? String(rule.referral_pct) : '')
+    setReferralFixed(rule?.referral_fixed_amount != null ? String(rule.referral_fixed_amount) : '')
+    setLeadBusinessType(rule?.lead_business_type ?? NONE)
+    setLeadSector(rule?.lead_sector ?? NONE)
+    setPropertyId(rule?.property_id ?? null)
+    setEditing(true)
+  }
+
   const scopeLabel = scope === 'ad' ? 'deste anúncio' : 'desta campanha'
 
   const headerNode = (
@@ -237,63 +272,98 @@ export function AttributionPanel({
   )
 
   const summaryNode = rule?.consultant_id ? (
-    <div className="space-y-1 text-sm">
-      <p>
-        <span className="text-muted-foreground">Responsável: </span>
-        <span className="font-medium">{nameOf(rule.consultant_id)}</span>
-      </p>
-      {(rule.lead_business_type || rule.lead_sector) && (
-        <p className="text-muted-foreground">
-          Tipo:{' '}
-          {[rule.lead_business_type, PERSPECTIVES.find((p) => p.sector === rule.lead_sector)?.label]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
-      )}
-      {rule.has_referral && rule.referral_consultant_id && (
-        <p className="text-muted-foreground flex items-center gap-1.5">
-          <Gift className="h-3.5 w-3.5" />
-          Referral para {nameOf(rule.referral_consultant_id)}
-          {rule.referral_basis === 'fixed'
-            ? ` — €${rule.referral_fixed_amount ?? 0}`
-            : ` — ${rule.referral_pct ?? 0}% (${BASIS_LABEL[rule.referral_basis]})`}
-        </p>
-      )}
-      {rule.property_id && (
-        <p className="text-muted-foreground flex items-center gap-1.5">
-          <Building2 className="h-3.5 w-3.5" />
-          Imóvel: {propertyLabel ?? 'associado'}
-        </p>
+    <div className="space-y-3">
+      {/* Responsável — avatar + name, with type badges on the right */}
+      <div className="flex items-center gap-3">
+        <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+          {initialsOf(nameOf(rule.consultant_id))}
+        </div>
+        <div className="min-w-0">
+          <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+            Responsável
+          </p>
+          <p className="truncate font-medium leading-tight">{nameOf(rule.consultant_id)}</p>
+        </div>
+        {(rule.lead_business_type || rule.lead_sector) && (
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+            {rule.lead_business_type && (
+              <Badge variant="secondary" className="font-normal">
+                {rule.lead_business_type}
+              </Badge>
+            )}
+            {rule.lead_sector && (
+              <Badge variant="outline" className="font-normal">
+                {PERSPECTIVES.find((p) => p.sector === rule.lead_sector)?.label}
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Referral + property chips */}
+      {((rule.has_referral && rule.referral_consultant_id) || rule.property_id) && (
+        <div className="flex flex-wrap gap-2">
+          {rule.has_referral && rule.referral_consultant_id && (
+            <span className="border-border/60 bg-muted/40 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs">
+              <Gift className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="font-medium">{nameOf(rule.referral_consultant_id)}</span>
+              <span className="text-muted-foreground">
+                {rule.referral_basis === 'fixed'
+                  ? `€${rule.referral_fixed_amount ?? 0}`
+                  : `${rule.referral_pct ?? 0}% · ${BASIS_LABEL[rule.referral_basis]}`}
+              </span>
+            </span>
+          )}
+          {rule.property_id && (
+            <span className="border-border/60 bg-muted/40 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+              <span className="truncate">{propertyLabel ?? 'Imóvel associado'}</span>
+            </span>
+          )}
+        </div>
       )}
     </div>
   ) : (
-    <p className="text-muted-foreground text-sm">
-      Sem atribuição definida. Os leads {scopeLabel} ficam por atribuir.
-    </p>
+    <div className="border-border/60 bg-muted/20 flex items-center gap-3 rounded-lg border border-dashed px-4 py-3">
+      <div className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+        <UserCog className="h-4 w-4" />
+      </div>
+      <p className="text-muted-foreground text-sm">
+        Sem atribuição definida. Os leads {scopeLabel} ficam por atribuir.
+      </p>
+    </div>
   )
 
+  // Read-only panel body: summary + an affordance to open the edit sheet.
   const body = (
-    <div className="space-y-4">
-        {loading ? (
-          <div className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
-          </div>
-        ) : !canManage ? (
-          summaryNode
-        ) : rule && !expanded ? (
-          // Attributed → collapsed summary with an edit affordance.
-          <div className="flex items-start justify-between gap-3">
-            {summaryNode}
-            <Button variant="outline" size="sm" className="shrink-0" onClick={() => setExpanded(true)}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Editar
-            </Button>
-          </div>
-        ) : (
-          // Editable form for managers/Marketing
-          <>
-            <div className="space-y-1.5">
-              <Label>Consultor responsável</Label>
+    <div className="space-y-3">
+      {loading ? (
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" /> A carregar…
+        </div>
+      ) : (
+        <>
+          {summaryNode}
+          {canManage && (
+            <div className="border-border/40 flex justify-end border-t pt-3">
+              <Button variant="outline" size="sm" onClick={openEditor}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                {rule?.consultant_id ? 'Editar atribuição' : 'Definir atribuição'}
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+
+  // The editable form — rendered inside the glass sheet.
+  const formNode = (
+    <>
+            <div className="border-primary/20 bg-primary/[0.03] space-y-1.5 rounded-lg border p-3">
+              <Label className="flex items-center gap-1.5">
+                <UserCog className="h-3.5 w-3.5" /> Consultor responsável
+              </Label>
               <Select value={consultantId} onValueChange={setConsultantId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Escolher consultor…" />
@@ -306,10 +376,13 @@ export function AttributionPanel({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-muted-foreground text-xs">
+                Recebe todos os leads {scopeLabel}.
+              </p>
             </div>
 
             {/* Lead type — pre-fills the qualification of every lead from this campaign/ad */}
-            <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border p-3">
               <div className="col-span-2">
                 <Label className="text-xs">Tipo de lead (opcional)</Label>
                 <p className="text-muted-foreground text-xs">
@@ -361,7 +434,7 @@ export function AttributionPanel({
               }}
             />
 
-            <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
                 <Label className="flex items-center gap-1.5">
                   <Gift className="h-3.5 w-3.5" /> Comissão de referência
@@ -374,7 +447,7 @@ export function AttributionPanel({
             </div>
 
             {hasReferral && (
-              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
                 <div className="space-y-1.5">
                   <Label>Beneficiário</Label>
                   <Select value={referralConsultantId} onValueChange={setReferralConsultantId}>
@@ -443,30 +516,61 @@ export function AttributionPanel({
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-1">
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Guardar atribuição
-              </Button>
-              {rule && (
-                <Button variant="ghost" onClick={() => setExpanded(false)} disabled={saving}>
-                  Cancelar
-                </Button>
-              )}
-              {rule && (
-                <Button
-                  variant="ghost"
-                  onClick={handleRemove}
-                  disabled={saving}
-                  className="text-destructive hover:text-destructive ml-auto"
-                >
-                  Remover
-                </Button>
-              )}
-            </div>
-          </>
+    </>
+  )
+
+  // The glass sheet that hosts the editable form.
+  const sheetNode = (
+    <Sheet open={editing} onOpenChange={setEditing}>
+      <SheetContent
+        side={isMobile ? 'bottom' : 'right'}
+        className={cn(
+          'border-border/40 flex flex-col gap-0 overflow-hidden p-0 shadow-2xl',
+          'bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl',
+          isMobile
+            ? 'data-[side=bottom]:h-[88dvh] rounded-t-3xl'
+            : 'w-full data-[side=right]:sm:max-w-[480px] sm:rounded-l-3xl',
         )}
-    </div>
+      >
+        {isMobile && (
+          <div className="bg-muted-foreground/25 absolute left-1/2 top-2.5 z-20 h-1 w-10 -translate-x-1/2 rounded-full" />
+        )}
+
+        <SheetHeader className={cn('border-border/40 shrink-0 border-b px-6 pb-4', isMobile ? 'pt-8' : 'pt-6')}>
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <UserCog className="h-4 w-4" />
+            Atribuição de leads
+          </SheetTitle>
+          <SheetDescription className="text-[12px]">
+            {scope === 'ad'
+              ? 'O consultor deste anúncio recebe os leads — sobrepõe-se à atribuição da campanha.'
+              : 'Todos os leads desta campanha vão para este consultor (um anúncio pode ter atribuição própria).'}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">{formNode}</div>
+
+        <SheetFooter className="border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 shrink-0 flex-row items-center gap-2 border-t px-6 py-4 backdrop-blur-md">
+          <Button className="rounded-full" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar atribuição
+          </Button>
+          <Button variant="ghost" className="rounded-full" onClick={() => setEditing(false)} disabled={saving}>
+            Cancelar
+          </Button>
+          {rule && (
+            <Button
+              variant="ghost"
+              onClick={handleRemove}
+              disabled={saving}
+              className="text-destructive hover:text-destructive ml-auto rounded-full"
+            >
+              Remover
+            </Button>
+          )}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 
   if (bare) {
@@ -474,15 +578,19 @@ export function AttributionPanel({
       <div className="space-y-4">
         {headerNode}
         {body}
+        {sheetNode}
       </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>{headerNode}</CardHeader>
-      <CardContent>{body}</CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader>{headerNode}</CardHeader>
+        <CardContent>{body}</CardContent>
+      </Card>
+      {sheetNode}
+    </>
   )
 }
 

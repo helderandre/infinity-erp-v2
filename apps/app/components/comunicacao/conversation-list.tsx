@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { isPartner } from '@/lib/auth/roles'
 import { ConversationListItem } from './conversation-list-item'
 import { ProcessChannelList } from './process-channel-list'
 import { getDmChannelId, INTERNAL_CHAT_CHANNEL_ID } from '@/lib/constants'
@@ -89,7 +90,7 @@ export function ConversationList({
   lastMessage = {},
   activityHasLoaded = false,
 }: ConversationListProps) {
-  const [activeTab, setActiveTab] = useState<'chat' | 'processos'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'parceiros' | 'processos'>('chat')
   const [contacts, setContacts] = useState<DevUserContact[]>([])
   const [isLoadingContacts, setIsLoadingContacts] = useState(true)
   const [contactSearch, setContactSearch] = useState('')
@@ -130,45 +131,73 @@ export function ConversationList({
     }
   }, [])
 
-  // Filtered + sorted contacts.
+  // Parceiros externos (role "Parceiro") são separados da equipa interna: o
+  // separador "Chat" mostra só a equipa; o separador "Parceiros" mostra-os.
+  const { teamContacts, partnerContacts } = useMemo(() => {
+    const team: DevUserContact[] = []
+    const partners: DevUserContact[] = []
+    for (const c of contacts) {
+      const roleNames = (c.user_roles || []).map((ur) => ur.role?.name)
+      if (isPartner(roleNames)) partners.push(c)
+      else team.push(c)
+    }
+    return { teamContacts: team, partnerContacts: partners }
+  }, [contacts])
+
+  // Filtragem + ordenação partilhada.
   // Ordem (estilo WhatsApp/uazapi):
   //   1) Conversas com unread first, ordenadas pela última actividade desc.
   //   2) Restantes conversas com actividade conhecida, mais recentes primeiro.
   //   3) Contactos sem qualquer DM ainda — ordem alfabética como fallback.
-  const filteredContacts = useMemo(() => {
-    const lower = debouncedSearch.trim().toLowerCase()
-    const base = lower
-      ? contacts.filter((c) => {
-          const nameMatch = c.commercial_name.toLowerCase().includes(lower)
-          const roleMatch = c.user_roles?.some(
-            (ur) => ur.role?.name?.toLowerCase().includes(lower),
-          )
-          return nameMatch || roleMatch
-        })
-      : contacts.slice()
+  const filterAndSortContacts = useMemo(() => {
+    return (list: DevUserContact[]) => {
+      const lower = debouncedSearch.trim().toLowerCase()
+      const base = lower
+        ? list.filter((c) => {
+            const nameMatch = c.commercial_name.toLowerCase().includes(lower)
+            const roleMatch = c.user_roles?.some(
+              (ur) => ur.role?.name?.toLowerCase().includes(lower),
+            )
+            return nameMatch || roleMatch
+          })
+        : list.slice()
 
-    return base.sort((a, b) => {
-      const chA = getDmChannelId(currentUserId, a.id)
-      const chB = getDmChannelId(currentUserId, b.id)
-      const unreadA = unreadCounts[chA] || 0
-      const unreadB = unreadCounts[chB] || 0
-      // Bucket 1: unread descending
-      if (unreadA !== unreadB && (unreadA > 0 || unreadB > 0)) {
-        if (unreadA > 0 && unreadB === 0) return -1
-        if (unreadB > 0 && unreadA === 0) return 1
-        // Ambos com unread → desempata por actividade mais recente
-      }
-      const actA = lastActivity[chA]
-      const actB = lastActivity[chB]
-      if (actA && actB) {
-        return new Date(actB).getTime() - new Date(actA).getTime()
-      }
-      if (actA && !actB) return -1
-      if (!actA && actB) return 1
-      // Sem histórico → alfabético
-      return a.commercial_name.localeCompare(b.commercial_name, 'pt')
-    })
-  }, [contacts, debouncedSearch, unreadCounts, lastActivity, currentUserId])
+      return base.sort((a, b) => {
+        const chA = getDmChannelId(currentUserId, a.id)
+        const chB = getDmChannelId(currentUserId, b.id)
+        const unreadA = unreadCounts[chA] || 0
+        const unreadB = unreadCounts[chB] || 0
+        // Bucket 1: unread descending
+        if (unreadA !== unreadB && (unreadA > 0 || unreadB > 0)) {
+          if (unreadA > 0 && unreadB === 0) return -1
+          if (unreadB > 0 && unreadA === 0) return 1
+          // Ambos com unread → desempata por actividade mais recente
+        }
+        const actA = lastActivity[chA]
+        const actB = lastActivity[chB]
+        if (actA && actB) {
+          return new Date(actB).getTime() - new Date(actA).getTime()
+        }
+        if (actA && !actB) return -1
+        if (!actA && actB) return 1
+        // Sem histórico → alfabético
+        return a.commercial_name.localeCompare(b.commercial_name, 'pt')
+      })
+    }
+  }, [debouncedSearch, unreadCounts, lastActivity, currentUserId])
+
+  const filteredTeamContacts = useMemo(
+    () => filterAndSortContacts(teamContacts),
+    [filterAndSortContacts, teamContacts],
+  )
+  const filteredPartnerContacts = useMemo(
+    () => filterAndSortContacts(partnerContacts),
+    [filterAndSortContacts, partnerContacts],
+  )
+
+  // Lista do separador activo de contactos (Chat = equipa, Parceiros = externos).
+  const activeContacts =
+    activeTab === 'parceiros' ? filteredPartnerContacts : filteredTeamContacts
 
   return (
     <div className="flex flex-col h-full">
@@ -279,6 +308,18 @@ export function ConversationList({
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('parceiros')}
+          className={cn(
+            'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
+            activeTab === 'parceiros'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted'
+          )}
+        >
+          Parceiros
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('processos')}
           className={cn(
             'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
@@ -293,7 +334,7 @@ export function ConversationList({
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'chat' ? (
+        {activeTab !== 'processos' ? (
           <div className="flex flex-col gap-1">
             {/* Search */}
             <div className="px-3 pb-2">
@@ -302,7 +343,11 @@ export function ConversationList({
                 <Input
                   value={contactSearch}
                   onChange={(e) => handleContactSearch(e.target.value)}
-                  placeholder="Pesquisar utilizador..."
+                  placeholder={
+                    activeTab === 'parceiros'
+                      ? 'Pesquisar parceiro...'
+                      : 'Pesquisar utilizador...'
+                  }
                   className="h-8 pl-8 text-xs"
                 />
               </div>
@@ -323,13 +368,17 @@ export function ConversationList({
                     </div>
                   </div>
                 ))
-              ) : filteredContacts.length === 0 ? (
+              ) : activeContacts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <User className="h-8 w-8 mb-2 opacity-40" />
-                  <p className="text-xs">Nenhum contacto encontrado</p>
+                  <p className="text-xs">
+                    {activeTab === 'parceiros'
+                      ? 'Nenhum parceiro encontrado'
+                      : 'Nenhum contacto encontrado'}
+                  </p>
                 </div>
               ) : (
-                filteredContacts.map((contact) => {
+                activeContacts.map((contact) => {
                   const isDmActive =
                     activeConversation?.type === 'dm' &&
                     activeConversation.userId === contact.id
