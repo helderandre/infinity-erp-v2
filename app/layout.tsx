@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, DM_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Albert_Sans } from "next/font/google";
 import "./globals.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SplashScreen } from "@/components/shared/splash-screen";
 
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
+const albertSans = Albert_Sans({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt" className={dmSans.variable} suppressHydrationWarning>
+    <html lang="pt" className={albertSans.variable} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#09090b" />
       </head>

@@ -36,6 +36,13 @@ interface LeadEditSheetProps {
   /** Triggered when the user wants to refer this contact to another consultant.
    *  Closes the sheet first, then the parent opens the ReferenciarDialog. */
   onReferenciar?: () => void
+  /** Called after a successful delete. When provided it REPLACES the default
+   *  navigation to /dashboard/leads — useful when editing in-place (e.g. from a
+   *  pipeline card) so the parent can just refresh instead of navigating away. */
+  onDeleted?: () => void
+  /** Open straight into the delete confirmation when the sheet mounts — lets a
+   *  card "Eliminar" action skip the danger-zone button. */
+  openDeleteOnMount?: boolean
 }
 
 /**
@@ -46,7 +53,7 @@ interface LeadEditSheetProps {
  * Also exposes a permanent delete action that cascades to all related
  * data (negocios, observações, anexos, etc. — see the SQL FK rules).
  */
-export function LeadEditSheet({ open, onOpenChange, lead, onSaved, onReferenciar }: LeadEditSheetProps) {
+export function LeadEditSheet({ open, onOpenChange, lead, onSaved, onReferenciar, onDeleted, openDeleteOnMount }: LeadEditSheetProps) {
   const isMobile = useIsMobile()
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -65,8 +72,9 @@ export function LeadEditSheet({ open, onOpenChange, lead, onSaved, onReferenciar
         email: (lead.email as string) ?? '',
         telemovel: (lead.telemovel as string) ?? '',
       })
+      setDeleteOpen(!!openDeleteOnMount)
     }
-  }, [open, lead])
+  }, [open, lead, openDeleteOnMount])
 
   function update(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -114,7 +122,8 @@ export function LeadEditSheet({ open, onOpenChange, lead, onSaved, onReferenciar
       toast.success('Contacto eliminado')
       setDeleteOpen(false)
       onOpenChange(false)
-      router.push('/dashboard/leads')
+      if (onDeleted) onDeleted()
+      else router.push('/dashboard/leads')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao eliminar')
     } finally {

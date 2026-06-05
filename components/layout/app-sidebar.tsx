@@ -19,7 +19,7 @@ import { usePathname } from 'next/navigation'
 
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
-  SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
+  SidebarGroupContent, SidebarHeader,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar'
@@ -74,7 +74,8 @@ export const bottomItems = [
 export const crmItems = [
   { title: 'Leads', icon: Target, href: '/dashboard/crm/leads', permission: 'leads' },
   { title: 'Oportunidades', icon: Kanban, href: '/dashboard/crm', permission: 'leads' },
-  { title: 'Contactos', icon: Users, href: '/dashboard/leads', permission: 'leads' },
+  { title: 'Base de Dados', icon: Users, href: '/dashboard/leads', permission: 'leads' },
+  { title: 'Análise', icon: BarChart3, href: '/dashboard/crm/analise', permission: 'leads' },
   // Gestão de Leads deixou de ter página própria — vive agora num Sheet
   // aberto pelo botão de definições no topo da página Leads (gated por
   // `leads_management`). Ver components/crm/gestao-leads-sheet.tsx.
@@ -249,7 +250,7 @@ function HoverGroupDropdown({
           className={cn(
             'rounded-xl transition-colors',
             isSectionActive
-              ? 'border border-border bg-muted/40 text-foreground/90 shadow-sm hover:bg-muted/40'
+              ? 'bg-muted/70 text-foreground shadow-sm border border-border/60 hover:bg-muted/70'
               : 'text-muted-foreground/70 hover:bg-transparent hover:text-muted-foreground'
           )}
         >
@@ -285,7 +286,7 @@ function HoverGroupDropdown({
               className={cn(
                 'rounded-lg mx-1 gap-2 text-[13px]',
                 isActive
-                  ? 'bg-neutral-900 text-white shadow-sm focus:bg-neutral-900 focus:text-white dark:bg-white dark:text-neutral-900 dark:focus:bg-white dark:focus:text-neutral-900'
+                  ? 'nav-pill-active focus:text-[color:var(--sidebar-brand-fg)]'
                   : 'hover:bg-muted/60'
               )}
             >
@@ -340,9 +341,9 @@ function SoloSidebarItem({
                 isActive={!!isActive}
                 tooltip={label}
                 className={cn(
-                  'rounded-xl transition-all duration-150',
+                  'rounded-md transition-all duration-150 hover:scale-[0.97]',
                   isActive
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    ? 'nav-pill-active'
                     : 'hover:bg-muted/60'
                 )}
               >
@@ -359,21 +360,19 @@ function SoloSidebarItem({
   }
 
   return (
-    <SidebarGroup className="py-1">
-      <SidebarGroupLabel asChild>
-        <Link
-          href={href}
-          className={cn(
-            'flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] uppercase tracking-wider font-semibold transition-colors',
-            isActive
-              ? 'border border-border text-foreground/90 bg-muted/40 shadow-sm'
-              : 'text-muted-foreground/70 hover:text-muted-foreground'
-          )}
-        >
-          <Icon className={cn('size-3.5', isActive ? 'opacity-80' : 'opacity-60')} />
-          {label}
-        </Link>
-      </SidebarGroupLabel>
+    <SidebarGroup className="p-0 border-b border-sidebar-border/60 last:border-b-0">
+      <Link
+        href={href}
+        className={cn(
+          'flex w-full items-center gap-2.5 px-3 py-2.5 text-[11px] uppercase tracking-wider font-semibold transition-all hover:scale-[0.97]',
+          isActive
+            ? 'text-foreground bg-muted/30'
+            : 'text-foreground/80 hover:bg-muted/40'
+        )}
+      >
+        <Icon className="size-3.5 opacity-60" />
+        <span className="flex-1 text-left">{label}</span>
+      </Link>
     </SidebarGroup>
   )
 }
@@ -491,23 +490,30 @@ function CollapsibleGroup({
   }
 
   return (
-    <SidebarGroup className="py-1">
-      <Collapsible defaultOpen={isDefaultOpen} className="group/collapsible">
-        <SidebarGroupLabel asChild>
-          <CollapsibleTrigger className={cn(
-            'flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] uppercase tracking-wider font-semibold transition-colors',
-            isSectionActive
-              ? 'border border-border text-foreground/90 bg-muted/40 shadow-sm'
-              : 'text-muted-foreground/70 hover:text-muted-foreground'
-          )}>
-            <Icon className={cn('size-3.5', isSectionActive ? 'opacity-80' : 'opacity-60')} />
-            {label}
-            <ChevronRight className="ml-auto size-3.5 opacity-40 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-          </CollapsibleTrigger>
-        </SidebarGroupLabel>
+    <SidebarGroup className="p-0">
+      <Collapsible
+        defaultOpen={isDefaultOpen}
+        className={cn(
+          'group/collapsible transition-all duration-200',
+          // Closed: flush section, divided from the next group.
+          'data-[state=closed]:border-b data-[state=closed]:border-sidebar-border/60',
+          // Open: detaches into its own elevated card (the "3 cards" effect).
+          'data-[state=open]:my-2 data-[state=open]:mx-1.5 data-[state=open]:overflow-hidden data-[state=open]:rounded-xl data-[state=open]:bg-card data-[state=open]:shadow-lg data-[state=open]:ring-1 data-[state=open]:ring-border/60'
+        )}
+      >
+        <CollapsibleTrigger className={cn(
+          'flex w-full items-center gap-2.5 px-3 py-2.5 text-[11px] uppercase tracking-wider font-semibold transition-all hover:scale-[0.97]',
+          isSectionActive
+            ? 'text-foreground bg-muted/30'
+            : 'text-foreground/80 hover:bg-muted/40'
+        )}>
+          <Icon className="size-3.5 opacity-60" />
+          <span className="flex-1 text-left">{label}</span>
+          <ChevronRight className="size-3.5 opacity-40 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+        </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarGroupContent className="mt-0.5">
-            <SidebarMenu className="gap-0.5 pl-4 pr-1">
+          <SidebarGroupContent className="px-1.5 pb-2">
+            <SidebarMenu className="gap-0.5">
               {(() => {
                 const activeHref = getActiveHref(pathname, visibleItems)
                 return visibleItems.map((item) => {
@@ -521,10 +527,10 @@ function CollapsibleGroup({
                         isActive={isActive}
                         tooltip={item.title}
                         className={cn(
-                          'rounded-xl transition-all duration-150',
+                          'rounded-md transition-all duration-150 hover:scale-[0.97]',
                           isActive
-                            ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                            : 'hover:bg-muted/60 hover:backdrop-blur-sm',
+                            ? 'nav-pill-active'
+                            : 'hover:bg-muted/60',
                           hasAlternates && 'pr-8',
                         )}
                       >
@@ -597,6 +603,8 @@ export function AppSidebar() {
   const { user } = useUser()
   const { hasPermission, isBroker } = usePermissions()
   const { theme, setTheme } = useTheme()
+  const { state: sidebarState, isMobile: sidebarIsMobile } = useSidebar()
+  const sidebarIconMode = sidebarState === 'collapsed' && !sidebarIsMobile
   const [mounted, setMounted] = useState(false)
 
   // Esconde do sidebar items marcados com `managementOnly` quando o
@@ -637,12 +645,15 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="rounded-xl">
               <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <div
+                  className="flex aspect-square size-8 items-center justify-center rounded-xl text-[color:var(--sidebar-brand-fg)] shadow-[0_4px_12px_-4px_color-mix(in_oklch,var(--sidebar-brand)_70%,transparent)] ring-1 ring-white/15"
+                  style={{ background: 'linear-gradient(140deg, var(--sidebar-brand), var(--sidebar-brand-strong))' }}
+                >
                   <Infinity className="size-5" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-bold text-sm">Infinity</span>
-                  <span className="text-[10px] text-muted-foreground/60 font-medium">
+                  <span className="font-bold text-sm tracking-tight">Infinity</span>
+                  <span className="text-[10px] text-muted-foreground/60 font-medium tracking-wide">
                     ERP Imobiliária
                   </span>
                 </div>
@@ -654,6 +665,9 @@ export function AppSidebar() {
 
       {/* ─── Content ─── */}
       <SidebarContent className="gap-0">
+        {/* All nav groups live inside ONE unified card, separated by dividers.
+            In icon mode the card styling is dropped (groups render as icons). */}
+        <div className={cn('my-1', !sidebarIconMode && 'glass-card rounded-2xl mx-2')}>
         {/* 1. O Meu Espaço */}
         <CollapsibleGroup
           label="O Meu Espaço"
@@ -673,16 +687,6 @@ export function AppSidebar() {
           pathname={pathname}
           hasPermission={hasPermission}
           pathPrefixes={['/dashboard/whatsapp', '/dashboard/email']}
-        />
-
-        {/* 3. Infinity */}
-        <CollapsibleGroup
-          label="Infinity"
-          icon={Infinity}
-          items={infinityItems}
-          pathname={pathname}
-          hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
         />
 
         {/* 4. CRM */}
@@ -714,6 +718,16 @@ export function AppSidebar() {
           pathname={pathname}
           hasPermission={hasPermission}
           pathPrefixes={['/dashboard/financeiro']}
+        />
+
+        {/* Infinity — moved below Financeiro */}
+        <CollapsibleGroup
+          label="Infinity"
+          icon={Infinity}
+          items={infinityItems}
+          pathname={pathname}
+          hasPermission={hasPermission}
+          pathPrefixes={['/dashboard/consultores', '/dashboard/parceiros', '/dashboard/formacoes', '/dashboard/acessos']}
         />
 
         {/* 7. Marketing — antigo "Infinity Store", agora agrupa Documentos +
@@ -783,9 +797,9 @@ export function AppSidebar() {
         )}
 
         {/* Definições */}
-        <SidebarGroup className="py-1">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 pl-1 pr-1">
+        <SidebarGroup className="p-0 border-b border-sidebar-border/60 last:border-b-0 group-data-[collapsible=icon]:border-b-0">
+          <SidebarGroupContent className="p-1.5">
+            <SidebarMenu className="gap-0.5">
               {bottomItems.filter((item) => hasPermission(item.permission as any)).map((item) => {
                 const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
                 return (
@@ -795,10 +809,10 @@ export function AppSidebar() {
                       isActive={isActive}
                       tooltip={item.title}
                       className={cn(
-                        'rounded-xl transition-all duration-150',
+                        'rounded-md transition-all duration-150 hover:scale-[0.97]',
                         isActive
-                          ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                          : 'hover:bg-muted/60 hover:backdrop-blur-sm'
+                          ? 'nav-pill-active'
+                          : 'hover:bg-muted/60'
                       )}
                     >
                       <Link href={item.href}>
@@ -812,6 +826,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        </div>
       </SidebarContent>
 
       {/* ─── Footer ─── */}
@@ -881,7 +896,7 @@ export function AppSidebar() {
                           className={cn(
                             'flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-[11px] font-medium transition-all',
                             theme === t.value
-                              ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                              ? 'nav-pill-active'
                               : 'text-muted-foreground hover:text-foreground'
                           )}
                         >

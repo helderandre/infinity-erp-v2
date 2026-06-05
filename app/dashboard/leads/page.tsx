@@ -120,10 +120,6 @@ function LeadsPageContent() {
 
   const [leads, setLeads] = useState<LeadWithAgent[]>([])
   const [total, setTotal] = useState(0)
-  const [tabCounts, setTabCounts] = useState<{ qualified: number | null; unqualified: number | null }>({
-    qualified: null,
-    unqualified: null,
-  })
   const [isLoading, setIsLoading] = useState(true)
   const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -144,9 +140,9 @@ function LeadsPageContent() {
     const csv = searchParams.get('qualif_tipos') || ''
     return csv ? csv.split(',').filter(Boolean) : []
   })
-  const [qualifiedTab, setQualifiedTab] = useState<'qualified' | 'unqualified'>(
-    (searchParams.get('qualified') as 'qualified' | 'unqualified') || 'qualified',
-  )
+  // "Base de Dados" mostra apenas contactos qualificados — sem toggle
+  // Qualificados/Por qualificar (decisão de produto).
+  const [qualifiedTab] = useState<'qualified' | 'unqualified'>('qualified')
   const [page, setPage] = useState(Number(searchParams.get('page')) || 0)
 
   const debouncedSearch = useDebounce(search, 300)
@@ -204,36 +200,6 @@ function LeadsPageContent() {
   }, [loadConsultants, isManagement])
   useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, qualifiedTab])
 
-  // Counts for the hero pill picker (Qualificados / Por qualificar).
-  // Aplica os mesmos filtros activos para que as badges não mintam quando
-  // o utilizador estreita a vista por estado/origem/etc.
-  useEffect(() => {
-    let cancelled = false
-    const buildParams = (kind: 'qualified' | 'unqualified') => {
-      const p = new URLSearchParams()
-      if (debouncedSearch) p.set('nome', debouncedSearch)
-      if (estado !== 'all') p.set('estado', estado)
-      if (temperatura !== 'all') p.set('temperatura', temperatura)
-      if (origem !== 'all') p.set('origem', origem)
-      if (agentId !== 'all') p.set('agent_id', agentId)
-      if (qualifTipos.length > 0) p.set('qualif_tipos', qualifTipos.join(','))
-      p.set('limit', '1')
-      p.set('offset', '0')
-      if (kind === 'qualified') p.set('qualified_only', 'true')
-      else p.set('unqualified_only', 'true')
-      return p.toString()
-    }
-    const fetchTotal = (kind: 'qualified' | 'unqualified') =>
-      fetch(`/api/leads?${buildParams(kind)}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => (typeof j?.total === 'number' ? j.total : 0))
-        .catch(() => 0)
-    Promise.all([fetchTotal('qualified'), fetchTotal('unqualified')]).then(([q, u]) => {
-      if (cancelled) return
-      setTabCounts({ qualified: q, unqualified: u })
-    })
-    return () => { cancelled = true }
-  }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos])
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -307,64 +273,13 @@ function LeadsPageContent() {
         <div className="relative z-10 px-8 pt-8 pb-5 sm:px-10 sm:pt-10 sm:pb-6">
           {/* Centered title */}
           <div className="flex items-center justify-center">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Contactos</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Base de Dados</h2>
           </div>
 
-          {/* Pill picker — Qualificados / Por qualificar com badges */}
-          <div className="mt-4 flex items-center justify-center gap-0.5 sm:gap-1 px-1 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 w-fit mx-auto">
-            {([
-              { key: 'qualified' as const, label: 'Qualificados' },
-              { key: 'unqualified' as const, label: 'Por qualificar' },
-            ]).map(({ key, label }) => {
-              const isActive = qualifiedTab === key
-              const count = tabCounts[key]
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setQualifiedTab(key)}
-                  className={cn(
-                    'inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1 rounded-full text-[11px] font-medium transition-colors duration-300',
-                    isActive
-                      ? 'bg-white text-neutral-900 shadow-sm'
-                      : 'bg-transparent text-white/70 hover:text-white hover:bg-white/10',
-                  )}
-                >
-                  <span>{label}</span>
-                  {count != null && (
-                    <span
-                      className={cn(
-                        'inline-flex items-center justify-center min-w-[16px] sm:min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold tabular-nums',
-                        isActive ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/15 text-white/80',
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* KPI segmentado — total da vista actual + total global */}
+          {/* Número de contactos qualificados (= total da base de dados) */}
           <div className="mt-4 flex justify-center">
-            <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
-              <div className="flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0">
-                <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
-                  {qualifiedTab === 'qualified' ? 'Qualificados' : 'Por qualificar'}
-                </span>
-                <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">{total}</span>
-              </div>
-              <div className="flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0 border-l border-white/10">
-                <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">Total</span>
-                {tabCounts.qualified === null || tabCounts.unqualified === null ? (
-                  <Skeleton className="h-3.5 w-10 bg-white/10" />
-                ) : (
-                  <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">
-                    {(tabCounts.qualified ?? 0) + (tabCounts.unqualified ?? 0)}
-                  </span>
-                )}
-              </div>
+            <div className="inline-flex items-center justify-center rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 px-6 py-2">
+              <span className="text-base font-bold text-white tabular-nums whitespace-nowrap leading-tight">{total}</span>
             </div>
           </div>
         </div>
@@ -541,13 +456,49 @@ function LeadsPageContent() {
           })}
         </div>
       ) : (
-        /* Table view — Linear/Notion-style minimal: rounded-3xl wrapper,
-           tinted header, inset estado-colour left bar (3px) per row, e
-           hover discreto da row tintado pelo estado (~6%). Cor concentrada
-           só na barra esquerda + chip do estado, em vez de espalhada pela
-           row via gradient (versão anterior). */
-        <div className="rounded-3xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
+        <>
+          {/* Mobile list — compact cards (no horizontal scroll), só nome +
+              estado + qualif por linha. Tap navega para o detalhe. */}
+          <div className="md:hidden rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden divide-y divide-border/30">
+            {leads.map((lead) => {
+              const qualifs = getQualifTags(lead)
+              const estadoHex = (lead.estado && ESTADO_HEX[lead.estado]) || DEFAULT_ESTADO_HEX
+              return (
+                <button
+                  key={lead.id}
+                  type="button"
+                  onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+                  className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors active:bg-muted/40"
+                  style={{ boxShadow: `inset 3px 0 0 0 ${estadoHex}` }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{lead.nome || '—'}</p>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      {renderEstadoBadge(lead.estado)}
+                      {qualifs?.map((t) => (
+                        <span
+                          key={t.label}
+                          className={cn(
+                            'inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold',
+                            t.class,
+                          )}
+                        >
+                          {t.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Desktop table view — Linear/Notion-style minimal: rounded-3xl
+              wrapper, tinted header, inset estado-colour left bar (3px) per
+              row, e hover discreto da row tintado pelo estado (~6%). */}
+          <div className="hidden md:block rounded-3xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
             <thead className="bg-muted/40">
               <tr className="border-b border-border/40">
                 <th className="text-left px-5 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nome</th>
@@ -629,7 +580,8 @@ function LeadsPageContent() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Pagination */}

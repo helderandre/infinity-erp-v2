@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight } from 'lucide-react'
+import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -40,6 +40,10 @@ import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { BulkReferralDialog } from '@/components/crm/bulk-referral-dialog'
 import { invalidate, subscribe } from '@/lib/crm/invalidator'
 import { LeadEntrySheet } from '@/components/leads/lead-entry-sheet'
+import { LeadEditSheet } from '@/components/leads/lead-edit-sheet'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { SourceBadge } from '@/components/leads/source-badge'
 import { PhaseTabs, type PhaseTab } from '@/components/leads/phase-tabs'
 import { useUser } from '@/hooks/use-user'
@@ -128,6 +132,10 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
   // bouncing to the contact's négocio page.
   const [dealSheetId, setDealSheetId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  // Edit / delete the underlying contact from a card. `editDeleteMode` jumps the
+  // sheet straight to the delete confirmation (card "Eliminar" action).
+  const [editEntry, setEditEntry] = useState<LeadEntry | null>(null)
+  const [editDeleteMode, setEditDeleteMode] = useState(false)
 
   // ── Mobile long-press → toggle selection (same as the desktop checkbox). ──
   const lpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -640,6 +648,8 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
                             }}
                             dealId={dealId}
                             onOpenDeal={dealId ? () => setDealSheetId(dealId) : undefined}
+                            onEdit={e.contact ? () => { setEditDeleteMode(false); setEditEntry(e) } : undefined}
+                            onDelete={e.contact ? () => { setEditDeleteMode(true); setEditEntry(e) } : undefined}
                           />
                         )
                       })
@@ -691,6 +701,20 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
         onConfirm={(reason, notes) => confirmLost(reason, notes)}
         onCancel={() => setLostEntry(null)}
       />
+
+      {/* Editar / Eliminar contacto directamente do card. Edita/apaga o
+          contacto via /api/leads/[id] (auth: dono ou gestão). Ao apagar,
+          refrescamos o board em vez de navegar para fora. */}
+      {editEntry?.contact && (
+        <LeadEditSheet
+          open={!!editEntry}
+          onOpenChange={(o) => { if (!o) { setEditEntry(null); setEditDeleteMode(false) } }}
+          lead={editEntry.contact as any}
+          openDeleteOnMount={editDeleteMode}
+          onSaved={() => { setEditEntry(null); fetchEntries() }}
+          onDeleted={() => { setEditEntry(null); setEditDeleteMode(false); fetchEntries() }}
+        />
+      )}
 
       {/* Floating multi-select bar — Minhas view only. "Referenciar" hands the
           selected leads off to a colleague while keeping me as the referrer. */}
@@ -1064,6 +1088,8 @@ function LeadCard({
   cancelling = false,
   dealId,
   onOpenDeal,
+  onEdit,
+  onDelete,
 }: {
   entry: LeadEntry
   stageColor: string
@@ -1086,9 +1112,13 @@ function LeadCard({
   /** Set on qualified (converted) entries — the opportunity they generated. */
   dealId?: string | null
   onOpenDeal?: () => void
+  /** Editar / eliminar o contacto desta lead (só "minhas"). */
+  onEdit?: () => void
+  onDelete?: () => void
 }) {
   const name = entry.contact?.nome ?? 'Sem nome'
   const selectable = view === 'minhas' && !!onToggleSelect
+  const hasMenu = !!(onEdit || onDelete)
   return (
     <div
       draggable={draggable}
@@ -1131,6 +1161,45 @@ function LeadCard({
         </button>
       )}
 
+      {/* ⋯ menu — Editar / Eliminar o contacto desta lead (só "minhas"). */}
+      {hasMenu && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              draggable={false}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              aria-label="Mais acções"
+              title="Editar ou eliminar"
+              className={cn(
+                'absolute top-1.5 right-8 z-20 h-5 w-5 rounded-md flex items-center justify-center border bg-background/95 border-border/60 text-muted-foreground transition-all hover:text-foreground hover:bg-background data-[state=open]:opacity-100',
+                // Hover-reveal on desktop; in selection mode (mobile long-press)
+                // show it beside the checkbox without needing hover.
+                (selectionActive || selected) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+              )}
+            >
+              <MoreVertical className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {onEdit && (
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit() }}>
+                <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
       <button
         onClick={(e) => {
           // Cmd/Ctrl-click toggles selection without opening the lead.
@@ -1142,7 +1211,7 @@ function LeadCard({
           }
           onOpen()
         }}
-        className={cn('block w-full pl-2 text-left', selectable && 'pr-6')}
+        className={cn('block w-full pl-2 text-left', selectable && 'pr-6', hasMenu && 'pr-14')}
       >
         {/* Top: company/portal icon + origin tag in its colour. */}
         <div className="flex items-center justify-between gap-2">
