@@ -1,0 +1,10 @@
+/* Reuse the main app's full design system (shadcn tokens, fonts, tw-animate)
+   so components imported from @/ (apps/app) render identically. */
+@import "../../app/app/globals.css";
+
+/* Tailwind v4 must scan the main app source for the classes those components use. */
+@source "../../app/components";
+@source "../../app/app";
+@source "../../app/hooks";
+@source "./components";
+@source "./app";

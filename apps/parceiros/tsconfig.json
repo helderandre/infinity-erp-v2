@@ -1,0 +1,19 @@
+{
+  "extends": "@infinity/config/tsconfig.nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@portal/*": ["./*"],
+      "@/*": ["../app/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "../app/**/*.ts",
+    "../app/**/*.tsx"
+  ],
+  "exclude": ["node_modules"]
+}
