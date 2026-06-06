@@ -1,4 +1,10 @@
+'use client'
+
 import { PageHero, EmptyState } from '@portal/components/portal/page-hero'
+// Reuse the ERP ledger hook (maps to apps/app via the @/* alias). With no
+// partner_id the API self-scopes to the logged-in partner, and the parceiros
+// catch-all proxy forwards the request to the main ERP with auth cookies.
+import { usePartnerLedger, formatEUR } from '@/hooks/use-partner-ledger'
 
 function Section({ title, action, children }: { title: string; action?: string; children: React.ReactNode }) {
   return (
@@ -12,77 +18,79 @@ function Section({ title, action, children }: { title: string; action?: string; 
   )
 }
 
+const fmtDate = (s: string | null | undefined) =>
+  s ? new Date(s).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
+
 export default function PagamentosPage() {
-  // TODO: pull referral commissions for this partner — paid vs pending — plus
-  // issued invoices (faturas). Sourced from the referral payments + faturas.
-  const aReceber: { id: string; ref: string; valor: string; data: string }[] = []
-  const recebido: { id: string; ref: string; valor: string; data: string }[] = []
-  const faturas: { id: string; numero: string; valor: string; estado: string }[] = []
+  const { entries, summary, loading } = usePartnerLedger()
+
+  const aReceber = entries.filter((e) => e.kind === 'commission' && e.status === 'pending')
+  // History = pending commissions (a receber) + payments received. Paid
+  // commissions are hidden because their payment row already shows the receipt
+  // (avoids the same money appearing twice).
+  const history = entries.filter((e) => !(e.kind === 'commission' && e.status === 'paid'))
 
   return (
     <div className="space-y-6">
       <PageHero
-        title="Pagamentos"
-        subtitle="Comissões de referência e faturação"
+        title="Os meus ganhos"
+        subtitle="Comissões de referência"
         kpis={[
-          { label: 'Recebido', value: '0 €' },
-          { label: 'A receber', value: '0 €' },
-          { label: 'Faturas', value: faturas.length },
+          { label: 'Já recebido', value: summary ? formatEUR(summary.total_pago) : '—' },
+          { label: 'A receber', value: summary ? formatEUR(summary.total_a_receber) : '—' },
         ]}
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Section title="A receber" action="comissões pendentes">
-          {aReceber.length === 0 ? (
-            <EmptyState title="Nada pendente" hint="As comissões de referências em curso aparecem aqui." />
-          ) : (
-            <ul className="divide-y divide-black/5">
-              {aReceber.map((r) => (
-                <li key={r.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">{r.ref}</p>
-                    <p className="text-xs text-neutral-400">{r.data}</p>
-                  </div>
-                  <span className="text-sm font-semibold text-amber-600">{r.valor}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
-        <Section title="Recebido" action="histórico">
-          {recebido.length === 0 ? (
-            <EmptyState title="Sem pagamentos" hint="As comissões já liquidadas aparecem aqui." />
-          ) : (
-            <ul className="divide-y divide-black/5">
-              {recebido.map((r) => (
-                <li key={r.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">{r.ref}</p>
-                    <p className="text-xs text-neutral-400">{r.data}</p>
-                  </div>
-                  <span className="text-sm font-semibold text-emerald-600">{r.valor}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-      </div>
-
-      <Section title="Faturas" action="emitidas">
-        {faturas.length === 0 ? (
-          <EmptyState title="Sem faturas" hint="As faturas emitidas ao parceiro aparecem aqui para download." />
+      <Section title="A receber" action="comissões confirmadas por liquidar">
+        {loading ? (
+          <p className="py-6 text-center text-sm text-neutral-400">A carregar…</p>
+        ) : aReceber.length === 0 ? (
+          <EmptyState title="Nada pendente" hint="As comissões confirmadas que aguardam pagamento aparecem aqui." />
         ) : (
           <ul className="divide-y divide-black/5">
-            {faturas.map((f) => (
-              <li key={f.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">Fatura {f.numero}</p>
-                  <p className="text-xs text-neutral-400">{f.estado}</p>
+            {aReceber.map((e) => (
+              <li key={e.id} className="flex items-center justify-between py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-neutral-900">{e.description}</p>
+                  <p className="text-xs text-neutral-400">{fmtDate(e.entry_date)}</p>
                 </div>
-                <span className="text-sm font-semibold text-neutral-900">{f.valor}</span>
+                <span className="text-sm font-semibold text-amber-600">{formatEUR(Number(e.amount))}</span>
               </li>
             ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Histórico" action="comissões e recebimentos">
+        {loading ? (
+          <p className="py-6 text-center text-sm text-neutral-400">A carregar…</p>
+        ) : history.length === 0 ? (
+          <EmptyState title="Sem movimentos" hint="Comissões e recebimentos aparecem aqui." />
+        ) : (
+          <ul className="divide-y divide-black/5">
+            {history.map((e) => {
+              // From the partner's perspective everything here is money in their
+              // favour. A "payment" is money they RECEIVED (a win), shown green
+              // with a "+". A commission is money earned, pending or received.
+              const isPayment = e.direction === 'debit'
+              const status = isPayment
+                ? 'Recebido'
+                : e.status === 'paid'
+                  ? 'Recebido'
+                  : 'A receber'
+              const green = isPayment || e.status === 'paid'
+              return (
+                <li key={e.id} className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-neutral-900">{e.description}</p>
+                    <p className="text-xs text-neutral-400">{fmtDate(e.entry_date)} · {status}</p>
+                  </div>
+                  <span className={green ? 'text-sm font-semibold text-emerald-600' : 'text-sm font-semibold text-amber-600'}>
+                    +{formatEUR(Number(e.amount))}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         )}
       </Section>

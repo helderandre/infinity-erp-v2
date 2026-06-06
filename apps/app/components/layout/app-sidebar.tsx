@@ -118,6 +118,7 @@ export const infinityItems = [
 export const financeiroItems = [
   { title: 'Visão geral', icon: TrendingUp, href: '/dashboard/financeiro', permission: 'commissions' },
   { title: 'Conta corrente', icon: Wallet, href: '/dashboard/financeiro/conta-corrente', permission: 'commissions' },
+  { title: 'Parceiros', icon: Handshake, href: '/dashboard/financeiro/parceiros', permission: 'users' },
   { title: 'Relatórios', icon: Briefcase, href: '/dashboard/financeiro/relatorios', permission: 'users' },
   { title: 'Definições', icon: Settings, href: '/dashboard/financeiro/definicoes', permission: 'users' },
 ]
