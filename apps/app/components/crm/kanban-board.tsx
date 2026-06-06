@@ -85,6 +85,12 @@ interface KanbanBoardProps {
    * stage transitions and the multi-select / bulk-actions surface.
    */
   readOnly?: boolean
+  /**
+   * Card layout variant forwarded to every KanbanCard. 'partner' renders the
+   * stripped-down read-only card (name + potential gain) used by the
+   * Parceiros app. Defaults to 'full' (the rich ERP card).
+   */
+  cardVariant?: 'full' | 'partner'
   onCardClick?: (negocio: { id: string; lead_id?: string | null; contact_id?: string | null }) => void
   /**
    * Bumping this number triggers a silent re-fetch — used by the parent CRM
@@ -141,6 +147,8 @@ interface ColumnProps {
   onToggleSelectAllInStage: (stageId: string) => void
   /** Read-only — disables drag/drop + the select-all column toggle. */
   readOnly?: boolean
+  /** Forwarded to every KanbanCard — see KanbanBoardProps.cardVariant. */
+  cardVariant?: 'full' | 'partner'
 }
 
 function KanbanColumnView({
@@ -155,6 +163,7 @@ function KanbanColumnView({
   onToggleSelect,
   onToggleSelectAllInStage,
   readOnly = false,
+  cardVariant = 'full',
 }: ColumnProps) {
   const { stage, negocios, count, total_commission } = column
   // Stage color comes from leads_pipeline_stages.color (hex #RRGGBB) seeded
@@ -205,7 +214,7 @@ function KanbanColumnView({
             className="h-2 w-2 rounded-full shrink-0"
             style={{ backgroundColor: color }}
           />
-          <span className="text-xs font-semibold truncate">{stage.name}</span>
+          <span className={cn('text-xs truncate', cardVariant === 'partner' ? 'font-normal' : 'font-semibold')}>{stage.name}</span>
           {stage.is_terminal && stage.terminal_type && (
             <span
               className={cn(
@@ -297,6 +306,7 @@ function KanbanColumnView({
             selectionActive={!readOnly && selectedIds.size > 0}
             onToggleSelect={readOnly ? undefined : onToggleSelect}
             readOnly={readOnly}
+            variant={cardVariant}
             stageColor={color}
             onOpenLinked={
               onCardClick
@@ -318,7 +328,7 @@ function KanbanColumnView({
 
 // ─── Main board ───────────────────────────────────────────────────────────────
 
-export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, onMutated, readOnly = false }: KanbanBoardProps) {
+export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, onMutated, readOnly = false, cardVariant = 'full' }: KanbanBoardProps) {
   const [board, setBoard] = useState<KanbanBoardType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -811,6 +821,7 @@ export function KanbanBoard({ pipelineType, filters, onCardClick, refreshKey, on
                 onToggleSelect={toggleSelected}
                 onToggleSelectAllInStage={toggleSelectAllInStage}
                 readOnly={readOnly}
+                cardVariant={cardVariant}
               />
             ))}
           </div>

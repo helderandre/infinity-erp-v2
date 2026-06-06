@@ -40,6 +40,11 @@ interface KanbanCardProps {
    *  a different pipeline board. Wired by the column from the card's
    *  `linked_deal_id`. */
   onOpenLinked?: (dealId: string) => void
+  /** Card layout variant. 'full' (default) is the rich CRM card used inside
+   *  the ERP. 'partner' is a stripped-down read-only card for the Parceiros
+   *  app: just the contact name + the partner's potential commission gain,
+   *  with no contact info, typology, consultor or stage metadata. */
+  variant?: 'full' | 'partner'
 }
 
 const formatEUR = (value: number) =>
@@ -104,6 +109,7 @@ export function KanbanCard({
   stageColor,
   readOnly = false,
   onOpenLinked,
+  variant = 'full',
 }: KanbanCardProps) {
   const router = useRouter()
 
@@ -223,6 +229,58 @@ export function KanbanCard({
   }
 
   const ringColor = stageColor || '#3b82f6'
+
+  // ─── Partner variant ──────────────────────────────────────────────────────
+  // Stripped-down read-only card for the Parceiros app: contact name + the
+  // partner's potential commission gain only. No phone, typology, consultor,
+  // value or stage metadata. The partner *is* the referrer, so the referral
+  // commission slice is their "ganho potencial".
+  if (variant === 'partner') {
+    const partnerGain =
+      referralCommission ??
+      (referralPct !== null && Number.isFinite(referralPct) && grossForCommission
+        ? grossForCommission * commissionFactor * (referralPct / 100)
+        : null)
+
+    return (
+      <div
+        className={cn(
+          'relative bg-card rounded-xl border border-border/40 pl-3 pr-3 py-3 overflow-hidden',
+          'shadow-[0_2px_4px_-2px_rgba(0,0,0,0.08),0_4px_12px_-4px_rgba(0,0,0,0.06)]',
+          'dark:shadow-[0_2px_4px_-2px_rgba(0,0,0,0.4),0_4px_12px_-4px_rgba(0,0,0,0.3)]',
+        )}
+      >
+        {/* Stage accent stripe */}
+        <span
+          aria-hidden
+          className="absolute left-0 top-0 bottom-0 w-1"
+          style={{ backgroundColor: ringColor }}
+        />
+
+        {/* Contact name */}
+        <p className="font-semibold text-[13px] text-foreground leading-tight truncate">
+          {contactName}
+        </p>
+
+        {/* Potential gain — the partner's referral commission slice */}
+        <div className="mt-2">
+          <p className="text-[9px] uppercase tracking-wider font-medium text-muted-foreground">
+            Ganho potencial
+          </p>
+          <p className="mt-0.5 flex items-baseline gap-1.5">
+            <span className="text-[17px] font-bold tabular-nums leading-none text-emerald-600 dark:text-emerald-400">
+              {partnerGain !== null && partnerGain > 0 ? formatEUR(partnerGain) : '—'}
+            </span>
+            {referralPct !== null && Number.isFinite(referralPct) && (
+              <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+                {referralPct}%
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
