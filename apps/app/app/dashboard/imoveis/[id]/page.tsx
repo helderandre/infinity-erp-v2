@@ -91,6 +91,8 @@ import {
   Globe,
   Mic,
   Hash,
+  Video,
+  BookOpen,
 } from 'lucide-react'
 import {
   formatCurrency,
@@ -903,56 +905,73 @@ export default function ImovelDetalhePage() {
               <input value={editData.url_imovirtual ?? ''} onChange={(e) => updateField('url_imovirtual', e.target.value)} placeholder="https://..." className="text-xs bg-muted/30 border border-border/50 rounded-full px-3 py-1 flex-1 min-w-[180px] focus:outline-none focus:ring-1 focus:ring-primary/30" />
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="-mx-1 flex justify-center gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide sm:mx-0 sm:justify-start sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
               {[
-                { label: 'Infinity', url: `https://infinitygroup.pt/property/${property.slug || property.id}`, bg: 'bg-neutral-900', text: 'text-white', hover: 'hover:bg-neutral-800', border: 'border-neutral-700' },
-                { label: 'RE/MAX', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null), bg: 'bg-blue-700', text: 'text-white', hover: 'hover:bg-blue-800', border: 'border-blue-600' },
-                { label: 'Idealista', url: (property as any).link_portal_idealista || null, bg: 'bg-yellow-500', text: 'text-yellow-950', hover: 'hover:bg-yellow-400', border: 'border-yellow-400' },
-                { label: 'Imovirtual', url: (property as any).link_portal_imovirtual || null, bg: 'bg-sky-500', text: 'text-white', hover: 'hover:bg-sky-600', border: 'border-sky-400' },
+                { label: 'Infinity', domain: 'infinitygroup.pt', url: `https://infinitygroup.pt/property/${property.slug || property.id}` },
+                { label: 'RE/MAX', domain: 'remax.pt', url: (property as any).link_portal_remax || (property.external_ref ? `https://www.remax.pt/${property.external_ref}` : null) },
+                { label: 'Idealista', domain: 'idealista.pt', url: (property as any).link_portal_idealista || null },
+                { label: 'Imovirtual', domain: 'imovirtual.com', url: (property as any).link_portal_imovirtual || null },
               ].map(portal => (
                 <a
                   key={portal.label}
                   href={portal.url || '#'}
                   target={portal.url ? '_blank' : undefined}
                   rel="noopener noreferrer"
+                  title={portal.url ? `Abrir no ${portal.label}` : `${portal.label} (sem link)`}
+                  aria-label={portal.label}
                   className={cn(
-                    'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3 py-1.5 border shadow-sm transition-all',
+                    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-sm transition-all',
                     portal.url
-                      ? `${portal.bg} ${portal.text} ${portal.hover} ${portal.border}`
-                      : 'bg-muted/60 text-muted-foreground border-border cursor-not-allowed opacity-40'
+                      ? 'bg-background hover:bg-muted hover:shadow border-border'
+                      : 'bg-muted/40 border-border cursor-not-allowed opacity-40 grayscale'
                   )}
                   onClick={(e) => { if (!portal.url) e.preventDefault() }}
                 >
-                  <ExternalLink className="h-3 w-3" />
-                  {portal.label}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://www.google.com/s2/favicons?domain=${portal.domain}&sz=64`}
+                    alt={portal.label}
+                    className="h-5 w-5 rounded-sm"
+                    loading="lazy"
+                  />
                 </a>
               ))}
             </div>
           )}
 
           {/* Sub-tabs */}
-          <div className="flex justify-center lg:justify-start pt-1">
-            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-fit">
+          <div className="-mx-1 flex justify-center overflow-x-auto px-1 pt-1 scrollbar-hide sm:justify-start">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 w-max">
               {([
-                ['fotos', 'Fotos'],
-                ['videos', 'Vídeos'],
-                ['plantas', 'Plantas'],
-                ['descricao', 'Descrição'],
-                ['brochuras', 'Brochuras'],
-              ] as ReadonlyArray<readonly [typeof mediaSection, string]>).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setMediaSection(key)}
-                  className={cn(
-                    'px-3.5 py-1 rounded-full text-[11px] font-medium transition-all',
-                    mediaSection === key
-                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+                ['fotos', 'Fotos', ImageIcon],
+                ['videos', 'Vídeos', Video],
+                ['plantas', 'Plantas', Layers],
+                ['descricao', 'Descrição', FileText],
+                ['brochuras', 'Brochuras', BookOpen],
+              ] as const).map((tab) => {
+                const key = tab[0] as typeof mediaSection
+                const label = tab[1]
+                const Icon = tab[2]
+                const isActive = mediaSection === key
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setMediaSection(key)}
+                    title={label}
+                    aria-label={label}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-medium transition-all',
+                      isActive
+                        ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    {/* Em mobile só o tab activo mostra texto; os outros ficam só ícone. Desktop mostra todos. */}
+                    <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 

@@ -1679,14 +1679,33 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
   )
 }
 
+const PORTAL_DOMAINS: Record<string, string> = {
+  link_portal_remax: 'remax.pt',
+  link_portal_idealista: 'idealista.pt',
+  link_portal_imovirtual: 'imovirtual.com',
+  link_portal_infinity: 'infinitygroup.pt',
+}
+
 function PortalLink({ form, field, label, placeholder }: { form: any; field: string; label: string; placeholder: string }) {
   const value = form.watch(field) as string | null
   const valid = !!value && /^https?:\/\//i.test(value)
+  const domain = PORTAL_DOMAINS[field]
   return (
     <FormField control={form.control} name={field as any} render={({ field: f }) => (
       <FormItem>
         <FormLabel className="text-xs flex items-center justify-between">
-          <span>{label}</span>
+          <span className="inline-flex items-center gap-1.5">
+            {domain && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                alt=""
+                className="h-3.5 w-3.5 rounded-sm"
+                loading="lazy"
+              />
+            )}
+            {label}
+          </span>
           {valid && (
             <a
               href={value!}

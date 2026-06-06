@@ -38,7 +38,7 @@ import {
 import { PropertyMediaUpload } from './property-media-upload'
 import { PropertyImagePreviewSheet } from './property-image-preview-sheet'
 import { usePropertyMedia } from '@/hooks/use-property-media'
-import { Star, Trash2, GripVertical, LayoutGrid, List, CheckSquare, X, Sparkles, Loader2, Brain, Sofa, Presentation, ChevronLeft, ChevronRight, Download, Tag } from 'lucide-react'
+import { Star, Trash2, GripVertical, CheckSquare, X, Sparkles, Loader2, Brain, Sofa, Presentation, ChevronLeft, ChevronRight, Download, Tag } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ImageCompareSlider } from '@/components/shared/image-compare-slider'
 import { BorderBeam } from 'border-beam'
@@ -588,7 +588,8 @@ export function PropertyMediaGallery({
   const [displayMode, setDisplayMode] = useState<DisplayMode>('original')
   const [showClearAiConfirm, setShowClearAiConfirm] = useState<boolean>(false)
   const [isClearingAi, setIsClearingAi] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  // Vista fixa em grelha (cards). A opção de lista foi removida da UI.
+  const viewMode: ViewMode = 'grid'
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkDelete, setShowBulkDelete] = useState(false)
@@ -963,7 +964,7 @@ export function PropertyMediaGallery({
         if (!res.ok) throw new Error(`${res.status}`)
         return res.blob()
       }
-      const { saveAs } = await import('file-saver')
+      const saveAs = (await import('file-saver')).default
       if (targets.length === 1) {
         const blob = await fetchOne(targets[0].url)
         saveAs(blob, targets[0].name)
@@ -1093,10 +1094,10 @@ export function PropertyMediaGallery({
       )}
 
       {currentMedia.length > 0 && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
-          {/* Linha 1 (mobile) / lado esquerdo (desktop): display tabs + count.
-           *  As tabs são primárias, ficam destacadas. */}
-          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        <div className="flex flex-row flex-wrap items-center justify-between gap-2">
+          {/* Originais/Decoradas + count. Em mobile partilha a linha com as
+           *  acções; o count é escondido para poupar espaço. */}
+          <div className="flex items-center gap-2 min-w-0">
             <ToggleGroup
               type="single"
               variant="outline"
@@ -1117,7 +1118,7 @@ export function PropertyMediaGallery({
               </ToggleGroupItem>
             </ToggleGroup>
 
-            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+            <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums shrink-0">
               {displayMode !== 'original'
                 ? `${currentMedia.length} de ${allMedia.length}`
                 : `${allMedia.length}`}{' '}
@@ -1182,22 +1183,6 @@ export function PropertyMediaGallery({
                 <span className="hidden sm:inline">Seleccionar</span>
               </Button>
 
-              {/* View toggle — sempre icon-only */}
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                value={viewMode}
-                onValueChange={(v) => v && setViewMode(v as ViewMode)}
-                size="sm"
-              >
-                <ToggleGroupItem value="grid" aria-label="Vista em grelha" className="h-8 w-8">
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label="Vista em lista" className="h-8 w-8">
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-
               {/* Apresentação — escondido em mobile, abre fullscreen em desktop */}
               <Button
                 variant="outline"
@@ -1223,9 +1208,9 @@ export function PropertyMediaGallery({
 
       {/* Selection action bar — polished card with bulk actions */}
       {selectMode && currentMedia.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap rounded-2xl border border-border/60 bg-card/50 supports-[backdrop-filter]:bg-card/40 backdrop-blur-sm shadow-sm px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap rounded-2xl border border-border/60 bg-card/50 supports-[backdrop-filter]:bg-card/40 backdrop-blur-sm shadow-sm px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
           {/* Left: selection count + select-all toggle */}
-          <div className="flex items-center gap-2 mr-auto">
+          <div className="flex items-center gap-2 sm:mr-auto">
             <span className="inline-flex items-center justify-center h-6 min-w-[1.5rem] rounded-full bg-primary/10 text-primary text-[11px] font-semibold px-2 tabular-nums">
               {selectedIds.size}
             </span>
@@ -1236,31 +1221,45 @@ export function PropertyMediaGallery({
             <button
               type="button"
               onClick={selectedIds.size === currentMedia.length ? deselectAll : selectAll}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
             >
               {selectedIds.size === currentMedia.length
                 ? 'Desmarcar tudo'
                 : `Seleccionar tudo (${currentMedia.length})`}
             </button>
+            {/* Close — mobile only, alinhado à direita da linha de contagem */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto h-8 w-8 shrink-0 rounded-full sm:hidden"
+              onClick={exitSelectMode}
+              title="Sair da selecção"
+              aria-label="Sair da selecção"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
 
-          {/* Right: action buttons grouped */}
-          <div className="flex items-center gap-0.5">
+          {/* Right: action buttons. Em mobile vira uma faixa horizontal com
+              scroll para nunca quebrar a linha nem comprimir os botões. */}
+          <div className="flex items-center gap-0.5 -mx-1 overflow-x-auto px-1 scrollbar-hide sm:mx-0 sm:overflow-visible sm:px-0">
             {/* Categorizar — bulk room label */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 text-xs gap-1.5 rounded-full"
+                  className="h-8 shrink-0 text-xs gap-1.5 rounded-full"
                   disabled={selectedIds.size === 0 || bulkLabeling}
+                  title="Categorizar"
+                  aria-label="Categorizar"
                 >
                   {bulkLabeling ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Tag className="h-3.5 w-3.5" />
                   )}
-                  Categorizar
+                  <span className="hidden sm:inline">Categorizar</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
@@ -1276,17 +1275,18 @@ export function PropertyMediaGallery({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs gap-1.5 rounded-full"
+              className="h-8 shrink-0 text-xs gap-1.5 rounded-full"
               onClick={handleBulkClassify}
               disabled={selectedIds.size === 0 || bulkClassifying}
               title="Classificar com IA"
+              aria-label="Classificar com IA"
             >
               {bulkClassifying ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Sparkles className="h-3.5 w-3.5 text-violet-500" />
               )}
-              Classificar IA
+              <span className="hidden sm:inline">Classificar IA</span>
             </Button>
 
             {/* Decorar — bulk virtual staging (originais only) */}
@@ -1296,11 +1296,13 @@ export function PropertyMediaGallery({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-xs gap-1.5 rounded-full"
+                    className="h-8 shrink-0 text-xs gap-1.5 rounded-full"
                     disabled={selectedIds.size === 0}
+                    title="Decorar"
+                    aria-label="Decorar"
                   >
                     <Sofa className="h-3.5 w-3.5" />
-                    Decorar
+                    <span className="hidden sm:inline">Decorar</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -1326,31 +1328,35 @@ export function PropertyMediaGallery({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs gap-1.5 rounded-full"
+              className="h-8 shrink-0 text-xs gap-1.5 rounded-full"
               disabled={selectedIds.size === 0 || isDownloading}
               onClick={handleBatchDownload}
+              title="Descarregar"
+              aria-label="Descarregar"
             >
               {isDownloading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Download className="h-3.5 w-3.5" />
               )}
-              Descarregar
+              <span className="hidden sm:inline">Descarregar</span>
             </Button>
 
-            <span className="h-5 w-px bg-border/60 mx-1" />
+            <span className="hidden sm:block h-5 w-px bg-border/60 mx-1" />
 
             {/* Eliminar */}
             {displayMode === 'staged' ? (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-8 shrink-0 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
                 disabled={selectedIds.size === 0}
                 onClick={handleClearSelectedStaged}
+                title="Eliminar decoradas"
+                aria-label="Eliminar decoradas"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Eliminar decoradas
+                <span className="hidden sm:inline">Eliminar decoradas</span>
               </Button>
             ) : (
               <DropdownMenu>
@@ -1358,11 +1364,13 @@ export function PropertyMediaGallery({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="h-8 shrink-0 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
                     disabled={selectedIds.size === 0}
+                    title="Eliminar"
+                    aria-label="Eliminar"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Eliminar
+                    <span className="hidden sm:inline">Eliminar</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -1378,12 +1386,12 @@ export function PropertyMediaGallery({
               </DropdownMenu>
             )}
 
-            <span className="h-5 w-px bg-border/60 mx-1" />
+            <span className="hidden sm:block h-5 w-px bg-border/60 mx-1" />
 
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full"
+              className="hidden sm:inline-flex h-8 w-8 shrink-0 rounded-full"
               onClick={exitSelectMode}
               title="Sair da selecção"
             >
