@@ -10,9 +10,8 @@ import { Star, ChevronLeft, ChevronRight, CheckCircle2, Loader2, ShieldCheck } f
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-permissions'
+import { WATCH_GATE_PERCENT } from '@/lib/training/watch-gate'
 import type { LessonContentType } from '@/types/training'
-
-const WATCH_GATE_PERCENT = 90
 
 interface LessonRatingProps {
   lessonId: string

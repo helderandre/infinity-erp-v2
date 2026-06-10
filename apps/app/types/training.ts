@@ -208,6 +208,8 @@ export interface TrainingLessonProgress {
   video_watched_seconds: number
   video_watch_percent: number
   last_video_position_seconds: number
+  /** Merged [start,end) second-intervals of distinct content watched (coverage). */
+  watched_segments?: number[][]
   completion_source: CompletionSource | null
   started_at?: string | null
   completed_at?: string | null

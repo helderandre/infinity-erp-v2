@@ -4,8 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { updateLessonProgressSchema } from '@/lib/validations/training'
-
-const WATCH_GATE_PERCENT = 90
+import { WATCH_GATE_PERCENT } from '@/lib/training/watch-gate'
 
 export async function PUT(
   request: Request,
@@ -68,11 +67,13 @@ export async function PUT(
       .eq('lesson_id', lessonId)
       .maybeSingle()
 
-    // ─── Determine incoming percent: prefer body, fall back to stored ──
-    const incomingPercent =
-      typeof input.video_watch_percent === 'number'
-        ? input.video_watch_percent
-        : existing?.video_watch_percent ?? 0
+    // ─── Determine incoming coverage: the stored coverage is server-authoritative
+    // (built from heartbeat segment unions), so use it as the floor — the gate
+    // can't be cleared just by POSTing a high percent in the body.
+    const incomingPercent = Math.max(
+      typeof input.video_watch_percent === 'number' ? input.video_watch_percent : 0,
+      existing?.video_watch_percent ?? 0
+    )
 
     // ─── Decide final status + completion_source ─────────────────────
     let finalStatus: 'in_progress' | 'completed' | undefined = input.status

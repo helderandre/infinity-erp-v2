@@ -3,10 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { heartbeatSchema } from '@/lib/validations/training'
+import {
+  WATCH_GATE_PERCENT,
+  mergeWatchedIntervals,
+  coveragePercent,
+  type WatchedInterval,
+} from '@/lib/training/watch-gate'
 
 const MAX_DELTA_SECONDS = 15
 const DUPLICATE_WINDOW_MS = 3000
-const WATCH_GATE_PERCENT = 90
+const MAX_STORED_INTERVALS = 4096
 
 export async function POST(
   request: Request,
@@ -47,10 +53,17 @@ export async function POST(
       )
     }
 
-    // Load existing progress row for duplicate window + MAX comparisons
+    // Lesson duration — fallback when the client doesn't send duration_seconds.
+    const { data: lesson } = await supabase
+      .from('forma_training_lessons')
+      .select('video_duration_seconds')
+      .eq('id', lessonId)
+      .maybeSingle()
+
+    // Load existing progress row for duplicate window + MAX comparisons + coverage union
     const { data: existing } = await supabase
       .from('forma_training_lesson_progress')
-      .select('id, status, time_spent_seconds, video_watched_seconds, video_watch_percent, last_accessed_at')
+      .select('id, status, time_spent_seconds, video_watched_seconds, video_watch_percent, watched_segments, last_accessed_at')
       .eq('user_id', userId)
       .eq('lesson_id', lessonId)
       .maybeSingle()
@@ -71,8 +84,28 @@ export async function POST(
     const prevPercent = existing?.video_watch_percent ?? 0
     const prevWatched = existing?.video_watched_seconds ?? 0
 
+    // ─── Coverage: union the persisted watched ranges with the new ones ────
+    // Coverage = distinct content-seconds actually played (anti-skip, speed-proof).
+    const storedSegments = Array.isArray(existing?.watched_segments)
+      ? (existing.watched_segments as WatchedInterval[])
+      : []
+    const incomingSegments = (input.watched_segments ?? []) as WatchedInterval[]
+    const mergedSegments = mergeWatchedIntervals([...storedSegments, ...incomingSegments]).slice(
+      0,
+      MAX_STORED_INTERVALS
+    )
+
+    const duration =
+      typeof input.duration_seconds === 'number' && input.duration_seconds > 0
+        ? input.duration_seconds
+        : lesson?.video_duration_seconds ?? 0
+
+    // Authoritative coverage from merged ranges; fall back to the client's raw
+    // percent only when we genuinely have no duration to normalise against.
+    const coverage = duration > 0 ? coveragePercent(mergedSegments, duration) : input.percent
+
     const nextSpent = prevSpent + clampedDelta
-    const nextPercent = Math.max(prevPercent, input.percent)
+    const nextPercent = Math.max(prevPercent, coverage)
     const nextWatched = Math.max(prevWatched, Math.floor(input.position_seconds))
 
     // Auto-complete transition?
@@ -85,6 +118,7 @@ export async function POST(
       time_spent_seconds: nextSpent,
       video_watch_percent: nextPercent,
       video_watched_seconds: nextWatched,
+      watched_segments: mergedSegments,
       last_video_position_seconds: Math.floor(input.position_seconds),
       last_accessed_at: now,
       updated_at: now,

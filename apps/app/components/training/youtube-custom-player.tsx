@@ -6,6 +6,11 @@ import { VideoControls } from './video-controls'
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import {
+  useVideoProgressTracker,
+  type HeartbeatPayload,
+  type HeartbeatResult,
+} from '@/hooks/use-video-progress-tracker'
 import type { TrainingLesson, TrainingLessonProgress } from '@/types/training'
 
 interface YouTubeCustomPlayerProps {
@@ -19,7 +24,8 @@ interface YouTubeCustomPlayerProps {
     time_spent_seconds?: number
     status?: 'in_progress' | 'completed'
   }) => void
-  onTimeUpdate?: (currentTime: number, duration: number) => void
+  onWatchPercentChange?: (percent: number) => void
+  onHeartbeat?: (data: HeartbeatPayload) => Promise<HeartbeatResult | null | void> | void
 }
 
 export function extractYouTubeId(url: string): string | null {
@@ -39,16 +45,13 @@ export function YouTubeCustomPlayer({
   progress,
   startAt,
   onProgressUpdate,
-  onTimeUpdate,
+  onWatchPercentChange,
+  onHeartbeat,
 }: YouTubeCustomPlayerProps) {
   const playerRef = useRef<YouTubePlayer | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const timeSpentIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const timeSpentRef = useRef<number>(progress?.time_spent_seconds ?? 0)
-  const lastSaveRef = useRef<number>(0)
   const hideControlsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasCompletedRef = useRef(progress?.status === 'completed')
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -63,34 +66,15 @@ export function YouTubeCustomPlayer({
 
   const videoId = extractYouTubeId(videoUrl)
 
-  // ─── Save progress (throttled 10s) ───
-  const saveProgress = useCallback(
-    (time: number, dur: number) => {
-      if (dur <= 0) return
-      const now = Date.now()
-      if (now - lastSaveRef.current < 10000) return
-      lastSaveRef.current = now
+  const { sample, markEnded } = useVideoProgressTracker({
+    progress,
+    enabled: true,
+    onProgressUpdate,
+    onWatchPercentChange,
+    onHeartbeat,
+  })
 
-      const percent = Math.round((time / dur) * 100)
-      const updateData: Parameters<typeof onProgressUpdate>[0] = {
-        video_watched_seconds: Math.floor(time),
-        video_watch_percent: percent,
-        time_spent_seconds: timeSpentRef.current,
-        status: 'in_progress',
-      }
-
-      if (percent >= 90 && !hasCompletedRef.current) {
-        updateData.status = 'completed'
-        updateData.video_watch_percent = 100
-        hasCompletedRef.current = true
-      }
-
-      onProgressUpdate(updateData)
-    },
-    [onProgressUpdate]
-  )
-
-  // ─── Progress tracking interval ───
+  // ─── Progress tracking interval (250ms while playing) ───
   const startProgressTracking = useCallback(() => {
     if (progressIntervalRef.current) return
     progressIntervalRef.current = setInterval(() => {
@@ -102,31 +86,27 @@ export function YouTubeCustomPlayer({
         if (dur > 0) {
           setCurrentTime(time)
           setBuffered(player.getVideoLoadedFraction())
-          saveProgress(time, dur)
-          onTimeUpdate?.(time, dur)
+          sample({ currentTime: time, duration: dur, isPlaying: true })
         }
       } catch {
         // player may be destroyed
       }
     }, 250)
-  }, [saveProgress, onTimeUpdate])
+  }, [sample])
 
   const stopProgressTracking = useCallback(() => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current)
       progressIntervalRef.current = null
     }
-  }, [])
-
-  // ─── Time spent tracking ───
-  useEffect(() => {
-    timeSpentIntervalRef.current = setInterval(() => {
-      if (isPlaying) timeSpentRef.current += 1
-    }, 1000)
-    return () => {
-      if (timeSpentIntervalRef.current) clearInterval(timeSpentIntervalRef.current)
+    // Flag the tracker as paused so the heartbeat stops firing.
+    const player = playerRef.current
+    try {
+      if (player) sample({ currentTime: player.getCurrentTime(), duration: player.getDuration(), isPlaying: false })
+    } catch {
+      /* noop */
     }
-  }, [isPlaying])
+  }, [sample])
 
   // ─── YouTube callbacks ───
   const onReady: YouTubeProps['onReady'] = (event) => {
@@ -134,12 +114,14 @@ export function YouTubeCustomPlayer({
     const dur = event.target.getDuration()
     setDuration(dur)
 
-    // Preferred seek: explicit startAt prop > last_video_position_seconds > video_watched_seconds
     const resume =
-      typeof startAt === 'number' && startAt > 0 ? startAt
-      : (progress?.last_video_position_seconds && progress.last_video_position_seconds > 0) ? progress.last_video_position_seconds
-      : (progress?.video_watched_seconds && progress.video_watched_seconds > 0) ? progress.video_watched_seconds
-      : 0
+      typeof startAt === 'number' && startAt > 0
+        ? startAt
+        : progress?.last_video_position_seconds && progress.last_video_position_seconds > 0
+          ? progress.last_video_position_seconds
+          : progress?.video_watched_seconds && progress.video_watched_seconds > 0
+            ? progress.video_watched_seconds
+            : 0
 
     if (resume > 0 && (dur <= 0 || resume < dur - 5)) {
       event.target.seekTo(resume, true)
@@ -149,30 +131,18 @@ export function YouTubeCustomPlayer({
   const onStateChange: YouTubeProps['onStateChange'] = (event) => {
     const state = event.data
     if (state === 1) {
-      // PLAYING
       setIsPlaying(true)
       setHasEnded(false)
       startProgressTracking()
     } else if (state === 2) {
-      // PAUSED
       setIsPlaying(false)
       stopProgressTracking()
     } else if (state === 0) {
-      // ENDED
       setIsPlaying(false)
       setHasEnded(true)
       stopProgressTracking()
-      if (!hasCompletedRef.current) {
-        hasCompletedRef.current = true
-        onProgressUpdate({
-          status: 'completed',
-          video_watch_percent: 100,
-          video_watched_seconds: Math.floor(playerRef.current?.getDuration() || 0),
-          time_spent_seconds: timeSpentRef.current,
-        })
-      }
+      markEnded()
     } else if (state === 3) {
-      // BUFFERING
       stopProgressTracking()
     }
   }
@@ -189,9 +159,9 @@ export function YouTubeCustomPlayer({
   useEffect(() => {
     return () => {
       if (hideControlsTimeout.current) clearTimeout(hideControlsTimeout.current)
-      stopProgressTracking()
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
     }
-  }, [stopProgressTracking])
+  }, [])
 
   // ─── Player actions ───
   const togglePlay = () => {
@@ -199,11 +169,8 @@ export function YouTubeCustomPlayer({
     if (!player) return
     try {
       const state = player.getPlayerState()
-      if (state === 1) {
-        player.pauseVideo()
-      } else {
-        player.playVideo()
-      }
+      if (state === 1) player.pauseVideo()
+      else player.playVideo()
     } catch {
       // ignore
     }
@@ -262,7 +229,6 @@ export function YouTubeCustomPlayer({
     }
   }
 
-  // Listen for fullscreen changes (e.g. Escape key)
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement)
     document.addEventListener('fullscreenchange', handleFsChange)
@@ -288,7 +254,7 @@ export function YouTubeCustomPlayer({
   return (
     <div
       ref={containerRef}
-      className="group relative aspect-video w-full bg-black rounded-lg overflow-hidden"
+      className="group relative aspect-video w-full overflow-hidden rounded-2xl bg-black ring-1 ring-white/10"
       onMouseMove={resetHideTimer}
       onMouseLeave={() => {
         if (isPlaying) setShowControls(false)
@@ -306,11 +272,11 @@ export function YouTubeCustomPlayer({
 
       {/* End screen overlay — covers YouTube suggestions */}
       {hasEnded && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/80">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
           <Button
             variant="ghost"
             size="lg"
-            className="text-white hover:bg-white/20 gap-2"
+            className="gap-2 rounded-full text-white hover:bg-white/15 hover:text-white"
             onClick={() => {
               const player = playerRef.current
               if (!player) return
@@ -326,19 +292,14 @@ export function YouTubeCustomPlayer({
       )}
 
       {/* Click-to-play overlay */}
-      {!hasEnded && (
-        <div
-          className="absolute inset-0 z-10 cursor-pointer"
-          onClick={togglePlay}
-        />
-      )}
+      {!hasEnded && <div className="absolute inset-0 z-10 cursor-pointer" onClick={togglePlay} />}
 
       {/* Custom controls — auto-hide after 3s */}
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 to-transparent',
-          'px-4 pb-3 pt-8 transition-opacity duration-300',
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/60 via-black/10 to-transparent',
+          'px-3 pb-3 pt-10 transition-opacity duration-300',
+          showControls ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
         onClick={(e) => e.stopPropagation()}
       >

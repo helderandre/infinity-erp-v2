@@ -2,16 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
+import { WATCH_GATE_PERCENT } from '@/lib/training/watch-gate'
+import type { HeartbeatPayload, HeartbeatResult } from '@/hooks/use-video-progress-tracker'
 
 interface UseTrainingLessonParams {
   courseId: string
   lessonId: string
-}
-
-interface HeartbeatPayload {
-  delta_seconds: number
-  position_seconds: number
-  percent: number
 }
 
 interface MarkCompletedResult {
@@ -28,7 +24,7 @@ interface UseTrainingLessonReturn {
     video_watch_percent?: number
     time_spent_seconds?: number
   }) => Promise<void>
-  sendHeartbeat: (data: HeartbeatPayload) => Promise<void>
+  sendHeartbeat: (data: HeartbeatPayload) => Promise<HeartbeatResult | null>
   markCompleted: () => Promise<MarkCompletedResult>
   rateLesson: (rating: number) => Promise<boolean>
   reportIssue: (reason: string, comment?: string) => Promise<boolean>
@@ -70,16 +66,25 @@ export function useTrainingLesson({
     }, 5000)
   }, [courseId, lessonId])
 
-  const sendHeartbeat = useCallback(async (data: HeartbeatPayload) => {
+  const sendHeartbeat = useCallback(async (data: HeartbeatPayload): Promise<HeartbeatResult | null> => {
     try {
-      await fetch(`/api/training/courses/${courseId}/lessons/${lessonId}/heartbeat`, {
+      const res = await fetch(`/api/training/courses/${courseId}/lessons/${lessonId}/heartbeat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
+      if (!res.ok) return null
+      const json = await res.json().catch(() => null)
+      if (!json || typeof json !== 'object') return null
+      return {
+        video_watch_percent: json.video_watch_percent,
+        status: json.status,
+        last_video_position_seconds: json.last_video_position_seconds,
+      }
     } catch (err) {
       // Heartbeat failures are non-fatal — just log
       console.debug('Heartbeat falhou (não crítico):', err)
+      return null
     }
   }, [courseId, lessonId])
 
@@ -99,7 +104,7 @@ export function useTrainingLesson({
       const err = await res.json().catch(() => ({}))
       if (res.status === 403 && typeof err?.current_percent === 'number') {
         toast.error(
-          err.error || 'Assista a pelo menos 90% do vídeo para concluir',
+          err.error || `Assista a pelo menos ${WATCH_GATE_PERCENT}% do vídeo para concluir`,
         )
         return {
           ok: false,

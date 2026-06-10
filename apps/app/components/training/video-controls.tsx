@@ -81,11 +81,11 @@ export function VideoControls({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5 rounded-2xl border border-white/15 bg-black/30 px-3 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl supports-[backdrop-filter]:bg-black/25">
       {/* Progress bar */}
-      <div className="relative group/progress">
+      <div className="relative group/progress py-1">
         {/* Buffer indicator */}
-        <div className="absolute inset-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-white/20 pointer-events-none">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-white/15 pointer-events-none">
           <div
             className="h-full rounded-full bg-white/30 transition-all"
             style={{ width: `${buffered * 100}%` }}
@@ -97,7 +97,7 @@ export function VideoControls({
           max={duration || 1}
           step={0.1}
           onValueChange={([v]) => onSeek(v)}
-          className="relative z-10 [&_[data-slot=slider-track]]:h-1.5 [&_[data-slot=slider-track]]:bg-transparent [&_[data-slot=slider-range]]:bg-white [&_[data-slot=slider-thumb]]:h-3.5 [&_[data-slot=slider-thumb]]:w-3.5 [&_[data-slot=slider-thumb]]:opacity-0 group-hover/progress:[&_[data-slot=slider-thumb]]:opacity-100 [&_[data-slot=slider-thumb]]:transition-opacity"
+          className="relative z-10 [&_[data-slot=slider-track]]:h-1.5 [&_[data-slot=slider-track]]:bg-transparent [&_[data-slot=slider-range]]:bg-white [&_[data-slot=slider-range]]:shadow-[0_0_8px_rgba(255,255,255,0.5)] [&_[data-slot=slider-thumb]]:h-3.5 [&_[data-slot=slider-thumb]]:w-3.5 [&_[data-slot=slider-thumb]]:border-0 [&_[data-slot=slider-thumb]]:bg-white [&_[data-slot=slider-thumb]]:shadow-[0_0_0_4px_rgba(255,255,255,0.25)] [&_[data-slot=slider-thumb]]:opacity-0 group-hover/progress:[&_[data-slot=slider-thumb]]:opacity-100 [&_[data-slot=slider-thumb]]:transition-opacity"
         />
       </div>
 
@@ -107,7 +107,7 @@ export function VideoControls({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-white hover:bg-white/20"
+          className="h-8 w-8 rounded-full text-white hover:bg-white/15 hover:text-white"
           onClick={onTogglePlay}
         >
           {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -117,7 +117,7 @@ export function VideoControls({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-white hover:bg-white/20"
+          className="h-8 w-8 rounded-full text-white hover:bg-white/15 hover:text-white"
           onClick={() => onSkip(-10)}
         >
           <SkipBack className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function VideoControls({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-white hover:bg-white/20"
+          className="h-8 w-8 rounded-full text-white hover:bg-white/15 hover:text-white"
           onClick={() => onSkip(10)}
         >
           <SkipForward className="h-4 w-4" />
@@ -142,7 +142,7 @@ export function VideoControls({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-white hover:bg-white/20"
+            className="h-8 w-8 rounded-full text-white hover:bg-white/15 hover:text-white"
             onClick={onToggleMute}
           >
             <VolumeIcon className="h-4 w-4" />
@@ -177,7 +177,7 @@ export function VideoControls({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 px-2 text-xs text-white hover:bg-white/20 font-medium"
+              className="h-8 rounded-full px-2.5 text-xs font-semibold text-white hover:bg-white/15 hover:text-white"
             >
               {playbackRate}x
             </Button>
@@ -199,7 +199,7 @@ export function VideoControls({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-white hover:bg-white/20"
+          className="h-8 w-8 rounded-full text-white hover:bg-white/15 hover:text-white"
           onClick={onToggleFullscreen}
         >
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
