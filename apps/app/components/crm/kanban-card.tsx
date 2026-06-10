@@ -231,10 +231,13 @@ export function KanbanCard({
   const ringColor = stageColor || '#3b82f6'
 
   // ─── Partner variant ──────────────────────────────────────────────────────
-  // Stripped-down read-only card for the Parceiros app: contact name + the
-  // partner's potential commission gain only. No phone, typology, consultor,
-  // value or stage metadata. The partner *is* the referrer, so the referral
-  // commission slice is their "ganho potencial".
+  // Card do portal de Parceiros — mesmo design do card completo do ERP
+  // (temperatura, tipologia/localização, motivo de perda, consultor, dias na
+  // fase), com duas diferenças deliberadas:
+  //   1. SEM badge "Ref. <parceiro>" — neste board todos os cards são
+  //      referências do próprio parceiro, o badge seria ruído.
+  //   2. SEM o valor do imóvel — no seu lugar mostra o "Ganho potencial"
+  //      (a fatia de comissão do referenciador).
   if (variant === 'partner') {
     const partnerGain =
       referralCommission ??
@@ -244,10 +247,17 @@ export function KanbanCard({
 
     return (
       <div
+        onClick={onClickProp ? handleClick : undefined}
         className={cn(
-          'relative bg-card rounded-xl border border-border/40 pl-3 pr-3 py-3 overflow-hidden',
+          'relative bg-card rounded-xl border border-border/40 pl-3 pr-2.5 py-2.5 overflow-hidden',
           'shadow-[0_2px_4px_-2px_rgba(0,0,0,0.08),0_4px_12px_-4px_rgba(0,0,0,0.06)]',
           'dark:shadow-[0_2px_4px_-2px_rgba(0,0,0,0.4),0_4px_12px_-4px_rgba(0,0,0,0.3)]',
+          onClickProp && [
+            'cursor-pointer',
+            'hover:shadow-[0_4px_8px_-2px_rgba(0,0,0,0.12),0_8px_20px_-6px_rgba(0,0,0,0.1)]',
+            'dark:hover:shadow-[0_4px_8px_-2px_rgba(0,0,0,0.5),0_8px_20px_-6px_rgba(0,0,0,0.4)]',
+            'hover:border-border/70 hover:-translate-y-px transition-all duration-150 select-none',
+          ],
         )}
       >
         {/* Stage accent stripe */}
@@ -257,26 +267,92 @@ export function KanbanCard({
           style={{ backgroundColor: ringColor }}
         />
 
-        {/* Contact name */}
-        <p className="font-semibold text-[13px] text-foreground leading-tight truncate">
-          {contactName}
-        </p>
-
-        {/* Potential gain — the partner's referral commission slice */}
-        <div className="mt-2">
-          <p className="text-[9px] uppercase tracking-wider font-medium text-muted-foreground">
-            Ganho potencial
-          </p>
-          <p className="mt-0.5 flex items-baseline gap-1.5">
-            <span className="text-[17px] font-bold tabular-nums leading-none text-emerald-600 dark:text-emerald-400">
-              {partnerGain !== null && partnerGain > 0 ? formatEUR(partnerGain) : '—'}
-            </span>
-            {referralPct !== null && Number.isFinite(referralPct) && (
-              <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
-                {referralPct}%
-              </span>
+        {/* Header: name + temperatura + meta — igual ao card completo */}
+        <div className="min-w-0">
+          <p className="font-semibold text-[13px] text-foreground leading-tight truncate flex items-center gap-1.5">
+            {tempColor && (
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: tempColor }}
+                title={temperatura ? `Temperatura: ${temperatura}` : undefined}
+              />
             )}
+            <span className="truncate">{contactName}</span>
+            {tempEmoji && <span aria-hidden className="text-[11px] shrink-0">{tempEmoji}</span>}
           </p>
+
+          {metaParts.length > 0 && (
+            <p className="text-[10px] text-muted-foreground leading-snug truncate mt-0.5 flex items-center gap-1">
+              {typology && <Home className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+              {!typology && localizacao && <MapPin className="h-2.5 w-2.5 shrink-0 opacity-70" />}
+              <span className="truncate">{metaParts.join(' · ')}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Motivo de perda — chip vermelho como no card completo */}
+        {lostReason && (
+          <div className="mt-1.5">
+            <Badge
+              variant="secondary"
+              className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-red-500/15 text-red-700 dark:text-red-300 hover:bg-red-500/15 max-w-full"
+            >
+              <X className="h-2.5 w-2.5 shrink-0" strokeWidth={3} />
+              <span className="truncate">{lostReason}</span>
+            </Badge>
+          </div>
+        )}
+
+        {/* Ganho potencial — substitui o valor do imóvel do card completo */}
+        <div className="mt-2 flex items-baseline gap-1.5">
+          <Euro className="h-3 w-3 text-emerald-600 dark:text-emerald-400 self-center" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+            Ganho potencial
+          </span>
+          <span className="text-[15px] font-bold tabular-nums leading-none text-emerald-600 dark:text-emerald-400">
+            {partnerGain !== null && partnerGain > 0 ? formatEUR(partnerGain) : '—'}
+          </span>
+          {referralPct !== null && Number.isFinite(referralPct) && (
+            <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+              {referralPct}%
+            </span>
+          )}
+        </div>
+
+        {/* Footer: consultor que trabalha a referência + dias na fase */}
+        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-border/30 gap-2">
+          {consultant?.commercial_name ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Avatar size="sm" className="h-5 w-5">
+                {consultant.profile?.profile_photo_url && (
+                  <AvatarImage
+                    src={consultant.profile.profile_photo_url}
+                    alt={consultant.commercial_name}
+                  />
+                )}
+                <AvatarFallback
+                  className={cn(
+                    'text-[9px] font-semibold',
+                    paletteFor(consultant.commercial_name).bg,
+                    paletteFor(consultant.commercial_name).text,
+                  )}
+                >
+                  {initialsFromName(consultant.commercial_name)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {consultant.commercial_name}
+              </span>
+            </div>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/50 italic">Sem consultor</span>
+          )}
+
+          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums shrink-0">
+            <Clock className="h-2.5 w-2.5" />
+            <span>{daysInStage}d</span>
+          </div>
         </div>
       </div>
     )

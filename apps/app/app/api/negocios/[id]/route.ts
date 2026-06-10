@@ -42,9 +42,12 @@ export async function GET(
     }
 
     // Gate: consultor só vê negócios onde é o assigned_consultant_id
-    // directo. Esconde com 404 (não revela existência).
+    // directo OU o referrer (vista read-only da página Referências).
+    // Esconde com 404 (não revela existência).
     if (!isManagementRole(auth.roles)) {
-      if ((data as any).assigned_consultant_id !== auth.user.id) {
+      const isAssigned = (data as any).assigned_consultant_id === auth.user.id
+      const isReferrer = (data as any).referrer_consultant_id === auth.user.id
+      if (!isAssigned && !isReferrer) {
         return NextResponse.json({ error: 'Negócio não encontrado' }, { status: 404 })
       }
     }

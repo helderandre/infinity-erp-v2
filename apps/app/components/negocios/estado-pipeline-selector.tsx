@@ -59,6 +59,8 @@ interface EstadoPipelineSelectorProps {
     stage: PipelineStage,
     lostInfo?: { reason: string; notes: string },
   ) => void
+  /** Read-only: mostra a fase actual mas bloqueia a mudança (vista do parceiro/referrer). */
+  disabled?: boolean
 }
 
 export function EstadoPipelineSelector({
@@ -67,6 +69,7 @@ export function EstadoPipelineSelector({
   pipelineStageId,
   fallbackLabel,
   onChange,
+  disabled = false,
 }: EstadoPipelineSelectorProps) {
   const pipelineType = tipoToPipelineType(tipo, perspective)
   const [stages, setStages] = useState<PipelineStage[]>([])
@@ -113,11 +116,12 @@ export function EstadoPipelineSelector({
 
   return (
     <>
-    <Select value={pipelineStageId || undefined} onValueChange={handleChange}>
+    <Select value={pipelineStageId || undefined} onValueChange={handleChange} disabled={disabled}>
       <SelectTrigger
         className={cn(
           'h-7 w-auto gap-1.5 rounded-full border-0 px-2.5 text-[11px] font-semibold',
           '[&>svg]:h-3 [&>svg]:w-3',
+          disabled && 'opacity-90 [&>svg]:hidden',
         )}
         style={{
           backgroundColor: `${triggerColor}26`,
