@@ -73,6 +73,14 @@ In Coolify, create three services, all pointing at this repo:
 Each needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 (+ `SUPABASE_SERVICE_ROLE_KEY` and the app's other secrets) as build args / env.
 
+> ⚠️ **Base Directory must stay `/` — never the app folder.** Coolify's Base Directory
+> is the Docker *build context*. Setting it to `/apps/parceiros` (or any app dir) makes
+> the `COPY package-lock.json` / `COPY packages/*/package.json` steps fail with
+> `"…/package.json": not found`, because those paths only exist at the repo root.
+> Keep Base Directory = `/` and point **Dockerfile Location** at the app's Dockerfile
+> (e.g. `/apps/parceiros/Dockerfile`). Leave **Docker Build Stage Target** empty — the
+> final `runner` stage is already the default target.
+
 ## Gotchas baked into this setup
 
 - **`outputFileTracingRoot`** is set to the repo root in every `next.config.ts` so
