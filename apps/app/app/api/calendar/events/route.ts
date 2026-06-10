@@ -611,6 +611,16 @@ export async function GET(request: Request) {
         // Próprio evento pessoal — pastel mas conteúdo intacto.
         return { ...ev, color: 'yellow-200' } as CalendarEvent
       })
+
+      // Os placeholders "Ocupado" só interessam quando o caller está
+      // explicitamente a consultar o calendário de OUTRA pessoa (user_id
+      // de terceiro). Na vista geral (sem filtro de pessoa) ou no próprio
+      // calendário, removem-se — caso contrário a gestão vê o calendário
+      // inundado de "Ocupado" de toda a equipa.
+      const viewingSomeoneElse = !!userId && userId !== currentUserId
+      if (!viewingSomeoneElse) {
+        filtered = filtered.filter((ev) => !ev.is_redacted)
+      }
     }
 
     // ------ Sort by start_date ------

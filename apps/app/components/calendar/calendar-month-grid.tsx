@@ -10,13 +10,12 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  isSameDay,
   isToday,
   format,
   parseISO,
 } from 'date-fns'
-import { CalendarEventCard, CALENDAR_EVENT_BORDER_L } from './calendar-event-card'
-import { CALENDAR_CATEGORY_COLORS, getEventColors } from '@/types/calendar'
+import { CalendarEventCard } from './calendar-event-card'
+import { getEventColors } from '@/types/calendar'
 import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -32,6 +31,7 @@ interface CalendarMonthGridProps {
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 const WEEKDAY_LABELS_SHORT = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
 const MAX_VISIBLE_EVENTS = 3
+const MAX_MOBILE_EVENTS = 2
 
 export function CalendarMonthGrid({
   currentDate,
@@ -91,12 +91,10 @@ export function CalendarMonthGrid({
     return result
   }, [days])
 
-  const MAX_MOBILE_EVENTS = 2
-
   return (
     <div className="flex flex-col rounded-3xl border border-border/40 overflow-hidden h-full bg-background/50 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md shadow-sm">
       {/* Header row — translucent, minimal */}
-      <div className="grid grid-cols-7 border-b border-border/30 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-sm">
+      <div className="grid grid-cols-7 border-b border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-sm">
         {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
@@ -108,15 +106,9 @@ export function CalendarMonthGrid({
         ))}
       </div>
 
-      {/* Weeks — soft dividers, no outer border */}
+      {/* Weeks — flat mube-style cells with soft border-b/border-r dividers */}
       {weeks.map((week, weekIdx) => (
-        <div
-          key={weekIdx}
-          className={cn(
-            'grid grid-cols-7 flex-1 min-h-0',
-            weekIdx > 0 && 'border-t border-border/50',
-          )}
-        >
+        <div key={weekIdx} className="grid grid-cols-7 flex-1 min-h-0">
           {week.map((day, dayIdx) => {
             const key = format(day, 'yyyy-MM-dd')
             const dayEvents = eventsByDay.get(key) ?? []
@@ -130,24 +122,23 @@ export function CalendarMonthGrid({
               <div
                 key={key}
                 className={cn(
-                  'p-1 sm:p-1.5 transition-colors cursor-pointer overflow-hidden flex flex-col',
+                  'relative flex flex-col items-stretch p-1 sm:p-1.5 min-h-[64px] sm:min-h-0 text-left transition-colors cursor-pointer overflow-hidden',
                   'hover:bg-muted/30',
-                  dayIdx > 0 && 'border-l border-border/50',
-                  !isCurrentMonth && 'opacity-35',
-                  today && 'bg-primary/[0.04]',
+                  weekIdx < weeks.length - 1 && 'border-b border-border/40',
+                  dayIdx < 6 && 'border-r border-border/40',
+                  !isCurrentMonth && 'opacity-40 bg-muted/20',
                 )}
                 onClick={() => onDayClick(day)}
               >
-                {/* Day number */}
-                <div className="flex items-center justify-end shrink-0">
+                {/* Day number — top-left round badge, mube style */}
+                <div className="flex items-center shrink-0">
                   <button
                     type="button"
                     className={cn(
-                      'flex h-6 w-6 sm:h-6 sm:w-6 items-center justify-center rounded-full text-[11px] sm:text-xs font-medium transition-all',
-                      today && 'bg-foreground text-background font-semibold shadow-sm',
-                      !today && dayEvents.length > 0 && isCurrentMonth && 'text-foreground font-semibold hover:bg-muted/60',
-                      !today && dayEvents.length === 0 && isCurrentMonth && 'text-foreground/70 hover:bg-muted/60',
-                      !today && !isCurrentMonth && 'text-muted-foreground/50 hover:bg-muted/40',
+                      'flex h-6 w-6 items-center justify-center rounded-full text-[11px] sm:text-xs font-medium transition-all',
+                      today && 'bg-blue-600 text-white font-semibold shadow-sm',
+                      !today && isCurrentMonth && 'text-foreground/80 hover:bg-muted/60',
+                      !today && !isCurrentMonth && 'text-muted-foreground/60 hover:bg-muted/40',
                     )}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -159,9 +150,9 @@ export function CalendarMonthGrid({
                 </div>
 
                 {/* Events */}
-                <div className="flex-1 min-h-0 mt-0.5 space-y-px sm:space-y-0.5">
-                  {/* Desktop: full event cards */}
-                  <div className="hidden sm:block space-y-0.5">
+                <div className="flex-1 min-h-0 mt-0.5">
+                  {/* Desktop: mube-style chips (dot + hora + título) */}
+                  <div className="hidden sm:block space-y-[2px]">
                     {dayEvents.slice(0, MAX_VISIBLE_EVENTS).map((event) => (
                       <div
                         key={event.id}
@@ -170,12 +161,12 @@ export function CalendarMonthGrid({
                           onEventClick(event)
                         }}
                       >
-                        <CalendarEventCard event={event} compact />
+                        <CalendarEventCard event={event} />
                       </div>
                     ))}
                     {extraCount > 0 && (
                       <button
-                        className="w-full text-left px-2 py-0.5 text-[10.5px] text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
+                        className="text-left px-1.5 py-[2px] text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50"
                         onClick={(e) => {
                           e.stopPropagation()
                           onDayClick(day)
@@ -185,33 +176,30 @@ export function CalendarMonthGrid({
                       </button>
                     )}
                   </div>
-                  {/* Mobile: tinted pills with solid colored left strip */}
-                  <div className="sm:hidden space-y-0.5">
+                  {/* Mobile: Google Calendar-style solid chips */}
+                  <div className="sm:hidden space-y-[2px]">
                     {dayEvents.slice(0, MAX_MOBILE_EVENTS).map((event) => {
                       const colors = getEventColors(event)
-                      void CALENDAR_CATEGORY_COLORS
                       return (
                         <div
                           key={event.id}
                           className={cn(
-                            'flex items-stretch rounded-md overflow-hidden cursor-pointer transition-opacity hover:opacity-80',
-                            colors?.bg || 'bg-primary/15',
-                            colors?.text || 'text-primary',
+                            'rounded-[4px] px-1 py-[2px] truncate text-[9px] font-semibold leading-tight cursor-pointer transition-opacity hover:opacity-80',
+                            event.is_private
+                              ? cn(colors?.bg || 'bg-yellow-100', colors?.text || 'text-yellow-900')
+                              : cn(colors?.dot || 'bg-primary', 'text-white'),
                           )}
                           onClick={(e) => {
                             e.stopPropagation()
                             onEventClick(event)
                           }}
                         >
-                          <span className={cn('w-[2px] shrink-0', colors?.dot || 'bg-primary')} />
-                          <span className="flex-1 min-w-0 truncate font-medium px-1 py-[2px] text-[9px] leading-tight">
-                            {event.title}
-                          </span>
+                          {event.title}
                         </div>
                       )
                     })}
                     {mobileExtra > 0 && (
-                      <p className="text-[8px] text-muted-foreground/70 text-center leading-none">
+                      <p className="text-[9px] font-medium text-muted-foreground/80 pl-1 leading-none">
                         +{mobileExtra}
                       </p>
                     )}

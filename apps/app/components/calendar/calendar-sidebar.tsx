@@ -1,113 +1,291 @@
 'use client'
 
-import { useMemo } from 'react'
-import type { CalendarEvent } from '@/types/calendar'
-import { CALENDAR_CATEGORY_COLORS } from '@/types/calendar'
-import { Calendar } from '@/components/ui/calendar'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { format, parseISO, isAfter, isSameDay } from 'date-fns'
-import { pt } from 'date-fns/locale'
+import { useMemo, useState } from 'react'
+import type { CalendarCategory, CalendarEvent } from '@/types/calendar'
+import {
+  CALENDAR_CATEGORY_COLORS,
+  CALENDAR_CATEGORY_LABELS,
+} from '@/types/calendar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Input } from '@/components/ui/input'
+import { Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CalendarDays } from 'lucide-react'
 
-interface CalendarSidebarProps {
-  currentDate: Date
-  events: CalendarEvent[]
-  onDateChange: (date: Date) => void
+export interface CalendarSidebarUser {
+  id: string
+  name: string
+  photo?: string | null
 }
 
-const MAX_UPCOMING = 7
+interface CalendarSidebarProps {
+  /** Eventos do período visível — usados para as bolhas de contagem. */
+  events: CalendarEvent[]
+  /** Categorias actualmente activas (estado partilhado com os filtros). */
+  categories: CalendarCategory[]
+  /** Preset por defeito do role — usado para listar e para "Limpar". */
+  defaultCategories: CalendarCategory[]
+  onSetCategories: (categories: CalendarCategory[]) => void
+  /** Lista de consultores — só relevante quando `isManager`. */
+  users: CalendarSidebarUser[]
+  selectedUserId?: string
+  onSelectUser: (userId: string | undefined) => void
+  /** Tab "Consultores" é exclusiva de gestão. */
+  isManager: boolean
+}
 
+const sameSet = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((x) => b.includes(x))
+
+/**
+ * Barra lateral esquerda do calendário (desktop only — o caller esconde em
+ * mobile). Estilo mube-crm: legenda de categorias clicável que filtra a
+ * vista para "só aquelas", e — para gestão — uma segunda tab com a lista de
+ * consultores cujo card filtra o calendário para essa pessoa.
+ */
 export function CalendarSidebar({
-  currentDate,
   events,
-  onDateChange,
+  categories,
+  defaultCategories,
+  onSetCategories,
+  users,
+  selectedUserId,
+  onSelectUser,
+  isManager,
 }: CalendarSidebarProps) {
-  const now = new Date()
+  const [tab, setTab] = useState<'categorias' | 'consultores'>('categorias')
+  const [userSearch, setUserSearch] = useState('')
 
-  const upcomingEvents = useMemo(() => {
-    return events
-      .filter((e) => {
-        const eventDate = parseISO(e.start_date)
-        return isAfter(eventDate, now) || isSameDay(eventDate, now)
-      })
-      .sort((a, b) => parseISO(a.start_date).getTime() - parseISO(b.start_date).getTime())
-      .slice(0, MAX_UPCOMING)
-  }, [events, now])
+  // Há uma selecção explícita quando o set activo difere do preset do role.
+  const hasSelection = !sameSet(categories, defaultCategories)
+
+  // Contagens do período visível. NOTA: `events` chega já filtrado pela API
+  // (categorias/consultor activos), portanto as bolhas só são mostradas em
+  // linhas não-dimmed — para as restantes a contagem seria 0 enganador.
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const e of events) map.set(e.category, (map.get(e.category) ?? 0) + 1)
+    return map
+  }, [events])
+
+  const userCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const e of events) {
+      if (e.user_id) map.set(e.user_id, (map.get(e.user_id) ?? 0) + 1)
+    }
+    return map
+  }, [events])
+
+  const handleCategoryClick = (cat: CalendarCategory) => {
+    if (!hasSelection) {
+      onSetCategories([cat])
+      return
+    }
+    if (categories.includes(cat)) {
+      const next = categories.filter((c) => c !== cat)
+      onSetCategories(next.length ? next : defaultCategories)
+    } else {
+      onSetCategories([...categories, cat])
+    }
+  }
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase()
+    if (!q) return users
+    return users.filter((u) => u.name.toLowerCase().includes(q))
+  }, [users, userSearch])
 
   return (
-    <div className="space-y-4">
-      {/* Mini calendar */}
-      <div className="flex justify-center">
-        <Calendar
-          mode="single"
-          selected={currentDate}
-          onSelect={(date) => date && onDateChange(date)}
-          locale={pt}
-          weekStartsOn={1}
-          className="rounded-md border"
-        />
-      </div>
-
-      <Separator />
-
-      {/* Upcoming events */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">Próximos Eventos</h3>
+    <div className="flex h-full flex-col gap-3 p-3 overflow-hidden">
+      {/* Tab picker — só gestão tem a segunda tab */}
+      {isManager ? (
+        <div className="grid grid-cols-2 rounded-full bg-muted/50 p-1 text-xs font-medium shrink-0">
+          {(
+            [
+              ['categorias', 'Categorias'],
+              ['consultores', 'Consultores'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={cn(
+                'rounded-full px-3 py-1.5 transition-colors',
+                tab === value
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+      ) : (
+        <h3 className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+          Legenda
+        </h3>
+      )}
 
-        {upcomingEvents.length === 0 ? (
-          <p className="text-xs text-muted-foreground px-1">
-            Sem eventos futuros.
-          </p>
-        ) : (
-          <ScrollArea className="max-h-[320px]">
-            <div className="space-y-1">
-              {upcomingEvents.map((event) => {
-                const colors = CALENDAR_CATEGORY_COLORS[event.category]
-                const eventDate = parseISO(event.start_date)
-                const isEventToday = isSameDay(eventDate, now)
-
-                return (
-                  <div
-                    key={event.id}
-                    className="flex items-start gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => onDateChange(eventDate)}
+      {/* ─── Categorias ─────────────────────────────────────────────── */}
+      {tab === 'categorias' && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          {isManager && (
+            <div className="flex items-center justify-between px-1 shrink-0">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Legenda
+              </h3>
+              {hasSelection && (
+                <button
+                  type="button"
+                  onClick={() => onSetCategories(defaultCategories)}
+                  className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+          )}
+          {!isManager && hasSelection && (
+            <button
+              type="button"
+              onClick={() => onSetCategories(defaultCategories)}
+              className="self-end px-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              Limpar
+            </button>
+          )}
+          <ul className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-0.5">
+            {defaultCategories.map((cat) => {
+              const colors = CALENDAR_CATEGORY_COLORS[cat]
+              const isActive = hasSelection && categories.includes(cat)
+              const isDimmed = hasSelection && !isActive
+              const count = categoryCounts.get(cat) ?? 0
+              return (
+                <li key={cat}>
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryClick(cat)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'w-full flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-all cursor-pointer',
+                      isActive
+                        ? 'border-border bg-muted/70 ring-1 ring-foreground/10 shadow-sm'
+                        : 'border-border/50 bg-background/60 hover:bg-muted/40',
+                      isDimmed && 'opacity-50',
+                    )}
                   >
                     <span
                       className={cn(
-                        'mt-1.5 h-2 w-2 rounded-full shrink-0',
-                        colors.dot
+                        'h-3.5 w-3.5 rounded-full shrink-0 ring-1 ring-black/5',
+                        colors?.dot || 'bg-primary',
                       )}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm">{event.title}</p>
-                      <p
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                      {CALENDAR_CATEGORY_LABELS[cat]}
+                    </span>
+                    {!isDimmed && (
+                      <span
                         className={cn(
-                          'text-xs text-muted-foreground',
-                          isEventToday && 'text-primary font-medium'
+                          'shrink-0 min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-semibold inline-flex items-center justify-center tabular-nums',
+                          isActive
+                            ? 'bg-foreground text-background'
+                            : 'bg-muted text-muted-foreground',
                         )}
                       >
-                        {isEventToday
-                          ? 'Hoje'
-                          : format(eventDate, "d 'de' MMM", { locale: pt })}
-                        {!event.all_day && (
-                          <span className="ml-1">
-                            {format(eventDate, 'HH:mm')}
-                          </span>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* ─── Consultores (gestão) ───────────────────────────────────── */}
+      {tab === 'consultores' && isManager && (
+        <div className="flex-1 min-h-0 flex flex-col gap-2">
+          <div className="flex items-center justify-between px-1 shrink-0">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Equipa
+            </h3>
+            {selectedUserId && (
+              <button
+                type="button"
+                onClick={() => onSelectUser(undefined)}
+                className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+          <div className="relative shrink-0">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="Pesquisar..."
+              className="h-8 pl-8 text-xs rounded-lg"
+            />
+          </div>
+          <ul className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-0.5">
+            {filteredUsers.length === 0 && (
+              <li className="px-2 py-3 text-xs text-muted-foreground text-center">
+                Nenhum resultado encontrado
+              </li>
+            )}
+            {filteredUsers.map((u) => {
+              const isActive = selectedUserId === u.id
+              const isDimmed = !!selectedUserId && !isActive
+              const count = userCounts.get(u.id) ?? 0
+              return (
+                <li key={u.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectUser(isActive ? undefined : u.id)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'w-full flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-all cursor-pointer',
+                      isActive
+                        ? 'border-border bg-muted/70 ring-1 ring-foreground/10 shadow-sm'
+                        : 'border-border/50 bg-background/60 hover:bg-muted/40',
+                      isDimmed && 'opacity-50',
+                    )}
+                  >
+                    <Avatar className="h-7 w-7 shrink-0">
+                      {u.photo && <AvatarImage src={u.photo} alt={u.name} />}
+                      <AvatarFallback className="text-[10px] font-medium">
+                        {u.name
+                          .split(' ')
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((p) => p[0]?.toUpperCase())
+                          .join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                      {u.name}
+                    </span>
+                    {!isDimmed && (
+                      <span
+                        className={cn(
+                          'shrink-0 min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-semibold inline-flex items-center justify-center tabular-nums',
+                          isActive
+                            ? 'bg-foreground text-background'
+                            : 'bg-muted text-muted-foreground',
                         )}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </ScrollArea>
-        )}
-      </div>
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import type { CalendarCategory } from '@/types/calendar'
 
 interface UseCalendarFiltersReturn {
   categories: CalendarCategory[]
+  defaultCategories: CalendarCategory[]
   userId: string | undefined
   filterSelf: boolean
   toggleCategory: (category: CalendarCategory) => void
@@ -83,6 +84,7 @@ export function useCalendarFilters(): UseCalendarFiltersReturn {
 
   return {
     categories,
+    defaultCategories,
     userId,
     filterSelf,
     toggleCategory,

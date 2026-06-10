@@ -53,7 +53,7 @@ function CalendarioPageInner() {
   const isManager = isManagementRole(currentUser?.role_names ?? [])
   const [editingEvent, setEditingEvent] = useState<Partial<CalendarEventFormData> | undefined>()
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
-  const [users, setUsers] = useState<{ id: string; name: string }[]>([])
+  const [users, setUsers] = useState<{ id: string; name: string; photo?: string | null }[]>([])
 
   // Compute date range for the visible period (memoized to avoid re-renders)
   const { rangeStart, rangeEnd } = useMemo(() => {
@@ -67,6 +67,7 @@ function CalendarioPageInner() {
 
   const {
     categories,
+    defaultCategories,
     userId: filterUserId,
     filterSelf,
     toggleCategory,
@@ -142,7 +143,16 @@ function CalendarioPageInner() {
         // Handle both { data: [...] } and direct array responses
         const list = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : []
         if (list.length > 0) {
-          setUsers(list.map((u: any) => ({ id: u.id, name: u.commercial_name || u.name || 'Sem nome' })))
+          setUsers(list.map((u: any) => {
+            const profile = Array.isArray(u.dev_consultant_profiles)
+              ? u.dev_consultant_profiles[0]
+              : u.dev_consultant_profiles
+            return {
+              id: u.id,
+              name: u.commercial_name || u.name || 'Sem nome',
+              photo: profile?.profile_photo_url ?? null,
+            }
+          }))
         }
       })
       .catch(() => {})
@@ -210,6 +220,17 @@ function CalendarioPageInner() {
     setEditingEventId(null)
     setFormOpen(true)
   }, [])
+
+  // Selecção de consultor a partir da barra lateral. Desliga o "Os meus
+  // eventos" se estiver activo — caso contrário o hook dá-lhe prioridade
+  // e o card seleccionado não teria efeito.
+  const handleSidebarSelectUser = useCallback(
+    (id: string | undefined) => {
+      if (filterSelf) toggleFilterSelf()
+      setFilterUserId(id)
+    },
+    [filterSelf, toggleFilterSelf, setFilterUserId],
+  )
 
   // Click on a time slot in the week view → open the event form pre-filled
   // with the snapped start time + 1h end time. Mirrors Google Calendar UX.
@@ -326,6 +347,28 @@ function CalendarioPageInner() {
           abre o painel à direita e comprime o calendário. Em mobile o
           mesmo botão abre a Sheet de baixo (renderizada mais abaixo). */}
       <div className="flex flex-1 min-h-0 gap-4 items-stretch">
+        {/* Barra lateral esquerda (desktop only, estilo mube-crm) — legenda
+            de categorias clicável + tab "Consultores" para gestão. Em
+            mobile estes filtros não existem (sheet de filtros mantém-se). */}
+        <aside className="relative hidden lg:block w-60 xl:w-64 shrink-0 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm overflow-hidden">
+          {/* O conteúdo é posicionado em absolute para que a altura da
+              sidebar NUNCA contribua para a altura da row — listas longas
+              (ex.: equipa inteira) fazem scroll interno em vez de esticar
+              o calendário. */}
+          <div className="absolute inset-0">
+            <CalendarSidebar
+              events={events}
+              categories={categories}
+              defaultCategories={defaultCategories}
+              onSetCategories={setCategories}
+              users={users}
+              selectedUserId={filterUserId}
+              onSelectUser={handleSidebarSelectUser}
+              isManager={isManager}
+            />
+          </div>
+        </aside>
+
         <main className="flex-1 min-w-0 overflow-auto rounded-2xl bg-card/40 ring-1 ring-border/60">
           <CalendarView
             events={events}
