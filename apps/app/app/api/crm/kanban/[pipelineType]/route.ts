@@ -46,7 +46,11 @@ export async function GET(
       assigned_consultant_id = assignedParam
       referrer_consultant_id = referrerParam
     } else if (referrerMode) {
-      assigned_consultant_id = null
+      // Referências / Parceiros view: locked to deals where I'm the referrer.
+      // Still allow narrowing by a specific consultor working those deals —
+      // this is a safe AND on top of referrer_consultant_id=self, so it can
+      // only shrink my own referred set, never widen visibility.
+      assigned_consultant_id = assignedParam
       referrer_consultant_id = auth.user.id
     } else {
       assigned_consultant_id = auth.user.id

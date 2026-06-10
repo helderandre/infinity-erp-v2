@@ -4,6 +4,10 @@ import { updateLeadSchema } from '@/lib/validations/lead'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
+import { resolvePartnerOriginForLead } from '@/lib/parceiros/resolve-partner-origin'
+import { createDeletionRequest } from '@/lib/parceiros/deletion-requests'
+import { deleteLeadCascade } from '@/lib/leads/delete-lead-cascade'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import type { Database } from '@/types/database'
 
 type LeadUpdate = Database['public']['Tables']['leads']['Update']
@@ -171,30 +175,55 @@ export async function DELETE(
       return NextResponse.json({ error: access.error }, { status: access.status })
     }
 
-    // `calendar_events.lead_id` has FK ON DELETE NO ACTION — would block the
-    // delete if any event references this lead. Decouple first by NULLing
-    // the FK; the events themselves stay (they belong to the consultant's
-    // calendar, not to the lead).
-    await supabase
-      .from('calendar_events')
-      .update({ lead_id: null })
-      .eq('lead_id', id)
+    // Partner-approval gate: if this lead came from a parceiro with app access,
+    // a manager with the `users` permission may force-delete (override); anyone
+    // else (incl. the owning consultant) must instead file a deletion request
+    // and wait for the parceiro to approve. The parceiro deleting their own
+    // referral never needs approval.
+    const admin = createCrmAdminClient()
+    const canOverride = auth.permissions.users === true
+    const partnerOrigin = await resolvePartnerOriginForLead(id, admin)
+    if (partnerOrigin && partnerOrigin.partnerId !== auth.user.id && !canOverride) {
+      const body = await request.json().catch(() => ({})) as { reason?: string }
+      const { data: lead } = await admin
+        .from('leads')
+        .select('nome, email, telemovel')
+        .eq('id', id)
+        .maybeSingle()
+      const res = await createDeletionRequest(admin, {
+        entityType: 'lead',
+        entityId: id,
+        partnerId: partnerOrigin.partnerId,
+        requestedBy: auth.user.id,
+        reason: body?.reason ?? null,
+        snapshot: {
+          name: lead?.nome ?? null,
+          email: lead?.email ?? null,
+          phone: lead?.telemovel ?? null,
+          partner_name: partnerOrigin.partnerName,
+        },
+      })
+      if (res.error) {
+        return NextResponse.json(
+          { error: 'Erro ao criar pedido de eliminação', details: res.error },
+          { status: 500 },
+        )
+      }
+      return NextResponse.json(
+        {
+          status: 'pending_partner_approval',
+          request_id: res.id,
+          already_pending: res.existing,
+          partner_name: partnerOrigin.partnerName,
+        },
+        { status: 202 },
+      )
+    }
 
-    // Everything else cascades or sets-null automatically:
-    //   CASCADE: negocios, leads_activities, leads_entries, lead_attachments,
-    //            contact_automations*, contact_property_sends, custom_event_leads,
-    //            leads_referrals, temp_acompanhamentos, temp_pedidos_credito,
-    //            wpp_activity_sessions
-    //   SET NULL: visits, wpp_contacts, leads_notifications, property_propostas,
-    //             client_satisfaction_surveys
-    const { error } = await supabase
-      .from('leads')
-      .delete()
-      .eq('id', id)
-
+    const { error } = await deleteLeadCascade(supabase, id)
     if (error) {
       return NextResponse.json(
-        { error: 'Erro ao eliminar lead', details: error.message },
+        { error: 'Erro ao eliminar lead', details: error },
         { status: 500 }
       )
     }

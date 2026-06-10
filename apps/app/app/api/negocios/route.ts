@@ -6,6 +6,7 @@ import { isManagementRole } from '@/lib/auth/roles'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
+import { qualifyNegocioPayload } from '@/lib/negocios/assert-qualified'
 
 export async function GET(request: Request) {
   try {
@@ -117,6 +118,21 @@ export async function POST(request: Request) {
       if (insertPayload.tipo === 'Arrendatário' && !insertPayload.business_type) {
         insertPayload.business_type = 'Arrendamento'
       }
+    }
+
+    // Qualification guard — every path (form, voice, raw API) must provide
+    // location + value. Free-text location is best-effort upgraded to a
+    // structured zone here so the négocio is never created "unqualified"
+    // (which would make matching return no_filter → matches all properties).
+    {
+      const qualified = await qualifyNegocioPayload(supabase, insertPayload)
+      if (!qualified.ok) {
+        return NextResponse.json(
+          { error: qualified.error, field: qualified.field },
+          { status: qualified.status ?? 422 },
+        )
+      }
+      Object.assign(insertPayload, qualified.payload)
     }
 
     // Resolve pipeline_stage_id: if the caller didn't provide one (legacy

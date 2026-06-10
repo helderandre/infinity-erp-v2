@@ -10,6 +10,7 @@ import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
+import { qualifyNegocioPayload } from '@/lib/negocios/assert-qualified'
 
 export async function GET(request: Request) {
   try {
@@ -145,6 +146,18 @@ export async function POST(request: Request) {
 
     const input = parsed.data
 
+    // Qualification guard — same data obligation as the legacy /api/negocios
+    // path: location + value required; free-text location best-effort upgraded
+    // to a structured zone. No path may create an unqualified oportunidade.
+    const qualified = await qualifyNegocioPayload(supabase, input as Record<string, unknown>)
+    if (!qualified.ok) {
+      return NextResponse.json(
+        { error: qualified.error, field: qualified.field },
+        { status: qualified.status ?? 422 },
+      )
+    }
+    const qInput = qualified.payload as typeof input
+
     const { data: stage, error: stageError } = await supabase
       .from('leads_pipeline_stages')
       .select('id, pipeline_type')
@@ -243,7 +256,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('negocios')
       .insert({
-        ...input,
+        ...qInput,
         ...referralFields,
         ...(inheritedReferral
           ? {

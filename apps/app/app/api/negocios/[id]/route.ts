@@ -9,6 +9,10 @@ import {
   deriveExpectedValue,
   patchTouchesExpectedValueSources,
 } from '@/lib/crm/derive-expected-value'
+import { resolvePartnerOriginForNegocio } from '@/lib/parceiros/resolve-partner-origin'
+import { createDeletionRequest } from '@/lib/parceiros/deletion-requests'
+import { deleteNegocioCascade } from '@/lib/negocios/delete-negocio-cascade'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import type { Database } from '@/types/database'
 
 type NegocioUpdate = Database['public']['Tables']['negocios']['Update']
@@ -205,20 +209,56 @@ export async function DELETE(
       }
     }
 
-    const { error } = await supabase
-      .from('negocios')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
+    // Partner-approval gate: oportunidades referred by a parceiro with app
+    // access require that parceiro's approval, unless the caller is a manager
+    // with the `users` permission (override) or is the parceiro themselves.
+    const admin = createCrmAdminClient()
+    const canOverride = auth.permissions.users === true
+    const partnerOrigin = await resolvePartnerOriginForNegocio(id, admin)
+    if (partnerOrigin && partnerOrigin.partnerId !== auth.user.id && !canOverride) {
+      const body = await request.json().catch(() => ({})) as { reason?: string }
+      const { data: neg } = await admin
+        .from('negocios')
+        .select('tipo, expected_value, lead:leads!negocios_lead_id_fkey(nome)')
+        .eq('id', id)
+        .maybeSingle()
+      const leadName = (neg as any)?.lead?.nome ?? null
+      const res = await createDeletionRequest(admin, {
+        entityType: 'negocio',
+        entityId: id,
+        partnerId: partnerOrigin.partnerId,
+        requestedBy: auth.user.id,
+        reason: body?.reason ?? null,
+        snapshot: {
+          name: leadName,
+          tipo: (neg as any)?.tipo ?? null,
+          expected_value: (neg as any)?.expected_value ?? null,
+          partner_name: partnerOrigin.partnerName,
+        },
+      })
+      if (res.error) {
+        return NextResponse.json(
+          { error: 'Erro ao criar pedido de eliminação', details: res.error },
+          { status: 500 },
+        )
+      }
       return NextResponse.json(
-        { error: 'Erro ao eliminar negócio', details: error.message },
-        { status: 500 }
+        {
+          status: 'pending_partner_approval',
+          request_id: res.id,
+          already_pending: res.existing,
+          partner_name: partnerOrigin.partnerName,
+        },
+        { status: 202 },
       )
     }
 
-    if (existing?.lead_id) {
-      await syncLeadEstado(supabase, existing.lead_id)
+    const { error } = await deleteNegocioCascade(supabase, id)
+    if (error) {
+      return NextResponse.json(
+        { error: 'Erro ao eliminar negócio', details: error },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ success: true })

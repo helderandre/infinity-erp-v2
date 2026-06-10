@@ -106,9 +106,27 @@ interface LeadsKanbanProps {
    */
   view?: View
   onViewChange?: (v: View) => void
+  /**
+   * Surface a Consultor filter in the filters popover (client-side, derived
+   * from the loaded entries' assigned_consultant). Used by the Parceiros app
+   * so a partner can narrow their referred leads to a single recipient
+   * consultor. Off by default → the main ERP leads page is unaffected.
+   */
+  showConsultantFilter?: boolean
+  /**
+   * Emits the novo/contactado/qualificado counts computed from the currently
+   * filtered entries. Lets a parent (e.g. the Parceiros leads hero) show KPI
+   * figures that track the active filters instead of the raw totals.
+   */
+  onFilteredCountsChange?: (counts: { novo: number; contactado: number; qualificado: number }) => void
 }
 
-export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanProps = {}) {
+export function LeadsKanban({
+  view: controlledView,
+  onViewChange,
+  showConsultantFilter = false,
+  onFilteredCountsChange,
+}: LeadsKanbanProps = {}) {
   const { user } = useUser()
   const [internalView, setInternalView] = useState<View>('minhas')
   const view = controlledView ?? internalView
@@ -119,6 +137,9 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string>('')
+  // Consultor filter (Parceiros only — see showConsultantFilter). Holds the
+  // assigned_consultant id; client-side, so it just narrows the loaded set.
+  const [consultantFilter, setConsultantFilter] = useState<string>('')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [newOpen, setNewOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -207,11 +228,12 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
     if (isControlled) setSelectedIds(new Set())
   }, [view, isControlled])
 
-  // Pesquisa + filtros client-side (nome/email/telefone + origem).
+  // Pesquisa + filtros client-side (nome/email/telefone + origem + consultor).
   const filteredEntries = useMemo(() => {
     const q = search.trim().toLowerCase()
     return entries.filter((e) => {
       if (sourceFilter && e.source !== sourceFilter) return false
+      if (consultantFilter && e.assigned_consultant?.id !== consultantFilter) return false
       if (!q) return true
       const c = e.contact
       return (
@@ -220,7 +242,7 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
         (c?.telemovel?.toLowerCase().includes(q) ?? false)
       )
     })
-  }, [entries, search, sourceFilter])
+  }, [entries, search, sourceFilter, consultantFilter])
 
   // Origens presentes nas entries carregadas — alimenta o filtro de Origem.
   const availableSources = useMemo(() => {
@@ -229,10 +251,35 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
     return Array.from(set)
   }, [entries])
 
-  const hasActiveFilters = search.trim() !== '' || sourceFilter !== ''
+  // Consultores presentes nas entries carregadas — alimenta o filtro de
+  // Consultor (Parceiros). Deriva da própria data para não expor staff alheio.
+  const availableConsultants = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const e of entries) {
+      const c = e.assigned_consultant
+      if (c?.id) map.set(c.id, c.commercial_name ?? 'Consultor')
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [entries])
+
+  // Emit filtered counts upward (Parceiros hero KPIs track the filters).
+  useEffect(() => {
+    if (!onFilteredCountsChange) return
+    let novo = 0, contactado = 0, qualificado = 0
+    for (const e of filteredEntries) {
+      if (e.status === 'new' || e.status === 'seen') novo++
+      else if (e.status === 'processing') contactado++
+      else if (e.status === 'converted') qualificado++
+    }
+    onFilteredCountsChange({ novo, contactado, qualificado })
+  }, [filteredEntries, onFilteredCountsChange])
+
+  const hasActiveFilters = search.trim() !== '' || sourceFilter !== '' || consultantFilter !== ''
   const clearFilters = useCallback(() => {
     setSearch('')
     setSourceFilter('')
+    setConsultantFilter('')
   }, [])
 
   const byColumn = useMemo(() => {
@@ -447,6 +494,27 @@ export function LeadsKanban({ view: controlledView, onViewChange }: LeadsKanbanP
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-64 p-3 space-y-3">
+            {showConsultantFilter && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
+                <Select
+                  value={consultantFilter || 'all'}
+                  onValueChange={(v) => setConsultantFilter(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Todos os consultores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os consultores</SelectItem>
+                    {availableConsultants.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Origem</p>
               <Select

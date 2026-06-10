@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { invalidateAfterQualify } from '@/lib/crm/invalidator'
+import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
+import type { NegocioZone } from '@/lib/matching/zones'
 
 interface QualifyEntryDialogProps {
   open: boolean
@@ -198,6 +200,7 @@ export function QualifyEntryDialog({
   const defaultBT = (entryBT === 'Venda' || entryBT === 'Arrendamento' || entryBT === 'Trespasse')
     ? entryBT
     : (PIPELINE_TO_BUSINESS_TYPE[pipelineType] || 'Venda')
+  const [zonas, setZonas] = useState<NegocioZone[]>([])
   const [form, setForm] = useState({
     business_type: defaultBT as 'Venda' | 'Arrendamento' | 'Trespasse',
     tipo: defaultTipo,
@@ -238,6 +241,7 @@ export function QualifyEntryDialog({
         orcamento_max: '',
         observacoes: entry.notes || '',
       })
+      setZonas([])
       setLinkedForm({ localizacao: '', tipo_imovel: '', valor: '', quartos_min: '', observacoes: '' })
       // Pre-arm the linked sale deal when the form said the purchase depends on
       // a sale. Only meaningful for sale-type business (not arrendamento).
@@ -376,7 +380,7 @@ export function QualifyEntryDialog({
   const buildPayload = (opts: {
     tipo: string; business_type: string; pipeline: string; stageId: string
     localizacao?: string; tipo_imovel?: string; valor?: string; valorMax?: string
-    quartos?: string; observacoes?: string
+    quartos?: string; observacoes?: string; zonas?: NegocioZone[]
   }) => {
     const p: Record<string, any> = {
       lead_id: contactId,
@@ -387,6 +391,7 @@ export function QualifyEntryDialog({
       assigned_consultant_id: entry.assigned_consultant?.id || contact?.agent_id || null,
       observacoes: opts.observacoes || null,
     }
+    if (opts.zonas && opts.zonas.length > 0) p.zonas = opts.zonas
     if (opts.tipo_imovel) p.tipo_imovel = opts.tipo_imovel
     if (opts.localizacao) p.localizacao = opts.localizacao
     if (opts.quartos) p.quartos_min = parseInt(opts.quartos)
@@ -471,7 +476,7 @@ export function QualifyEntryDialog({
 
       const primaryOpts = {
         tipo: form.tipo, business_type: form.business_type, pipeline: pipelineType, stageId,
-        localizacao: form.localizacao, tipo_imovel: form.tipo_imovel,
+        localizacao: form.localizacao, tipo_imovel: form.tipo_imovel, zonas,
         valor: form.orcamento, valorMax: form.orcamento_max, quartos: form.quartos_min,
         observacoes: form.observacoes,
       }
@@ -763,6 +768,16 @@ export function QualifyEntryDialog({
               onChange={(e) => setForm((p) => ({ ...p, localizacao: e.target.value }))}
               className="rounded-lg mt-1 h-9"
             />
+          </div>
+
+          {/* Zonas de interesse — structured admin-area picker (inline mode).
+              Optional precision on top of the free-text Localização; the server
+              auto-resolves the text to a zone when none is picked here. */}
+          <div>
+            <Label className="text-[11px] text-muted-foreground font-medium">Zonas de interesse</Label>
+            <div className="mt-1">
+              <NegocioZonasField value={zonas} onChange={setZonas} tipo={form.tipo} />
+            </div>
           </div>
 
           {/* Bedrooms + Budget */}

@@ -8,9 +8,11 @@ import { createClient } from '@infinity/lib/supabase/client'
 export function ProfileMenu({
   user,
   onSignedOut,
+  openUp = false,
 }: {
   user: { email: string | null; name: string | null; avatarUrl: string | null }
   onSignedOut: () => void
+  openUp?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const initials = (user.name || user.email || '?').trim().charAt(0).toUpperCase()
@@ -38,7 +40,7 @@ export function ProfileMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-11 z-50 w-60 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl">
+          <div className={`absolute right-0 z-50 w-60 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl ${openUp ? 'bottom-11' : 'top-11'}`}>
             <div className="border-b border-black/5 px-4 py-3">
               <p className="truncate text-sm font-medium text-neutral-900">{user.name || 'Parceiro'}</p>
               <p className="truncate text-xs text-neutral-500">{user.email}</p>
