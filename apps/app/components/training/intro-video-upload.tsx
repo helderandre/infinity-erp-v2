@@ -5,12 +5,13 @@ import { Upload, Loader2, CheckCircle2, X, Video } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
-import { uploadVideoToR2, getVideoDurationFromFile } from '@/lib/training/upload-video'
+import { uploadTrainingVideo, type VideoProvider } from '@/lib/training/upload-video'
 
 export interface IntroVideoValue {
   url: string
   durationSeconds: number | null
   fileName: string
+  provider: VideoProvider
 }
 
 interface IntroVideoUploadProps {
@@ -32,10 +33,18 @@ export function IntroVideoUpload({ value, onChange }: IntroVideoUploadProps) {
     setIsUploading(true)
     setProgress(0)
     try {
-      const duration = await getVideoDurationFromFile(file)
-      const { url } = await uploadVideoToR2(file, setProgress)
-      onChange({ url, durationSeconds: duration, fileName: file.name })
-      toast.success('Vídeo enviado com sucesso')
+      const result = await uploadTrainingVideo(file, setProgress)
+      onChange({
+        url: result.url,
+        durationSeconds: result.durationSeconds,
+        fileName: file.name,
+        provider: result.provider,
+      })
+      toast.success(
+        result.processing
+          ? 'Vídeo enviado — a processar qualidade adaptativa (alguns minutos).'
+          : 'Vídeo enviado com sucesso'
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar o vídeo')
     } finally {

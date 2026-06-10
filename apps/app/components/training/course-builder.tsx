@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/tooltip'
 import { LessonMaterialUpload } from './lesson-material-upload'
 import { Progress } from '@/components/ui/progress'
-import { uploadVideoToR2, getVideoDurationFromFile } from '@/lib/training/upload-video'
+import { uploadTrainingVideo } from '@/lib/training/upload-video'
 import {
   DndContext,
   closestCenter,
@@ -170,12 +170,16 @@ export function CourseBuilder({
     setIsUploadingVideo(true)
     setVideoProgress(0)
     try {
-      const duration = await getVideoDurationFromFile(file)
-      const { url } = await uploadVideoToR2(file, setVideoProgress)
-      lessonForm.setValue('video_url', url, { shouldValidate: true })
-      lessonForm.setValue('video_provider', 'r2')
-      if (duration) lessonForm.setValue('video_duration_seconds', duration)
-      toast.success('Vídeo enviado com sucesso')
+      const result = await uploadTrainingVideo(file, setVideoProgress)
+      lessonForm.setValue('video_url', result.url, { shouldValidate: true })
+      lessonForm.setValue('video_provider', result.provider)
+      if (result.durationSeconds)
+        lessonForm.setValue('video_duration_seconds', result.durationSeconds)
+      toast.success(
+        result.processing
+          ? 'Vídeo enviado — a processar qualidade adaptativa (pode demorar alguns minutos).'
+          : 'Vídeo enviado com sucesso'
+      )
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar o vídeo')
     } finally {
@@ -952,7 +956,9 @@ export function CourseBuilder({
                                 <FormLabel>Plataforma</FormLabel>
                                 <div className="grid grid-cols-4 gap-2">
                                   {providers.map(({ value, label, icon: Icon }) => {
-                                    const isSelected = field.value === value
+                                    const isSelected =
+                                      field.value === value ||
+                                      (value === 'r2' && field.value === 'cloudflare_stream')
                                     return (
                                       <button
                                         key={value}
@@ -1002,8 +1008,9 @@ export function CourseBuilder({
                           />
                         )}
 
-                        {/* R2 Upload: file upload */}
-                        {watchVideoProvider === 'r2' && (
+                        {/* Upload: file upload (R2 → Cloudflare Stream for adaptive quality) */}
+                        {(watchVideoProvider === 'r2' ||
+                          watchVideoProvider === 'cloudflare_stream') && (
                           <div className="space-y-2">
                             <FormLabel>Ficheiro de Vídeo *</FormLabel>
                             {lessonForm.watch('video_url') && (
@@ -1047,6 +1054,11 @@ export function CourseBuilder({
                                 }}
                               />
                             </label>
+                            <p className="text-[11px] text-muted-foreground/70">
+                              A qualidade adapta-se automaticamente à internet de
+                              quem assiste. Após o envio, o vídeo pode demorar
+                              alguns minutos a processar.
+                            </p>
                           </div>
                         )}
 
@@ -1072,8 +1084,9 @@ export function CourseBuilder({
                           />
                         )}
 
-                        {/* Duration — hide for R2 upload, auto-detect for YouTube */}
-                        {watchVideoProvider !== 'r2' && (
+                        {/* Duration — hide for uploads (auto), auto-detect for YouTube */}
+                        {watchVideoProvider !== 'r2' &&
+                          watchVideoProvider !== 'cloudflare_stream' && (
                           <FormField
                             control={lessonForm.control}
                             name="video_duration_seconds"

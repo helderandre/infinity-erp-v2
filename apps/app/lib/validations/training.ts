@@ -54,7 +54,7 @@ export const createLessonSchema = z.object({
   description: z.string().max(2000).optional().or(z.literal('')),
   content_type: z.enum(['video', 'pdf', 'text', 'external_link', 'quiz']),
   video_url: z.string().url('URL inválido').optional().or(z.literal('')),
-  video_provider: z.enum(['youtube', 'vimeo', 'r2', 'other']).optional(),
+  video_provider: z.enum(['youtube', 'vimeo', 'r2', 'other', 'cloudflare_stream']).optional(),
   video_duration_seconds: z.number().int().min(1).optional().nullable(),
   pdf_url: z.string().url('URL inválido').optional().or(z.literal('')),
   text_content: z.string().max(50000).optional().or(z.literal('')),
@@ -128,10 +128,18 @@ export const updateLessonProgressSchema = z.object({
 
 // ─── Heartbeat ───────────────────────────────────────────
 // Sent by the lesson player every ~10s while playing.
+// `percent` is the client's coverage estimate; `watched_segments` are the merged
+// [start,end) second-intervals actually played this session and `duration_seconds`
+// lets the server recompute authoritative cross-session coverage.
 export const heartbeatSchema = z.object({
   delta_seconds: z.number().int().min(1).max(60),
   position_seconds: z.number().min(0),
   percent: z.number().int().min(0).max(100),
+  duration_seconds: z.number().min(0).optional(),
+  watched_segments: z
+    .array(z.tuple([z.number().min(0), z.number().min(0)]))
+    .max(4096)
+    .optional(),
 })
 export type HeartbeatInput = z.infer<typeof heartbeatSchema>
 

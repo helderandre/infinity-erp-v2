@@ -8,7 +8,7 @@ import { createCourseSchema } from '@/lib/validations/training'
 // Optional intro video attached on create → becomes a first module + video lesson.
 const introVideoSchema = z.object({
   video_url: z.string().url(),
-  video_provider: z.literal('r2').default('r2'),
+  video_provider: z.enum(['r2', 'cloudflare_stream']).default('r2'),
   video_duration_seconds: z.number().int().min(1).nullable().optional(),
   title: z.string().max(200).optional(),
 })
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
             title: intro.title?.trim() || 'Vídeo de introdução',
             content_type: 'video',
             video_url: intro.video_url,
-            video_provider: 'r2',
+            video_provider: intro.video_provider,
             video_duration_seconds: intro.video_duration_seconds ?? null,
             order_index: 0,
           })

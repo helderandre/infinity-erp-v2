@@ -117,7 +117,7 @@ function NovoCursoContent() {
             ? {
                 intro_video: {
                   video_url: introVideo.url,
-                  video_provider: 'r2',
+                  video_provider: introVideo.provider,
                   video_duration_seconds: introVideo.durationSeconds,
                 },
               }
