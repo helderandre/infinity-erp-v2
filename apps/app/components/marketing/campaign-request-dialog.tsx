@@ -45,12 +45,18 @@ interface PropertyOption {
   external_ref?: string
 }
 
+interface PartnerOption {
+  id: string
+  commercial_name: string
+}
+
 export function CampaignRequestDialog({
   open,
   onOpenChange,
   onAddToCart,
 }: CampaignRequestDialogProps) {
   // Form state
+  const [partnerId, setPartnerId] = useState('')
   const [objective, setObjective] = useState('')
   const [campaignType, setCampaignType] = useState('')
   const [linkMode, setLinkMode] = useState<'property' | 'url'>('property')
@@ -68,6 +74,10 @@ export function CampaignRequestDialog({
   // Properties for selector
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [loadingProperties, setLoadingProperties] = useState(false)
+
+  // Marketing partners for the picker (who executes the campaign).
+  const [partners, setPartners] = useState<PartnerOption[]>([])
+  const [loadingPartners, setLoadingPartners] = useState(false)
 
   // Fetch properties when dialog opens
   useEffect(() => {
@@ -89,9 +99,25 @@ export function CampaignRequestDialog({
       .finally(() => setLoadingProperties(false))
   }, [open])
 
+  // Fetch marketing partners when dialog opens; auto-select if only one.
+  useEffect(() => {
+    if (!open) return
+    setLoadingPartners(true)
+    fetch('/api/marketing/partners')
+      .then((r) => r.json())
+      .then((data) => {
+        const items: PartnerOption[] = Array.isArray(data) ? data : data?.data ?? []
+        setPartners(items)
+        if (items.length === 1) setPartnerId(items[0].id)
+      })
+      .catch(() => setPartners([]))
+      .finally(() => setLoadingPartners(false))
+  }, [open])
+
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
+      setPartnerId('')
       setObjective('')
       setCampaignType('')
       setLinkMode('property')
@@ -119,6 +145,7 @@ export function CampaignRequestDialog({
   const computedTotal = adsBudget + MANAGEMENT_FEE
 
   const isValid =
+    partnerId !== '' &&
     objective !== '' &&
     campaignType !== '' &&
     (linkMode === 'property' ? propertyId !== '' : promoteUrl.trim() !== '') &&
@@ -134,6 +161,7 @@ export function CampaignRequestDialog({
     onAddToCart({
       type: 'campaign',
       campaignData: {
+        partner_id: partnerId,
         objective,
         campaign_type: campaignType as CartCampaignItem['campaignData']['campaign_type'],
         property_id: linkMode === 'property' ? propertyId : undefined,
@@ -174,6 +202,37 @@ export function CampaignRequestDialog({
         </div>
 
         <div className="px-5 pb-5 pt-3 space-y-4">
+          {/* ─── Parceiro executor ─── */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              <Users className="h-3.5 w-3.5" />
+              Parceiro *
+            </Label>
+            <Select value={partnerId} onValueChange={setPartnerId} disabled={loadingPartners || partners.length === 0}>
+              <SelectTrigger className="rounded-full">
+                <SelectValue
+                  placeholder={
+                    loadingPartners
+                      ? 'A carregar parceiros...'
+                      : partners.length === 0
+                        ? 'Sem parceiros disponíveis'
+                        : 'Seleccionar parceiro'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {partners.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.commercial_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              O parceiro recebe o pedido e fica como referenciado dos leads gerados.
+            </p>
+          </div>
+
           {/* ─── Objectivo ─── */}
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">

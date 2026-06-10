@@ -70,6 +70,7 @@ export const cancelSubscriptionSchema = z.object({
 // --- Campaigns ---
 
 export const createCampaignSchema = z.object({
+  partner_id: z.string().uuid('Parceiro inválido'),
   property_id: z.string().optional().nullable(),
   promote_url: z.string().optional().nullable(),
   objective: z.enum(['notoriedade', 'trafego', 'leads', 'conversoes']),

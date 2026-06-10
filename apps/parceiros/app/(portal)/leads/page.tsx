@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Sparkles, Phone, Check } from 'lucide-react'
 // Real CRM lead pipeline, locked to the partner's referred leads (@/ -> apps/app).
 import { LeadsKanban } from '@/components/leads/pipeline/leads-kanban'
@@ -10,6 +11,7 @@ import { cn } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 export default function LeadsPage() {
+  const router = useRouter()
   // Counts now come from the kanban itself (onFilteredCountsChange) so the
   // hero KPIs track the active filters — especially the Consultor filter.
   const [counts, setCounts] = useState<{ novo: number; contactado: number; qualificado: number } | null>(null)
@@ -61,6 +63,7 @@ export default function LeadsPage() {
         onViewChange={() => {}}
         showConsultantFilter
         onFilteredCountsChange={setCounts}
+        onOpenReferredDeal={(dealId) => router.push(`/oportunidades?deal=${dealId}`)}
       />
     </div>
   )

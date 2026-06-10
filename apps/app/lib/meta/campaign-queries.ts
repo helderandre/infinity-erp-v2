@@ -57,6 +57,56 @@ function countBy(rows: { campaign_id: string | null }[]): Record<string, number>
   return map
 }
 
+export interface MetaCampaignSummary {
+  name: string | null
+  status: string | null
+  spend: number | null
+  currency: string | null
+  leads_count: number
+  ads_count: number
+}
+
+/**
+ * Lightweight summary (name/status + ad/lead counts + insight spend) for an
+ * explicit set of Meta campaign_ids. Used to fold live Meta data into the
+ * marketing campaign requests linked by partners. Returns a map keyed by
+ * campaign_id; ids without a synced campaign are simply absent.
+ */
+export async function getMetaCampaignSummaries(
+  supabase: AdminClient,
+  campaignIds: string[],
+): Promise<Record<string, MetaCampaignSummary>> {
+  const ids = Array.from(new Set(campaignIds.filter(Boolean)))
+  if (ids.length === 0) return {}
+
+  const [campRes, adsRes, leadsRes, spendByCamp] = await Promise.all([
+    supabase.schema('meta').from('meta_campaigns_raw').select('campaign_id, name, status').in('campaign_id', ids),
+    supabase.schema('meta').from('meta_ads_raw').select('campaign_id').in('campaign_id', ids).limit(5000),
+    supabase.schema('meta').from('meta_leads_raw').select('campaign_id').in('campaign_id', ids).limit(8000),
+    getInsightTotalsByObject(supabase, 'campaign', ids),
+  ])
+
+  const adsByCamp = countBy((adsRes.data ?? []) as { campaign_id: string | null }[])
+  const leadsByCamp = countBy((leadsRes.data ?? []) as { campaign_id: string | null }[])
+  const campMeta = new Map<string, { name: string | null; status: string | null }>()
+  for (const c of (campRes.data ?? []) as { campaign_id: string; name: string | null; status: string | null }[]) {
+    campMeta.set(c.campaign_id, { name: c.name, status: c.status })
+  }
+
+  const out: Record<string, MetaCampaignSummary> = {}
+  for (const id of ids) {
+    out[id] = {
+      name: campMeta.get(id)?.name ?? null,
+      status: campMeta.get(id)?.status ?? null,
+      spend: spendByCamp[id]?.spend ?? null,
+      currency: spendByCamp[id]?.currency ?? null,
+      leads_count: leadsByCamp[id] ?? 0,
+      ads_count: adsByCamp[id] ?? 0,
+    }
+  }
+  return out
+}
+
 /**
  * Paginated, searchable campaign list with per-campaign ad/lead counts and
  * insight spend folded in. Mirrors the standalone Campanhas page.
