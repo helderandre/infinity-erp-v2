@@ -1,4 +1,7 @@
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
+import { randomUUID } from 'node:crypto'
+import type { Readable } from 'node:stream'
 import { getR2Client, R2_BUCKET, R2_PUBLIC_DOMAIN } from './client'
 import { sanitizeFileName } from './documents'
 
@@ -88,6 +91,49 @@ const VIDEO_MIME_TYPES: Record<string, string> = {
   mkv: 'video/x-matroska',
 }
 
+export function getVideoContentType(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase() || 'mp4'
+  return VIDEO_MIME_TYPES[extension] || 'video/mp4'
+}
+
+/**
+ * Stream a video straight to R2 using multipart upload.
+ *
+ * Unlike `uploadLessonVideo` (which buffers the whole file in memory), this
+ * accepts a Node stream and uploads it in ~8MB parts, keeping peak memory tiny
+ * regardless of file size (handles the 500MB cap comfortably). The R2 key is
+ * lesson/course-agnostic (uuid-scoped) so it can be used before the lesson row
+ * even exists — e.g. when uploading an intro video from the "Nova formação"
+ * dialog. The caller persists the returned public URL on the lesson row.
+ */
+export async function uploadVideoStream(
+  body: Readable,
+  fileName: string,
+  contentType: string
+): Promise<{ url: string; key: string }> {
+  const sanitized = sanitizeFileName(fileName)
+  const key = `${TRAINING_LESSONS_PATH}/uploads/${randomUUID()}/${Date.now()}-${sanitized}`
+
+  const s3 = getR2Client()
+  const upload = new Upload({
+    client: s3,
+    params: {
+      Bucket: R2_BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    },
+    queueSize: 4,
+    partSize: 8 * 1024 * 1024, // 8MB parts (R2 requires >= 5MB)
+  })
+  await upload.done()
+
+  return {
+    url: R2_PUBLIC_DOMAIN ? `${R2_PUBLIC_DOMAIN}/${key}` : key,
+    key,
+  }
+}
+
 export async function uploadLessonVideo(
   fileBuffer: Buffer,
   fileName: string,
@@ -105,6 +151,36 @@ export async function uploadLessonVideo(
       Key: key,
       Body: fileBuffer,
       ContentType: contentType,
+    })
+  )
+
+  return {
+    url: R2_PUBLIC_DOMAIN ? `${R2_PUBLIC_DOMAIN}/${key}` : key,
+    key,
+  }
+}
+
+export const MAX_PDF_SIZE = 50 * 1024 * 1024 // 50MB
+
+/**
+ * Uploads a PDF to R2 under a lesson/course-agnostic (uuid-scoped) key, so it
+ * can be uploaded before the lesson row exists (e.g. while creating a new
+ * lesson). The caller persists the returned public URL on the lesson row.
+ */
+export async function uploadTrainingPdf(
+  fileBuffer: Buffer,
+  fileName: string
+): Promise<{ url: string; key: string }> {
+  const sanitized = sanitizeFileName(fileName)
+  const key = `${TRAINING_LESSONS_PATH}/uploads/${randomUUID()}/${Date.now()}-${sanitized}`
+
+  const s3 = getR2Client()
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: 'application/pdf',
     })
   )
 

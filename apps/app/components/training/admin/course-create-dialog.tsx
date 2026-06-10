@@ -31,6 +31,7 @@ import { TRAINING_DIFFICULTY_OPTIONS } from '@/lib/constants'
 import { toast } from 'sonner'
 import type { TrainingCategory } from '@/types/training'
 import { AIQuickFillBar } from '@/components/shared/ai-quick-fill-bar'
+import { IntroVideoUpload, type IntroVideoValue } from '@/components/training/intro-video-upload'
 
 interface CourseCreateDialogProps {
   open: boolean
@@ -42,6 +43,7 @@ export function CourseCreateDialog({ open, onOpenChange }: CourseCreateDialogPro
   const isMobile = useIsMobile()
   const [categories, setCategories] = useState<TrainingCategory[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  const [introVideo, setIntroVideo] = useState<IntroVideoValue | null>(null)
 
   const form = useForm<CreateCourseInput>({
     resolver: zodResolver(createCourseSchema),
@@ -75,7 +77,18 @@ export function CourseCreateDialog({ open, onOpenChange }: CourseCreateDialogPro
       const res = await fetch('/api/training/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          ...(introVideo?.url
+            ? {
+                intro_video: {
+                  video_url: introVideo.url,
+                  video_provider: 'r2',
+                  video_duration_seconds: introVideo.durationSeconds,
+                },
+              }
+            : {}),
+        }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -85,6 +98,7 @@ export function CourseCreateDialog({ open, onOpenChange }: CourseCreateDialogPro
       toast.success('Formação criada com sucesso')
       onOpenChange(false)
       form.reset()
+      setIntroVideo(null)
       router.push(`/dashboard/formacoes/gestao/${result.id}/editar`)
     } catch (err: any) {
       toast.error(err.message)
@@ -93,8 +107,13 @@ export function CourseCreateDialog({ open, onOpenChange }: CourseCreateDialogPro
     }
   }
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setIntroVideo(null)
+    onOpenChange(next)
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side={isMobile ? 'bottom' : 'right'}
         className={cn(
@@ -316,10 +335,12 @@ export function CourseCreateDialog({ open, onOpenChange }: CourseCreateDialogPro
                   </FormItem>
                 )} />
               </div>
+
+              <IntroVideoUpload value={introVideo} onChange={setIntroVideo} />
             </div>
 
             <SheetFooter className="px-6 py-4 flex-row gap-2 shrink-0 bg-background border-t border-border/50">
-              <Button type="button" variant="outline" size="sm" className="rounded-full flex-1" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" size="sm" className="rounded-full flex-1" onClick={() => handleOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="submit" size="sm" className="rounded-full flex-1" disabled={isSaving}>

@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import type { TrainingCategory, VoiceFillResponse } from '@/types/training'
 import { DictateCourseDialog } from '@/components/training/dictate-course-dialog'
 import { VoiceInputButton } from '@/components/shared/voice-input-button'
+import { IntroVideoUpload, type IntroVideoValue } from '@/components/training/intro-video-upload'
 
 export default function NovoCursoPage() {
   return (
@@ -55,6 +56,7 @@ function NovoCursoContent() {
   const [categories, setCategories] = useState<TrainingCategory[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [dictateOpen, setDictateOpen] = useState(false)
+  const [introVideo, setIntroVideo] = useState<IntroVideoValue | null>(null)
 
   const form = useForm<CreateCourseInput>({
     resolver: zodResolver(createCourseSchema),
@@ -109,7 +111,18 @@ function NovoCursoContent() {
       const res = await fetch('/api/training/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          ...(introVideo?.url
+            ? {
+                intro_video: {
+                  video_url: introVideo.url,
+                  video_provider: 'r2',
+                  video_duration_seconds: introVideo.durationSeconds,
+                },
+              }
+            : {}),
+        }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -331,6 +344,8 @@ function NovoCursoContent() {
                 </FormItem>
               )} />
             </div>
+
+            <IntroVideoUpload value={introVideo} onChange={setIntroVideo} />
 
             <div className="flex items-center justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => router.push('/dashboard/formacoes/gestao')}>
