@@ -186,19 +186,19 @@ export function LessonRating({
         </div>
         </div>
 
-        {/* Mobile: Comentar entre o rating e a navegação, seguido de separador */}
+        {/* Mobile: separador seguido do botão Comentar */}
         {commentSlot && (
           <>
-            <div className="flex justify-center sm:hidden">{commentSlot}</div>
             <div className="h-px w-full bg-border/60 sm:hidden" />
+            <div className="flex justify-center sm:hidden">{commentSlot}</div>
           </>
         )}
 
         {/* Divider — só desktop */}
         <div className="hidden h-6 w-px bg-border shrink-0 sm:block" />
 
-        {/* Linha 2 (mobile): navegação anterior/seguinte — pills glassmórficos */}
-        <div className="flex items-center gap-2 sm:shrink-0">
+        {/* Navegação anterior/seguinte — só desktop (mobile usa a barra inferior) */}
+        <div className="hidden items-center gap-2 sm:flex sm:shrink-0">
           {prevLesson ? (
             <Button
               variant="ghost"

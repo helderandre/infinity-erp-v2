@@ -7,15 +7,21 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { CheckCircle2, Loader2, MessageSquare, Reply, Send } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import type { TrainingComment } from '@/types/training'
 
 interface LessonCommentsProps {
   lessonId: string
   courseId: string
+  /** Controlled state do sheet de composição (mobile). Quando fornecido, o
+      composer inline fica escondido em mobile e a escrita passa pelo sheet. */
+  composeSheetOpen?: boolean
+  onComposeSheetOpenChange?: (open: boolean) => void
 }
 
 function getInitials(name: string): string {
@@ -144,7 +150,8 @@ function CommentItem({
   )
 }
 
-export function LessonComments({ lessonId, courseId }: LessonCommentsProps) {
+export function LessonComments({ lessonId, courseId, composeSheetOpen, onComposeSheetOpenChange }: LessonCommentsProps) {
+  const hasComposeSheet = onComposeSheetOpenChange != null
   const [comments, setComments] = useState<TrainingComment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [newComment, setNewComment] = useState('')
@@ -184,7 +191,8 @@ export function LessonComments({ lessonId, courseId }: LessonCommentsProps) {
       if (!res.ok) throw new Error('Erro ao publicar comentário')
       setNewComment('')
       toast.success('Comentário publicado')
-      fetchComments()
+      onComposeSheetOpenChange?.(false)
+      await fetchComments()
     } catch {
       toast.error('Erro ao publicar comentário')
     } finally {
@@ -256,8 +264,8 @@ export function LessonComments({ lessonId, courseId }: LessonCommentsProps) {
           </div>
         )}
 
-        {/* New Comment Form */}
-        <div className="space-y-2 border-t pt-4">
+        {/* New Comment Form — inline só em desktop quando existe sheet de composição */}
+        <div className={cn('space-y-2 border-t pt-4', hasComposeSheet && 'max-sm:hidden')}>
           <Textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -280,6 +288,41 @@ export function LessonComments({ lessonId, courseId }: LessonCommentsProps) {
           </div>
         </div>
       </CardContent>
+
+      {/* Sheet de composição (mobile) — glassmórfico, fecha ao publicar */}
+      {hasComposeSheet && (
+        <Sheet open={composeSheetOpen} onOpenChange={onComposeSheetOpenChange}>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-3xl border-border/40 bg-background/85 px-4 pb-6 backdrop-blur-2xl"
+          >
+            <SheetHeader className="px-0">
+              <SheetTitle>Comentar</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-3">
+              <Textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Escreva um comentário..."
+                rows={4}
+                autoFocus
+              />
+              <Button
+                className="w-full rounded-full"
+                onClick={handleSubmitComment}
+                disabled={isSubmitting || !newComment.trim()}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Publicar comentário
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </Card>
   )
 }

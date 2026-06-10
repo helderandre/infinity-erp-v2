@@ -3,10 +3,9 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { ArrowLeft, MessageSquare, ListVideo, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { LessonPlayer } from '@/components/training/lesson-player'
 import { LessonPdfViewer } from '@/components/training/lesson-pdf-viewer'
 import { LessonTextContent } from '@/components/training/lesson-text-content'
@@ -15,6 +14,7 @@ import { LessonComments } from '@/components/training/lesson-comments'
 import { LessonRating } from '@/components/training/lesson-rating'
 import { LessonQuiz } from '@/components/training/lesson-quiz'
 import { LessonMaterials } from '@/components/training/lesson-materials'
+import { LessonCurriculumSheet } from '@/components/training/lesson-curriculum-sheet'
 import { useTrainingLesson } from '@/hooks/use-training-lesson'
 import { useBreadcrumbSet } from '@/hooks/use-breadcrumb-overrides'
 import { toast } from 'sonner'
@@ -121,7 +121,8 @@ function LessonContent() {
 
   const [localCompleted, setLocalCompleted] = useState(false)
   const [liveWatchPercent, setLiveWatchPercent] = useState(0)
-  const [commentsSheetOpen, setCommentsSheetOpen] = useState(false)
+  const [curriculumOpen, setCurriculumOpen] = useState(false)
+  const [composeCommentOpen, setComposeCommentOpen] = useState(false)
 
   const handleMarkCompleted = async () => {
     const result = await markCompleted()
@@ -246,9 +247,10 @@ function LessonContent() {
         />
       </div>
 
-      {/* Main Content — scroll independente */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        <div className="space-y-6 max-sm:space-y-5 p-4 md:p-6 mx-auto max-w-[1200px] w-full max-sm:flex max-sm:min-h-full max-sm:flex-col max-sm:justify-center">
+      {/* Main Content — scroll independente + barra inferior mobile */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="space-y-6 max-sm:space-y-5 p-4 md:p-6 mx-auto max-w-[1200px] w-full">
           {/* Mobile: título do módulo centrado, fora do card */}
           {currentModule && (
             <h2 className="sm:hidden text-center text-sm font-bold uppercase tracking-[0.16em] text-foreground">
@@ -288,7 +290,7 @@ function LessonContent() {
               <Button
                 variant="ghost"
                 className="h-10 rounded-full gap-2 bg-muted/60 px-5 backdrop-blur-sm shadow-sm hover:bg-muted"
-                onClick={() => setCommentsSheetOpen(true)}
+                onClick={() => setComposeCommentOpen(true)}
               >
                 <MessageSquare className="h-4 w-4" />
                 Comentar
@@ -308,26 +310,79 @@ function LessonContent() {
             }
           />
 
+          {/* Comments — lista inline; em mobile o composer vive no sheet */}
+          <LessonComments
+            lessonId={lessonId}
+            courseId={courseId}
+            composeSheetOpen={composeCommentOpen}
+            onComposeSheetOpenChange={setComposeCommentOpen}
+          />
+
           </div>{/* /Corpo do card */}
           </div>{/* /Card da formação */}
-
-          {/* Comments — desktop inline */}
-          <div className="hidden sm:block">
-            <LessonComments lessonId={lessonId} courseId={courseId} />
-          </div>
-          <Sheet open={commentsSheetOpen} onOpenChange={setCommentsSheetOpen}>
-            <SheetContent
-              side="bottom"
-              className="sm:hidden h-[85dvh] rounded-t-3xl border-border/40 bg-background/85 backdrop-blur-2xl overflow-y-auto px-4 pb-6"
-            >
-              <SheetHeader className="px-0">
-                <SheetTitle>Comentários</SheetTitle>
-              </SheetHeader>
-              <LessonComments lessonId={lessonId} courseId={courseId} />
-            </SheetContent>
-          </Sheet>
         </div>
       </div>
+
+      {/* Barra inferior fixa — só mobile: Aulas à esquerda, navegação à direita */}
+      <div className="sm:hidden shrink-0 flex items-center gap-2 border-t border-border/40 bg-background/90 px-3 py-2.5 backdrop-blur-xl">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-10 shrink-0 gap-1.5 rounded-full bg-muted/60 px-4 shadow-sm hover:bg-muted"
+          onClick={() => setCurriculumOpen(true)}
+        >
+          <ListVideo className="h-4 w-4" />
+          Aulas
+          <span className="text-xs text-muted-foreground">
+            {currentIndex + 1}/{allLessons.length}
+          </span>
+        </Button>
+
+        <div className="ml-auto flex items-center gap-2">
+          {prevLesson ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="h-10 w-10 shrink-0 rounded-full bg-muted/60 shadow-sm hover:bg-muted"
+            >
+              <Link href={`/dashboard/formacoes/cursos/${courseId}/licoes/${prevLesson.id}`} aria-label="Lição anterior">
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" disabled className="h-10 w-10 shrink-0 rounded-full bg-muted/40">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {nextLesson ? (
+            <Button
+              size="icon"
+              asChild
+              className="h-10 w-10 shrink-0 rounded-full bg-neutral-900/85 text-white shadow-sm backdrop-blur-md hover:bg-neutral-900/70 dark:bg-white/90 dark:text-neutral-900 dark:hover:bg-white/75"
+            >
+              <Link href={`/dashboard/formacoes/cursos/${courseId}/licoes/${nextLesson.id}`} aria-label="Próxima lição">
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button size="icon" disabled className="h-10 w-10 shrink-0 rounded-full bg-muted/40 text-muted-foreground">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <LessonCurriculumSheet
+        open={curriculumOpen}
+        onOpenChange={setCurriculumOpen}
+        modules={sidebarModules}
+        currentLessonId={lessonId}
+        courseId={courseId}
+        courseTitle={course.title}
+        progressPercent={course.enrollment?.progress_percent || 0}
+      />
+      </div>{/* /Main column */}
     </div>
   )
 }
