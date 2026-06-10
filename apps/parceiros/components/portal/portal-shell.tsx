@@ -17,6 +17,7 @@ import { ProfileMenu } from './profile-menu'
 import { NotificationsButton } from './notifications-button'
 import { PartnerQuickActions } from './partner-quick-actions'
 import { CrmProviders } from './crm-providers'
+import { PushBanner } from './push-banner'
 
 export type NavItem = { href: string; label: string; icon: LucideIcon }
 
@@ -110,6 +111,7 @@ export function PortalShell({
       {/* ===== Content ===== */}
       <div className="md:pl-64">
         <main className="mx-auto max-w-7xl px-4 pb-28 pt-6 md:px-8 md:pb-10">
+          <PushBanner />
           <CrmProviders>{children}</CrmProviders>
         </main>
       </div>
