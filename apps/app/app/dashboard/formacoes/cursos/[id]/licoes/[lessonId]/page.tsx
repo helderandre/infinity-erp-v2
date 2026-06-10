@@ -15,6 +15,8 @@ import { LessonRating } from '@/components/training/lesson-rating'
 import { LessonReportDialog } from '@/components/training/lesson-report-dialog'
 import { LessonQuiz } from '@/components/training/lesson-quiz'
 import { LessonMaterials } from '@/components/training/lesson-materials'
+import { LessonMobileView } from '@/components/training/lesson-mobile-view'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useTrainingLesson } from '@/hooks/use-training-lesson'
 import { useBreadcrumbSet } from '@/hooks/use-breadcrumb-overrides'
 import { toast } from 'sonner'
@@ -84,6 +86,7 @@ function LessonContent() {
   const [isLoading, setIsLoading] = useState(true)
 
   const { updateProgress, sendHeartbeat, markCompleted, isSaving } = useTrainingLesson({ courseId, lessonId })
+  const isMobile = useIsMobile()
 
   const fetchCourse = useCallback(async () => {
     setIsLoading(true)
@@ -183,6 +186,89 @@ function LessonContent() {
     }),
   }))
 
+  const moduleTitle =
+    course.modules?.find((m) => (m.lessons || []).some((l) => l.id === lessonId))?.title ?? null
+
+  // Primary lesson content (video/pdf/text/link/quiz). Built once and rendered
+  // in either the desktop or the mobile layout so the player mounts only once.
+  const mainContent = (
+    <>
+      {currentLesson.content_type === 'video' && currentLesson.video_url && (
+        <LessonPlayer
+          lesson={currentLesson}
+          progress={currentLesson.progress}
+          onProgressUpdate={handleProgressUpdate}
+          onWatchPercentChange={handleWatchPercentChange}
+          onHeartbeat={sendHeartbeat}
+        />
+      )}
+      {currentLesson.content_type === 'pdf' && currentLesson.pdf_url && (
+        <LessonPdfViewer
+          pdfUrl={currentLesson.pdf_url}
+          title={currentLesson.title}
+          onComplete={handleMarkCompleted}
+        />
+      )}
+      {currentLesson.content_type === 'text' && currentLesson.text_content && (
+        <LessonTextContent
+          content={currentLesson.text_content}
+          title={currentLesson.title}
+          onComplete={handleMarkCompleted}
+        />
+      )}
+      {currentLesson.content_type === 'external_link' && currentLesson.external_url && (
+        <div className="rounded-lg border p-8 text-center">
+          <p className="text-muted-foreground mb-4">Este conteúdo abre num link externo.</p>
+          <Button asChild>
+            <a href={currentLesson.external_url} target="_blank" rel="noopener noreferrer">
+              Abrir Link Externo
+            </a>
+          </Button>
+        </div>
+      )}
+      {currentLesson.content_type === 'quiz' && (
+        <LessonQuiz
+          lessonId={lessonId}
+          courseId={courseId}
+          isMainContent
+          onQuizPassed={handleMarkCompleted}
+        />
+      )}
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <LessonMobileView
+        mainContent={mainContent}
+        isVideoMain={currentLesson.content_type === 'video' && !!currentLesson.video_url}
+        lesson={{
+          title: currentLesson.title,
+          description: currentLesson.description,
+          content_type: currentLesson.content_type,
+          estimated_minutes: currentLesson.estimated_minutes,
+        }}
+        moduleTitle={moduleTitle}
+        courseId={courseId}
+        lessonId={lessonId}
+        sidebarModules={sidebarModules}
+        courseTitle={course.title}
+        progressPercent={course.enrollment?.progress_percent || 0}
+        position={{ index: currentIndex + 1, total: allLessons.length }}
+        prevLesson={prevLesson ? { id: prevLesson.id, title: prevLesson.title } : null}
+        nextLesson={nextLesson ? { id: nextLesson.id, title: nextLesson.title } : null}
+        isCompleted={isLessonCompleted}
+        onMarkCompleted={handleMarkCompleted}
+        isSaving={isSaving}
+        watchPercent={
+          currentLesson.content_type === 'video'
+            ? Math.max(liveWatchPercent, currentLesson.progress?.video_watch_percent ?? 0)
+            : 100
+        }
+      />
+    )
+  }
+
   return (
     <div className="flex h-full min-h-0">
       {/* Sidebar — scroll independente */}
@@ -210,48 +296,7 @@ function LessonContent() {
           </div>
 
           {/* Lesson Content */}
-          {currentLesson.content_type === 'video' && currentLesson.video_url && (
-            <LessonPlayer
-              lesson={currentLesson}
-              progress={currentLesson.progress}
-              onProgressUpdate={handleProgressUpdate}
-              onWatchPercentChange={handleWatchPercentChange}
-              onHeartbeat={sendHeartbeat}
-            />
-          )}
-          {currentLesson.content_type === 'pdf' && currentLesson.pdf_url && (
-            <LessonPdfViewer
-              pdfUrl={currentLesson.pdf_url}
-              title={currentLesson.title}
-              onComplete={handleMarkCompleted}
-            />
-          )}
-          {currentLesson.content_type === 'text' && currentLesson.text_content && (
-            <LessonTextContent
-              content={currentLesson.text_content}
-              title={currentLesson.title}
-              onComplete={handleMarkCompleted}
-            />
-          )}
-          {currentLesson.content_type === 'external_link' && currentLesson.external_url && (
-            <div className="rounded-lg border p-8 text-center">
-              <p className="text-muted-foreground mb-4">Este conteúdo abre num link externo.</p>
-              <Button asChild>
-                <a href={currentLesson.external_url} target="_blank" rel="noopener noreferrer">
-                  Abrir Link Externo
-                </a>
-              </Button>
-            </div>
-          )}
-          {/* Quiz — só renderiza se a lição é do tipo quiz */}
-          {currentLesson.content_type === 'quiz' && (
-            <LessonQuiz
-              lessonId={lessonId}
-              courseId={courseId}
-              isMainContent
-              onQuizPassed={handleMarkCompleted}
-            />
-          )}
+          {mainContent}
 
           {/* Materiais de Apoio */}
           <LessonMaterials lessonId={lessonId} courseId={courseId} />
