@@ -14,7 +14,6 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  AlertTriangle,
   Plus,
   Settings2,
   LayoutGrid,
@@ -91,7 +90,6 @@ function FormacoesPageContent() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const [categories, setCategories] = useState<Category[]>([])
-  const [mandatoryCourses, setMandatoryCourses] = useState<number>(0)
 
   // My courses state (separate from catalogue)
   const [myCourses, setMyCourses] = useState<any[]>([])
@@ -166,27 +164,9 @@ function FormacoesPageContent() {
     }
   }, [])
 
-  // Verificar formações obrigatórias pendentes
-  const checkMandatory = useCallback(async () => {
-    try {
-      const res = await fetch('/api/training/my-courses?status=in_progress')
-      if (res.ok) {
-        const data = await res.json()
-        const enrollments = data.data || data || []
-        const mandatory = enrollments.filter(
-          (e: { course?: { is_mandatory?: boolean } }) => e.course?.is_mandatory
-        )
-        setMandatoryCourses(mandatory.length)
-      }
-    } catch {
-      // silently fail
-    }
-  }, [])
-
   useEffect(() => {
     loadCategories()
-    checkMandatory()
-  }, [loadCategories, checkMandatory])
+  }, [loadCategories])
 
   // Reset page when filters or tab change
   useEffect(() => {
@@ -217,9 +197,6 @@ function FormacoesPageContent() {
           <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             Formações
           </h2>
-          <p className="text-neutral-400 mt-1.5 text-sm leading-relaxed max-w-md">
-            Plataforma de formação e desenvolvimento contínuo
-          </p>
         </div>
         {/* Action buttons — só para quem tem permissão `training` (gestão).
             Consultor sem essa permissão não vê os CTAs nem pode criar/gerir. */}
@@ -276,29 +253,6 @@ function FormacoesPageContent() {
       {/* ─── Content ─── */}
       <div className="mt-6 pb-6">
         <div key={activeTab} className="animate-in fade-in duration-300 space-y-5">
-          {/* Banner de formações obrigatórias pendentes */}
-          {!isMyCourses && mandatoryCourses > 0 && (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  Formações Obrigatórias Pendentes
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Tem {mandatoryCourses} formação{mandatoryCourses !== 1 ? 'ões' : ''} obrigatória{mandatoryCourses !== 1 ? 's' : ''} em progresso.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900"
-                onClick={() => setActiveTab('meus-cursos')}
-              >
-                Ver Cursos
-              </Button>
-            </div>
-          )}
-
           {/* Filtros */}
           <TrainingFilters
             search={search}

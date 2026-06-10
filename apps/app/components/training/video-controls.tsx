@@ -81,7 +81,7 @@ export function VideoControls({
   }
 
   return (
-    <div className="space-y-2.5 rounded-2xl border border-white/15 bg-black/30 px-3 py-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl supports-[backdrop-filter]:bg-black/25">
+    <div className="space-y-1 rounded-xl border border-white/15 bg-black/30 px-2.5 py-1 shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl supports-[backdrop-filter]:bg-black/25">
       {/* Progress bar */}
       <div className="relative group/progress py-1">
         {/* Buffer indicator */}

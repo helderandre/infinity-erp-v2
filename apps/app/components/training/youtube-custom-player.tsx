@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import YouTube, { type YouTubeProps, type YouTubePlayer } from 'react-youtube'
 import { VideoControls } from './video-controls'
-import { RotateCcw } from 'lucide-react'
+import { Play, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -63,6 +63,7 @@ export function YouTubeCustomPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [hasEnded, setHasEnded] = useState(false)
+  const [hasStarted, setHasStarted] = useState(false)
 
   const videoId = extractYouTubeId(videoUrl)
 
@@ -133,6 +134,7 @@ export function YouTubeCustomPlayer({
     if (state === 1) {
       setIsPlaying(true)
       setHasEnded(false)
+      setHasStarted(true)
       startProgressTracking()
     } else if (state === 2) {
       setIsPlaying(false)
@@ -169,8 +171,29 @@ export function YouTubeCustomPlayer({
     if (!player) return
     try {
       const state = player.getPlayerState()
-      if (state === 1) player.pauseVideo()
-      else player.playVideo()
+      if (state === 1) {
+        player.pauseVideo()
+        return
+      }
+      player.playVideo()
+      // iOS bloqueia playVideo() programático antes da primeira interacção com
+      // o iframe — fallback: arranca muted (permitido) e repõe o som logo a seguir.
+      setTimeout(() => {
+        try {
+          if (player.getPlayerState() !== 1) {
+            player.mute()
+            player.playVideo()
+            setTimeout(() => {
+              try {
+                if (!isMuted) {
+                  player.unMute()
+                  player.setVolume(volume * 100)
+                }
+              } catch { /* noop */ }
+            }, 400)
+          }
+        } catch { /* noop */ }
+      }, 350)
     } catch {
       // ignore
     }
@@ -261,12 +284,15 @@ export function YouTubeCustomPlayer({
       }}
     >
       {/* YouTube Player — no direct interaction */}
+      {/* Antes do primeiro play o iframe recebe taps directamente (gesto nativo,
+          fiável em iOS); depois passa a pointer-events-none e os controlos
+          customizados assumem. */}
       <YouTube
         videoId={videoId}
         opts={opts}
         onReady={onReady}
         onStateChange={onStateChange}
-        className="pointer-events-none absolute inset-0"
+        className={cn('absolute inset-0', hasStarted && 'pointer-events-none')}
         iframeClassName="w-full h-full"
       />
 
@@ -291,14 +317,31 @@ export function YouTubeCustomPlayer({
         </div>
       )}
 
-      {/* Click-to-play overlay */}
-      {!hasEnded && <div className="absolute inset-0 z-10 cursor-pointer" onClick={togglePlay} />}
+      {/* Click-to-play overlay — só depois do primeiro play (pausa/retoma) */}
+      {!hasEnded && hasStarted && (
+        <div className="absolute inset-0 z-10 cursor-pointer" onClick={togglePlay} />
+      )}
+
+      {/* Center play affordance — só desktop (em mobile o tap vai directo ao
+          iframe/overlay); só o círculo é clicável. */}
+      {!hasEnded && !isPlaying && (
+        <div className="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center sm:flex">
+          <button
+            type="button"
+            aria-label="Reproduzir"
+            onClick={togglePlay}
+            className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-transform duration-200 hover:scale-105"
+          >
+            <Play className="ml-0.5 h-7 w-7" />
+          </button>
+        </div>
+      )}
 
       {/* Custom controls — auto-hide after 3s */}
       <div
         className={cn(
           'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/60 via-black/10 to-transparent',
-          'px-3 pb-3 pt-10 transition-opacity duration-300',
+          'px-1 pb-1 pt-10 transition-opacity duration-300',
           showControls ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
         onClick={(e) => e.stopPropagation()}

@@ -3,16 +3,16 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { LessonPlayer } from '@/components/training/lesson-player'
 import { LessonPdfViewer } from '@/components/training/lesson-pdf-viewer'
 import { LessonTextContent } from '@/components/training/lesson-text-content'
 import { LessonSidebar } from '@/components/training/lesson-sidebar'
 import { LessonComments } from '@/components/training/lesson-comments'
 import { LessonRating } from '@/components/training/lesson-rating'
-import { LessonReportDialog } from '@/components/training/lesson-report-dialog'
 import { LessonQuiz } from '@/components/training/lesson-quiz'
 import { LessonMaterials } from '@/components/training/lesson-materials'
 import { LessonMobileView } from '@/components/training/lesson-mobile-view'
@@ -111,6 +111,7 @@ function LessonContent() {
   }, [course])
 
   const currentLesson = allLessons.find(l => l.id === lessonId)
+  const currentModule = course?.modules?.find(m => (m.lessons || []).some(l => l.id === lessonId))
   const currentIndex = allLessons.findIndex(l => l.id === lessonId)
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null
   const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null
@@ -123,6 +124,7 @@ function LessonContent() {
 
   const [localCompleted, setLocalCompleted] = useState(false)
   const [liveWatchPercent, setLiveWatchPercent] = useState(0)
+  const [commentsSheetOpen, setCommentsSheetOpen] = useState(false)
 
   const handleMarkCompleted = async () => {
     const result = await markCompleted()
@@ -284,27 +286,52 @@ function LessonContent() {
 
       {/* Main Content — scroll independente */}
       <div className="flex-1 min-w-0 overflow-y-auto">
-        <div className="space-y-6 p-4 md:p-6 mx-auto max-w-[1200px] w-full">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">{currentLesson.title}</h1>
-              {currentLesson.description && (
-                <p className="text-sm text-muted-foreground mt-1">{currentLesson.description}</p>
-              )}
-            </div>
-            <LessonReportDialog lessonId={lessonId} courseId={courseId} />
+        <div className="space-y-6 max-sm:space-y-5 p-4 md:p-6 mx-auto max-w-[1200px] w-full max-sm:flex max-sm:min-h-full max-sm:flex-col max-sm:justify-center">
+          {/* Mobile: título do módulo centrado, fora do card */}
+          {currentModule && (
+            <h2 className="sm:hidden text-center text-sm font-bold uppercase tracking-[0.16em] text-foreground">
+              {currentModule.title}
+            </h2>
+          )}
+
+          {/* Desktop: título + descrição da lição */}
+          <div className="hidden sm:block">
+            <h1 className="text-2xl font-bold">{currentLesson.title}</h1>
+            {currentLesson.description && (
+              <p className="text-sm text-muted-foreground mt-1">{currentLesson.description}</p>
+            )}
           </div>
+
+          {/* Card da formação — em mobile o vídeo cola ao topo do card (estilo
+              card de imóvel) com a info por baixo; em desktop o wrapper é invisível. */}
+          <div className="space-y-6 max-sm:space-y-0 max-sm:rounded-2xl max-sm:bg-card max-sm:ring-1 max-sm:ring-black/[0.06] max-sm:shadow-[0_16px_48px_-16px_rgba(0,0,0,0.22)] max-sm:overflow-hidden dark:max-sm:ring-white/10">
 
           {/* Lesson Content */}
           {mainContent}
 
+          {/* Corpo do card (mobile): título à esquerda + acções */}
+          <div className="space-y-6 max-sm:space-y-4 max-sm:px-5 max-sm:pt-4 max-sm:pb-5">
+
+          {/* Mobile: título da lição dentro do card, alinhado à esquerda */}
+          <h1 className="sm:hidden text-xl font-bold tracking-tight">{currentLesson.title}</h1>
+
           {/* Materiais de Apoio */}
           <LessonMaterials lessonId={lessonId} courseId={courseId} />
 
-          {/* Rating + Navigation + Complete */}
+          {/* Rating + Comentar (mobile slot) + Navigation + Complete */}
           <LessonRating
             lessonId={lessonId}
             courseId={courseId}
+            commentSlot={
+              <Button
+                variant="ghost"
+                className="h-10 rounded-full gap-2 bg-muted/60 px-5 backdrop-blur-sm shadow-sm hover:bg-muted"
+                onClick={() => setCommentsSheetOpen(true)}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Comentar
+              </Button>
+            }
             prevLesson={prevLesson ? { id: prevLesson.id, title: prevLesson.title } : null}
             nextLesson={nextLesson ? { id: nextLesson.id, title: nextLesson.title } : null}
             courseLink={`/dashboard/formacoes/cursos/${courseId}`}
@@ -319,8 +346,24 @@ function LessonContent() {
             }
           />
 
-          {/* Comments */}
-          <LessonComments lessonId={lessonId} courseId={courseId} />
+          </div>{/* /Corpo do card */}
+          </div>{/* /Card da formação */}
+
+          {/* Comments — desktop inline */}
+          <div className="hidden sm:block">
+            <LessonComments lessonId={lessonId} courseId={courseId} />
+          </div>
+          <Sheet open={commentsSheetOpen} onOpenChange={setCommentsSheetOpen}>
+            <SheetContent
+              side="bottom"
+              className="sm:hidden h-[85dvh] rounded-t-3xl border-border/40 bg-background/85 backdrop-blur-2xl overflow-y-auto px-4 pb-6"
+            >
+              <SheetHeader className="px-0">
+                <SheetTitle>Comentários</SheetTitle>
+              </SheetHeader>
+              <LessonComments lessonId={lessonId} courseId={courseId} />
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </div>

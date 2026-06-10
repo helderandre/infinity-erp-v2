@@ -312,7 +312,7 @@ export function NativeVideoPlayer({
             hasEnded && 'bg-black/50'
           )}
         >
-          <span className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-transform duration-200 hover:scale-105">
+          <span className="hidden h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-transform duration-200 hover:scale-105 sm:flex">
             {hasEnded ? <RotateCcw className="h-7 w-7" /> : <Play className="ml-0.5 h-7 w-7" />}
           </span>
         </button>
@@ -333,7 +333,7 @@ export function NativeVideoPlayer({
       {!playbackError && (
         <div
           className={cn(
-            'absolute inset-x-0 bottom-0 z-30 px-3 pb-3 pt-10',
+            'absolute inset-x-0 bottom-0 z-30 px-1 pb-1 pt-10',
             'bg-gradient-to-t from-black/60 via-black/10 to-transparent',
             'transition-opacity duration-300',
             showControls || !hasStarted ? 'opacity-100' : 'pointer-events-none opacity-0'

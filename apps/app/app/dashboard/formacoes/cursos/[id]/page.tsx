@@ -179,11 +179,9 @@ function CourseDetailContent() {
     ? TABS
     : TABS.filter(t => t.key !== 'certificate')
 
-  const handleGoToLesson = () => {
-    if (resumeLesson) {
-      router.push(`/dashboard/formacoes/cursos/${courseId}/licoes/${resumeLesson.id}`)
-    }
-  }
+  const resumeLessonHref = resumeLesson
+    ? `/dashboard/formacoes/cursos/${courseId}/licoes/${resumeLesson.id}`
+    : null
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr] gap-6 min-h-[calc(100vh-8rem)]">
@@ -300,11 +298,13 @@ function CourseDetailContent() {
             <div className="space-y-2">
               {isEnrolled ? (
                 <Button
-                  onClick={handleGoToLesson}
+                  asChild
                   className="w-full rounded-xl gap-2 bg-white text-neutral-900 hover:bg-white/90 h-12 text-sm font-semibold"
                 >
-                  <PlayCircle className="h-5 w-5" />
-                  Continuar Formação
+                  <Link href={resumeLessonHref!}>
+                    <PlayCircle className="h-5 w-5" />
+                    Continuar Formação
+                  </Link>
                 </Button>
               ) : (
                 <Button
@@ -331,22 +331,26 @@ function CourseDetailContent() {
 
           {isCompleted && resumeLesson && (
             <Button
-              onClick={handleGoToLesson}
+              asChild
               variant="ghost"
               className="w-full rounded-xl gap-2 text-white border border-white/15 hover:bg-white/10 hover:text-white h-12 text-sm"
             >
-              <PlayCircle className="h-5 w-5" />
-              Rever Formação
+              <Link href={resumeLessonHref!}>
+                <PlayCircle className="h-5 w-5" />
+                Rever Formação
+              </Link>
             </Button>
           )}
         </div>
       </div>
 
-      {/* ─── RIGHT: Tabs + Content ─── */}
-      <div className="flex flex-col min-h-0">
+      {/* ─── RIGHT: Tabs + Content ───
+          Em mobile (abaixo de lg) o pill picker e o conteúdo vivem num único
+          card glassmórfico; em desktop mantém-se o layout solto original. */}
+      <div className="flex flex-col min-h-0 max-lg:rounded-3xl max-lg:border max-lg:border-border/30 max-lg:bg-card/60 max-lg:backdrop-blur-2xl max-lg:shadow-sm max-lg:p-4">
         {/* Pill Toggle Navigation */}
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm">
+        <div className="flex items-center justify-between gap-3 mb-6 max-lg:mb-4">
+          <div className="inline-flex items-center gap-1 px-1.5 py-1 rounded-full bg-muted/40 backdrop-blur-sm border border-border/30 shadow-sm max-lg:border-transparent max-lg:bg-muted/50 max-lg:shadow-none">
             {availableTabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
@@ -371,7 +375,7 @@ function CourseDetailContent() {
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 pb-6 overflow-y-auto">
+        <div className="flex-1 pb-6 overflow-y-auto max-lg:pb-0">
           <div key={activeTab} className="animate-in fade-in duration-300">
             {activeTab === 'content' && (
               <CourseCurriculum
