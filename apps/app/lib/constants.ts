@@ -1063,17 +1063,22 @@ export const LEAD_TEMPERATURAS = [
   { value: 'Frio', label: 'Frio', color: 'text-blue-600 bg-blue-50' },
 ] as const
 
+// Origens agrupadas por categoria — fonte única para os selects de registo.
+// A origem é guardada como string flat (sem coluna de categoria); o grupo é
+// apenas apresentação. Para análises por categoria, derivar via este mapa.
+export const LEAD_ORIGEM_GROUPS = [
+  { label: 'Portais', options: ['Idealista', 'Imovirtual', 'Casa Sapo', 'MaxWork'] },
+  { label: 'Digital', options: ['Website', 'Landing Page', 'Meta Ads', 'Google Ads', 'Redes Sociais'] },
+  { label: 'Contacto directo', options: ['Telefone da equipa', 'Chamada', 'Presencial', 'Walk-in'] },
+  { label: 'Rede e referências', options: ['Referência', 'Círculo de Influência (CDI)', 'Parceiro'] },
+  { label: 'Outro', options: ['Outro'] },
+] as const
+
+// Lista flat (filtros, imports em massa). Inclui 'Telefone' legacy para que
+// leads antigas continuem filtráveis — não aparece nos selects de registo.
 export const LEAD_ORIGENS = [
-  'Idealista',
-  'Imovirtual',
-  'Casa Sapo',
-  'Website',
-  'Referência',
-  'Círculo de Influência (CDI)',
-  'Walk-in',
+  ...LEAD_ORIGEM_GROUPS.flatMap((g) => [...g.options]),
   'Telefone',
-  'Redes Sociais',
-  'Outro',
 ] as const
 
 export const LEAD_FORMAS_CONTACTO = [

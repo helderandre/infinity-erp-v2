@@ -9,21 +9,25 @@ import { Switch } from '@/components/ui/switch'
 import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
 import type { NegocioZone } from '@/lib/matching'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { SelectWithOther } from '@/components/shared/select-with-other'
-import { NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
+import { NEGOCIO_PROPERTY_TYPES, LEAD_ORIGEM_GROUPS } from '@/lib/constants'
 import {
-  Popover, PopoverContent, PopoverTrigger,
+  Popover, PopoverAnchor, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Command, CommandEmpty, CommandGroup, CommandItem, CommandList,
+} from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import {
   Mic, MicOff, Loader2, Sparkles,
-  ShoppingCart, Store, Key, Building2, Briefcase,
+  ShoppingCart, Store, Key, Building2, Briefcase, Search, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/hooks/use-user'
+import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
 
 interface LeadFormProps {
@@ -49,12 +53,6 @@ interface LeadFormProps {
    */
   autoExtractText?: string
 }
-
-const LEAD_ORIGENS_OPTIONS = [
-  'Website', 'Meta Ads', 'Google Ads', 'Landing Page', 'Referência',
-  'Círculo de Influência (CDI)',
-  'Presencial', 'Chamada', 'Redes Sociais', 'Parceiro', 'Outro',
-]
 
 // 2026-06-XX: split into 2 fields. business_type (Venda/Arrendamento/Trespasse)
 // + perspectiva (Comprador/Vendedor/Arrendatário/Senhorio).
@@ -117,6 +115,46 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
     orcamento_max: initialValues?.orcamento_max !== undefined ? String(initialValues.orcamento_max) : '',
   })
 
+  // Imóvel relacionado (opcional) — associado ao negócio criado. Preenchido
+  // manualmente via pesquisa ou pela transcrição de voz quando o consultor
+  // menciona uma angariação ("interessado no AP123 / no T3 de Cascais").
+  const [negocioProperty, setNegocioProperty] = useState<{ id: string; label: string } | null>(null)
+  const [propQuery, setPropQuery] = useState('')
+  const [propResults, setPropResults] = useState<{ id: string; external_ref: string | null; title: string; city: string | null }[]>([])
+  const [propPopoverOpen, setPropPopoverOpen] = useState(false)
+  const [isPropLoading, setIsPropLoading] = useState(false)
+  const [hasPropTyped, setHasPropTyped] = useState(false)
+  const debouncedPropQuery = useDebounce(propQuery, 300)
+
+  useEffect(() => {
+    if (!hasPropTyped || debouncedPropQuery.trim().length < 2) {
+      setPropResults([])
+      return
+    }
+    let cancelled = false
+    const run = async () => {
+      setIsPropLoading(true)
+      try {
+        const res = await fetch(`/api/properties?search=${encodeURIComponent(debouncedPropQuery.trim())}&per_page=10`)
+        if (!res.ok) throw new Error()
+        const json = await res.json()
+        const rows: any[] = Array.isArray(json) ? json : (json.data ?? [])
+        if (cancelled) return
+        const mapped = rows.map((r) => ({
+          id: r.id, external_ref: r.external_ref ?? null, title: r.title ?? '(sem título)', city: r.city ?? null,
+        }))
+        setPropResults(mapped)
+        if (mapped.length > 0) setPropPopoverOpen(true)
+      } catch {
+        if (!cancelled) setPropResults([])
+      } finally {
+        if (!cancelled) setIsPropLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [debouncedPropQuery, hasPropTyped])
+
   // AI
   const [aiOpen, setAiOpen] = useState(false)
   const [aiText, setAiText] = useState('')
@@ -165,6 +203,16 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
     if (fields.orcamento) setNegocioFields((p) => ({ ...p, orcamento: String(fields.orcamento) }))
     if (fields.orcamento_max) setNegocioFields((p) => ({ ...p, orcamento_max: String(fields.orcamento_max) }))
     if (fields.tipo_imovel) setNegocioFields((p) => ({ ...p, tipo_imovel: fields.tipo_imovel }))
+    // Imóvel mencionado na gravação: a transcrição resolve contra o catálogo
+    // de angariações e devolve property_id quando há match com confiança.
+    if (fields.property_id) {
+      const label = [fields.property_external_ref, fields.property_title].filter(Boolean).join(' — ')
+      setNegocioProperty({ id: fields.property_id, label: label || 'Imóvel identificado' })
+    } else if (fields.property_external_ref) {
+      // Sem match seguro — fica como pista nas observações para investigação manual.
+      const hint = `Referência mencionada: ${fields.property_external_ref}`
+      setForm((p) => ({ ...p, observacoes: p.observacoes ? `${p.observacoes}\n${hint}` : hint }))
+    }
   }
 
   const startRecording = useCallback(async () => {
@@ -324,6 +372,7 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
           pipeline_stage_id: stageId,
           assigned_consultant_id: form.agent_id || user?.id || null,
         }
+        if (negocioProperty) negPayload.property_id = negocioProperty.id
         if (negocioFields.tipo_imovel) negPayload.tipo_imovel = negocioFields.tipo_imovel
         if (negocioZonas.length > 0) negPayload.zonas = negocioZonas
         if (negocioFields.quartos_min) negPayload.quartos_min = parseInt(negocioFields.quartos_min)
@@ -521,12 +570,17 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
 
         {/* Origem — agent_id é sempre o consultor autenticado */}
         <div>
-          <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
+          <Label className="text-[11px] text-muted-foreground font-medium">Fonte</Label>
           <Select value={form.origem || '_none'} onValueChange={(v) => setForm((p) => ({ ...p, origem: v === '_none' ? '' : v }))}>
             <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="_none">—</SelectItem>
-              {LEAD_ORIGENS_OPTIONS.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+              {LEAD_ORIGEM_GROUPS.map((g) => (
+                <SelectGroup key={g.label}>
+                  <SelectLabel>{g.label}</SelectLabel>
+                  {g.options.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+                </SelectGroup>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -550,6 +604,84 @@ export function LeadForm({ consultants, onSuccess, onCancel, initialValues, auto
               </div>
             </div>
             <NegocioZonasField value={negocioZonas} onChange={setNegocioZonas} tipo={negocioTipo} />
+            <div>
+              <Label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                Imóvel relacionado <span className="text-muted-foreground/60 font-normal">(opcional)</span>
+              </Label>
+              {negocioProperty ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 mt-1 h-9">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs truncate flex-1">{negocioProperty.label}</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setNegocioProperty(null)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Popover open={propPopoverOpen} onOpenChange={setPropPopoverOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative mt-1">
+                      <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      {isPropLoading && (
+                        <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+                      )}
+                      <Input
+                        value={propQuery}
+                        onChange={(e) => { setPropQuery(e.target.value); setHasPropTyped(true) }}
+                        onFocus={() => propResults.length > 0 && setPropPopoverOpen(true)}
+                        placeholder="Pesquisar por referência ou título..."
+                        autoComplete="off"
+                        className="rounded-lg h-9 pl-8 text-xs"
+                      />
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    sideOffset={4}
+                    align="start"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <Command shouldFilter={false}>
+                      <CommandList>
+                        <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                          {isPropLoading ? 'A pesquisar...' : 'Sem resultados.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {propResults.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.id}
+                              onSelect={() => {
+                                const label = [p.external_ref, p.title].filter(Boolean).join(' — ')
+                                setNegocioProperty({ id: p.id, label })
+                                setPropQuery('')
+                                setHasPropTyped(false)
+                                setPropResults([])
+                                setPropPopoverOpen(false)
+                              }}
+                              className="cursor-pointer gap-2"
+                            >
+                              <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs truncate font-medium">
+                                  {p.external_ref ? `${p.external_ref} — ${p.title}` : p.title}
+                                </span>
+                                {p.city && (<span className="text-[10px] text-muted-foreground truncate">{p.city}</span>)}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-[11px] text-muted-foreground font-medium">{isBuyer ? 'Quartos mín.' : 'Quartos'}</Label>

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/popover'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
-import { LEAD_ORIGENS, NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
+import { LEAD_ORIGEM_GROUPS, NEGOCIO_PROPERTY_TYPES } from '@/lib/constants'
 import { SelectWithOther } from '@/components/shared/select-with-other'
 import {
   Mic, MicOff, Loader2, Sparkles, Users,
@@ -501,13 +501,18 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
                 </div>
               )}
 
-              {/* Origem */}
+              {/* Fonte */}
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Origem</Label>
+                <Label className="text-xs font-medium">Fonte</Label>
                 <Select onValueChange={v => setValue('origem', v)}>
                   <SelectTrigger className="rounded-xl text-xs"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
-                    {LEAD_ORIGENS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    {LEAD_ORIGEM_GROUPS.map((g) => (
+                      <SelectGroup key={g.label}>
+                        <SelectLabel>{g.label}</SelectLabel>
+                        {g.options.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+                      </SelectGroup>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
