@@ -96,11 +96,11 @@ export async function POST(request: Request) {
 
     const { checkout_group_id, payment_method, management_fee, ...campaignData } = parsed.data
 
-    // Compute total cost (ads budget + management fee)
+    // Compute total cost (ads budget + management fee, when applicable)
     const ads_budget = campaignData.budget_type === 'daily'
       ? campaignData.budget_amount * campaignData.duration_days
       : campaignData.budget_amount
-    const total_cost = ads_budget + (management_fee ?? 70)
+    const total_cost = ads_budget + (management_fee ?? 0)
 
     // Create campaign
     const { data: campaign, error: campaignError } = await supabase
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         ...campaignData,
         agent_id: user.id,
         total_cost,
-        management_fee: management_fee ?? 70,
+        management_fee: management_fee ?? 0,
         payment_method,
         status: 'pending',
         partner_status: 'pedido',
@@ -135,17 +135,27 @@ export async function POST(request: Request) {
       const currentBalance = lastTx?.balance_after ?? 0
       const newBalance = currentBalance - total_cost
 
-      await supabase.from('conta_corrente_transactions').insert({
+      // category 'marketing_campaign' não existe no CHECK da tabela — usar
+      // 'marketing_purchase' como as encomendas; reference_type distingue.
+      const { error: txError } = await supabase.from('conta_corrente_transactions').insert({
         agent_id: user.id,
         type: 'DEBIT',
-        category: 'marketing_campaign',
+        category: 'marketing_purchase',
         amount: total_cost,
         description: `Campanha Marketing — ${campaignData.objective}`,
+        settlement_status: 'pending',
         reference_id: campaign.id,
         reference_type: 'marketing_campaign',
         balance_after: newBalance,
         created_by: user.id,
       })
+      if (txError) {
+        console.error('Erro ao debitar conta corrente da campanha:', campaign.id, txError)
+        return NextResponse.json(
+          { error: 'Campanha criada mas falhou o débito em conta corrente. Contacte a gestão.' },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json(campaign, { status: 201 })

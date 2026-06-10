@@ -64,6 +64,7 @@ export default function LeadsPage() {
         showConsultantFilter
         onFilteredCountsChange={setCounts}
         onOpenReferredDeal={(dealId) => router.push(`/oportunidades?deal=${dealId}`)}
+        allowCancelReferral={false}
       />
     </div>
   )

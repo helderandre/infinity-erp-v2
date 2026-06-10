@@ -888,10 +888,12 @@ export function ShopTab({ onSwitchToOrders, showGerirLoja, showHero = true, onBa
                               <span>Duração</span>
                               <span>{cartItem.campaignData.duration_days} dias</span>
                             </div>
-                            <div className="flex justify-between text-xs">
-                              <span>Gestão</span>
-                              <span>{formatCurrency(cartItem.managementFee)}</span>
-                            </div>
+                            {cartItem.managementFee > 0 && (
+                              <div className="flex justify-between text-xs">
+                                <span>Gestão</span>
+                                <span>{formatCurrency(cartItem.managementFee)}</span>
+                              </div>
+                            )}
                             <div className="border-t border-background/20 pt-1 flex justify-between text-xs font-medium">
                               <span>Custo total</span>
                               <span>{formatCurrency(cartItem.totalCost)}</span>

@@ -113,8 +113,20 @@ export async function getMetaCampaignSummaries(
  */
 export async function listMetaCampaigns(
   supabase: AdminClient,
-  { q = '', page = 1, pageSize = 30 }: { q?: string; page?: number; pageSize?: number },
+  {
+    q = '',
+    page = 1,
+    pageSize = 30,
+    campaignIds,
+  }: { q?: string; page?: number; pageSize?: number; campaignIds?: string[] },
 ): Promise<{ campaigns: MetaCampaignListItem[]; total: number }> {
+  // Scope to an explicit allow-list of campaign_ids (used by the Parceiros
+  // app to show only the campaigns a partner manages/references). An empty
+  // array means "no campaigns" → return early rather than an unscoped list.
+  if (campaignIds && campaignIds.length === 0) {
+    return { campaigns: [], total: 0 }
+  }
+
   const from = (Math.max(1, page) - 1) * pageSize
   const to = from + pageSize - 1
 
@@ -125,6 +137,10 @@ export async function listMetaCampaigns(
       'id, campaign_id, ad_account_id, name, status, objective, daily_budget, lifetime_budget, fb_created_time, received_at',
       { count: 'exact' },
     )
+
+  if (campaignIds && campaignIds.length > 0) {
+    query = query.in('campaign_id', campaignIds)
+  }
 
   const trimmed = q.trim()
   if (trimmed) {

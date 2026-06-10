@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { formatCurrency, formatDateTime } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/hooks/use-permissions'
 import { FinanceiroSheet } from './financeiro-sheet'
 import type { LedgerEntry, LedgerScope } from '@/lib/financial/ledger-types'
 
@@ -26,10 +27,12 @@ interface LedgerEntrySheetProps {
 
 // Sheet com os detalhes de uma entrada do ledger.
 //   - Empresa (`company_transactions`): editável e eliminável (GET/PUT/DELETE)
-//   - Consultor (`conta_corrente_transactions`): leitura só. As entradas são
-//     geradas automaticamente a partir de marketing_orders / deal_payments,
-//     pelo que não fazem sentido editar livremente.
+//   - Consultor (`conta_corrente_transactions`): editável/eliminável apenas
+//     por gestão (permissions.users ou financial) via
+//     /api/marketing/conta-corrente/[id]; para o próprio consultor é leitura só
+//     porque as entradas são geradas automaticamente.
 export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEntrySheetProps) {
+  const { hasAnyPermission } = usePermissions()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -40,7 +43,8 @@ export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEnt
   const [notes, setNotes] = useState('')
 
   const open = entry !== null
-  const editable = scope.kind === 'company'
+  const isManager = hasAnyPermission(['users', 'financial'])
+  const editable = scope.kind === 'company' || isManager
 
   // Sync the local edit state when a different entry is opened. Doing this in
   // a useEffect (instead of during render) avoids the setState-on-render loop
@@ -65,15 +69,24 @@ export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEnt
     if (!entry) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/financial/company-transactions/${entry.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description,
-          amount_gross: Number(amountGross),
-          notes: notes || undefined,
-        }),
-      })
+      const res = scope.kind === 'company'
+        ? await fetch(`/api/financial/company-transactions/${entry.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description,
+              amount_gross: Number(amountGross),
+              notes: notes || undefined,
+            }),
+          })
+        : await fetch(`/api/marketing/conta-corrente/${entry.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description,
+              amount: Number(amountGross),
+            }),
+          })
       if (!res.ok) {
         const json = await res.json().catch(() => null)
         throw new Error(json?.error ?? 'Erro ao guardar')
@@ -93,9 +106,12 @@ export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEnt
     if (!entry) return
     setDeleting(true)
     try {
-      const res = await fetch(`/api/financial/company-transactions/${entry.id}`, {
-        method: 'DELETE',
-      })
+      const res = await fetch(
+        scope.kind === 'company'
+          ? `/api/financial/company-transactions/${entry.id}`
+          : `/api/marketing/conta-corrente/${entry.id}`,
+        { method: 'DELETE' }
+      )
       if (!res.ok) {
         const json = await res.json().catch(() => null)
         throw new Error(json?.error ?? 'Erro ao eliminar')
@@ -214,7 +230,7 @@ export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEnt
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Valor (bruto)</Label>
+              <Label className="text-xs">{scope.kind === 'company' ? 'Valor (bruto)' : 'Valor'}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -223,15 +239,17 @@ export function LedgerEntrySheet({ entry, scope, onClose, onChanged }: LedgerEnt
                 className="rounded-xl"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Notas</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="rounded-xl"
-              />
-            </div>
+            {scope.kind === 'company' && (
+              <div className="space-y-2">
+                <Label className="text-xs">Notas</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="rounded-xl"
+                />
+              </div>
+            )}
           </div>
         ) : (
           <dl className="space-y-3">

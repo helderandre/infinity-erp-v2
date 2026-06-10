@@ -70,6 +70,14 @@ ALTER TABLE marketing_campaigns
   CHECK (campaign_type IS NULL OR campaign_type IN ('compradores','vendedores','arrendatarios','senhorios','outros'));
 
 -- ----------------------------------------------------------------------------
+-- 2c. Janela de datas da campanha (escolhida no calendário da Loja).
+--     duration_days é derivado deste intervalo (inclusivo).
+-- ----------------------------------------------------------------------------
+ALTER TABLE marketing_campaigns
+  ADD COLUMN IF NOT EXISTS start_date DATE,
+  ADD COLUMN IF NOT EXISTS end_date   DATE;
+
+-- ----------------------------------------------------------------------------
 -- 3. Seed — Digital Revolution é parceiro de marketing
 -- ----------------------------------------------------------------------------
 UPDATE dev_users
@@ -82,6 +90,8 @@ UPDATE dev_users
 -- DROP INDEX IF EXISTS idx_marketing_campaigns_meta_campaign_id;
 -- DROP INDEX IF EXISTS idx_marketing_campaigns_partner;
 -- ALTER TABLE marketing_campaigns
+--   DROP COLUMN IF EXISTS end_date,
+--   DROP COLUMN IF EXISTS start_date,
 --   DROP CONSTRAINT IF EXISTS marketing_campaigns_campaign_type_chk,
 --   DROP COLUMN IF EXISTS management_fee,
 --   DROP COLUMN IF EXISTS campaign_type,

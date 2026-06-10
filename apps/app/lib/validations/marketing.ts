@@ -82,13 +82,21 @@ export const createCampaignSchema = z.object({
   budget_type: z.enum(['daily', 'total']),
   budget_amount: z.coerce.number().positive('Orçamento deve ser positivo'),
   duration_days: z.coerce.number().int().min(1, 'Mínimo 1 dia'),
-  management_fee: z.coerce.number().min(0).default(70),
+  start_date: z.string().optional().nullable(),
+  end_date: z.string().optional().nullable(),
+  management_fee: z.coerce.number().min(0).default(0),
   creative_notes: z.string().optional().nullable(),
   checkout_group_id: z.string().optional().nullable(),
   payment_method: z.enum(['conta_corrente', 'invoice']).default('conta_corrente'),
 })
 
 // --- Conta Corrente ---
+
+export const updateContaCorrenteTransactionSchema = z.object({
+  description: z.string().min(1, 'Descrição obrigatória').optional(),
+  amount: z.coerce.number().positive('Valor deve ser positivo').optional(),
+  type: z.enum(['DEBIT', 'CREDIT']).optional(),
+})
 
 export const manualTransactionSchema = z.object({
   agent_id: z.string().uuid('ID do consultor inválido'),

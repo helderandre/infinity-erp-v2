@@ -24,8 +24,9 @@ import {
 import { CAMPAIGN_OBJECTIVES } from '@/lib/constants'
 import {
   Megaphone, Building2, Link2, User, Loader2, Check, X, Target, Wallet,
-  CalendarDays, ExternalLink, TrendingUp,
+  CalendarDays, ExternalLink, TrendingUp, RefreshCw,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 type PartnerStatus = 'pedido' | 'aceite' | 'criada' | 'activa' | 'terminada' | 'rejeitada'
 
@@ -55,6 +56,8 @@ interface Campaign {
   budget_type: 'daily' | 'total'
   budget_amount: number
   duration_days: number
+  start_date: string | null
+  end_date: string | null
   total_cost: number
   creative_notes: string | null
   created_at: string
@@ -69,6 +72,22 @@ interface MetaOption {
   status: string | null
   leads_count: number
 }
+
+// Uma campanha Meta que o parceiro gere/referencia (via leads_assignment_rules),
+// com desempenho ao vivo. Alimenta a tab "Campanhas".
+interface MyMetaCampaign {
+  campaign_id: string
+  name: string | null
+  status: string | null
+  objective: string | null
+  spend: number | null
+  currency: string | null
+  leads_count: number
+  ads_count: number
+}
+
+// Estados Meta considerados "activos" para os KPIs do topo.
+const ACTIVE_META_STATUSES = new Set(['ACTIVE', 'IN_PROCESS', 'PENDING_REVIEW'])
 
 const TYPE_LABELS: Record<string, string> = {
   compradores: 'Compradores',
@@ -96,15 +115,21 @@ type Tab = 'pedidos' | 'campanhas'
 
 export default function MetaPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [myCampaigns, setMyCampaigns] = useState<MyMetaCampaign[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Campaign | null>(null)
   const [tab, setTab] = useState<Tab>('pedidos')
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/marketing/campaigns', { cache: 'no-store' })
-      const data = await res.json()
+      const [reqRes, mineRes] = await Promise.all([
+        fetch('/api/marketing/campaigns', { cache: 'no-store' }),
+        fetch('/api/marketing/my-meta-campaigns', { cache: 'no-store' }),
+      ])
+      const data = await reqRes.json()
       setCampaigns(Array.isArray(data) ? data : data?.data ?? [])
+      const mine = await mineRes.json().catch(() => [])
+      setMyCampaigns(Array.isArray(mine) ? mine : [])
     } catch {
       setCampaigns([])
     } finally {
@@ -123,15 +148,18 @@ export default function MetaPage() {
     if (fresh && fresh !== selected) setSelected(fresh)
   }, [campaigns, selected])
 
+  // KPIs do topo — referem-se às campanhas que o parceiro referencia (não aos
+  // pedidos): nº de campanhas referenciadas, quantas estão activas no Meta, e o
+  // total de leads gerados por elas.
   const kpis = useMemo(() => {
-    const active = campaigns.filter((c) => c.partner_status === 'activa').length
-    const leads = campaigns.reduce((n, c) => n + (c.meta?.leads_count ?? 0), 0)
+    const active = myCampaigns.filter((c) => c.status && ACTIVE_META_STATUSES.has(c.status)).length
+    const leads = myCampaigns.reduce((n, c) => n + (c.leads_count ?? 0), 0)
     return [
-      { label: 'Pedidos', value: campaigns.length },
+      { label: 'Campanhas', value: myCampaigns.length },
       { label: 'Activas', value: active },
       { label: 'Leads gerados', value: leads },
     ]
-  }, [campaigns])
+  }, [myCampaigns])
 
   const byStatus = useMemo(() => {
     const map: Record<PartnerStatus, Campaign[]> = {
@@ -140,9 +168,6 @@ export default function MetaPage() {
     for (const c of campaigns) (map[c.partner_status] ??= []).push(c)
     return map
   }, [campaigns])
-
-  // Campanhas reais — pedidos já ligados a uma campanha Meta.
-  const linked = useMemo(() => campaigns.filter((c) => c.meta_campaign_id), [campaigns])
 
   return (
     <div className="space-y-6">
@@ -153,7 +178,7 @@ export default function MetaPage() {
         <div className="inline-flex rounded-full bg-neutral-100 p-1">
           {([
             { key: 'pedidos', label: 'Pedidos', count: campaigns.length },
-            { key: 'campanhas', label: 'Campanhas', count: linked.length },
+            { key: 'campanhas', label: 'Campanhas', count: myCampaigns.length },
           ] as { key: Tab; label: string; count: number }[]).map((t) => (
             <button
               key={t.key}
@@ -228,15 +253,15 @@ export default function MetaPage() {
             )}
           </>
         )
-      ) : linked.length === 0 ? (
+      ) : myCampaigns.length === 0 ? (
         <EmptyState
-          title="Sem campanhas ligadas"
-          hint="Quando ligar um pedido a uma campanha Meta, ela aparece aqui com o desempenho ao vivo (investimento e leads)."
+          title="Sem campanhas atribuídas"
+          hint="As campanhas Meta que gere para a Infinity aparecem aqui com o desempenho ao vivo (investimento e leads). Se acha que falta alguma, contacte a Infinity Group."
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {linked.map((c) => (
-            <CampaignDataCard key={c.id} campaign={c} onClick={() => setSelected(c)} />
+          {myCampaigns.map((c) => (
+            <MyCampaignCard key={c.campaign_id} campaign={c} />
           ))}
         </div>
       )}
@@ -287,50 +312,43 @@ function CampaignCard({ campaign: c, onClick }: { campaign: Campaign; onClick: (
   )
 }
 
-function CampaignDataCard({ campaign: c, onClick }: { campaign: Campaign; onClick: () => void }) {
-  const objective = CAMPAIGN_OBJECTIVES[c.objective] ?? c.objective
-  const title = c.meta?.name || objective
-  const metaStatus = c.meta?.status
+// Estado Meta → etiqueta + cor (campanhas que o parceiro referencia).
+function metaStatusChip(status: string | null): { label: string; dot: string; chip: string } {
+  const s = (status ?? '').toUpperCase()
+  if (s === 'ACTIVE') return { label: 'Activa', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700' }
+  if (s === 'PAUSED') return { label: 'Em pausa', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700' }
+  if (s === 'IN_PROCESS' || s === 'PENDING_REVIEW') return { label: 'Em revisão', dot: 'bg-sky-500', chip: 'bg-sky-50 text-sky-700' }
+  if (s === 'ARCHIVED' || s === 'DELETED') return { label: 'Arquivada', dot: 'bg-neutral-400', chip: 'bg-neutral-100 text-neutral-600' }
+  return { label: status || '—', dot: 'bg-neutral-400', chip: 'bg-neutral-100 text-neutral-600' }
+}
+
+function MyCampaignCard({ campaign: c }: { campaign: MyMetaCampaign }) {
+  const st = metaStatusChip(c.status)
   return (
-    <button
-      onClick={onClick}
-      className="flex w-full flex-col rounded-2xl border border-black/5 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-    >
+    <div className="flex w-full flex-col rounded-2xl border border-black/5 bg-white p-5 text-left shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2">{title}</h3>
-        <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_META[c.partner_status].chip}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${STATUS_META[c.partner_status].dot}`} />
-          {STATUS_META[c.partner_status].label}
+        <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2">{c.name || c.campaign_id}</h3>
+        <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${st.chip}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
+          {st.label}
         </span>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-neutral-50 px-2 py-2.5">
-          <p className="text-sm font-bold text-neutral-900">{eur(c.meta?.spend ?? null, c.meta?.currency ?? 'EUR')}</p>
+          <p className="text-sm font-bold text-neutral-900">{eur(c.spend, c.currency ?? 'EUR')}</p>
           <p className="text-[10px] uppercase tracking-wider text-neutral-400">Investimento</p>
         </div>
         <div className="rounded-xl bg-emerald-50 px-2 py-2.5">
-          <p className="text-sm font-bold text-emerald-700">{c.meta?.leads_count ?? 0}</p>
+          <p className="text-sm font-bold text-emerald-700">{c.leads_count ?? 0}</p>
           <p className="text-[10px] uppercase tracking-wider text-emerald-600/70">Leads</p>
         </div>
         <div className="rounded-xl bg-neutral-50 px-2 py-2.5">
-          <p className="text-sm font-bold text-neutral-900">{c.meta?.ads_count ?? 0}</p>
+          <p className="text-sm font-bold text-neutral-900">{c.ads_count ?? 0}</p>
           <p className="text-[10px] uppercase tracking-wider text-neutral-400">Anúncios</p>
         </div>
       </div>
-
-      <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-2 text-xs text-neutral-500">
-        <span className="flex items-center gap-1.5 truncate">
-          <User className="h-3.5 w-3.5 shrink-0" />
-          {c.agent?.commercial_name ?? '—'}
-        </span>
-        {metaStatus && (
-          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium uppercase text-neutral-500">
-            {metaStatus}
-          </span>
-        )}
-      </div>
-    </button>
+    </div>
   )
 }
 
@@ -348,6 +366,8 @@ function CampaignDetailSheet({
   const [reason, setReason] = useState('')
   const [linking, setLinking] = useState(false)
   const [metaOptions, setMetaOptions] = useState<MetaOption[]>([])
+  const [optionsLoading, setOptionsLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [chosenMeta, setChosenMeta] = useState('')
   const [referralPct, setReferralPct] = useState('')
 
@@ -360,14 +380,50 @@ function CampaignDetailSheet({
     setReferralPct('')
   }, [campaign?.id])
 
-  // Lazy-load Meta campaign options once the link UI is opened.
+  // Read the current (partner-scoped) Meta campaign options from the mirror.
+  const fetchOptions = useCallback(async (): Promise<MetaOption[]> => {
+    const res = await fetch('/api/marketing/meta-campaign-options', { cache: 'no-store' })
+    const d = await res.json()
+    const list = Array.isArray(d) ? (d as MetaOption[]) : []
+    setMetaOptions(list)
+    return list
+  }, [])
+
+  // Lazy-load options the first time the link UI opens.
   useEffect(() => {
     if (!linking || metaOptions.length > 0) return
-    fetch('/api/marketing/meta-campaign-options')
-      .then((r) => r.json())
-      .then((d) => setMetaOptions(Array.isArray(d) ? d : []))
+    setOptionsLoading(true)
+    fetchOptions()
       .catch(() => setMetaOptions([]))
-  }, [linking, metaOptions.length])
+      .finally(() => setOptionsLoading(false))
+  }, [linking, metaOptions.length, fetchOptions])
+
+  // "Actualizar" — trigger an incremental Meta campaigns sync server-side, then
+  // poll the options for a bit while the freshly-synced campaigns land in the
+  // mirror (they arrive via webhook shortly after the sync finishes).
+  const refreshOptions = useCallback(async () => {
+    setRefreshing(true)
+    const before = metaOptions.length
+    try {
+      const res = await fetch('/api/marketing/meta-campaign-options/refresh', { method: 'POST' })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error || 'Falha ao actualizar')
+      }
+      // Poll a handful of times (~36s) — stop early once the list grows.
+      let grew = false
+      for (let i = 0; i < 9; i++) {
+        await new Promise((r) => setTimeout(r, 4000))
+        const list = await fetchOptions().catch(() => null)
+        if (list && list.length > before) { grew = true; break }
+      }
+      toast.success(grew ? 'Campanhas actualizadas.' : 'Campanhas em dia.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível actualizar as campanhas.')
+    } finally {
+      setRefreshing(false)
+    }
+  }, [metaOptions.length, fetchOptions])
 
   if (!campaign) return <Sheet open={false} onOpenChange={onOpenChange}><SheetContent /></Sheet>
 
@@ -458,6 +514,13 @@ function CampaignDetailSheet({
               value={c.property?.title ?? c.promote_url ?? '—'}
             />
             <Detail icon={Wallet} label="Orçamento" value={`${eur(c.budget_amount)} ${c.budget_type === 'daily' ? '/dia' : 'total'} · ${c.duration_days} dias`} />
+            {c.start_date && c.end_date && (
+              <Detail
+                icon={CalendarDays}
+                label="Período"
+                value={`${new Date(c.start_date).toLocaleDateString('pt-PT')} – ${new Date(c.end_date).toLocaleDateString('pt-PT')}`}
+              />
+            )}
             <Detail icon={Wallet} label="Total estimado" value={eur(c.total_cost)} />
             {c.target_zone && <Detail icon={Target} label="Zona-alvo" value={c.target_zone} />}
             {(c.target_age_min || c.target_age_max) && (
@@ -489,18 +552,42 @@ function CampaignDetailSheet({
                 </div>
               ) : linking ? (
                 <div className="space-y-2">
-                  <Select value={chosenMeta} onValueChange={setChosenMeta}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Escolher campanha Meta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {metaOptions.map((o) => (
-                        <SelectItem key={o.campaign_id} value={o.campaign_id}>
-                          {o.name || o.campaign_id} {o.status ? `· ${o.status}` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select value={chosenMeta} onValueChange={setChosenMeta} disabled={refreshing}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue
+                          placeholder={
+                            optionsLoading || refreshing
+                              ? 'A carregar campanhas…'
+                              : metaOptions.length === 0
+                                ? 'Sem campanhas — actualizar'
+                                : 'Escolher campanha Meta'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {metaOptions.map((o) => (
+                          <SelectItem key={o.campaign_id} value={o.campaign_id}>
+                            {o.name || o.campaign_id} {o.status ? `· ${o.status}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {/* Actualizar — sync incremental das campanhas Meta (só as
+                        novas desde a última actualização) e re-leitura da lista. */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 rounded-xl"
+                      onClick={refreshOptions}
+                      disabled={refreshing || busy}
+                      title="Actualizar campanhas Meta"
+                      aria-label="Actualizar campanhas Meta"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
                   <Input
                     type="number"
                     min={0}

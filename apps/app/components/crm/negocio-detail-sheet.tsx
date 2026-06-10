@@ -433,6 +433,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
         { key: 'interessados', label: 'Interessados', icon: Users },
         { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
         { key: 'angariacao', label: 'Angariação', icon: Briefcase },
+        { key: 'historico', label: 'Histórico', icon: HistoryIcon },
       ]
     }
     // Compra / Arrendatário (e Compra-e-Venda — perspectiva de comprador)
@@ -442,6 +443,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
       { key: 'propostas', label: 'Propostas', icon: FileText },
       { key: 'fecho', label: 'Fecho', icon: Briefcase },
+      { key: 'historico', label: 'Histórico', icon: HistoryIcon },
     ]
   }, [isBuyerType, isSellerType, readOnly, partnerView])
 
@@ -646,8 +648,14 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   <FechoTab negocioId={negocio.id} negocio={negocio} />
                 )
               )}
-              {activeTab === 'historico' && partnerView && (
-                <PartnerHistoricoTimeline activities={partnerBundle?.activities ?? []} />
+              {activeTab === 'historico' && (
+                partnerView ? (
+                  <PartnerHistoricoTimeline activities={partnerBundle?.activities ?? []} />
+                ) : (
+                  leadId && negocio.id && (
+                    <HistoricoTab leadId={leadId} negocioId={negocio.id} refreshKey={inicioRefreshKey} />
+                  )
+                )
               )}
               {activeTab === 'interessados' && negocio.id && (
                 <InteressadosTab
@@ -1281,7 +1289,53 @@ function DetalhesTab({
   )
 }
 
+// ─── Histórico tab (consultor) ──────────────────────────────────────────
+// Mesma timeline da vista de parceiro, mas alimentada pelo endpoint de
+// activities do lead (scoped ao negócio + eventos de nível de lead).
+
+function HistoricoTab({
+  leadId,
+  negocioId,
+  refreshKey,
+}: {
+  leadId: string
+  negocioId: string
+  refreshKey?: number
+}) {
+  const [activities, setActivities] = useState<ObservationActivity[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/leads/${leadId}/activities?negocio_id=${negocioId}&include_lead_level=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!cancelled) setActivities(json?.data ?? [])
+      })
+      .catch(() => !cancelled && setActivities([]))
+      .finally(() => !cancelled && setLoading(false))
+    return () => { cancelled = true }
+  }, [leadId, negocioId, refreshKey])
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-16 rounded-2xl" />
+      </div>
+    )
+  }
+
+  return <PartnerHistoricoTimeline activities={activities as any} />
+}
+
 // ─── Notas list ────────────────────────────────────────────────────────
+
+// Tipos de actividade escritos pelo utilizador (via ObservationComposer).
+// Eventos de sistema (mudança de fase, atribuição, etc.) vivem na tab Histórico.
+const USER_NOTE_TYPES = new Set(['note', 'observation', 'call', 'email', 'whatsapp', 'sms', 'visit'])
 
 function NotasList({
   leadId,
@@ -1307,7 +1361,11 @@ function NotasList({
       const res = await fetch(`/api/leads/${leadId}/activities?negocio_id=${negocioId}`)
       if (!res.ok) throw new Error()
       const json = await res.json()
-      setActivities(json.data ?? [])
+      // Só notas escritas pelo utilizador — o histórico de sistema
+      // (mudanças de fase, atribuições, etc.) vive na tab Histórico.
+      setActivities(
+        (json.data ?? []).filter((a: ObservationActivity) => USER_NOTE_TYPES.has(a.activity_type)),
+      )
     } catch {
       setActivities([])
     } finally {

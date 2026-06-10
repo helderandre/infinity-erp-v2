@@ -125,6 +125,12 @@ interface LeadsKanbanProps {
    * omits it because a referrer can't open the négocio detail directly.
    */
   onOpenReferredDeal?: (dealId: string) => void
+  /**
+   * Referenciadas view: whether to show the "Cancelar" action that pulls a
+   * still-pending referral back to the referrer. On by default for the main
+   * ERP; the Parceiros app sets it false (a partner can't reclaim a lead).
+   */
+  allowCancelReferral?: boolean
 }
 
 export function LeadsKanban({
@@ -133,6 +139,7 @@ export function LeadsKanban({
   showConsultantFilter = false,
   onFilteredCountsChange,
   onOpenReferredDeal,
+  allowCancelReferral = true,
 }: LeadsKanbanProps = {}) {
   const { user } = useUser()
   const [internalView, setInternalView] = useState<View>('minhas')
@@ -697,7 +704,9 @@ export function LeadsKanban({
                               referralPct={pct}
                               cancelling={cancellingId === e.id}
                               onCancel={
-                                TERMINAL_STATUSES.includes(e.status) ? undefined : () => cancelReferral(e)
+                                allowCancelReferral && !TERMINAL_STATUSES.includes(e.status)
+                                  ? () => cancelReferral(e)
+                                  : undefined
                               }
                               dealId={onOpenReferredDeal ? refDealId : null}
                               onOpenDeal={

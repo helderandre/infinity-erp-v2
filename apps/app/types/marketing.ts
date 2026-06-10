@@ -286,6 +286,8 @@ export interface MarketingCampaign {
   budget_type: 'daily' | 'total'
   budget_amount: number
   duration_days: number
+  start_date: string | null
+  end_date: string | null
   total_cost: number
   creative_notes: string | null
   status: CampaignStatus
@@ -353,6 +355,8 @@ export interface CartCampaignItem {
     budget_type: 'daily' | 'total'
     budget_amount: number
     duration_days: number
+    start_date?: string
+    end_date?: string
     creative_notes?: string
   }
   managementFee: number

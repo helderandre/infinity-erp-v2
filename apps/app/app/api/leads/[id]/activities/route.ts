@@ -13,6 +13,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params
     const { searchParams } = new URL(req.url)
     const negocioId = searchParams.get('negocio_id')
+    // Tab "Histórico" do negócio: além das activities do negócio, inclui as
+    // de nível de lead (negocio_id null — atribuição, novo contacto, etc.) e
+    // as tarefas/eventos, espelhando o bundle de /api/parceiros/oportunidades.
+    const includeLeadLevel = searchParams.get('include_lead_level') === '1'
     const supabase = await createClient()
 
     // Scope: gestão e quem tem o módulo `leads` mantêm o acesso actual;
@@ -43,13 +47,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       .eq('contact_id', id)
       .limit(200)
 
-    if (negocioId) crmQuery = crmQuery.eq('negocio_id', negocioId)
+    if (negocioId) {
+      crmQuery = includeLeadLevel
+        ? crmQuery.or(`negocio_id.eq.${negocioId},negocio_id.is.null`)
+        : crmQuery.eq('negocio_id', negocioId)
+    }
 
     // Tasks linked to this lead (entity_type='lead', entity_id=$id) — surfaced
     // as synthetic activities so the histórico shows the full chronological
     // record of what was created against this contact.
     // Skipped when scoped to a specific negocio (tasks here are lead-level).
-    const tasksPromise = negocioId
+    const tasksPromise = negocioId && !includeLeadLevel
       ? Promise.resolve({ data: [] as any[] })
       : supabase
           .from('tasks')
@@ -66,7 +74,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           .limit(100)
 
     // Calendar events linked to this lead (lead_id=$id).
-    const eventsPromise = negocioId
+    const eventsPromise = negocioId && !includeLeadLevel
       ? Promise.resolve({ data: [] as any[] })
       : supabase
           .from('calendar_events')
