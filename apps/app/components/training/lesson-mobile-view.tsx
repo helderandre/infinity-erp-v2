@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-permissions'
 import { WATCH_GATE_PERCENT } from '@/lib/training/watch-gate'
-import { LessonReportDialog } from './lesson-report-dialog'
 import { LessonMaterials } from './lesson-materials'
 import { LessonComments } from './lesson-comments'
 import { LessonRatingStars } from './lesson-rating-stars'
@@ -98,7 +97,6 @@ export function LessonMobileView({
             </Link>
           </Button>
           <span className="flex-1 truncate text-sm font-medium">{lesson.title}</span>
-          <LessonReportDialog lessonId={lessonId} courseId={courseId} />
         </div>
 
         {/* Main content — full-bleed for video */}
