@@ -25,6 +25,24 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { LessonMaterialUpload } from './lesson-material-upload'
+import { Progress } from '@/components/ui/progress'
+import { uploadVideoToR2, getVideoDurationFromFile } from '@/lib/training/upload-video'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   Form,
   FormControl,
@@ -93,6 +111,34 @@ const CONTENT_TYPE_ICONS: Record<LessonContentType, typeof Video> = {
   quiz: HelpCircle,
 }
 
+/**
+ * Sortable row wrapper. Renders its children via a render-prop, handing back a
+ * `dragHandle` props bag to spread onto the grip icon (so only the grip starts
+ * a drag — clicks elsewhere on the row stay clickable).
+ */
+function SortableItem({
+  id,
+  children,
+}: {
+  id: string
+  children: (props: { dragHandle: Record<string, unknown>; isDragging: boolean }) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ dragHandle: { ...attributes, ...listeners }, isDragging })}
+    </div>
+  )
+}
+
 export function CourseBuilder({
   courseId,
   modules,
@@ -118,38 +164,31 @@ export function CourseBuilder({
   const [pdfMode, setPdfMode] = useState<'link' | 'upload'>('link')
   const [isUploadingPdf, setIsUploadingPdf] = useState(false)
   const [isUploadingVideo, setIsUploadingVideo] = useState(false)
+  const [videoProgress, setVideoProgress] = useState(0)
 
   const handleVideoUpload = async (file: File) => {
-    if (!editingLesson) return
     setIsUploadingVideo(true)
+    setVideoProgress(0)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch(`/api/training/lessons/${editingLesson.id}/upload-video`, {
-        method: 'POST',
-        body: formData,
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Erro ao fazer upload')
-      }
-      const { url } = await res.json()
-      lessonForm.setValue('video_url', url)
+      const duration = await getVideoDurationFromFile(file)
+      const { url } = await uploadVideoToR2(file, setVideoProgress)
+      lessonForm.setValue('video_url', url, { shouldValidate: true })
+      lessonForm.setValue('video_provider', 'r2')
+      if (duration) lessonForm.setValue('video_duration_seconds', duration)
       toast.success('Vídeo enviado com sucesso')
     } catch (err: any) {
-      toast.error(err.message)
+      toast.error(err.message || 'Erro ao enviar o vídeo')
     } finally {
       setIsUploadingVideo(false)
     }
   }
 
   const handlePdfUpload = async (file: File) => {
-    if (!editingLesson) return
     setIsUploadingPdf(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await fetch(`/api/training/lessons/${editingLesson.id}/upload-pdf`, {
+      const res = await fetch('/api/training/files/upload-pdf', {
         method: 'POST',
         body: formData,
       })
@@ -158,7 +197,7 @@ export function CourseBuilder({
         throw new Error(err.error || 'Erro ao fazer upload')
       }
       const { url } = await res.json()
-      lessonForm.setValue('pdf_url', url)
+      lessonForm.setValue('pdf_url', url, { shouldValidate: true })
       toast.success('PDF enviado com sucesso')
     } catch (err: any) {
       toast.error(err.message)
@@ -166,6 +205,74 @@ export function CourseBuilder({
       setIsUploadingPdf(false)
     }
   }
+
+  // --- Drag & drop reordering ---
+
+  const [moduleList, setModuleList] = useState(modules)
+  useEffect(() => {
+    setModuleList(modules)
+  }, [modules])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const persistModuleOrder = async (moduleIds: string[]) => {
+    try {
+      const res = await fetch(`/api/training/courses/${courseId}/modules/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ module_ids: moduleIds }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      toast.error('Erro ao reordenar os módulos.')
+      onRefresh()
+    }
+  }
+
+  const persistLessonOrder = async (moduleId: string, lessonIds: string[]) => {
+    try {
+      const res = await fetch(`/api/training/modules/${moduleId}/lessons/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_ids: lessonIds }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      toast.error('Erro ao reordenar as lições.')
+      onRefresh()
+    }
+  }
+
+  const handleModuleDragEnd = (event: any) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = moduleList.findIndex((m) => m.id === active.id)
+    const newIndex = moduleList.findIndex((m) => m.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    const next = arrayMove(moduleList, oldIndex, newIndex)
+    setModuleList(next)
+    persistModuleOrder(next.map((m) => m.id))
+  }
+
+  const handleLessonDragEnd =
+    (moduleId: string, lessons: TrainingLesson[]) => (event: any) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+      const oldIndex = lessons.findIndex((l) => l.id === active.id)
+      const newIndex = lessons.findIndex((l) => l.id === over.id)
+      if (oldIndex < 0 || newIndex < 0) return
+      const nextLessons = arrayMove(lessons, oldIndex, newIndex)
+      setModuleList((prev) =>
+        prev.map((m) => (m.id === moduleId ? { ...m, lessons: nextLessons } : m))
+      )
+      persistLessonOrder(
+        moduleId,
+        nextLessons.map((l) => l.id)
+      )
+    }
 
   const toggleModule = (id: string) => {
     setExpandedModules((prev) => {
@@ -391,7 +498,7 @@ export function CourseBuilder({
   return (
     <div className="space-y-4">
       {/* Modules list */}
-      {modules.length === 0 && (
+      {moduleList.length === 0 && (
         <div className="rounded-2xl border border-dashed p-12 text-center">
           <p className="text-muted-foreground">
             Este curso ainda não tem módulos.
@@ -402,150 +509,195 @@ export function CourseBuilder({
         </div>
       )}
 
-      {modules.map((mod) => {
-        const isExpanded = expandedModules.has(mod.id)
-        const lessons = mod.lessons || []
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleModuleDragEnd}
+      >
+        <SortableContext
+          items={moduleList.map((m) => m.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-4">
+            {moduleList.map((mod) => {
+              const isExpanded = expandedModules.has(mod.id)
+              const lessons = mod.lessons || []
 
-        return (
-          <div key={mod.id} className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
-            <Collapsible
-              open={isExpanded}
-              onOpenChange={() => toggleModule(mod.id)}
-            >
-              <div className="px-5 py-4">
-                <div className="flex items-center justify-between">
-                  <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-left">
-                    <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="text-base font-semibold">{mod.title}</span>
-                    <Badge variant="secondary" className="ml-2 rounded-full text-[10px] px-2 py-0.5">
-                      {lessons.length}{' '}
-                      {lessons.length === 1 ? 'lição' : 'lições'}
-                    </Badge>
-                    {mod.quiz && (
-                      <Badge variant="outline" className="ml-1 gap-1 rounded-full text-[10px] px-2 py-0.5">
-                        <HelpCircle className="h-3 w-3" />
-                        Quiz
-                      </Badge>
-                    )}
-                  </CollapsibleTrigger>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        openModuleDialog(mod)
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
-                      disabled={deletingId === mod.id}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteModule(mod.id)
-                      }}
-                    >
-                      {deletingId === mod.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <CollapsibleContent>
-                <div className="px-5 pb-4 space-y-2">
-                  {lessons.length === 0 && (
-                    <p className="py-4 text-center text-sm text-muted-foreground">
-                      Nenhuma lição neste módulo.
-                    </p>
-                  )}
-
-                  {lessons.map((lesson) => {
-                    const Icon =
-                      CONTENT_TYPE_ICONS[lesson.content_type] || FileText
-                    return (
-                      <div
-                        key={lesson.id}
-                        className="flex items-center justify-between rounded-xl border p-3 transition-colors duration-200 hover:bg-muted/30"
+              return (
+                <SortableItem key={mod.id} id={mod.id}>
+                  {({ dragHandle }) => (
+                    <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
+                      <Collapsible
+                        open={isExpanded}
+                        onOpenChange={() => toggleModule(mod.id)}
                       >
-                        <div className="flex items-center gap-3">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          <Icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">
-                            {lesson.title}
-                          </span>
-                          <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5">
-                            {CONTENT_TYPE_LABELS[lesson.content_type]}
-                          </Badge>
-                          {(lesson.material_count ?? 0) > 0 && (
-                            <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5 gap-1">
-                              <Paperclip className="h-3 w-3" />
-                              {lesson.material_count}
-                            </Badge>
-                          )}
-                          {lesson.estimated_minutes && (
-                            <span className="text-xs text-muted-foreground">
-                              {lesson.estimated_minutes} min
-                            </span>
-                          )}
+                        <div className="px-5 py-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-1 items-center gap-2 text-left">
+                              <button
+                                type="button"
+                                title="Arrastar para reordenar"
+                                className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                                {...dragHandle}
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </button>
+                              <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-left">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                )}
+                                <span className="text-base font-semibold">{mod.title}</span>
+                                <Badge variant="secondary" className="ml-2 rounded-full text-[10px] px-2 py-0.5">
+                                  {lessons.length}{' '}
+                                  {lessons.length === 1 ? 'lição' : 'lições'}
+                                </Badge>
+                                {mod.quiz && (
+                                  <Badge variant="outline" className="ml-1 gap-1 rounded-full text-[10px] px-2 py-0.5">
+                                    <HelpCircle className="h-3 w-3" />
+                                    Quiz
+                                  </Badge>
+                                )}
+                              </CollapsibleTrigger>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openModuleDialog(mod)
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
+                                disabled={deletingId === mod.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteModule(mod.id)
+                                }}
+                              >
+                                {deletingId === mod.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full"
-                            onClick={() =>
-                              openLessonDialog(mod.id, lesson)
-                            }
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
-                            disabled={deletingId === lesson.id}
-                            onClick={() => handleDeleteLesson(lesson.id)}
-                          >
-                            {deletingId === lesson.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full rounded-xl"
-                    onClick={() => openLessonDialog(mod.id)}
-                  >
-                    <Plus className="mr-1 h-3 w-3" />
-                    Adicionar Lição
-                  </Button>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+                        <CollapsibleContent>
+                          <div className="px-5 pb-4 space-y-2">
+                            {lessons.length === 0 && (
+                              <p className="py-4 text-center text-sm text-muted-foreground">
+                                Nenhuma lição neste módulo.
+                              </p>
+                            )}
+
+                            <DndContext
+                              sensors={sensors}
+                              collisionDetection={closestCenter}
+                              onDragEnd={handleLessonDragEnd(mod.id, lessons)}
+                            >
+                              <SortableContext
+                                items={lessons.map((l) => l.id)}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                <div className="space-y-2">
+                                  {lessons.map((lesson) => {
+                                    const Icon =
+                                      CONTENT_TYPE_ICONS[lesson.content_type] || FileText
+                                    return (
+                                      <SortableItem key={lesson.id} id={lesson.id}>
+                                        {({ dragHandle: lessonHandle }) => (
+                                          <div className="flex items-center justify-between rounded-xl border bg-background p-3 transition-colors duration-200 hover:bg-muted/30">
+                                            <div className="flex items-center gap-3">
+                                              <button
+                                                type="button"
+                                                title="Arrastar para reordenar"
+                                                className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                                                {...lessonHandle}
+                                              >
+                                                <GripVertical className="h-4 w-4" />
+                                              </button>
+                                              <Icon className="h-4 w-4 text-muted-foreground" />
+                                              <span className="text-sm font-medium">
+                                                {lesson.title}
+                                              </span>
+                                              <Badge variant="outline" className="rounded-full text-[10px] px-2 py-0.5">
+                                                {CONTENT_TYPE_LABELS[lesson.content_type]}
+                                              </Badge>
+                                              {(lesson.material_count ?? 0) > 0 && (
+                                                <Badge variant="secondary" className="rounded-full text-[10px] px-2 py-0.5 gap-1">
+                                                  <Paperclip className="h-3 w-3" />
+                                                  {lesson.material_count}
+                                                </Badge>
+                                              )}
+                                              {lesson.estimated_minutes && (
+                                                <span className="text-xs text-muted-foreground">
+                                                  {lesson.estimated_minutes} min
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full"
+                                                onClick={() => openLessonDialog(mod.id, lesson)}
+                                              >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                disabled={deletingId === lesson.id}
+                                                onClick={() => handleDeleteLesson(lesson.id)}
+                                              >
+                                                {deletingId === lesson.id ? (
+                                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                )}
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </SortableItem>
+                                    )
+                                  })}
+                                </div>
+                              </SortableContext>
+                            </DndContext>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full rounded-xl"
+                              onClick={() => openLessonDialog(mod.id)}
+                            >
+                              <Plus className="mr-1 h-3 w-3" />
+                              Adicionar Lição
+                            </Button>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  )}
+                </SortableItem>
+              )
+            })}
           </div>
-        )
-      })}
+        </SortableContext>
+      </DndContext>
 
       {/* Add module button */}
       <Button
@@ -869,7 +1021,10 @@ export function CourseBuilder({
                               {isUploadingVideo ? (
                                 <>
                                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                  <span className="text-sm text-muted-foreground">A enviar...</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    A enviar... {videoProgress}%
+                                  </span>
+                                  <Progress value={videoProgress} className="h-1.5 w-full max-w-[240px]" />
                                 </>
                               ) : (
                                 <>
@@ -884,7 +1039,7 @@ export function CourseBuilder({
                                 type="file"
                                 accept=".mp4,.webm,.mov,.avi,.mkv"
                                 className="hidden"
-                                disabled={isUploadingVideo || !editingLesson}
+                                disabled={isUploadingVideo}
                                 onChange={(e) => {
                                   const file = e.target.files?.[0]
                                   if (file) handleVideoUpload(file)
@@ -892,11 +1047,6 @@ export function CourseBuilder({
                                 }}
                               />
                             </label>
-                            {!editingLesson && (
-                              <p className="text-xs text-muted-foreground">
-                                Guarde a lição primeiro para enviar um ficheiro.
-                              </p>
-                            )}
                           </div>
                         )}
 
@@ -1046,7 +1196,7 @@ export function CourseBuilder({
                                 type="file"
                                 accept=".pdf"
                                 className="hidden"
-                                disabled={isUploadingPdf || !editingLesson}
+                                disabled={isUploadingPdf}
                                 onChange={(e) => {
                                   const file = e.target.files?.[0]
                                   if (file) handlePdfUpload(file)
@@ -1054,11 +1204,6 @@ export function CourseBuilder({
                                 }}
                               />
                             </label>
-                            {!editingLesson && (
-                              <p className="text-xs text-muted-foreground">
-                                Guarde a lição primeiro para enviar um ficheiro.
-                              </p>
-                            )}
                           </div>
                         )}
                       </div>

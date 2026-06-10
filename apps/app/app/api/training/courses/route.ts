@@ -1,8 +1,17 @@
 // @ts-nocheck
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { requirePermission } from '@/lib/auth/permissions'
 import { createCourseSchema } from '@/lib/validations/training'
+
+// Optional intro video attached on create → becomes a first module + video lesson.
+const introVideoSchema = z.object({
+  video_url: z.string().url(),
+  video_provider: z.literal('r2').default('r2'),
+  video_duration_seconds: z.number().int().min(1).nullable().optional(),
+  title: z.string().max(200).optional(),
+})
 
 function generateSlug(title: string): string {
   return title
@@ -114,6 +123,34 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Optional intro video → seed a first module + video lesson. Best-effort:
+    // a failure here doesn't undo the course (admin can fix it in the editor).
+    const introParse = introVideoSchema.safeParse(body?.intro_video)
+    if (introParse.success) {
+      const intro = introParse.data
+      try {
+        const { data: mod } = await supabase
+          .from('forma_training_modules')
+          .insert({ course_id: data.id, title: 'Introdução', order_index: 0 })
+          .select('id')
+          .single()
+
+        if (mod?.id) {
+          await supabase.from('forma_training_lessons').insert({
+            module_id: mod.id,
+            title: intro.title?.trim() || 'Vídeo de introdução',
+            content_type: 'video',
+            video_url: intro.video_url,
+            video_provider: 'r2',
+            video_duration_seconds: intro.video_duration_seconds ?? null,
+            order_index: 0,
+          })
+        }
+      } catch (introError) {
+        console.error('Falha ao criar lição de vídeo de introdução:', introError)
+      }
     }
 
     return NextResponse.json(data, { status: 201 })
