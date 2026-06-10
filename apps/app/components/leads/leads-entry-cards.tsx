@@ -381,7 +381,7 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
                   {/* Origin + Attribution in a clean 2-row layout */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="rounded-xl bg-muted/30 p-4">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Origem</p>
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Fonte</p>
                       <p className="text-sm font-medium">{SOURCE_LABELS[selectedEntry.source] || selectedEntry.source}</p>
                       {selectedEntry.campaign?.name && (
                         <p className="text-xs text-muted-foreground mt-1">{selectedEntry.campaign.name}</p>

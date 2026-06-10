@@ -5,7 +5,6 @@ import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { resolvePartnerOriginForLead } from '@/lib/parceiros/resolve-partner-origin'
-import { createDeletionRequest } from '@/lib/parceiros/deletion-requests'
 import { deleteLeadCascade } from '@/lib/leads/delete-lead-cascade'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import type { Database } from '@/types/database'
@@ -156,7 +155,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -175,49 +174,19 @@ export async function DELETE(
       return NextResponse.json({ error: access.error }, { status: access.status })
     }
 
-    // Partner-approval gate: if this lead came from a parceiro with app access,
-    // a manager with the `users` permission may force-delete (override); anyone
-    // else (incl. the owning consultant) must instead file a deletion request
-    // and wait for the parceiro to approve. The parceiro deleting their own
-    // referral never needs approval.
+    // Partner-referenced lead: instead of a hard cascade delete (which would
+    // wipe the parceiro's referral), soft-hide it from the consultor side. The
+    // row stays in the DB and the parceiro keeps seeing it in their portal
+    // (referrer-scoped views). A manager with `users` (override) or the
+    // parceiro themselves still hard-delete.
     const admin = createCrmAdminClient()
     const canOverride = auth.permissions.users === true
     const partnerOrigin = await resolvePartnerOriginForLead(id, admin)
     if (partnerOrigin && partnerOrigin.partnerId !== auth.user.id && !canOverride) {
-      const body = await request.json().catch(() => ({})) as { reason?: string }
-      const { data: lead } = await admin
-        .from('leads')
-        .select('nome, email, telemovel')
-        .eq('id', id)
-        .maybeSingle()
-      const res = await createDeletionRequest(admin, {
-        entityType: 'lead',
-        entityId: id,
-        partnerId: partnerOrigin.partnerId,
-        requestedBy: auth.user.id,
-        reason: body?.reason ?? null,
-        snapshot: {
-          name: lead?.nome ?? null,
-          email: lead?.email ?? null,
-          phone: lead?.telemovel ?? null,
-          partner_name: partnerOrigin.partnerName,
-        },
-      })
-      if (res.error) {
-        return NextResponse.json(
-          { error: 'Erro ao criar pedido de eliminação', details: res.error },
-          { status: 500 },
-        )
-      }
-      return NextResponse.json(
-        {
-          status: 'pending_partner_approval',
-          request_id: res.id,
-          already_pending: res.existing,
-          partner_name: partnerOrigin.partnerName,
-        },
-        { status: 202 },
-      )
+      const now = new Date().toISOString()
+      await admin.from('leads').update({ consultor_hidden_at: now }).eq('id', id)
+      await admin.from('leads_entries').update({ consultor_hidden_at: now }).eq('contact_id', id)
+      return NextResponse.json({ ok: true, hidden: true }, { status: 200 })
     }
 
     const { error } = await deleteLeadCascade(supabase, id)

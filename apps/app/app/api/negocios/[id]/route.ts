@@ -10,7 +10,6 @@ import {
   patchTouchesExpectedValueSources,
 } from '@/lib/crm/derive-expected-value'
 import { resolvePartnerOriginForNegocio } from '@/lib/parceiros/resolve-partner-origin'
-import { createDeletionRequest } from '@/lib/parceiros/deletion-requests'
 import { deleteNegocioCascade } from '@/lib/negocios/delete-negocio-cascade'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import type { Database } from '@/types/database'
@@ -189,7 +188,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -215,45 +214,19 @@ export async function DELETE(
     // Partner-approval gate: oportunidades referred by a parceiro with app
     // access require that parceiro's approval, unless the caller is a manager
     // with the `users` permission (override) or is the parceiro themselves.
+    // Partner-referenced oportunidade: soft-hide from the consultor side
+    // instead of a hard cascade delete, so the parceiro keeps their referral
+    // and still sees it in the portal. Override/manager and the parceiro
+    // themselves still hard-delete.
     const admin = createCrmAdminClient()
     const canOverride = auth.permissions.users === true
     const partnerOrigin = await resolvePartnerOriginForNegocio(id, admin)
     if (partnerOrigin && partnerOrigin.partnerId !== auth.user.id && !canOverride) {
-      const body = await request.json().catch(() => ({})) as { reason?: string }
-      const { data: neg } = await admin
+      await admin
         .from('negocios')
-        .select('tipo, expected_value, lead:leads!negocios_lead_id_fkey(nome)')
+        .update({ consultor_hidden_at: new Date().toISOString() })
         .eq('id', id)
-        .maybeSingle()
-      const leadName = (neg as any)?.lead?.nome ?? null
-      const res = await createDeletionRequest(admin, {
-        entityType: 'negocio',
-        entityId: id,
-        partnerId: partnerOrigin.partnerId,
-        requestedBy: auth.user.id,
-        reason: body?.reason ?? null,
-        snapshot: {
-          name: leadName,
-          tipo: (neg as any)?.tipo ?? null,
-          expected_value: (neg as any)?.expected_value ?? null,
-          partner_name: partnerOrigin.partnerName,
-        },
-      })
-      if (res.error) {
-        return NextResponse.json(
-          { error: 'Erro ao criar pedido de eliminação', details: res.error },
-          { status: 500 },
-        )
-      }
-      return NextResponse.json(
-        {
-          status: 'pending_partner_approval',
-          request_id: res.id,
-          already_pending: res.existing,
-          partner_name: partnerOrigin.partnerName,
-        },
-        { status: 202 },
-      )
+      return NextResponse.json({ ok: true, hidden: true }, { status: 200 })
     }
 
     const { error } = await deleteNegocioCascade(supabase, id)

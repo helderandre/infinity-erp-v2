@@ -530,7 +530,7 @@ export function LeadsKanban({
               </div>
             )}
             <div className="space-y-1">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Origem</p>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Fonte</p>
               <Select
                 value={sourceFilter || 'all'}
                 onValueChange={(v) => setSourceFilter(v === 'all' ? '' : v)}
@@ -1017,7 +1017,7 @@ function LeadEntriesList({
           <tr className="border-b border-border/40">
             <th className="text-left px-5 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nome</th>
             <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
-            <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Origem</th>
+            <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Fonte</th>
             <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Contacto</th>
             <th className="text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Data</th>
           </tr>

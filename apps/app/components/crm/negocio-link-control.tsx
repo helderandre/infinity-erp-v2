@@ -15,6 +15,10 @@ type Neg = {
   business_type?: string | null
   deal_group_id?: string | null
   estado?: string | null
+  quartos?: number | null
+  quartos_min?: number | null
+  lead_id?: string | null
+  lead?: { id: string; nome?: string | null; full_name?: string | null } | null
 }
 
 /**
@@ -44,6 +48,7 @@ export function NegocioLinkControl({
   onPickerOpenChange?: (open: boolean) => void
 }) {
   const [negocios, setNegocios] = useState<Neg[]>([])
+  const [groupRows, setGroupRows] = useState<Neg[]>([])
   const [loading, setLoading] = useState(false)
   const [internalPickerOpen, setInternalPickerOpen] = useState(false)
   const pickerOpen = pickerOpenProp ?? internalPickerOpen
@@ -54,21 +59,57 @@ export function NegocioLinkControl({
     if (!leadId) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/negocios?lead_id=${leadId}`)
+      // Candidatos para o picker (outros negócios do mesmo contacto) + membros
+      // do grupo (podem pertencer a outra pessoa — ex.: a venda do cônjuge).
+      const [res, groupRes] = await Promise.all([
+        fetch(`/api/negocios?lead_id=${leadId}`),
+        dealGroupId
+          ? fetch(`/api/negocios?deal_group_id=${dealGroupId}`)
+          : Promise.resolve(null),
+      ])
       const json = await res.json()
       setNegocios(((json.data || []) as Neg[]).filter((n) => n.id !== negocioId))
+      if (groupRes) {
+        const groupJson = await groupRes.json()
+        setGroupRows(((groupJson.data || []) as Neg[]).filter((n) => n.id !== negocioId))
+      } else {
+        setGroupRows([])
+      }
     } catch {
       /* ignore */
     } finally {
       setLoading(false)
     }
-  }, [leadId, negocioId])
+  }, [leadId, negocioId, dealGroupId])
 
   useEffect(() => { void load() }, [load])
 
-  const linked = dealGroupId ? negocios.filter((n) => n.deal_group_id === dealGroupId) : []
+  const linked = dealGroupId
+    ? (groupRows.length > 0
+        ? groupRows
+        : negocios.filter((n) => n.deal_group_id === dealGroupId))
+    : []
   const candidates = negocios.filter((n) => !dealGroupId || n.deal_group_id !== dealGroupId)
-  const label = (n: Neg) => [n.tipo, n.localizacao].filter(Boolean).join(' · ') || 'Negócio'
+  // Tipologia procurada/oferecida (T3+, T2) em vez do tipo de imóvel — é o
+  // que distingue dois negócios do mesmo contacto na lista de associação.
+  const typology = (n: Neg) => {
+    const isBuyerType = n.tipo === 'Comprador' || n.tipo === 'Compra' || n.tipo === 'Arrendatário'
+    if (isBuyerType && n.quartos_min != null) return `T${n.quartos_min}+`
+    if (n.quartos != null) return `T${n.quartos}`
+    if (n.quartos_min != null) return `T${n.quartos_min}+`
+    return null
+  }
+  const label = (n: Neg) => {
+    // Quando o negócio ligado pertence a outra pessoa, o nome dela é a
+    // primeira coisa a aparecer.
+    const personName =
+      n.lead_id && n.lead_id !== leadId
+        ? n.lead?.full_name || n.lead?.nome || null
+        : null
+    return (
+      [personName, n.tipo, typology(n), n.localizacao].filter(Boolean).join(' · ') || 'Negócio'
+    )
+  }
 
   const link = async (target: Neg) => {
     setBusy(true)

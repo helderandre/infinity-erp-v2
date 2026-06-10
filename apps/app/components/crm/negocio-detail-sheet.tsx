@@ -108,10 +108,8 @@ import {
   buildDealPropertyContextFromNegocio,
 } from '@/lib/negocios/prefill-from-negocio'
 import { InicioExtras } from '@/components/crm/negocio-inicio-extras'
-import { NegocioOrigemCard } from '@/components/crm/negocio-origem-card'
-import { NegocioLinkControl } from '@/components/crm/negocio-link-control'
+import { NegocioInfoSheet } from '@/components/crm/negocio-info-sheet'
 import { NegocioContactosSheet } from '@/components/crm/negocio-contactos-sheet'
-import { NegocioParticipants } from '@/components/crm/negocio-participants'
 import { NegocioAcoesSheet } from '@/components/crm/negocio-acoes-sheet'
 import { NegocioImovelSheet } from '@/components/crm/negocio-imovel-sheet'
 import { MarketStudiesCard } from '@/components/crm/market-studies-card'
@@ -137,7 +135,6 @@ import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
 import { EmailChatBubble } from '@/components/email/email-chat-bubble'
 import { TaskForm } from '@/components/tasks/task-form'
 import { QuickEventSheet } from '@/components/leads/quick-event-sheet'
-import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
 
 interface NegocioDetailSheetProps {
   negocioId: string | null
@@ -254,7 +251,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   // Quick actions — Tarefa / Evento / Nota partilhadas com a página do contacto.
   const [taskFormOpen, setTaskFormOpen] = useState(false)
   const [eventFormOpen, setEventFormOpen] = useState(false)
-  const [quickNoteOpen, setQuickNoteOpen] = useState(false)
   // Bump para forçar refetch das tarefas/actividades em <InicioExtras>
   // quando o consultor cria algo via quick action.
   const [inicioRefreshKey, setInicioRefreshKey] = useState(0)
@@ -452,6 +448,27 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   const lead = negocio?.lead
   const clientName = lead?.full_name || lead?.nome || 'Oportunidade'
 
+  // Pessoas associadas (não-titulares) — aparecem ao lado do nome no título
+  // do sheet e no hero ("alvimar + Maria").
+  const [coNames, setCoNames] = useState<string[]>([])
+  const loadCoNames = useCallback(async () => {
+    if (!negocio?.id) { setCoNames([]); return }
+    try {
+      const res = await fetch(`/api/crm/negocios/${negocio.id}/contactos`)
+      if (!res.ok) return
+      const json = await res.json()
+      const names = ((json.data ?? []) as Array<{ is_primary: boolean; lead: { nome: string | null } | null }>)
+        .filter((p) => !p.is_primary)
+        .map((p) => p.lead?.nome)
+        .filter((n): n is string => !!n)
+      setCoNames(names)
+    } catch { /* ignore */ }
+  }, [negocio?.id])
+  useEffect(() => { void loadCoNames() }, [loadCoNames])
+
+  // Título combinado — encolhe a fonte conforme o comprimento para caber.
+  const fullTitle = coNames.length > 0 ? `${clientName} + ${coNames.join(' + ')}` : clientName
+
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -470,14 +487,13 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
         )}
 
         <SheetHeader className="shrink-0 px-6 pt-6 pb-2 gap-2 flex-row items-center justify-between">
-          <SheetTitle className="sr-only">{clientName}</SheetTitle>
           <SheetDescription className="sr-only">
             Detalhes da oportunidade.
           </SheetDescription>
           {/* Tag — tipo de negócio · perspectiva (ex.: "Venda · Comprador") */}
           {tipo ? (
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold shrink-0 max-w-[60%] truncate"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold shrink-0 max-w-[40%] truncate"
               style={{ backgroundColor: `${tipoColor}22`, color: tipoColor }}
               title={businessType ? `${businessType} · ${tipo}` : tipo}
             >
@@ -489,6 +505,17 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           ) : (
             <span />
           )}
+          {/* Título — nome do titular + pessoas associadas. A fonte encolhe
+              quando o conjunto é longo para caber numa linha. */}
+          <SheetTitle
+            className={cn(
+              'min-w-0 flex-1 text-center font-semibold tracking-tight truncate px-2',
+              fullTitle.length > 38 ? 'text-[11px]' : fullTitle.length > 26 ? 'text-xs' : 'text-sm',
+            )}
+            title={fullTitle}
+          >
+            {fullTitle}
+          </SheetTitle>
           {negocio?.id && (
             <div className="flex items-center gap-1.5 mr-12 sm:mr-10 shrink-0 flex-wrap">
               {!readOnly && (
@@ -598,7 +625,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   negocio={negocio}
                   form={form}
                   tipo={tipo}
-                  isBuyerType={isBuyerType}
                   leadId={leadId}
                   readOnly={readOnly}
                   partnerView={partnerView}
@@ -611,10 +637,12 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   onClose={() => onOpenChange(false)}
                   onCreateTask={() => setTaskFormOpen(true)}
                   onCreateEvent={() => setEventFormOpen(true)}
-                  onCreateNote={() => setQuickNoteOpen(true)}
                   onPreviewProperty={partnerView ? undefined : setPreviewPropertyId}
                   inicioRefreshKey={inicioRefreshKey}
                   onReload={loadNegocio}
+                  coNames={coNames}
+                  onParticipantsMaybeChanged={loadCoNames}
+                  onActivityMutated={() => setInicioRefreshKey((k) => k + 1)}
                 />
               )}
               {activeTab === 'imoveis' && negocio.id && (
@@ -962,13 +990,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           contactId={leadId}
           contactName={clientName ?? null}
         />
-        <QuickNoteSheet
-          open={quickNoteOpen}
-          onOpenChange={setQuickNoteOpen}
-          contactId={leadId}
-          negocioId={negocio?.id ?? null}
-          onSaved={() => setInicioRefreshKey((k) => k + 1)}
-        />
       </>
     )}
     </>
@@ -1010,7 +1031,6 @@ function DetalhesTab({
   negocio,
   form,
   tipo,
-  isBuyerType,
   leadId,
   readOnly,
   partnerView,
@@ -1020,15 +1040,16 @@ function DetalhesTab({
   onClose,
   onCreateTask,
   onCreateEvent,
-  onCreateNote,
   onPreviewProperty,
   inicioRefreshKey,
   onReload,
+  coNames = [],
+  onParticipantsMaybeChanged,
+  onActivityMutated,
 }: {
   negocio: any
   form: Record<string, unknown>
   tipo: string
-  isBuyerType: boolean
   leadId: string | null
   readOnly?: boolean
   /** Vista do portal de parceiros — esconde ferramentas internas (estudos de mercado). */
@@ -1045,13 +1066,19 @@ function DetalhesTab({
   /** Quick-action handlers — sheets vivem no parent. */
   onCreateTask?: () => void
   onCreateEvent?: () => void
-  onCreateNote?: () => void
   /** Abre o PropertyDetailSheet do imóvel de origem (vive no parent). */
   onPreviewProperty?: (propertyId: string) => void
   /** Bump para forçar refetch das tarefas/actividades em InicioExtras. */
   inicioRefreshKey?: number
   /** Recarrega o negócio (ex.: após mudar o titular via participantes). */
   onReload?: () => void
+  /** Nomes das pessoas associadas (não-titulares) — vêm do parent. */
+  coNames?: string[]
+  /** Pede ao parent para refazer o fetch das pessoas associadas. */
+  onParticipantsMaybeChanged?: () => void
+  /** Criou-se uma nota/contacto — o parent bumpa o refreshKey para os
+   *  feeds de actividade (Histórico, Ações) refetcharem. */
+  onActivityMutated?: () => void
 }) {
   const lead = negocio.lead
   const clientName = lead?.full_name || lead?.nome || 'Cliente'
@@ -1062,13 +1089,28 @@ function DetalhesTab({
     (form.pipeline_stage_id as string) || (negocio.pipeline_stage_id as string | undefined) || null
   const temperatura = (form.temperatura as Temperatura) || null
 
-  // 3 nested sheets — Contactos / Ações / Imóvel
+  // 4 nested sheets — Info / Contactos / Ações / Imóvel
+  const [infoOpen, setInfoOpen] = useState(false)
   const [contactosOpen, setContactosOpen] = useState(false)
   const [acoesOpen, setAcoesOpen] = useState(false)
   const [imovelOpen, setImovelOpen] = useState(false)
-  // Merged "Pessoas + Ligações" card — controlled dialogs for the two row buttons.
-  const [addPersonOpen, setAddPersonOpen] = useState(false)
-  const [linkDealOpen, setLinkDealOpen] = useState(false)
+
+  // Refetch das pessoas associadas quando o sheet Info fecha (é lá que se
+  // gerem as relações) — o estado vive no parent para alimentar também o
+  // título do sheet.
+  useEffect(() => {
+    if (!infoOpen) onParticipantsMaybeChanged?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [infoOpen])
+
+  // Fonte do hero encolhe conforme o comprimento do conjunto de nomes.
+  const heroTitleLen = clientName.length + coNames.reduce((acc, n) => acc + n.length + 3, 0)
+  const heroFontClass =
+    heroTitleLen > 44
+      ? 'text-base sm:text-lg'
+      : heroTitleLen > 30
+        ? 'text-xl sm:text-2xl'
+        : 'text-2xl sm:text-[26px]'
 
 
   return (
@@ -1123,14 +1165,23 @@ function DetalhesTab({
                   className="group inline-flex items-baseline gap-2 max-w-full"
                   title="Ver perfil do contacto"
                 >
-                  <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight leading-tight truncate group-hover:underline underline-offset-4 decoration-2 decoration-foreground/30">
+                  <h2 className={cn(
+                    'font-bold tracking-tight leading-tight truncate group-hover:underline underline-offset-4 decoration-2 decoration-foreground/30',
+                    heroFontClass,
+                  )}>
                     {clientName}
+                    {coNames.length > 0 && (
+                      <span className="font-semibold text-muted-foreground"> + {coNames.join(' + ')}</span>
+                    )}
                   </h2>
                   <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
                 </Link>
               ) : (
-                <h2 className="text-2xl sm:text-[26px] font-bold tracking-tight leading-tight truncate">
+                <h2 className={cn('font-bold tracking-tight leading-tight truncate', heroFontClass)}>
                   {clientName}
+                  {coNames.length > 0 && (
+                    <span className="font-semibold text-muted-foreground"> + {coNames.join(' + ')}</span>
+                  )}
                 </h2>
               )}
               {lead.empresa && (
@@ -1142,59 +1193,20 @@ function DetalhesTab({
             </div>
           )}
 
-          {/* Pessoas no negócio + Negócios ligados — duas acções na mesma
-              linha (Adicionar parceiro · Ligar negócio), com as listas por
-              baixo no mesmo cartão. */}
-          {negocio.id && !readOnly && (
-            <div className="rounded-2xl border border-border/50 bg-muted/20 px-3.5 py-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button" variant="outline" size="sm"
-                  className="h-8 flex-1 rounded-full text-xs gap-1.5"
-                  onClick={() => setAddPersonOpen(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Adicionar parceiro
-                </Button>
-                <Button
-                  type="button" variant="outline" size="sm"
-                  className="h-8 flex-1 rounded-full text-xs gap-1.5"
-                  onClick={() => setLinkDealOpen(true)}
-                >
-                  <Link2 className="h-3.5 w-3.5" /> Ligar negócio
-                </Button>
-              </div>
-              <NegocioParticipants
-                embed
-                negocioId={negocio.id}
-                leadId={leadId}
-                readOnly={readOnly}
-                onPrimaryChanged={onReload}
-                addOpen={addPersonOpen}
-                onAddOpenChange={setAddPersonOpen}
-              />
-              <NegocioLinkControl
-                embed
-                negocioId={negocio.id}
-                leadId={leadId}
-                dealGroupId={(negocio.deal_group_id as string | null) ?? null}
-                onChanged={onReload}
-                pickerOpen={linkDealOpen}
-                onPickerOpenChange={setLinkDealOpen}
-              />
-            </div>
-          )}
-          {/* Read-only (referrer view): keep the people list visible, no actions. */}
-          {negocio.id && readOnly && (
-            <NegocioParticipants
-              negocioId={negocio.id}
-              leadId={leadId}
-              readOnly={readOnly}
-              onPrimaryChanged={onReload}
-            />
-          )}
-
-          {/* 3 botões — Contactos / Ações / Imóvel. Simple outline pills. */}
-          <div className="grid grid-cols-3 gap-2.5">
+          {/* 4 botões — Info / Contactos / Ações / Imóvel. Simple outline pills.
+              Atribuição do lead (fonte + origem), relações (parceiros) e
+              negócios ligados vivem agora dentro do sheet "Info". */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <button
+              type="button"
+              onClick={() => setInfoOpen(true)}
+              disabled={!negocio.id}
+              className="flex w-full items-center justify-center gap-1.5 h-10 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
+              title="Atribuição do lead (fonte + origem), relações e negócios ligados"
+            >
+              <Info className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              Info
+            </button>
             <button
               type="button"
               onClick={() => setContactosOpen(true)}
@@ -1218,18 +1230,14 @@ function DetalhesTab({
             <button
               type="button"
               onClick={() => setImovelOpen(true)}
-              className="flex w-full items-center justify-center gap-1.5 h-10 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors"
+              disabled={!negocio.id}
+              className="flex w-full items-center justify-center gap-1.5 h-10 rounded-full border border-border/60 bg-background text-xs font-medium text-foreground/85 hover:bg-muted/50 active:scale-[0.98] transition-colors disabled:opacity-40 disabled:active:scale-100 disabled:cursor-not-allowed"
               title="O que o cliente procura"
             >
               <Home className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
               Imóvel
             </button>
           </div>
-
-          {/* Origem do lead — imóvel de interesse + formulário submetido.
-              Self-hides quando o negócio não veio de uma entry (criação
-              manual). Recupera a "memória" que se perdia na qualificação. */}
-          <NegocioOrigemCard negocio={negocio} onPreviewProperty={onPreviewProperty} />
 
           {/* Notas — feed completo de observações deste negócio (notas,
               chamadas, emails, WhatsApp, visitas) com o composer inline.
@@ -1241,6 +1249,8 @@ function DetalhesTab({
               negocioRef={negocio.tipo ? `${negocio.tipo}${negocio.localizacao ? ` · ${negocio.localizacao}` : ''}` : 'Negócio'}
               refreshKey={inicioRefreshKey}
               readOnly={readOnly}
+              onClose={onClose}
+              onMutated={onActivityMutated}
             />
           )}
 
@@ -1255,13 +1265,28 @@ function DetalhesTab({
         </div>
       </div>
 
-      {/* Sheets glassmórficos accionados pelos 3 botões */}
+      {/* Sheets glassmórficos accionados pelos 4 botões */}
+      {negocio.id && (
+        <NegocioInfoSheet
+          open={infoOpen}
+          onOpenChange={setInfoOpen}
+          clientName={clientName}
+          negocio={negocio}
+          leadId={leadId}
+          readOnly={readOnly}
+          onReload={onReload}
+          onPreviewProperty={onPreviewProperty}
+        />
+      )}
       <NegocioContactosSheet
         open={contactosOpen}
         onOpenChange={setContactosOpen}
         clientName={clientName}
         phone={phone}
         email={email}
+        leadId={leadId}
+        negocioId={negocio.id ?? null}
+        onLogged={onActivityMutated}
       />
       {negocio.id && (
         <NegocioAcoesSheet
@@ -1273,18 +1298,19 @@ function DetalhesTab({
           refreshKey={inicioRefreshKey}
           onCreateTask={() => { setAcoesOpen(false); onCreateTask?.() }}
           onCreateEvent={() => { setAcoesOpen(false); onCreateEvent?.() }}
-          onCreateNote={() => { setAcoesOpen(false); onCreateNote?.() }}
         />
       )}
-      <NegocioImovelSheet
-        open={imovelOpen}
-        onOpenChange={setImovelOpen}
-        clientName={clientName}
-        tipo={tipo}
-        isBuyerType={isBuyerType}
-        form={form}
-        onOpenFullEdit={onOpenFullEdit ? () => { setImovelOpen(false); onOpenFullEdit() } : undefined}
-      />
+      {negocio.id && (
+        <NegocioImovelSheet
+          open={imovelOpen}
+          onOpenChange={setImovelOpen}
+          clientName={clientName}
+          tipo={tipo}
+          negocioId={negocio.id}
+          form={form}
+          onOpenFullEdit={onOpenFullEdit ? () => { setImovelOpen(false); onOpenFullEdit() } : undefined}
+        />
+      )}
     </div>
   )
 }
@@ -1343,6 +1369,8 @@ function NotasList({
   negocioRef,
   refreshKey,
   readOnly,
+  onClose,
+  onMutated,
 }: {
   leadId: string
   negocioId: string
@@ -1351,14 +1379,25 @@ function NotasList({
   negocioRef: string
   refreshKey?: number
   readOnly?: boolean
+  /** Fecha o sheet ao navegar para o perfil do cliente. */
+  onClose?: () => void
+  /** Criou/editou/apagou uma nota — avisa o parent para refrescar os
+   *  outros feeds (Histórico, Ações → Atividade). */
+  onMutated?: () => void
 }) {
+  // 'negocio' — só notas desta oportunidade; 'cliente' — todas as notas do
+  // contacto (todas as oportunidades + nível de cliente).
+  const [scope, setScope] = useState<'negocio' | 'cliente'>('negocio')
   const [activities, setActivities] = useState<ObservationActivity[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/leads/${leadId}/activities?negocio_id=${negocioId}`)
+      const url = scope === 'negocio'
+        ? `/api/leads/${leadId}/activities?negocio_id=${negocioId}`
+        : `/api/leads/${leadId}/activities`
+      const res = await fetch(url)
       if (!res.ok) throw new Error()
       const json = await res.json()
       // Só notas escritas pelo utilizador — o histórico de sistema
@@ -1371,7 +1410,7 @@ function NotasList({
     } finally {
       setLoading(false)
     }
-  }, [leadId, negocioId])
+  }, [leadId, negocioId, scope])
 
   useEffect(() => { void load() }, [load])
 
@@ -1389,14 +1428,48 @@ function NotasList({
         {activities.length > 0 && (
           <span className="text-xs text-muted-foreground">{activities.length}</span>
         )}
+        {/* Toggle Oportunidade / Cliente */}
+        <div className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-background/60 border border-border/50 p-0.5">
+          {([
+            { key: 'negocio', label: 'Oportunidade' },
+            { key: 'cliente', label: 'Cliente' },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setScope(t.key)}
+              className={cn(
+                'h-6 rounded-full px-2.5 text-[11px] font-medium transition-colors',
+                scope === t.key
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Atalho para o perfil completo do cliente (onde vivem estas notas). */}
+      {scope === 'cliente' && !readOnly && (
+        <Link
+          href={`/dashboard/leads/${leadId}`}
+          onClick={() => onClose?.()}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Abrir perfil do cliente
+          <ArrowUpRight className="h-3 w-3" />
+        </Link>
+      )}
 
       {!readOnly && (
         <ObservationComposer
           contactId={leadId}
-          negocioId={negocioId}
-          negocioLabel={`Negócio: ${negocioRef}`}
-          onSaved={load}
+          negocioId={scope === 'negocio' ? negocioId : null}
+          negocioLabel={scope === 'negocio' ? `Negócio: ${negocioRef}` : null}
+          onSaved={() => { void load(); onMutated?.() }}
+          placeholder={scope === 'cliente' ? 'Nota sobre o cliente…' : undefined}
         />
       )}
 
@@ -1412,12 +1485,16 @@ function NotasList({
               key={act.id}
               activity={act}
               contactId={leadId}
-              hideNegocioBadge
-              onChanged={load}
+              hideNegocioBadge={scope === 'negocio'}
+              onChanged={() => { void load(); onMutated?.() }}
             />
           ))}
         </div>
-      ) : null}
+      ) : (
+        <p className="text-[12px] text-muted-foreground px-1 py-2">
+          {scope === 'cliente' ? 'Sem notas no cliente.' : 'Sem notas nesta oportunidade.'}
+        </p>
+      )}
     </section>
   )
 }

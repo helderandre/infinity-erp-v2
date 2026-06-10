@@ -57,7 +57,7 @@ const LEAD_FIELDS = [
   { key: 'email', label: 'Email', required: false },
   { key: 'telemovel', label: 'Telemóvel', required: false },
   { key: 'telefone', label: 'Telefone', required: false },
-  { key: 'origem', label: 'Origem', required: false },
+  { key: 'origem', label: 'Fonte', required: false },
   { key: 'observacoes', label: 'Observações', required: false },
 ] as const
 

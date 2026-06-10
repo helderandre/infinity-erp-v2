@@ -45,6 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         negocio:negocios(id, tipo, business_type, tipo_imovel, quartos, quartos_min, estado, localizacao, preco_venda, orcamento_max, renda_pretendida, renda_max_mensal)
       `)
       .eq('contact_id', id)
+      .order('created_at', { ascending: false })
       .limit(200)
 
     if (negocioId) {

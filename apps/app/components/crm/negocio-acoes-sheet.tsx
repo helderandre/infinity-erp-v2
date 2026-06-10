@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckSquare, CalendarPlus, StickyNote, Zap } from 'lucide-react'
+import { CheckSquare, CalendarPlus, Zap } from 'lucide-react'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
@@ -25,14 +25,13 @@ interface NegocioAcoesSheetProps {
   leadId: string | null | undefined
   onCreateTask: () => void
   onCreateEvent: () => void
-  onCreateNote: () => void
   /** Bump para forçar refetch (vem do parent após criar uma tarefa/nota). */
   refreshKey?: number
 }
 
 export function NegocioAcoesSheet({
   open, onOpenChange, clientName, negocioId, leadId,
-  onCreateTask, onCreateEvent, onCreateNote, refreshKey,
+  onCreateTask, onCreateEvent, refreshKey,
 }: NegocioAcoesSheetProps) {
   const isMobile = useIsMobile()
   const tasks = useNegocioTasks(negocioId)
@@ -76,8 +75,9 @@ export function NegocioAcoesSheet({
         </SheetHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Quick actions — simple outline pills (Tarefa · Evento · Nota). */}
-          <div className="grid grid-cols-3 gap-2.5">
+          {/* Quick actions — simple outline pills (Tarefa · Evento). As notas
+              vivem no feed da tab Início. */}
+          <div className="grid grid-cols-2 gap-2.5">
             <button type="button" onClick={onCreateTask} className={PILL} title="Criar tarefa para este negócio">
               <CheckSquare className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
               Tarefa
@@ -85,10 +85,6 @@ export function NegocioAcoesSheet({
             <button type="button" onClick={onCreateEvent} className={PILL} title="Criar evento (reunião, visita, follow-up)">
               <CalendarPlus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               Evento
-            </button>
-            <button type="button" onClick={onCreateNote} className={PILL} title="Nota rápida">
-              <StickyNote className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              Nota
             </button>
           </div>
 

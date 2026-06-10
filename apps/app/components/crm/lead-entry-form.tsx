@@ -156,7 +156,7 @@ export function LeadEntryForm({ consultants, onSuccess, onCancel }: LeadEntryFor
 
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
-            <Label className="text-xs font-medium">Origem</Label>
+            <Label className="text-xs font-medium">Fonte</Label>
             <Select value={form.source} onValueChange={(v) => setField('source', v)}>
               <SelectTrigger className="rounded-xl text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>

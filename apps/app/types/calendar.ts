@@ -36,6 +36,7 @@ export interface CalendarEvent {
   location_lat?: number | null
   location_lng?: number | null
   requires_rsvp?: boolean
+  visibility?: 'all' | 'team' | 'private'
   visibility_mode?: 'all' | 'include' | 'exclude'
   visibility_user_ids?: string[]
   visibility_role_names?: string[]

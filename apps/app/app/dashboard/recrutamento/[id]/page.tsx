@@ -25,6 +25,8 @@ import { CANDIDATE_SOURCES, CANDIDATE_STATUSES, PIPELINE_STAGES } from '@/types/
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -96,10 +98,15 @@ export default function CandidateDetailPage() {
   const [savingCandidate, setSavingCandidate] = useState(false)
   const [savingComm, setSavingComm] = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editForm, setEditForm] = useState({
     full_name: '', phone: '', email: '', source_detail: '', notes: '',
     assigned_recruiter_id: '',
   })
+
+  // Delete candidate
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deletingCandidate, setDeletingCandidate] = useState(false)
 
   // AI notes dialog
   const [aiNotesOpen, setAiNotesOpen] = useState(false)
@@ -185,7 +192,7 @@ export default function CandidateDetailPage() {
     else { toast.success('Comunicação registada'); const res = await getCommunications(candidateId); setCommunications(res.communications) }
   }
 
-  function enterEditMode() {
+  function populateEditForm() {
     if (!candidate) return
     setEditForm({
       full_name: candidate.full_name || '',
@@ -195,7 +202,27 @@ export default function CandidateDetailPage() {
       notes: candidate.notes || '',
       assigned_recruiter_id: candidate.assigned_recruiter_id || '',
     })
+  }
+
+  function enterEditMode() {
+    populateEditForm()
     setEditMode(true)
+  }
+
+  function openEditDialog() {
+    populateEditForm()
+    setEditDialogOpen(true)
+  }
+
+  async function handleDeleteCandidate() {
+    setDeletingCandidate(true)
+    const { deleteCandidate } = await import('@/app/dashboard/recrutamento/actions')
+    const { error } = await deleteCandidate(candidateId)
+    setDeletingCandidate(false)
+    setDeleteConfirmOpen(false)
+    if (error) { toast.error('Erro ao eliminar candidato'); return }
+    toast.success('Candidato eliminado')
+    router.push('/dashboard/recrutamento/candidatos')
   }
 
   async function saveEdit() {
@@ -208,11 +235,11 @@ export default function CandidateDetailPage() {
       source_detail: editForm.source_detail || null,
       notes: editForm.notes || null,
     }
-    if (editForm.assigned_recruiter_id) updates.assigned_recruiter_id = editForm.assigned_recruiter_id
+    updates.assigned_recruiter_id = editForm.assigned_recruiter_id || null
     const { error } = await updateCandidate(candidate.id, updates)
     setSavingCandidate(false)
     if (error) toast.error('Erro ao guardar')
-    else { patchCandidate(updates); toast.success('Guardado'); setEditMode(false) }
+    else { patchCandidate(updates); toast.success('Guardado'); setEditMode(false); setEditDialogOpen(false) }
   }
 
   // AI notes confirm handler
@@ -549,6 +576,14 @@ export default function CandidateDetailPage() {
                 <><Pencil className="h-3 w-3" /><span className="hidden md:inline">Editar</span></>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmOpen(true)}
+              title="Eliminar"
+              className="inline-flex items-center gap-1.5 rounded-full p-2 md:px-3 md:py-1.5 text-[11px] font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" /><span className="hidden md:inline">Eliminar</span>
+            </button>
           </div>
         </div>
 
@@ -635,14 +670,26 @@ export default function CandidateDetailPage() {
       <div className="w-[calc(100vw-2rem)] shrink-0 snap-center rounded-3xl border border-border/40 bg-card shadow-sm overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-5 space-y-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
-              onClick={goBack}
-            >
-              <ArrowLeft className="mr-1.5 h-3 w-3" />Voltar
-            </Button>
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2 h-8 px-3 rounded-full text-xs text-muted-foreground hover:text-foreground"
+                onClick={goBack}
+              >
+                <ArrowLeft className="mr-1.5 h-3 w-3" />Voltar
+              </Button>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={openEditDialog} title="Editar"
+                  className="h-8 w-8 rounded-full bg-muted/50 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={() => setDeleteConfirmOpen(true)} title="Eliminar"
+                  className="h-8 w-8 rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 flex items-center justify-center transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
             <div className="text-center pt-1">
               <label className="relative mx-auto block h-20 w-20 cursor-pointer group">
                 <Avatar className="h-20 w-20 rounded-2xl">
@@ -762,8 +809,8 @@ export default function CandidateDetailPage() {
           </div>
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setAiNotesOpen(true)} className="p-1.5 rounded-full bg-violet-500/10 text-violet-600"><Sparkles className="h-3 w-3" /></button>
-            <button type="button" onClick={editMode ? saveEdit : enterEditMode} className={cn('p-1.5 rounded-full', editMode ? 'bg-emerald-600 text-white' : 'bg-muted/50 text-muted-foreground')}>
-              {editMode ? <Check className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+            <button type="button" onClick={openEditDialog} className="p-1.5 rounded-full bg-muted/50 text-muted-foreground">
+              <Pencil className="h-3 w-3" />
             </button>
           </div>
         </div>
@@ -927,6 +974,64 @@ export default function CandidateDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Candidate Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="w-[90vw] max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4" />Editar candidato</DialogTitle>
+            <DialogDescription className="sr-only">Editar dados do candidato</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-1">
+            <div className="grid gap-1.5"><Label className="text-xs">Nome Completo *</Label>
+              <Input value={editForm.full_name} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Nome completo" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5"><Label className="text-xs">Telemóvel</Label>
+                <Input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="+351 9XX XXX XXX" /></div>
+              <div className="grid gap-1.5"><Label className="text-xs">Email</Label>
+                <Input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5"><Label className="text-xs">Detalhe da origem</Label>
+                <Input value={editForm.source_detail} onChange={e => setEditForm(f => ({ ...f, source_detail: e.target.value }))} placeholder="Ex: LinkedIn, referência..." /></div>
+              <div className="grid gap-1.5"><Label className="text-xs">Recrutador</Label>
+                <Select value={editForm.assigned_recruiter_id || 'none'} onValueChange={v => setEditForm(f => ({ ...f, assigned_recruiter_id: v === 'none' ? '' : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent><SelectItem value="none">Nenhum</SelectItem>{recruiters.map(r => <SelectItem key={r.id} value={r.id}>{r.commercial_name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-1.5"><Label className="text-xs">Notas</Label>
+              <Textarea rows={3} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notas sobre o candidato..." /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-full" onClick={() => setEditDialogOpen(false)} disabled={savingCandidate}>Cancelar</Button>
+            <Button className="rounded-full gap-1.5" onClick={saveEdit} disabled={savingCandidate || !editForm.full_name.trim()}>
+              {savingCandidate ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Candidate Confirmation */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar candidato</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar {candidate.full_name}? Todos os dados associados (entrevistas, comunicações, onboarding) serão eliminados. Esta acção é irreversível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deletingCandidate}
+              onClick={handleDeleteCandidate}>
+              {deletingCandidate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AI Notes Dialog */}
       <AiNotesDialog

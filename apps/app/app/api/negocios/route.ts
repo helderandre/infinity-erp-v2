@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
 
     const lead_id = searchParams.get('lead_id')
+    const deal_group_id = searchParams.get('deal_group_id')
     const tipo = searchParams.get('tipo')
     const estado = searchParams.get('estado')
     const search = searchParams.get('search')
@@ -32,6 +33,11 @@ export async function GET(request: Request) {
 
     if (lead_id) {
       query = query.eq('lead_id', lead_id)
+    }
+    if (deal_group_id) {
+      // Negócios ligados (grupo) — podem pertencer a outros leads (ex.: a
+      // venda do cônjuge ligada à compra do casal).
+      query = query.eq('deal_group_id', deal_group_id)
     }
     if (tipo) {
       query = query.ilike('tipo', `%${tipo}%`)

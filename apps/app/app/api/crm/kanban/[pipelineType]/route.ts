@@ -87,7 +87,7 @@ export async function GET(
         `id, lead_id, entry_id, pipeline_stage_id, tipo, expected_value, probability_pct,
          stage_entered_at, won_date, lost_date, lost_reason, orcamento, orcamento_max, tipo_imovel,
          preco_venda, renda_pretendida, renda_max_mensal,
-         quartos_min, localizacao, has_referral, referral_pct, referral_type, referral_side,
+         quartos_min, localizacao, zonas, has_referral, referral_pct, referral_type, referral_side,
          referrer_consultant_id, assigned_consultant_id, deal_group_id, depends_on_negocio_id,
          temperatura, observacoes, origem,
          leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
@@ -122,6 +122,12 @@ export async function GET(
       // referrer, not necessarily the current user). Used by the Pipeline
       // page's "Só referenciados" toggle.
       negociosQuery = negociosQuery.not('referrer_consultant_id', 'is', null)
+    }
+    // Hide négocios soft-deleted by the consultor — but only on the consultor
+    // side. The parceiro's referrer view (referrer_consultant_id set) keeps
+    // showing them. See consultor_hidden_at (20260610 migration).
+    if (!referrer_consultant_id) {
+      negociosQuery = negociosQuery.is('consultor_hidden_at', null)
     }
     if (pipeline_stage_id) {
       negociosQuery = negociosQuery.eq('pipeline_stage_id', pipeline_stage_id)

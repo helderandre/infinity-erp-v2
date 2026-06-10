@@ -344,7 +344,7 @@ function ListView({
                 </Select>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Origem</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Fonte</p>
                 <Select value={sourceFilter} onValueChange={setSourceFilter}>
                   <SelectTrigger className="h-9 w-full rounded-full text-xs">
                     <SelectValue />

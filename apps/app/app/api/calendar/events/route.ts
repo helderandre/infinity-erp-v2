@@ -220,6 +220,10 @@ export async function GET(request: Request) {
           registration_url: ev.registration_url ?? undefined,
           links: ev.links ?? [],
           reminders: ev.reminders ?? [],
+          visibility: ev.visibility ?? 'all',
+          visibility_mode: ev.visibility_mode ?? 'all',
+          visibility_user_ids: ev.visibility_user_ids ?? [],
+          visibility_role_names: ev.visibility_role_names ?? [],
           user_id: ev.user_id ?? undefined,
           user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
           property_id: ev.property_id ?? undefined,
@@ -302,7 +306,10 @@ export async function GET(request: Request) {
             registration_url: ev.registration_url ?? undefined,
             links: ev.links ?? [],
             reminders: ev.reminders ?? [],
+            visibility: ev.visibility ?? 'all',
             visibility_mode: ev.visibility_mode ?? 'all',
+            visibility_user_ids: ev.visibility_user_ids ?? [],
+            visibility_role_names: ev.visibility_role_names ?? [],
             user_id: ev.user_id ?? undefined,
             user_name: (ev.linked_user as { commercial_name: string } | null)?.commercial_name ?? undefined,
             property_id: ev.property_id ?? undefined,
@@ -539,8 +546,18 @@ export async function GET(request: Request) {
     // events auto, então scoped ao próprio user_id / participantes).
     if (currentUserId) {
       filtered = filtered.filter((ev) => {
-        // Manual events: honour the existing visibility_mode model.
+        // Manual events: honour visibility (simples) + visibility_mode (avançado).
         if (ev.source !== 'auto') {
+          // Criador e utilizador associado ("Atribuído a") vêem sempre.
+          const isCreator = (ev as any).created_by === currentUserId
+          const isLinkedUser = ev.user_id === currentUserId
+          if (isCreator || isLinkedUser) return true
+
+          // visibility='private' ("Apenas eu") — escondido de todos os
+          // restantes, excepto gestão. Cobre as escalas atribuídas a uma
+          // pessoa: só essa pessoa (e gestão) as vê no calendário.
+          if ((ev as any).visibility === 'private') return callerIsManagement
+
           const vis = (ev as any).visibility_mode ?? 'all'
           // 'all' = company-wide: visível a todos (incl. consultor).
           if (vis === 'all') return true
@@ -551,9 +568,6 @@ export async function GET(request: Request) {
           const roleMatch = allowedRoles.some((r: string) =>
             currentUserRoleNames.some((n) => n.toLowerCase() === r.toLowerCase()),
           )
-          // Caller é o criador? Sempre vê.
-          const isCreator = (ev as any).created_by === currentUserId
-          if (isCreator) return true
 
           if (vis === 'include') return userMatch || roleMatch
           if (vis === 'exclude') return !userMatch && !roleMatch

@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       visibility_user_ids: string[]
       visibility_role_names: string[]
       user_id?: string
+      created_by?: string
     }
 
     const dueReminders: DueReminder[] = []
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
             visibility_user_ids: ev.visibility_user_ids ?? [],
             visibility_role_names: ev.visibility_role_names ?? [],
             user_id: ev.user_id ?? undefined,
+            created_by: ev.created_by ?? undefined,
           })
         }
       }
@@ -119,9 +121,13 @@ export async function GET(request: Request) {
       // Determine who should receive this notification
       let targetUserIds: string[]
 
-      if (reminder.visibility === 'private') {
-        // Only the event creator/assigned user
-        targetUserIds = reminder.user_id ? [reminder.user_id] : []
+      if (reminder.user_id) {
+        // Evento atribuído a uma pessoa (ex.: escala) — só essa pessoa
+        // recebe o lembrete, independentemente da visibilidade do evento.
+        targetUserIds = [reminder.user_id]
+      } else if (reminder.visibility === 'private') {
+        // Privado sem atribuição — só o criador
+        targetUserIds = reminder.created_by ? [reminder.created_by] : []
       } else if (reminder.visibility_mode === 'all') {
         // Everyone
         targetUserIds = usersWithRoles.map((u: any) => u.id)

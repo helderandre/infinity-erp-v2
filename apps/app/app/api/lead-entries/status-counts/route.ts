@@ -60,7 +60,8 @@ export async function GET(request: Request) {
       if (isReferred) {
         if (restrictIds) q = q.in('id', restrictIds)
       } else {
-        q = q.eq('assigned_consultant_id', auth.user.id)
+        // Consultor view — exclui entries soft-deleted (consultor_hidden_at).
+        q = q.eq('assigned_consultant_id', auth.user.id).is('consultor_hidden_at', null)
       }
       const { count } = await q
       return count ?? 0

@@ -28,7 +28,7 @@ import {
 import { SelectWithOther } from '@/components/shared/select-with-other'
 import { TagsInput, TagsDisplay } from '@/components/ui/tags-input'
 import { NegocioZonasField } from '@/components/negocios/zonas/negocio-zonas-field'
-import { AdminAreaAutocomplete } from '@/components/negocios/zonas/admin-area-autocomplete'
+import { LocalizacaoAutocomplete } from '@/components/negocios/zonas/localizacao-autocomplete'
 import { adminAreaLabel } from '@/lib/matching'
 import type { NegocioZone } from '@/lib/matching'
 import { MapPin, Pencil as PencilIcon, Building2, Map as MapIcon } from 'lucide-react'
@@ -501,16 +501,35 @@ export function NegocioDataCard({
 
       <SectionHeader title="Localização" />
       {/* Sem polígonos — a venda incide num único imóvel/morada concreta.
-          Picker de admin area único: ao seleccionar, auto-preenche
-          Distrito / Concelho / Freguesia (e a string `localizacao`) via
-          /api/admin-areas/[id]/hierarchy. */}
+          Picker combinado: zonas administrativas (admin_areas) + moradas de
+          rua (Mapbox). Ambos auto-preenchem Distrito / Concelho / Freguesia
+          (admin area via /api/admin-areas/[id]/hierarchy; rua via coords →
+          /api/geo/reverse, que usa geoapi.pt). */}
       {isEditing ? (
         <>
           <div className="col-span-full space-y-1.5">
             <p className="text-xs text-muted-foreground">Localização</p>
-            <AdminAreaAutocomplete
-              placeholder="Procurar concelho, freguesia ou distrito..."
-              onSelect={async (r) => {
+            <LocalizacaoAutocomplete
+              placeholder="Procurar rua, freguesia, concelho ou distrito..."
+              onSelectMorada={(m) => {
+                onFieldChange(vendaLocField, m.fullAddress)
+                if (m.distrito) onFieldChange('distrito', m.distrito)
+                if (m.concelho) onFieldChange('concelho', m.concelho)
+                if (m.freguesia) onFieldChange('freguesia', m.freguesia)
+                // Sincroniza `zonas` com a freguesia (fallback concelho) da
+                // morada — mantém o chip do detail-sheet e o matching
+                // geográfico coerentes. Sem match em admin_areas, deixa as
+                // zonas como estão (os campos texto ficam na mesma certos).
+                if (m.area) {
+                  const typeLabel =
+                    m.area.type === 'distrito' ? 'Distrito' : m.area.type === 'concelho' ? 'Concelho' : 'Freguesia'
+                  const label = m.area.parent_label
+                    ? `${m.area.name} (${typeLabel}, ${m.area.parent_label})`
+                    : `${m.area.name} (${typeLabel})`
+                  onFieldChange('zonas', [{ kind: 'admin', area_id: m.area.id, label }])
+                }
+              }}
+              onSelectArea={async (r) => {
                 // Optimistic: usa o que já temos no resultado da pesquisa.
                 const optimisticDistrito = r.type === 'distrito' ? r.name : null
                 const optimisticConcelho = r.type === 'concelho' ? r.name : (r.type === 'freguesia' ? r.parent_label : null)

@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { createLeadEntrySchema } from '@/lib/validations/lead-entry'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { redactLead, redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
+import { sendPushToUser } from '@/lib/crm/send-push'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -115,6 +118,9 @@ export async function GET(request: Request) {
       query = query.eq('assigned_consultant_id', consultant_id)
     }
     if (contact_id) query = query.eq('contact_id', contact_id)
+    // Esconde entries soft-deleted pelo consultor — exceto na vista
+    // "Referenciadas" (scope=referred), onde o parceiro continua a vê-las.
+    if (!isReferred) query = query.is('consultor_hidden_at', null)
 
     const { data, error, count } = await query
 
@@ -323,6 +329,13 @@ export async function POST(request: Request) {
         match_details: matchDetails,
         status: 'new',
         assigned_consultant_id: assignedConsultantId,
+        // Mirror onto assigned_agent_id — a coluna que alimenta a página da
+        // Gestora ("Por atribuir" filtra assigned_agent_id IS NULL), o SLA
+        // engine e o trigger de active_lead_count. Sem este mirror a entry
+        // atribuída continuava a aparecer no pool por atribuir (e podia ser
+        // re-atribuída por cima). Mesmo padrão de ingest-lead.ts e do bulk
+        // import. Mesma pessoa, duas colunas denormalizadas.
+        assigned_agent_id: assignedConsultantId,
         notes: input.notes || null,
         sector: input.sector || null,
         business_type: input.business_type && ['Venda', 'Arrendamento', 'Trespasse'].includes(input.business_type)
@@ -342,6 +355,43 @@ export async function POST(request: Request) {
 
     if (entryError) {
       return NextResponse.json({ error: entryError.message }, { status: 500 })
+    }
+
+    // ── Step 5b: Notificar o consultor atribuído (se não for quem registou) ──
+    // Mesmo padrão de POST /api/leads e do reassign da Gestora — sem isto o
+    // consultor só descobria a lead se abrisse a inbox por iniciativa própria.
+    if (assignedConsultantId && assignedConsultantId !== user.id) {
+      const link = `/dashboard/crm/contactos/${contactId}`
+      const title = 'Nova lead atribuída'
+      const notifBody = `${input.raw_name} foi-lhe atribuída.`
+      try {
+        const db = createCrmAdminClient()
+        await db.from('leads_notifications').insert({
+          recipient_id: assignedConsultantId,
+          type: 'assignment',
+          title,
+          body: notifBody,
+          link,
+          entry_id: entry.id,
+          contact_id: contactId,
+        })
+      } catch (err) {
+        console.error('[lead-entries POST] notification:', err)
+      }
+
+      // Push imediato (cron de fallback só varre `notifications`,
+      // não `leads_notifications` — push tem de ser eager aqui).
+      try {
+        const adminPush = createAdminClient()
+        await sendPushToUser(adminPush, assignedConsultantId, {
+          title,
+          body: notifBody,
+          url: link,
+          tag: `new_lead_entry:${entry.id}`,
+        })
+      } catch (err) {
+        console.error('[lead-entries POST] push:', err)
+      }
     }
 
     // ── Step 6: If recruitment sector, also create a recruitment_candidates record ──

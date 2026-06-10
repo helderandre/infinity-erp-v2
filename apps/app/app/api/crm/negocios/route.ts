@@ -11,6 +11,8 @@ import { isManagementRole } from '@/lib/auth/roles'
 import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
 import { qualifyNegocioPayload } from '@/lib/negocios/assert-qualified'
+import { notifyReferrerQualified } from '@/lib/crm/notify-referrer'
+import { carryEntryNotesToContact } from '@/lib/crm/carry-entry-notes'
 
 export async function GET(request: Request) {
   try {
@@ -87,6 +89,9 @@ export async function GET(request: Request) {
     if (assigned_consultant_id) query = query.eq('assigned_consultant_id', assigned_consultant_id)
     if (referrer_consultant_id) query = query.eq('referrer_consultant_id', referrer_consultant_id)
     if (only_referenced) query = query.not('referrer_consultant_id', 'is', null)
+    // Esconde négocios soft-deleted pelo consultor — só do lado do consultor;
+    // a vista do parceiro (referrer) continua a mostrá-los.
+    if (!referrer_consultant_id) query = query.is('consultor_hidden_at', null)
     if (pipeline_stage_id) query = query.eq('pipeline_stage_id', pipeline_stage_id)
     if (temperatura) query = query.eq('temperatura', temperatura)
     if (contact_id) query = query.eq('lead_id', contact_id)
@@ -175,10 +180,13 @@ export async function POST(request: Request) {
     // property_id resolved from the entry — also used to seed the dossier
     // (negocio_properties) after the négocio is inserted.
     let entryPropertyId: string | null = null
+    // Entry notes carried to the contact timeline after the négocio insert —
+    // the inbox row disappears on conversion and its free-text notes with it.
+    let entryNotesCarryover: { notes: string | null; created_at: string | null } | null = null
     if (input.entry_id) {
       const { data: entry } = await supabase
         .from('leads_entries')
-        .select('has_referral, referral_pct, referral_consultant_id, referral_external_name, referral_external_phone, referral_external_email, referral_external_agency, source, property_id, property_external_ref')
+        .select('has_referral, referral_pct, referral_consultant_id, referral_external_name, referral_external_phone, referral_external_email, referral_external_agency, source, property_id, property_external_ref, notes, created_at')
         .eq('id', input.entry_id)
         .single()
 
@@ -228,6 +236,9 @@ export async function POST(request: Request) {
           referralFields.property_id = entry.property_id
           entryPropertyId = entry.property_id
         }
+        if (entry.notes?.trim()) {
+          entryNotesCarryover = { notes: entry.notes, created_at: entry.created_at ?? null }
+        }
       }
 
       // Mark entry as converted
@@ -274,6 +285,22 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // Notify the referenced partner (referrer) that their lead became an
+    // oportunidade — best-effort web push + portal feed.
+    {
+      const row = data as Record<string, any> | null
+      const referrerId = (row?.referrer_consultant_id as string | null) ?? null
+      if (referrerId) {
+        await notifyReferrerQualified(createCrmAdminClient(), {
+          referrerId,
+          negocioId: row!.id as string,
+          leadId: (input.lead_id as string) ?? null,
+          leadName: (row?.leads?.nome as string | null) ?? null,
+          actorId: input.assigned_consultant_id ?? null,
+        })
+      }
+    }
+
     // Seed the dossier with the property of origin so it shows up in the
     // négocio's "Imóveis" tab from day one (status='interested' — the lead
     // already manifested interest in it). Best-effort: a failure here must not
@@ -319,6 +346,21 @@ export async function POST(request: Request) {
       } catch {
         // activity log is non-critical — ignore
       }
+    }
+
+    // Carry the entry's free-text notes ("Histórico: ...", visitas, contexto
+    // dado por quem registou a lead) to the contact timeline as a dated note.
+    // The inbox entry stops being visible after conversion — without this the
+    // receiving consultor loses that context. Idempotent + best-effort.
+    if (data?.id && input.entry_id && entryNotesCarryover) {
+      await carryEntryNotesToContact(supabase, {
+        entryId: input.entry_id,
+        contactId: input.lead_id,
+        notes: entryNotesCarryover.notes,
+        entryCreatedAt: entryNotesCarryover.created_at,
+        negocioId: data.id,
+        createdBy: input.assigned_consultant_id ?? null,
+      })
     }
 
     if (inheritedReferral?.referral_row_id && data?.id) {

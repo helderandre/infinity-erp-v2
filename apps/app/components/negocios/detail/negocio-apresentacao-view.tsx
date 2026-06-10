@@ -289,7 +289,7 @@ export function NegocioApresentacaoView({ data, photos, onOpenMomentos }: Props)
                   <dd>{data.pipelineStageName ?? '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground tracking-wide">Origem</dt>
+                  <dt className="text-[10px] uppercase text-muted-foreground tracking-wide">Fonte</dt>
                   <dd>{data.origem ?? '—'}</dd>
                 </div>
                 <div>
@@ -412,7 +412,7 @@ export function NegocioApresentacaoView({ data, photos, onOpenMomentos }: Props)
                 ) : '—'}
               </KV>
               <KV label="Tipo">{data.tipo ? TIPO_LABELS[data.tipo] ?? data.tipo : '—'}</KV>
-              <KV label="Origem">{data.origem ?? '—'}</KV>
+              <KV label="Fonte">{data.origem ?? '—'}</KV>
               <KV label="Temperatura">{data.temperatura ?? '—'}</KV>
               <KV label="Imóvel">
                 {data.isExternalProperty ? (

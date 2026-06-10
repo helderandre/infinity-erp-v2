@@ -53,6 +53,10 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
+    // Esconde contactos soft-deleted pelo consultor (lista de contactos do ERP;
+    // o portal de parceiros não usa este endpoint). Ver consultor_hidden_at.
+    query = query.is('consultor_hidden_at', null)
+
     if (nome) {
       // Pesquisa por nome, email ou telefone. Sanitiza vírgulas/parênteses
       // que quebrariam a sintaxe do `.or()` do PostgREST.
@@ -169,7 +173,6 @@ export async function POST(request: Request) {
     if (data.agent_id) insertData.agent_id = data.agent_id
     insertData.estado = data.estado || 'Lead'
     if (data.lead_type) (insertData as any).lead_type = data.lead_type
-    if (data.observacoes) insertData.observacoes = data.observacoes
 
     const { data: lead, error } = await supabase
       .from('leads')
@@ -198,6 +201,28 @@ export async function POST(request: Request) {
         { error: 'Erro ao criar lead', details: error.message },
         { status: 500 }
       )
+    }
+
+    // Observações escritas na criação entram directamente no histórico
+    // (leads_activities, type='note') em vez do campo legacy
+    // `leads.observacoes` — assim aparecem logo nas tabs Notas e Histórico
+    // sem precisar da migração manual "Mover para o histórico".
+    if (data.observacoes?.trim()) {
+      const { error: noteErr } = await (supabase as any)
+        .from('leads_activities')
+        .insert({
+          contact_id: lead.id,
+          activity_type: 'note',
+          subject: 'Observação inicial',
+          description: data.observacoes.trim(),
+          created_by: auth.user.id,
+        })
+      if (noteErr) {
+        // Nunca perder o texto — fallback para o campo legacy (fica visível
+        // no banner "Observação antiga" com migração manual).
+        console.error('Erro ao criar nota inicial, fallback para observacoes:', noteErr.message)
+        await supabase.from('leads').update({ observacoes: data.observacoes }).eq('id', lead.id)
+      }
     }
 
     // Notify assigned agent if it's a different person

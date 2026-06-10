@@ -438,7 +438,7 @@ const createLead: ToolConfig = {
     // o termo livre contra /api/properties (incluindo external_ref / RE/MAX id).
     { key: 'property_query', label: 'Imóvel (angariação)', placeholder: 'Ex: 103 (sufixo) ou T2 Av. Liberdade' },
     // Atribuição / origem (opcionais — o GPT extrai quando referidos)
-    { key: 'origem', label: 'Origem', inputType: 'select', options: LEAD_SOURCE_OPTIONS },
+    { key: 'origem', label: 'Fonte', inputType: 'select', options: LEAD_SOURCE_OPTIONS },
     { key: 'assigned_consultant_id', label: 'Atribuir a', inputType: 'consultant-select' },
   ],
   canSubmit: (args) => {

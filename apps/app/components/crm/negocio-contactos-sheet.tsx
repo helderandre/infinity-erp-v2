@@ -29,10 +29,16 @@ interface NegocioContactosSheetProps {
   clientName: string
   phone: string | null
   email: string | null
+  /** Quando presentes, cada acção (Ligar/WhatsApp/SMS/Email) regista uma
+   *  actividade no histórico do contacto, scoped ao negócio. */
+  leadId?: string | null
+  negocioId?: string | null
+  /** Notifica o parent após registar — para refrescar feeds de actividade. */
+  onLogged?: () => void
 }
 
 export function NegocioContactosSheet({
-  open, onOpenChange, clientName, phone, email,
+  open, onOpenChange, clientName, phone, email, leadId, negocioId, onLogged,
 }: NegocioContactosSheetProps) {
   const isMobile = useIsMobile()
   const [copied, setCopied] = useState<'phone' | 'email' | null>(null)
@@ -42,6 +48,27 @@ export function NegocioContactosSheet({
     setCopied(key)
     toast.success(`${label} copiado`)
     setTimeout(() => setCopied(null), 1800)
+  }
+
+  // Fire-and-forget — nunca bloqueia a navegação do link (tel:/mailto:/wa.me).
+  const logContact = (
+    type: 'call' | 'whatsapp' | 'sms' | 'email',
+    description: string,
+  ) => {
+    if (!leadId) return
+    void fetch(`/api/leads/${leadId}/activities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activity_type: type,
+        direction: 'outbound',
+        description,
+        negocio_id: negocioId ?? null,
+        occurred_at: new Date().toISOString(),
+      }),
+    })
+      .then((r) => { if (r.ok) onLogged?.() })
+      .catch(() => {})
   }
 
   const cleanPhone = phone?.replace(/[^0-9+]/g, '') ?? ''
@@ -91,7 +118,12 @@ export function NegocioContactosSheet({
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <a href={`tel:${phone}`} className={PILL} aria-label="Ligar">
+                <a
+                  href={`tel:${phone}`}
+                  className={PILL}
+                  aria-label="Ligar"
+                  onClick={() => logContact('call', `Chamada iniciada para ${phone}`)}
+                >
                   <Phone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   Ligar
                 </a>
@@ -101,11 +133,17 @@ export function NegocioContactosSheet({
                   rel="noopener noreferrer"
                   className={PILL}
                   aria-label="WhatsApp"
+                  onClick={() => logContact('whatsapp', `Conversa WhatsApp aberta com ${phone}`)}
                 >
                   <WhatsAppIcon className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
                   WhatsApp
                 </a>
-                <a href={`sms:${phone}`} className={PILL} aria-label="SMS">
+                <a
+                  href={`sms:${phone}`}
+                  className={PILL}
+                  aria-label="SMS"
+                  onClick={() => logContact('sms', `SMS iniciado para ${phone}`)}
+                >
                   <MessageSquare className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   SMS
                 </a>
@@ -129,7 +167,12 @@ export function NegocioContactosSheet({
                   {copied === 'email' ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </button>
               </div>
-              <a href={`mailto:${email}`} className={cn(PILL, 'h-10 text-sm')} aria-label="Enviar email">
+              <a
+                href={`mailto:${email}`}
+                className={cn(PILL, 'h-10 text-sm')}
+                aria-label="Enviar email"
+                onClick={() => logContact('email', `Email iniciado para ${email}`)}
+              >
                 <Mail className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                 Enviar email
               </a>

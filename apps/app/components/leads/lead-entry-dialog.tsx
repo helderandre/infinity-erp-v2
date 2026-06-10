@@ -157,7 +157,7 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
 
   useEffect(() => {
     if (open) {
-      fetch('/api/consultants?limit=100')
+      fetch('/api/consultants?per_page=100')
         .then((r) => r.json())
         .then((d) => setConsultantsList((d.data || d || []).map((c: any) => ({ id: c.id, commercial_name: c.commercial_name }))))
         .catch(() => {})
@@ -535,9 +535,9 @@ export function LeadEntryDialog({ open, onOpenChange, onComplete, realEstateOnly
               </div>
             )}
 
-            {/* ── Origem ── */}
+            {/* ── Fonte ── */}
             <div>
-              <Label className="text-[11px] text-muted-foreground font-medium">Origem</Label>
+              <Label className="text-[11px] text-muted-foreground font-medium">Fonte</Label>
               <Select value={form.source} onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}>
                 <SelectTrigger className="rounded-lg mt-1 h-9 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{SOURCE_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent>

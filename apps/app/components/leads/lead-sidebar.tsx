@@ -129,7 +129,7 @@ export function LeadSidebar({
             <div className="flex items-start gap-3 text-sm">
               <span className="text-muted-foreground mt-0.5">🔗</span>
               <div>
-                <p className="text-muted-foreground text-xs">Origem</p>
+                <p className="text-muted-foreground text-xs">Fonte</p>
                 <p className="font-medium text-sm">{lead.origem}</p>
               </div>
             </div>

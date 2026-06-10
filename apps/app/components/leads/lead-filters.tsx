@@ -111,7 +111,7 @@ export function LeadFilters({
       {onQualifsChange && (
         <MultiSelectFilter title="Qualificação" options={qualifOptions} selected={selectedQualifs} onSelectedChange={handleQualifs} />
       )}
-      <MultiSelectFilter title="Origem" options={origemOptions} selected={effectiveOrigens} onSelectedChange={handleOrigens} />
+      <MultiSelectFilter title="Fonte" options={origemOptions} selected={effectiveOrigens} onSelectedChange={handleOrigens} />
       {showConsultantFilter && (
         <MultiSelectFilter title="Consultor" options={consultantOptions} selected={effectiveAgents} onSelectedChange={handleAgents} searchable />
       )}

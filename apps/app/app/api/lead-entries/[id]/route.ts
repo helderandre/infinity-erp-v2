@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { updateLeadEntryStatusSchema } from '@/lib/validations/lead-entry'
+import { carryEntryNotesToContact } from '@/lib/crm/carry-entry-notes'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -136,6 +137,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Conversão manual (sem passar pela qualificação): preservar as notas da
+    // entrada na timeline do contacto antes de a entrada sair da inbox.
+    if (parsed.data.status === 'converted' && data?.contact_id && data?.notes) {
+      await carryEntryNotesToContact(createCrmAdminClient(), {
+        entryId: data.id,
+        contactId: data.contact_id,
+        notes: data.notes,
+        entryCreatedAt: data.created_at ?? null,
+        createdBy: user.id,
+      })
+    }
+
     return NextResponse.json(data)
   } catch (error) {
     console.error('Erro ao actualizar lead entry:', error)

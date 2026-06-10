@@ -31,7 +31,7 @@ export async function GET() {
 
     const { data: events, error } = await admin
       .from('calendar_events')
-      .select('id, title, start_date, reminders, category, location, visibility, visibility_mode, visibility_user_ids, visibility_role_names, user_id')
+      .select('id, title, start_date, reminders, category, location, visibility, visibility_mode, visibility_user_ids, visibility_role_names, user_id, created_by')
       .not('reminders', 'eq', '[]')
       .gte('start_date', now.toISOString())
       .lte('start_date', futureLimit)
@@ -42,8 +42,12 @@ export async function GET() {
 
     // Filter events by visibility
     const visibleEvents = (events ?? []).filter((ev: any) => {
-      // Simple visibility
-      if (ev.visibility === 'private' && ev.user_id !== user.id) return false
+      // Evento atribuído a uma pessoa (ex.: escala) — só essa pessoa
+      // recebe o lembrete, independentemente da visibilidade do evento.
+      if (ev.user_id) return ev.user_id === user.id
+
+      // Privado sem atribuição — só o criador
+      if (ev.visibility === 'private') return ev.created_by === user.id
 
       // Advanced visibility
       const mode = ev.visibility_mode ?? 'all'

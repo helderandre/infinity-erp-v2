@@ -160,7 +160,12 @@ export function KanbanCard({
   const tempColor = temperaturaColor(temperatura)
   const tipoImovel = negocio.tipo_imovel as string | null
   const quartosMin = negocio.quartos_min as number | null
-  const localizacao = negocio.localizacao as string | null
+  // Localização: campo legacy de texto livre, com fallback para a primeira
+  // zona estruturada — negócios criados só com `zonas` (ex.: "Novo Contacto")
+  // têm `localizacao` NULL e ficavam sem localização no card.
+  const zonas = negocio.zonas as { label?: string }[] | null
+  const localizacao =
+    (negocio.localizacao as string | null) || zonas?.[0]?.label || null
   const orcamento = negocio.orcamento as number | null
   const orcamentoMax = negocio.orcamento_max as number | null
   const expectedValue = negocio.expected_value

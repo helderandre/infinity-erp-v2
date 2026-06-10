@@ -16,6 +16,10 @@ export const createLeadEntrySchema = z.object({
   utm_term: z.string().optional().nullable(),
   // Sector (pipeline type)
   sector: z.enum(['real_estate_buy', 'real_estate_sell', 'real_estate_rent', 'real_estate_landlord', 'recruitment', 'credit']).optional().nullable(),
+  // Tipo de negócio — sem este campo no schema o Zod removia-o do payload
+  // (strip de unknown keys) e as entries manuais ficavam sempre com
+  // business_type NULL, apesar do selector no dialog.
+  business_type: z.enum(['Venda', 'Arrendamento', 'Trespasse']).optional().nullable(),
   // Extra
   form_data: z.record(z.string(), z.unknown()).optional().nullable(),
   form_url: z.string().optional().nullable(),

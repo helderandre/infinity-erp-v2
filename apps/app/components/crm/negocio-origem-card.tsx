@@ -117,16 +117,23 @@ export function NegocioOrigemCard({ negocio, onPreviewProperty }: NegocioOrigemC
     <section className="rounded-2xl border border-border/50 bg-muted/20 px-3.5 py-3 space-y-3">
       <div className="flex items-center gap-2">
         <Megaphone className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold tracking-tight">Origem do lead</h3>
-        {sourceLabel && (
-          <span className="ml-auto inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {sourceLabel}
-          </span>
-        )}
+        <h3 className="text-sm font-semibold tracking-tight">Atribuição do lead</h3>
       </div>
 
-      {/* Property of origin — the listing the lead came from. */}
+      {/* Fonte — o canal por onde o lead entrou (Meta, Idealista, Website…). */}
+      {sourceLabel && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Fonte</span>
+          <span className="inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-foreground">
+            {sourceLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Origem — o imóvel de onde o lead surgiu (a angariação/listing que viu). */}
       {property && (
+        <div className="space-y-1">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Origem</span>
         <button
           type="button"
           onClick={() => onPreviewProperty?.(property.id)}
@@ -153,6 +160,7 @@ export function NegocioOrigemCard({ negocio, onPreviewProperty }: NegocioOrigemC
             <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
           )}
         </button>
+        </div>
       )}
 
       {/* Original form submitted by the lead. */}

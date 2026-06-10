@@ -116,7 +116,7 @@ export function ResumoTab({ negocio }: ResumoTabProps) {
             </dd>
           </div>
           <div>
-            <dt className="text-[10px] uppercase text-muted-foreground tracking-wide">Origem</dt>
+            <dt className="text-[10px] uppercase text-muted-foreground tracking-wide">Fonte</dt>
             <dd className="text-xs">{negocio.origem ?? '—'}</dd>
           </div>
           <div>

@@ -171,6 +171,21 @@ export async function POST(
     type MomentDef = { moment: string; pct: number; date: string | null }
     const moments: MomentDef[] = []
 
+    // `deals.max_deadline` é texto livre ("60", "60 dias" ou uma data ISO) —
+    // não pode ir directamente para colunas date/timestamptz.
+    const escrituraDate = (() => {
+      const raw = String(deal.max_deadline ?? '').trim()
+      if (!raw) return null
+      if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+      const days = parseInt(raw, 10)
+      if (Number.isFinite(days) && days > 0 && days <= 1095 && deal.contract_signing_date) {
+        const d = new Date(deal.contract_signing_date)
+        d.setDate(d.getDate() + days)
+        return d.toISOString().slice(0, 10)
+      }
+      return null
+    })()
+
     if (businessType === 'arrendamento' || businessType === 'trespasse') {
       moments.push({
         moment: 'single',
@@ -180,15 +195,15 @@ export async function POST(
     } else if (paymentStructure === 'cpcv_only') {
       moments.push({ moment: 'cpcv', pct: 100, date: deal.contract_signing_date || null })
       // Still create escritura row with 0% for date tracking
-      moments.push({ moment: 'escritura', pct: 0, date: deal.max_deadline || null })
+      moments.push({ moment: 'escritura', pct: 0, date: escrituraDate })
     } else if (paymentStructure === 'escritura_only') {
       // Still create CPCV row with 0% for date tracking
       moments.push({ moment: 'cpcv', pct: 0, date: deal.contract_signing_date || null })
-      moments.push({ moment: 'escritura', pct: 100, date: deal.max_deadline || null })
+      moments.push({ moment: 'escritura', pct: 100, date: escrituraDate })
     } else {
       // split
       moments.push({ moment: 'cpcv', pct: cpcvPct, date: deal.contract_signing_date || null })
-      moments.push({ moment: 'escritura', pct: escrituraPct, date: deal.max_deadline || null })
+      moments.push({ moment: 'escritura', pct: escrituraPct, date: escrituraDate })
     }
 
     // ── 6. Create deal_payments ──

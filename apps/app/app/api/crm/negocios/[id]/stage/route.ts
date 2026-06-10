@@ -5,6 +5,7 @@ import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
 import { requireAuth } from '@/lib/auth/permissions'
 import { ADMIN_ROLES } from '@/lib/auth/roles'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
+import { notifyReferrerStageMove } from '@/lib/crm/notify-referrer'
 
 export async function PUT(
   request: Request,
@@ -104,6 +105,22 @@ export async function PUT(
       .single()
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+    // Notify the referenced partner (referrer) that their oportunidade moved.
+    {
+      const u = updated as Record<string, any>
+      const referrerId = (u?.referrer_consultant_id as string | null) ?? null
+      if (referrerId) {
+        await notifyReferrerStageMove(supabase, {
+          referrerId,
+          negocioId: id,
+          leadId: (negocio.lead_id as string | null) ?? null,
+          leadName: (u?.leads?.nome as string | null) ?? null,
+          actorId: auth.user.id,
+          toStageName: targetStage.name,
+        })
+      }
+    }
 
     const fromStageName =
       (negocio.leads_pipeline_stages as unknown as { name: string } | null)?.name ?? null
