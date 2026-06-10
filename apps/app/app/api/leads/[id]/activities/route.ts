@@ -2,13 +2,34 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createActivitySchema } from '@/lib/validations/leads-crm'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const { id } = await params
     const { searchParams } = new URL(req.url)
     const negocioId = searchParams.get('negocio_id')
     const supabase = await createClient()
+
+    // Scope: gestão e quem tem o módulo `leads` mantêm o acesso actual;
+    // um referrer (ex.: parceiro externo, sem permissões de módulo) só lê o
+    // histórico de leads onde é referrer de pelo menos um negócio.
+    if (!isManagementRole(auth.roles) && auth.permissions.leads !== true) {
+      const { data: refRow } = await supabase
+        .from('negocios')
+        .select('id')
+        .eq('lead_id', id)
+        .eq('referrer_consultant_id', auth.user.id)
+        .limit(1)
+        .maybeSingle()
+      if (!refRow) {
+        return NextResponse.json({ error: 'Sem acesso' }, { status: 403 })
+      }
+    }
 
     // CRM activities (leads_activities — current system) — joined with the
     // negocio so the timeline can badge "Negócio: <ref>" when applicable.

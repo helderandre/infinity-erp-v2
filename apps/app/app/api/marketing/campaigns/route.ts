@@ -2,11 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createCampaignSchema } from '@/lib/validations/marketing'
 import { requireAuth } from '@/lib/auth/permissions'
+import { isPartner } from '@/lib/auth/roles'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
+import { getMetaCampaignSummaries } from '@/lib/meta/campaign-queries'
 
 // GET — listagem de campanhas.
 //
-// Scope: gestão (permissions.users) vê tudo + pode filtrar por agent_id;
-// consultor só vê as suas (filtro forçado).
+// Scope:
+//   - gestão (permissions.users) vê tudo + pode filtrar por agent_id;
+//   - parceiro (role Parceiro) vê as campanhas que lhe foram atribuídas
+//     (partner_id = self) — alimenta a secção Meta do portal de parceiros;
+//   - consultor só vê as suas (agent_id = self).
+// Quando há meta_campaign_id ligado, dobramos os dados Meta ao vivo (nome,
+// estado, leads, anúncios, investimento) por campanha.
 export async function GET(request: Request) {
   try {
     const auth = await requireAuth()
@@ -14,29 +22,57 @@ export async function GET(request: Request) {
 
     const supabase = await createClient() as any
     const canSeeAll = auth.permissions.users === true
+    const partner = isPartner(auth.roles)
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get('status')
+    const partnerStatus = searchParams.get('partner_status')
     const agent_id_param = searchParams.get('agent_id')
-
-    const effectiveAgentId = canSeeAll ? agent_id_param : auth.user.id
 
     let query = supabase
       .from('marketing_campaigns')
       .select(`
         *,
         agent:dev_users!marketing_campaigns_agent_id_fkey(id, commercial_name),
+        partner:dev_users!marketing_campaigns_partner_id_fkey(id, commercial_name),
         property:dev_properties!marketing_campaigns_property_id_fkey(id, title, slug)
       `)
       .order('created_at', { ascending: false })
 
+    if (partner && !canSeeAll) {
+      // A partner only ever sees campaigns routed to them.
+      query = query.eq('partner_id', auth.user.id)
+    } else {
+      const effectiveAgentId = canSeeAll ? agent_id_param : auth.user.id
+      if (effectiveAgentId) query = query.eq('agent_id', effectiveAgentId)
+    }
+
     if (status) query = query.eq('status', status)
-    if (effectiveAgentId) query = query.eq('agent_id', effectiveAgentId)
+    if (partnerStatus) query = query.eq('partner_status', partnerStatus)
 
     const { data, error } = await query
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data || [])
+
+    const rows = (data || []) as any[]
+
+    // Fold in live Meta data for campaigns that have been linked.
+    const linkedIds = rows.map((r) => r.meta_campaign_id).filter(Boolean) as string[]
+    if (linkedIds.length > 0) {
+      try {
+        const summaries = await getMetaCampaignSummaries(createCrmAdminClient(), linkedIds)
+        for (const r of rows) {
+          if (r.meta_campaign_id && summaries[r.meta_campaign_id]) {
+            r.meta = summaries[r.meta_campaign_id]
+          }
+        }
+      } catch (e) {
+        // Live Meta enrichment is best-effort — never fail the listing.
+        console.error('Erro ao enriquecer campanhas com dados Meta:', e)
+      }
+    }
+
+    return NextResponse.json(rows)
   } catch (error) {
     console.error('Erro ao listar campanhas:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
@@ -76,6 +112,7 @@ export async function POST(request: Request) {
         management_fee: management_fee ?? 70,
         payment_method,
         status: 'pending',
+        partner_status: 'pedido',
         ...(checkout_group_id ? { checkout_group_id } : {}),
       })
       .select()

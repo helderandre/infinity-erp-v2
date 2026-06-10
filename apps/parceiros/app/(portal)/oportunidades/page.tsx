@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 // Real CRM negocios board, scoped to deals from the partner's referred leads.
 import { KanbanBoard } from '@/components/crm/kanban-board'
+// Mesmo sheet de detalhe do ERP principal, em modo partnerView (read-only,
+// sem Imóveis/Matching, com tab Histórico). Os dados vêm do endpoint bundled
+// /api/parceiros/oportunidades/[id], proxied para o ERP via catch-all.
+import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import { useUser } from '@/hooks/use-user'
 import { formatEUR } from '@/hooks/use-partner-ledger'
 import type { PipelineType } from '@/types/leads-crm'
@@ -61,6 +65,8 @@ export default function OportunidadesPage() {
   // Compradores pipeline (where the referred deals live).
   const [tab, setTab] = useState<PipelineType>('comprador')
   const [filters, setFilters] = useState<OppFilters>(EMPTY_FILTERS)
+  // Oportunidade aberta no sheet de detalhe (click num card do board).
+  const [openNegocioId, setOpenNegocioId] = useState<string | null>(null)
 
   // Stage options for the active pipeline + the consultores that work the
   // partner's referred deals (drives the Consultor filter).
@@ -405,6 +411,7 @@ export default function OportunidadesPage() {
           filters={boardFilters}
           readOnly
           cardVariant="partner"
+          onCardClick={(n) => setOpenNegocioId(n.id)}
         />
       ) : (
         <div className="flex gap-3 overflow-hidden">
@@ -417,6 +424,17 @@ export default function OportunidadesPage() {
           ))}
         </div>
       )}
+
+      {/* Detalhe da oportunidade — read-only, sem Imóveis/Matching, com
+          a tab Histórico (tudo o que o consultor fez). */}
+      <NegocioDetailSheet
+        negocioId={openNegocioId}
+        open={!!openNegocioId}
+        onOpenChange={(o) => {
+          if (!o) setOpenNegocioId(null)
+        }}
+        partnerView
+      />
     </div>
   )
 }

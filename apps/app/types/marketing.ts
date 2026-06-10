@@ -264,12 +264,21 @@ export interface GestaoHistoryItem {
 
 export type CampaignStatus = 'pending' | 'approved' | 'active' | 'paused' | 'completed' | 'rejected' | 'cancelled'
 
+// Partner-facing lifecycle (distinct from the Loja/finance `status`).
+export type CampaignPartnerStatus = 'pedido' | 'aceite' | 'criada' | 'activa' | 'terminada' | 'rejeitada'
+
 export interface MarketingCampaign {
   id: string
   agent_id: string
+  partner_id: string | null
+  partner_status: CampaignPartnerStatus
+  meta_campaign_id: string | null
+  partner_rejection_reason: string | null
+  partner_status_updated_at: string | null
   property_id: string | null
   promote_url: string | null
   objective: string
+  campaign_type?: string | null
   target_zone: string | null
   target_age_min: number | null
   target_age_max: number | null
@@ -287,7 +296,10 @@ export interface MarketingCampaign {
   updated_at: string
   // Joined
   agent?: { id: string; commercial_name: string }
+  partner?: { id: string; commercial_name: string } | null
   property?: { id: string; title: string; slug: string } | null
+  // Live Meta data (present when meta_campaign_id is linked)
+  meta?: { name: string | null; status: string | null; spend: number | null; currency: string | null; leads_count: number; ads_count: number } | null
 }
 
 // --- Cart types for shop (shared with shop-tab) ---
@@ -329,6 +341,7 @@ export interface CartPropertyBundle {
 export interface CartCampaignItem {
   type: 'campaign'
   campaignData: {
+    partner_id: string
     objective: string
     campaign_type: 'compradores' | 'vendedores' | 'arrendatarios' | 'senhorios' | 'outros'
     property_id?: string

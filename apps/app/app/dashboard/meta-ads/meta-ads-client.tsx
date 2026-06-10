@@ -47,6 +47,7 @@ import {
   X as XIcon,
   Check as CheckIcon,
   ChevronRight,
+  Megaphone,
 } from "lucide-react"
 import {
   Table,
@@ -1168,8 +1169,20 @@ interface CampaignRequest {
   payment_method: string | null
   created_at: string
   updated_at: string | null
+  partner_status: string | null
+  meta_campaign_id: string | null
   agent: { id: string; commercial_name: string } | null
+  partner: { id: string; commercial_name: string } | null
   property: { id: string; title: string; slug: string } | null
+}
+
+const PARTNER_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  pedido: { label: "Pedido", className: "bg-amber-100 text-amber-800" },
+  aceite: { label: "Aceite", className: "bg-sky-100 text-sky-800" },
+  criada: { label: "Criada", className: "bg-violet-100 text-violet-800" },
+  activa: { label: "Activa", className: "bg-emerald-100 text-emerald-800" },
+  terminada: { label: "Terminada", className: "bg-neutral-100 text-neutral-600" },
+  rejeitada: { label: "Rejeitada", className: "bg-red-100 text-red-800" },
 }
 
 function PedidosTab({ onCountChange }: { onCountChange?: (count: number) => void }) {
@@ -1355,10 +1368,21 @@ function PedidosTab({ onCountChange }: { onCountChange?: (count: number) => void
                         <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
                         {status.label}
                       </span>
+                      {req.partner_status && PARTNER_STATUS_LABELS[req.partner_status] && (
+                        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold", PARTNER_STATUS_LABELS[req.partner_status].className)}>
+                          {PARTNER_STATUS_LABELS[req.partner_status].label}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>{req.agent?.commercial_name || "—"}</span>
+                      {req.partner && (
+                        <span className="flex items-center gap-1 truncate max-w-[200px]">
+                          <Megaphone className="h-3 w-3 shrink-0" />
+                          {req.partner.commercial_name}
+                        </span>
+                      )}
                       {req.property && (
                         <span className="flex items-center gap-1 truncate max-w-[200px]">
                           <BuildingIcon className="h-3 w-3 shrink-0" />
@@ -1426,10 +1450,21 @@ function PedidosTab({ onCountChange }: { onCountChange?: (count: number) => void
                           <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
                           {status.label}
                         </span>
+                        {req.partner_status && PARTNER_STATUS_LABELS[req.partner_status] && (
+                          <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold", PARTNER_STATUS_LABELS[req.partner_status].className)}>
+                            {PARTNER_STATUS_LABELS[req.partner_status].label}
+                          </span>
+                        )}
                         <span className="text-[11px] text-muted-foreground">
                           {new Date(req.created_at).toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" })}
                         </span>
                       </div>
+                      {req.partner && (
+                        <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Megaphone className="h-3.5 w-3.5 shrink-0" />
+                          Parceiro: <span className="font-medium text-foreground">{req.partner.commercial_name}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                   {/* Cost hero */}

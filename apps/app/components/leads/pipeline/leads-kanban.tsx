@@ -29,9 +29,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { ENTRY_SOURCE_LABELS } from '@/lib/constants-leads-crm'
 import { QualifyEntryDialog } from '@/components/crm/qualify-entry-dialog'
@@ -40,6 +37,7 @@ import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { BulkReferralDialog } from '@/components/crm/bulk-referral-dialog'
 import { invalidate, subscribe } from '@/lib/crm/invalidator'
 import { LeadEntrySheet } from '@/components/leads/lead-entry-sheet'
+import { LeadEntryDialog } from '@/components/leads/lead-entry-dialog'
 import { LeadEditSheet } from '@/components/leads/lead-edit-sheet'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -119,6 +117,14 @@ interface LeadsKanbanProps {
    * figures that track the active filters instead of the raw totals.
    */
   onFilteredCountsChange?: (counts: { novo: number; contactado: number; qualificado: number }) => void
+  /**
+   * Referenciadas view only: when provided, qualified referred cards show a
+   * "Ver oportunidade" button that calls this with the generated négocio id.
+   * Used by the Parceiros portal to send the partner to their Oportunidades
+   * board (the surface where they're allowed to see the deal). The main ERP
+   * omits it because a referrer can't open the négocio detail directly.
+   */
+  onOpenReferredDeal?: (dealId: string) => void
 }
 
 export function LeadsKanban({
@@ -126,6 +132,7 @@ export function LeadsKanban({
   onViewChange,
   showConsultantFilter = false,
   onFilteredCountsChange,
+  onOpenReferredDeal,
 }: LeadsKanbanProps = {}) {
   const { user } = useUser()
   const [internalView, setInternalView] = useState<View>('minhas')
@@ -675,6 +682,9 @@ export function LeadsKanban({
                           )
                           const pctRaw = myRef?.referral_pct
                           const pct = typeof pctRaw === 'string' ? parseFloat(pctRaw) : pctRaw ?? null
+                          // Qualified referred lead → let the partner jump to the
+                          // opportunity it generated (opt-in via onOpenReferredDeal).
+                          const refDealId = e.deal?.[0]?.id ?? null
                           return (
                             <LeadCard
                               key={e.id}
@@ -688,6 +698,12 @@ export function LeadsKanban({
                               cancelling={cancellingId === e.id}
                               onCancel={
                                 TERMINAL_STATUSES.includes(e.status) ? undefined : () => cancelReferral(e)
+                              }
+                              dealId={onOpenReferredDeal ? refDealId : null}
+                              onOpenDeal={
+                                onOpenReferredDeal && refDealId
+                                  ? () => onOpenReferredDeal(refDealId)
+                                  : undefined
                               }
                             />
                           )
@@ -874,11 +890,12 @@ export function LeadsKanban({
         }}
       />
 
-      {/* Novo lead — cria uma lead entry manual que aparece de imediato no board. */}
-      <NewLeadEntryDialog
+      {/* Novo lead — mesmo formulário rico do Registar Lead (quick actions). */}
+      <LeadEntryDialog
         open={newOpen}
         onOpenChange={setNewOpen}
-        onCreated={() => {
+        onComplete={() => {
+          setNewOpen(false)
           fetchEntries()
           invalidate('lead-entries')
         }}
@@ -1044,98 +1061,6 @@ function LeadEntriesList({
 }
 
 // ─── New lead entry dialog ────────────────────────────────────────────────────
-
-function NewLeadEntryDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onCreated: () => void
-}) {
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  // Limpa o formulário sempre que o dialog abre.
-  useEffect(() => {
-    if (open) {
-      setName('')
-      setPhone('')
-      setEmail('')
-    }
-  }, [open])
-
-  async function handleSubmit() {
-    if (!name.trim()) {
-      toast.error('Indica o nome do lead.')
-      return
-    }
-    if (!phone.trim() && !email.trim()) {
-      toast.error('Indica pelo menos um telefone ou email.')
-      return
-    }
-    setSubmitting(true)
-    try {
-      const res = await fetch('/api/lead-entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: 'manual',
-          raw_name: name.trim(),
-          raw_phone: phone.trim() || null,
-          raw_email: email.trim() || null,
-        }),
-      })
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        throw new Error(json?.error || 'Erro ao criar o lead')
-      }
-      toast.success('Lead criado com sucesso')
-      onOpenChange(false)
-      onCreated()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar o lead')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Novo lead</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-1">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Nome *</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do contacto" className="rounded-full" autoFocus />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Telemóvel</label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+351 9XX XXX XXX" className="rounded-full" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Email</label>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="email@exemplo.pt" className="rounded-full" />
-          </div>
-          <p className="text-[11px] text-muted-foreground">Indica pelo menos um telefone ou email.</p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button className="rounded-full" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar lead'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 function LeadCard({
   entry,

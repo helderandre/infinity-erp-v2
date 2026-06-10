@@ -127,7 +127,12 @@ import {
   sendOneProperty,
   type PropertyToSend,
 } from '@/lib/negocios/send-properties-whatsapp'
-import { MessageSquare, CheckSquare, CalendarPlus, Landmark } from 'lucide-react'
+import { MessageSquare, CheckSquare, CalendarPlus, Landmark, History as HistoryIcon } from 'lucide-react'
+import {
+  PartnerPropostasList,
+  PartnerFechoList,
+  PartnerHistoricoTimeline,
+} from '@/components/crm/negocio-partner-tabs'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
 import { EmailChatBubble } from '@/components/email/email-chat-bubble'
 import { TaskForm } from '@/components/tasks/task-form'
@@ -146,6 +151,15 @@ interface NegocioDetailSheetProps {
    */
   readOnly?: boolean
   /**
+   * Vista do portal de parceiros: read-only como `readOnly`, mas em vez de
+   * colapsar para Início mantém as tabs informativas (Visitas / Propostas /
+   * Fecho) — excepto Imóveis/Matching — e acrescenta uma tab "Histórico"
+   * com a timeline completa do que o consultor fez. Os dados vêm TODOS do
+   * endpoint bundled `GET /api/parceiros/oportunidades/[id]` (o role
+   * Parceiro não tem permissões para os endpoints normais do CRM).
+   */
+  partnerView?: boolean
+  /**
    * Fires after any mutation that may affect the parent page: stage
    * change, edit, qualification. The contact-detail page uses this to
    * refetch the negocios list and the contact's `estado` (since the
@@ -154,7 +168,7 @@ interface NegocioDetailSheetProps {
   onChanged?: () => void
 }
 
-type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao'
+type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao' | 'historico'
 
 const TEMP_COLORS: Record<string, string> = {
   Frio: '#3b82f6',
@@ -203,22 +217,28 @@ function formatRange(min: number | null, max: number | null, suffix = ''): strin
   return `até ${eur.format(max!)}${suffix}`
 }
 
-export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = false, onChanged }: NegocioDetailSheetProps) {
+export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = false, partnerView = false, onChanged }: NegocioDetailSheetProps) {
   const isMobile = useIsMobile()
   const { user } = useUser()
   const router = useRouter()
+
+  // partnerView implica read-only em toda a UI de mutação.
+  readOnly = readOnly || partnerView
 
   const [negocio, setNegocio] = useState<any | null>(null)
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('inicio')
+  // Bundle do endpoint de parceiros — { visits, proposals, deals, activities }.
+  const [partnerBundle, setPartnerBundle] = useState<any | null>(null)
   // When the sheet is opened in read-only mode the tabs collapse to Início
   // only (see `tabs` memo below). Snap activeTab back so a previously
   // selected tab (e.g. "Visitas" from a non-readOnly open) doesn't leave
-  // the body blank.
+  // the body blank. Em partnerView as tabs informativas existem, portanto
+  // não colapsamos.
   useEffect(() => {
-    if (readOnly && activeTab !== 'inicio') setActiveTab('inicio')
-  }, [readOnly, activeTab])
+    if (readOnly && !partnerView && activeTab !== 'inicio') setActiveTab('inicio')
+  }, [readOnly, partnerView, activeTab])
   const [aiFillOpen, setAiFillOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
@@ -257,24 +277,36 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
     if (!negocioId) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/negocios/${negocioId}`)
-      if (!res.ok) throw new Error()
-      const data = await res.json()
-      setNegocio(data)
-      setForm(data)
+      if (partnerView) {
+        // Endpoint bundled gated por referrer_consultant_id — devolve o
+        // negócio + visitas + propostas + fechos + histórico numa chamada.
+        const res = await fetch(`/api/parceiros/oportunidades/${negocioId}`)
+        if (!res.ok) throw new Error()
+        const bundle = await res.json()
+        setNegocio(bundle.negocio)
+        setForm(bundle.negocio)
+        setPartnerBundle(bundle)
+      } else {
+        const res = await fetch(`/api/negocios/${negocioId}`)
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        setNegocio(data)
+        setForm(data)
+      }
     } catch {
       toast.error('Erro ao carregar oportunidade')
       setNegocio(null)
     } finally {
       setLoading(false)
     }
-  }, [negocioId])
+  }, [negocioId, partnerView])
 
   useEffect(() => {
     if (!open || !negocioId) {
       setNegocio(null)
       setForm({})
       setActiveTab('inicio')
+      setPartnerBundle(null)
       return
     }
     loadNegocio()
@@ -369,6 +401,25 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   const tipoColor = (tipo && TIPO_COLORS[tipo]) || '#64748b'
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
+    // Portal de parceiros: mesmas tabs informativas do sheet normal SEM
+    // Imóveis/Matching (e sem Interessados/Angariação no lado vendedor),
+    // mais a tab "Histórico" no fim com tudo o que o consultor fez.
+    if (partnerView) {
+      if (isSellerType && !isBuyerType) {
+        return [
+          { key: 'inicio', label: 'Início', icon: Info },
+          { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
+          { key: 'historico', label: 'Histórico', icon: HistoryIcon },
+        ]
+      }
+      return [
+        { key: 'inicio', label: 'Início', icon: Info },
+        { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
+        { key: 'propostas', label: 'Propostas', icon: FileText },
+        { key: 'fecho', label: 'Fecho', icon: Briefcase },
+        { key: 'historico', label: 'Histórico', icon: HistoryIcon },
+      ]
+    }
     // Read-only mode (referrer viewing a referenced négocio): collapse to
     // just Início — the rest of the workflow tabs aren't relevant when you
     // can't act on them anyway.
@@ -392,7 +443,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       { key: 'propostas', label: 'Propostas', icon: FileText },
       { key: 'fecho', label: 'Fecho', icon: Briefcase },
     ]
-  }, [isBuyerType, isSellerType, readOnly])
+  }, [isBuyerType, isSellerType, readOnly, partnerView])
 
   const leadId = negocio?.lead_id ?? null
 
@@ -548,6 +599,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   isBuyerType={isBuyerType}
                   leadId={leadId}
                   readOnly={readOnly}
+                  partnerView={partnerView}
                   onPipelineStageChange={handlePipelineStageChange}
                   onTemperaturaChange={handleTemperaturaChange}
                   onOpenFullEdit={() => {
@@ -558,7 +610,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   onCreateTask={() => setTaskFormOpen(true)}
                   onCreateEvent={() => setEventFormOpen(true)}
                   onCreateNote={() => setQuickNoteOpen(true)}
-                  onPreviewProperty={setPreviewPropertyId}
+                  onPreviewProperty={partnerView ? undefined : setPreviewPropertyId}
                   inicioRefreshKey={inicioRefreshKey}
                   onReload={loadNegocio}
                 />
@@ -573,13 +625,29 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                 />
               )}
               {activeTab === 'visitas' && leadId && (
-                <VisitasTab leadId={leadId} userId={user?.id} />
+                <VisitasTab
+                  leadId={leadId}
+                  userId={user?.id}
+                  readOnly={partnerView}
+                  visitsOverride={partnerView ? partnerBundle?.visits ?? [] : undefined}
+                />
               )}
               {activeTab === 'propostas' && negocio.id && (
-                <PropostasTab negocioId={negocio.id} />
+                partnerView ? (
+                  <PartnerPropostasList proposals={partnerBundle?.proposals ?? []} />
+                ) : (
+                  <PropostasTab negocioId={negocio.id} />
+                )
               )}
               {activeTab === 'fecho' && negocio.id && (
-                <FechoTab negocioId={negocio.id} negocio={negocio} />
+                partnerView ? (
+                  <PartnerFechoList deals={partnerBundle?.deals ?? []} />
+                ) : (
+                  <FechoTab negocioId={negocio.id} negocio={negocio} />
+                )
+              )}
+              {activeTab === 'historico' && partnerView && (
+                <PartnerHistoricoTimeline activities={partnerBundle?.activities ?? []} />
               )}
               {activeTab === 'interessados' && negocio.id && (
                 <InteressadosTab
@@ -836,14 +904,14 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
             na página dedicada do negócio antes desta ser substituída pela sheet.
             Bubble buttons usam `position: fixed` ancorado ao viewport mas só
             renderizam enquanto o sheet está aberto. */}
-        {(lead?.telemovel || lead?.telefone) && (
+        {!partnerView && (lead?.telemovel || lead?.telefone) && (
           <WhatsAppChatBubble
             contactPhone={lead?.telemovel || lead?.telefone || null}
             contactName={clientName}
             contactLeadId={leadId}
           />
         )}
-        {lead?.email && (
+        {!partnerView && lead?.email && (
           <EmailChatBubble
             contactEmail={lead.email}
             contactName={clientName}
@@ -937,6 +1005,7 @@ function DetalhesTab({
   isBuyerType,
   leadId,
   readOnly,
+  partnerView,
   onPipelineStageChange,
   onTemperaturaChange,
   onOpenFullEdit,
@@ -954,6 +1023,8 @@ function DetalhesTab({
   isBuyerType: boolean
   leadId: string | null
   readOnly?: boolean
+  /** Vista do portal de parceiros — esconde ferramentas internas (estudos de mercado). */
+  partnerView?: boolean
   onPipelineStageChange: (
     stage: { id: string; name: string },
     lostInfo?: { reason: string; notes: string },
@@ -1003,6 +1074,7 @@ function DetalhesTab({
             pipelineStageId={pipelineStageId}
             fallbackLabel={estado}
             onChange={onPipelineStageChange}
+            disabled={readOnly}
           />
           {/* Temperatura — segmented inline (mesmo design da página de Contacto) */}
           <div className="inline-flex items-center gap-1 rounded-full bg-background/60 backdrop-blur-sm border border-border/50 p-0.5 shadow-sm">
@@ -1012,6 +1084,7 @@ function DetalhesTab({
                 <button
                   key={t.value}
                   type="button"
+                  disabled={readOnly}
                   onClick={() => onTemperaturaChange(isActive ? null : t.value)}
                   title={t.label}
                   className={cn(
@@ -1163,8 +1236,9 @@ function DetalhesTab({
             />
           )}
 
-          {/* Estudos de mercado — só em angariação (perspectiva Vendedor / Senhorio) */}
-          {(tipo === 'Vendedor' || tipo === 'Venda' || tipo === 'Senhorio' || tipo === 'Arrendador') && negocio.id && (
+          {/* Estudos de mercado — só em angariação (perspectiva Vendedor / Senhorio).
+              Escondido na vista de parceiro (ferramenta interna do consultor). */}
+          {!partnerView && (tipo === 'Vendedor' || tipo === 'Venda' || tipo === 'Senhorio' || tipo === 'Arrendador') && negocio.id && (
             <>
               <CardDivider />
               <MarketStudiesCard negocioId={negocio.id} />
@@ -2191,8 +2265,20 @@ function ImoveisTab({
 
 // ─── Visitas Tab ───────────────────────────────────────────────────────
 
-function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undefined }) {
-  const [visits, setVisits] = useState<any[]>([])
+function VisitasTab({
+  leadId,
+  userId,
+  readOnly = false,
+  visitsOverride,
+}: {
+  leadId: string
+  userId: string | undefined
+  /** Vista read-only (parceiro): sem "Nova visita" nem links internos. */
+  readOnly?: boolean
+  /** Dados pré-carregados (bundle do parceiro) — quando presente não faz fetch. */
+  visitsOverride?: any[]
+}) {
+  const [visits, setVisits] = useState<any[]>(visitsOverride ?? [])
   const [loading, setLoading] = useState(false)
   const [showVisit, setShowVisit] = useState(false)
   const [view, setView] = useState<'list' | 'calendar'>('list')
@@ -2200,6 +2286,10 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
   const [calMonth, setCalMonth] = useState<Date>(new Date())
 
   const fetchVisits = useCallback(async () => {
+    if (visitsOverride) {
+      setVisits(visitsOverride)
+      return
+    }
     setLoading(true)
     try {
       const res = await fetch(`/api/visits?lead_id=${leadId}&limit=50`)
@@ -2212,7 +2302,7 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
     } finally {
       setLoading(false)
     }
-  }, [leadId])
+  }, [leadId, visitsOverride])
 
   useEffect(() => {
     fetchVisits()
@@ -2304,10 +2394,12 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
             Calendário
           </button>
         </div>
-        <Button variant="outline" size="sm" className="rounded-full h-7 text-xs ml-auto" onClick={() => setShowVisit(true)}>
-          <Plus className="mr-1 h-3 w-3" />
-          Nova visita
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" className="rounded-full h-7 text-xs ml-auto" onClick={() => setShowVisit(true)}>
+            <Plus className="mr-1 h-3 w-3" />
+            Nova visita
+          </Button>
+        )}
       </div>
 
       {view === 'calendar' ? (
@@ -2405,7 +2497,10 @@ function VisitasTab({ leadId, userId }: { leadId: string; userId: string | undef
           {visits.map((v) => {
             const vStatus = VISIT_STATUS_COLORS[v.status as keyof typeof VISIT_STATUS_COLORS]
             const visitDate = v.visit_date ? new Date(`${v.visit_date}T${v.visit_time || '00:00'}`) : null
-            const propHref = v.property?.slug || v.property?.id ? `/dashboard/imoveis/${v.property.slug || v.property.id}` : null
+            // Link interno do ERP — não existe no portal de parceiros.
+            const propHref = !readOnly && (v.property?.slug || v.property?.id)
+              ? `/dashboard/imoveis/${v.property.slug || v.property.id}`
+              : null
             return (
               <div
                 key={v.id}
