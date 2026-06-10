@@ -15,8 +15,6 @@ import { LessonComments } from '@/components/training/lesson-comments'
 import { LessonRating } from '@/components/training/lesson-rating'
 import { LessonQuiz } from '@/components/training/lesson-quiz'
 import { LessonMaterials } from '@/components/training/lesson-materials'
-import { LessonMobileView } from '@/components/training/lesson-mobile-view'
-import { useIsMobile } from '@/hooks/use-mobile'
 import { useTrainingLesson } from '@/hooks/use-training-lesson'
 import { useBreadcrumbSet } from '@/hooks/use-breadcrumb-overrides'
 import { toast } from 'sonner'
@@ -86,7 +84,6 @@ function LessonContent() {
   const [isLoading, setIsLoading] = useState(true)
 
   const { updateProgress, sendHeartbeat, markCompleted, isSaving } = useTrainingLesson({ courseId, lessonId })
-  const isMobile = useIsMobile()
 
   const fetchCourse = useCallback(async () => {
     setIsLoading(true)
@@ -188,9 +185,6 @@ function LessonContent() {
     }),
   }))
 
-  const moduleTitle =
-    course.modules?.find((m) => (m.lessons || []).some((l) => l.id === lessonId))?.title ?? null
-
   // Primary lesson content (video/pdf/text/link/quiz). Built once and rendered
   // in either the desktop or the mobile layout so the player mounts only once.
   const mainContent = (
@@ -238,38 +232,6 @@ function LessonContent() {
       )}
     </>
   )
-
-  if (isMobile) {
-    return (
-      <LessonMobileView
-        mainContent={mainContent}
-        isVideoMain={currentLesson.content_type === 'video' && !!currentLesson.video_url}
-        lesson={{
-          title: currentLesson.title,
-          description: currentLesson.description,
-          content_type: currentLesson.content_type,
-          estimated_minutes: currentLesson.estimated_minutes,
-        }}
-        moduleTitle={moduleTitle}
-        courseId={courseId}
-        lessonId={lessonId}
-        sidebarModules={sidebarModules}
-        courseTitle={course.title}
-        progressPercent={course.enrollment?.progress_percent || 0}
-        position={{ index: currentIndex + 1, total: allLessons.length }}
-        prevLesson={prevLesson ? { id: prevLesson.id, title: prevLesson.title } : null}
-        nextLesson={nextLesson ? { id: nextLesson.id, title: nextLesson.title } : null}
-        isCompleted={isLessonCompleted}
-        onMarkCompleted={handleMarkCompleted}
-        isSaving={isSaving}
-        watchPercent={
-          currentLesson.content_type === 'video'
-            ? Math.max(liveWatchPercent, currentLesson.progress?.video_watch_percent ?? 0)
-            : 100
-        }
-      />
-    )
-  }
 
   return (
     <div className="flex h-full min-h-0">
