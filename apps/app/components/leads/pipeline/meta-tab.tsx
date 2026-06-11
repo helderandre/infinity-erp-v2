@@ -7,8 +7,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { Loader2, Target, Image as ImageIcon, Gift, ExternalLink } from 'lucide-react'
+import { Loader2, Target, Image as ImageIcon, Gift } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -100,13 +99,9 @@ export function MetaTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <Link
-                      href={`/dashboard/analise-meta/${it.scope === 'ad' ? 'ads' : 'campanhas'}/${it.target_id}`}
-                      className="line-clamp-1 text-sm font-medium hover:underline"
-                    >
+                    <span className="line-clamp-1 text-sm font-medium">
                       {it.name ?? it.target_id}
-                    </Link>
-                    <ExternalLink className="text-muted-foreground h-3 w-3 shrink-0" />
+                    </span>
                   </div>
                   <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2 text-[11px]">
                     <Badge variant="outline" className="text-[10px]">

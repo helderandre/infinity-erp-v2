@@ -7,7 +7,6 @@
  */
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import {
   Loader2,
@@ -32,6 +31,7 @@ import { formatMetaStatus, metaStatusVariant } from '@/lib/meta/labels'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { AttributionPanel } from '@/components/analise-meta/attribution-panel'
 import { FormDetailSheet } from '@/components/analise-meta/form-detail-sheet'
+import { LeadDetailSheet } from '@/components/analise-meta/lead-detail-sheet'
 import { CreativePreview, type CreativeRow } from '@/components/analise-meta/creative-preview'
 
 interface Bundle {
@@ -64,6 +64,7 @@ export function AdDetailSheet({
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Bundle | null>(null)
   const [openFormId, setOpenFormId] = useState<string | null>(null)
+  const [openLeadId, setOpenLeadId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open || !adId) return
@@ -121,13 +122,10 @@ export function AdDetailSheet({
                     {formatMetaStatus(data.ad.status)}
                   </Badge>
                   {data.campaign && (
-                    <Link
-                      href={`/dashboard/analise-meta/campanhas/${data.campaign.campaign_id}`}
-                      className="text-muted-foreground inline-flex items-center gap-1 text-xs hover:underline"
-                    >
+                    <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
                       <Target className="h-3 w-3" />
                       {data.campaign.name ?? data.campaign.campaign_id}
-                    </Link>
+                    </span>
                   )}
                 </div>
                 {data.ad.creative_name && (
@@ -205,9 +203,10 @@ export function AdDetailSheet({
                   <ul className="divide-y divide-border/30">
                     {data.recentLeads.map((l) => (
                       <li key={l.id}>
-                        <Link
-                          href={`/dashboard/analise-meta/leads/${l.id}`}
-                          className="hover:bg-muted/40 flex items-center justify-between gap-2 px-4 py-2.5 transition-colors"
+                        <button
+                          type="button"
+                          onClick={() => setOpenLeadId(l.id)}
+                          className="hover:bg-muted/40 flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors"
                         >
                           <div className="min-w-0">
                             <span className="flex items-center gap-1.5 text-sm font-medium">
@@ -233,7 +232,7 @@ export function AdDetailSheet({
                             <Clock className="h-3 w-3" />
                             {fmtRelative(l.fb_created_time ?? l.received_at)}
                           </span>
-                        </Link>
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -249,6 +248,11 @@ export function AdDetailSheet({
       formId={openFormId}
       open={!!openFormId}
       onOpenChange={(o) => !o && setOpenFormId(null)}
+    />
+    <LeadDetailSheet
+      leadId={openLeadId}
+      open={!!openLeadId}
+      onOpenChange={(o) => !o && setOpenLeadId(null)}
     />
     </>
   )

@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 
-// Funnel-centric nav: campaigns are the entry point (ads + forms live inside a
-// campaign), with the leads inbox alongside. Ad/form detail pages stay routable
-// (linked from the funnel) but are no longer separate top-level tabs.
+// Funnel-centric nav: requests come first (the pipeline that precedes a live
+// campaign), then campaigns (ads + forms live inside a campaign) and the leads
+// inbox. Ad/form detail pages stay routable (linked from the funnel) but are
+// no longer separate top-level tabs.
 const TABS = [
+  { label: 'Pedidos', href: '/dashboard/analise-meta/pedidos' },
   { label: 'Campanhas', href: '/dashboard/analise-meta/campanhas' },
   { label: 'Leads', href: '/dashboard/analise-meta/leads' },
 ]

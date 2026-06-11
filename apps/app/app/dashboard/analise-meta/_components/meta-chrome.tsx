@@ -13,6 +13,7 @@ import { MetaTabsNav } from './meta-tabs-nav'
 // header + back button — so the tab picker is hidden there.
 const LIST_PATHS = new Set([
   '/dashboard/analise-meta',
+  '/dashboard/analise-meta/pedidos',
   '/dashboard/analise-meta/campanhas',
   '/dashboard/analise-meta/leads',
 ])

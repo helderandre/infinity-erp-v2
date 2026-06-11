@@ -27,6 +27,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
+import { useUser } from '@/hooks/use-user'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Megaphone, Loader2, Building2, Link2, Users, CalendarDays } from 'lucide-react'
 
 const CAMPAIGN_TYPES = {
@@ -59,6 +61,12 @@ export function CampaignRequestDialog({
   onOpenChange,
   onAddToCart,
 }: CampaignRequestDialogProps) {
+  const { user } = useUser()
+  const { hasPermission } = usePermissions()
+  // Gestão/admin (permissão `users`) escolhe entre todos os imóveis da
+  // agência; consultor só entre os seus.
+  const canSeeAllProperties = hasPermission('users')
+
   // Form state
   const [partnerId, setPartnerId] = useState('')
   const [objective, setObjective] = useState('')
@@ -80,11 +88,14 @@ export function CampaignRequestDialog({
   const [partners, setPartners] = useState<PartnerOption[]>([])
   const [loadingPartners, setLoadingPartners] = useState(false)
 
-  // Fetch properties when sheet opens
+  // Fetch properties when sheet opens — gestão/admin vê todos os imóveis;
+  // consultor só os seus. Mais recentes primeiro (a API pagina por
+  // `per_page`, máx. 100).
   useEffect(() => {
-    if (!open) return
+    if (!open || !user?.id) return
     setLoadingProperties(true)
-    fetch('/api/properties?limit=200')
+    const base = '/api/properties?per_page=100&sort_by=created_at&sort_dir=desc'
+    fetch(canSeeAllProperties ? base : `${base}&consultant_id=${user.id}`)
       .then((r) => r.json())
       .then((data) => {
         const items = Array.isArray(data) ? data : data?.data ?? []
@@ -98,7 +109,7 @@ export function CampaignRequestDialog({
       })
       .catch(() => setProperties([]))
       .finally(() => setLoadingProperties(false))
-  }, [open])
+  }, [open, user?.id, canSeeAllProperties])
 
   // Fetch marketing partners when sheet opens; auto-select if only one.
   useEffect(() => {
@@ -197,7 +208,7 @@ export function CampaignRequestDialog({
         side="right"
         className={cn(
           'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
-          'w-full sm:max-w-[480px] rounded-l-3xl sm:rounded-l-3xl'
+          'w-full sm:max-w-[580px] rounded-l-3xl sm:rounded-l-3xl'
         )}
       >
         {/* ─── Header ─── */}
@@ -219,19 +230,16 @@ export function CampaignRequestDialog({
               <Users className="h-3.5 w-3.5" />
               Parceiro *
             </Label>
-            <Select value={partnerId} onValueChange={setPartnerId} disabled={loadingPartners || partners.length === 0}>
+            <Select value={partnerId} onValueChange={setPartnerId}>
               <SelectTrigger className="h-11 rounded-full text-[15px]">
-                <SelectValue
-                  placeholder={
-                    loadingPartners
-                      ? 'A carregar parceiros...'
-                      : partners.length === 0
-                        ? 'Sem parceiros disponíveis'
-                        : 'Seleccionar parceiro'
-                  }
-                />
+                <SelectValue placeholder="Seleccionar parceiro" />
               </SelectTrigger>
               <SelectContent>
+                {partners.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    {loadingPartners ? 'A carregar parceiros...' : 'Sem parceiros disponíveis'}
+                  </div>
+                )}
                 {partners.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.commercial_name}
@@ -326,11 +334,22 @@ export function CampaignRequestDialog({
                     />
                   </span>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  position="popper"
+                  align="start"
+                  className="w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)] max-h-[320px]"
+                >
+                  {properties.length === 0 && !loadingProperties && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Não tens imóveis angariados.
+                    </div>
+                  )}
                   {properties.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.external_ref ? `${p.external_ref} — ` : ''}
-                      {p.title}
+                      <span className="block truncate">
+                        {p.external_ref ? `${p.external_ref} — ` : ''}
+                        {p.title}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

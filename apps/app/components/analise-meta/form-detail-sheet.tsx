@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Loader2, FileText, User, Mail, Phone, Clock, BarChart3, Users } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -21,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { formatMetaStatus, metaStatusVariant, formatQuestionType } from '@/lib/meta/labels'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { LeadDetailSheet } from '@/components/analise-meta/lead-detail-sheet'
 
 const GLASS = 'rounded-2xl border border-border/40 bg-card/50 backdrop-blur-xl'
 const TAB_TRIGGER = cn(
@@ -70,6 +70,7 @@ export function FormDetailSheet({
   const isMobile = useIsMobile()
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<Bundle | null>(null)
+  const [openLeadId, setOpenLeadId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open || !formId) return
@@ -209,9 +210,10 @@ export function FormDetailSheet({
                       <ul className="divide-y divide-border/30">
                         {data.recentLeads.map((l) => (
                           <li key={l.id}>
-                            <Link
-                              href={`/dashboard/analise-meta/leads/${l.id}`}
-                              className="hover:bg-muted/40 flex items-center justify-between gap-2 px-4 py-2.5 transition-colors"
+                            <button
+                              type="button"
+                              onClick={() => setOpenLeadId(l.id)}
+                              className="hover:bg-muted/40 flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors"
                             >
                               <div className="min-w-0">
                                 <span className="flex items-center gap-1.5 text-sm font-medium">
@@ -246,7 +248,7 @@ export function FormDetailSheet({
                                 <Clock className="h-3 w-3" />
                                 {fmtRelative(l.fb_created_time ?? l.received_at)}
                               </span>
-                            </Link>
+                            </button>
                           </li>
                         ))}
                       </ul>
@@ -258,6 +260,12 @@ export function FormDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      <LeadDetailSheet
+        leadId={openLeadId}
+        open={!!openLeadId}
+        onOpenChange={(o) => !o && setOpenLeadId(null)}
+      />
     </Sheet>
   )
 }
