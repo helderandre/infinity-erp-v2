@@ -193,22 +193,25 @@ export function ZonasMapPicker({
     // calcula o canvas com 0×0 e o mapa fica em branco até o utilizador
     // arrastar/zoom. ResizeObserver cobre o caso da animação + qualquer
     // outra mudança de layout (sidebar collapse, mobile rotation, etc.).
-    const ro = new ResizeObserver(() => {
+    const safeResize = () => {
       try {
         map.resize()
       } catch {}
-    })
+    }
+    const ro = new ResizeObserver(safeResize)
     ro.observe(container)
-    // Também forçamos um resize no próximo frame por segurança.
-    const rafId = requestAnimationFrame(() => {
-      try {
-        map.resize()
-      } catch {}
-    })
+    // Resize no primeiro paint do estilo (cobre o caso de o canvas nascer
+    // a 0×0 dentro do Dialog ainda a animar) + no próximo frame.
+    map.once('load', safeResize)
+    const rafId = requestAnimationFrame(safeResize)
+    // Backstops temporizados — a animação do Dialog (zoom-in 150ms) e a
+    // resolução do isMobile só estabilizam depois do primeiro frame.
+    const timeouts = [120, 300, 600].map((ms) => setTimeout(safeResize, ms))
 
     return () => {
       ro.disconnect()
       cancelAnimationFrame(rafId)
+      timeouts.forEach(clearTimeout)
       markersRef.current.forEach((m) => m.marker.remove())
       markersRef.current.clear()
       popupRef.current?.remove()

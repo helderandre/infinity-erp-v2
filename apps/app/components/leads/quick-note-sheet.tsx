@@ -22,6 +22,10 @@ interface QuickNoteSheetProps {
   negocioId?: string | null
   /** Called after a save so the parent can refresh activities + AI profile cache */
   onSaved?: () => void
+  /** Mostra o selector de tipo (Nota / Chamada / Visita / …) dentro do sheet. */
+  showTypePicker?: boolean
+  /** Título do sheet (default "Nota rápida"). */
+  title?: string
 }
 
 /**
@@ -29,7 +33,7 @@ interface QuickNoteSheetProps {
  * the Notas tab. Opens on click of the amber Nota quick action so the user
  * can capture a thought without switching tabs.
  */
-export function QuickNoteSheet({ open, onOpenChange, contactId, negocioId, onSaved }: QuickNoteSheetProps) {
+export function QuickNoteSheet({ open, onOpenChange, contactId, negocioId, onSaved, showTypePicker = false, title = 'Nota rápida' }: QuickNoteSheetProps) {
   const isMobile = useIsMobile()
 
   return (
@@ -55,7 +59,7 @@ export function QuickNoteSheet({ open, onOpenChange, contactId, negocioId, onSav
         >
           <SheetTitle className="flex items-center gap-2 text-base">
             <StickyNote className="h-5 w-5" />
-            Nota rápida
+            {title}
           </SheetTitle>
           <SheetDescription className="text-[12px]">
             Regista uma observação ou interacção com este contacto
@@ -66,7 +70,7 @@ export function QuickNoteSheet({ open, onOpenChange, contactId, negocioId, onSav
           <ObservationComposer
             contactId={contactId}
             negocioId={negocioId ?? undefined}
-            hideTypePicker
+            hideTypePicker={!showTypePicker}
             hidePin
             onSaved={() => {
               onSaved?.()

@@ -35,7 +35,6 @@ import {
   Sparkles,
   Pencil,
   Send,
-  StickyNote,
   Thermometer,
   Trash2,
   User as UserIcon,
@@ -70,6 +69,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { QuickNoteSheet } from '@/components/leads/quick-note-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useUser } from '@/hooks/use-user'
 import { CallContactButton } from '@/components/goals/v2/call-contact-button'
@@ -93,7 +94,6 @@ import {
 import { VisitForm } from '@/components/visits/visit-form'
 import { NegocioDocumentsFoldersView } from '@/components/negocios/negocio-documents-folders-view'
 import { SendPropertiesDialog } from '@/components/negocios/send-properties-dialog'
-import { ObservationComposer } from '@/components/leads/observation-composer'
 import { ObservationItem, type ObservationActivity } from '@/components/leads/observation-item'
 import { PropertyDetailSheet } from '@/components/properties/property-detail-sheet'
 import { Calendar } from '@/components/ui/calendar'
@@ -505,56 +505,27 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           ) : (
             <span />
           )}
-          {/* Título — nome do titular + pessoas associadas. A fonte encolhe
-              quando o conjunto é longo para caber numa linha. */}
-          <SheetTitle
-            className={cn(
-              'min-w-0 flex-1 text-center font-semibold tracking-tight truncate px-2',
-              fullTitle.length > 38 ? 'text-[11px]' : fullTitle.length > 26 ? 'text-xs' : 'text-sm',
-            )}
-            title={fullTitle}
-          >
-            {fullTitle}
-          </SheetTitle>
+          {/* Nome do titular escondido do cabeçalho a pedido — mantém-se apenas
+              como SheetTitle sr-only para acessibilidade (Radix exige título). */}
+          <SheetTitle className="sr-only">{fullTitle}</SheetTitle>
+          <span className="flex-1" />
           {negocio?.id && (
             <div className="flex items-center gap-1.5 mr-12 sm:mr-10 shrink-0 flex-wrap">
               {!readOnly && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    aria-label="Referenciar"
-                    className="rounded-full h-8 w-8 p-0 justify-center"
-                    onClick={() => setReferOpen(true)}
-                    title="Referenciar a outro consultor"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    aria-label="Editar"
-                    className="rounded-full h-8 w-8 p-0 justify-center"
-                    onClick={() => {
-                      // Snapshot do form actual para detectar dirty depois
-                      setEditInitialForm({ ...form })
-                      setEditOpen(true)
-                    }}
-                    title="Editar dados da oportunidade"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    aria-label="Eliminar"
-                    className="rounded-full h-8 w-8 p-0 justify-center border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
-                    onClick={() => setDeleteOpen(true)}
-                    title="Eliminar oportunidade"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label="Editar"
+                  className="rounded-full h-8 w-8 p-0 justify-center"
+                  onClick={() => {
+                    // Snapshot do form actual para detectar dirty depois
+                    setEditInitialForm({ ...form })
+                    setEditOpen(true)
+                  }}
+                  title="Editar dados da oportunidade"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
               )}
               {readOnly && (
                 <span
@@ -806,33 +777,41 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                         onSave={doSave}
                       />
                     </div>
-                    {/* Footer proeminente — Cancelar + Guardar sempre visíveis */}
-                    <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground">
-                        {isDirty
-                          ? 'Tens alterações por guardar.'
-                          : 'Sem alterações por guardar.'}
-                      </p>
-                      <div className="flex items-center gap-2">
+                    {/* Footer — Referenciar + Eliminar (esquerda) · Guardar (direita) */}
+                    <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => attemptClose(false)}
+                          className="h-8 rounded-full px-3 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                          onClick={() => setReferOpen(true)}
                           disabled={editSaving}
                         >
-                          Cancelar
+                          <Send className="h-3.5 w-3.5" />
+                          Referenciar
                         </Button>
                         <Button
                           type="button"
+                          variant="ghost"
                           size="sm"
-                          onClick={doSave}
-                          disabled={editSaving || !isDirty}
-                          className="min-w-[120px]"
+                          className="h-8 rounded-full px-3 text-xs gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
+                          onClick={() => setDeleteOpen(true)}
+                          disabled={editSaving}
                         >
-                          {editSaving ? 'A guardar...' : 'Guardar'}
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Eliminar
                         </Button>
                       </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={doSave}
+                        disabled={editSaving || !isDirty}
+                        className="min-w-[120px]"
+                      >
+                        {editSaving ? 'A guardar...' : 'Guardar'}
+                      </Button>
                     </div>
                   </SheetContent>
                 </Sheet>
@@ -1126,8 +1105,9 @@ function DetalhesTab({
             onChange={onPipelineStageChange}
             disabled={readOnly}
           />
-          {/* Temperatura — segmented inline (mesmo design da página de Contacto) */}
-          <div className="inline-flex items-center gap-1 rounded-full bg-background/60 backdrop-blur-sm border border-border/50 p-0.5 shadow-sm">
+          {/* Temperatura — desktop: segmented inline; mobile: só o emoji actual
+              (toca para abrir o picker). */}
+          <div className="hidden sm:inline-flex items-center gap-1 rounded-full bg-background/60 backdrop-blur-sm border border-border/50 p-0.5 shadow-sm">
             {TEMP_INLINE_STYLES.map((t) => {
               const isActive = temperatura === t.value
               return (
@@ -1138,18 +1118,59 @@ function DetalhesTab({
                   onClick={() => onTemperaturaChange(isActive ? null : t.value)}
                   title={t.label}
                   className={cn(
-                    'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium transition-all px-2 sm:px-2.5',
+                    'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium transition-all px-2.5',
                     isActive
                       ? t.active
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
                   )}
                 >
                   <span className="text-sm leading-none">{t.emoji}</span>
-                  <span className="hidden sm:inline">{t.label}</span>
+                  <span>{t.label}</span>
                 </button>
               )
             })}
           </div>
+
+          {/* Mobile — único emoji (ou 🌡️ quando sem temperatura) que abre o picker. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                disabled={readOnly}
+                title="Temperatura"
+                className={cn(
+                  'sm:hidden inline-flex items-center justify-center h-7 w-9 rounded-full border border-border/50 bg-background/60 shadow-sm text-base leading-none transition-all',
+                  temperatura && TEMP_INLINE_STYLES.find((t) => t.value === temperatura)?.active,
+                )}
+              >
+                {temperatura
+                  ? TEMP_INLINE_STYLES.find((t) => t.value === temperatura)?.emoji
+                  : '🌡️'}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto rounded-2xl p-1.5">
+              <div className="flex items-center gap-1">
+                {TEMP_INLINE_STYLES.map((t) => {
+                  const isActive = temperatura === t.value
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => onTemperaturaChange(isActive ? null : t.value)}
+                      title={t.label}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 h-9 rounded-full px-3 text-sm font-medium transition-all',
+                        isActive ? t.active : 'text-muted-foreground hover:bg-muted/50',
+                      )}
+                    >
+                      <span className="text-base leading-none">{t.emoji}</span>
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Inner content */}
@@ -1387,9 +1408,12 @@ function NotasList({
 }) {
   // 'negocio' — só notas desta oportunidade; 'cliente' — todas as notas do
   // contacto (todas as oportunidades + nível de cliente).
+  const isMobile = useIsMobile()
   const [scope, setScope] = useState<'negocio' | 'cliente'>('negocio')
   const [activities, setActivities] = useState<ObservationActivity[]>([])
   const [loading, setLoading] = useState(true)
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [selectedNota, setSelectedNota] = useState<ObservationActivity | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1402,8 +1426,16 @@ function NotasList({
       const json = await res.json()
       // Só notas escritas pelo utilizador — o histórico de sistema
       // (mudanças de fase, atribuições, etc.) vive na tab Histórico.
+      const userNotes = (json.data ?? []).filter((a: ObservationActivity) =>
+        USER_NOTE_TYPES.has(a.activity_type),
+      )
+      // No scope 'cliente' excluímos as notas que já pertencem a ESTA
+      // oportunidade (essas mostram-se na tab Oportunidade) — a vista Cliente
+      // fica só com notas de nível cliente ou de outras oportunidades.
       setActivities(
-        (json.data ?? []).filter((a: ObservationActivity) => USER_NOTE_TYPES.has(a.activity_type)),
+        scope === 'cliente'
+          ? userNotes.filter((a: ObservationActivity) => a.negocio_id !== negocioId)
+          : userNotes,
       )
     } catch {
       setActivities([])
@@ -1422,14 +1454,36 @@ function NotasList({
 
   return (
     <section className="rounded-2xl border border-border/50 bg-muted/20 px-3.5 py-3 space-y-3">
-      <div className="flex items-center gap-2">
-        <StickyNote className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold tracking-tight">Notas</h3>
-        {activities.length > 0 && (
-          <span className="text-xs text-muted-foreground">{activities.length}</span>
-        )}
-        {/* Toggle Oportunidade / Cliente */}
-        <div className="ml-auto inline-flex items-center gap-0.5 rounded-full bg-background/60 border border-border/50 p-0.5">
+      {/* Registar nota — botão no topo, mesmo design do "Comentar" das Formações. */}
+      {!readOnly && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            onClick={() => setComposerOpen(true)}
+            className="h-10 rounded-full gap-2 bg-muted/60 px-5 backdrop-blur-sm shadow-sm hover:bg-muted"
+          >
+            <Plus className="h-4 w-4" />
+            {isMobile
+              ? 'Registar nota'
+              : scope === 'cliente'
+                ? 'Registar nota sobre o cliente'
+                : 'Registar nota, chamada, visita'}
+          </Button>
+          <QuickNoteSheet
+            open={composerOpen}
+            onOpenChange={setComposerOpen}
+            contactId={leadId}
+            negocioId={scope === 'negocio' ? negocioId : null}
+            showTypePicker
+            title="Registar nota"
+            onSaved={() => { void load(); onMutated?.() }}
+          />
+        </div>
+      )}
+
+      {/* Tab picker — Oportunidade / Cliente (centrado). */}
+      <div className="flex justify-center">
+        <div className="inline-flex items-center gap-0.5 rounded-full bg-background/60 border border-border/50 p-0.5">
           {([
             { key: 'negocio', label: 'Oportunidade' },
             { key: 'cliente', label: 'Cliente' },
@@ -1453,24 +1507,16 @@ function NotasList({
 
       {/* Atalho para o perfil completo do cliente (onde vivem estas notas). */}
       {scope === 'cliente' && !readOnly && (
-        <Link
-          href={`/dashboard/leads/${leadId}`}
-          onClick={() => onClose?.()}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Abrir perfil do cliente
-          <ArrowUpRight className="h-3 w-3" />
-        </Link>
-      )}
-
-      {!readOnly && (
-        <ObservationComposer
-          contactId={leadId}
-          negocioId={scope === 'negocio' ? negocioId : null}
-          negocioLabel={scope === 'negocio' ? `Negócio: ${negocioRef}` : null}
-          onSaved={() => { void load(); onMutated?.() }}
-          placeholder={scope === 'cliente' ? 'Nota sobre o cliente…' : undefined}
-        />
+        <div className="flex justify-center">
+          <Link
+            href={`/dashboard/leads/${leadId}`}
+            onClick={() => onClose?.()}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Abrir perfil do cliente
+            <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </div>
       )}
 
       {loading ? (
@@ -1487,6 +1533,7 @@ function NotasList({
               contactId={leadId}
               hideNegocioBadge={scope === 'negocio'}
               onChanged={() => { void load(); onMutated?.() }}
+              onOpenDetail={() => setSelectedNota(act)}
             />
           ))}
         </div>
@@ -1495,6 +1542,38 @@ function NotasList({
           {scope === 'cliente' ? 'Sem notas no cliente.' : 'Sem notas nesta oportunidade.'}
         </p>
       )}
+
+      {/* Detalhe da nota — sheet glassmórfico (aberto ao tocar num cartão). */}
+      <Sheet open={!!selectedNota} onOpenChange={(o) => !o && setSelectedNota(null)}>
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={cn(
+            'p-0 bg-background/85 supports-[backdrop-filter]:bg-background/70 backdrop-blur-2xl flex flex-col gap-0',
+            isMobile
+              ? 'data-[side=bottom]:h-[70dvh] rounded-t-3xl'
+              : 'w-full sm:max-w-[460px] sm:rounded-l-3xl',
+          )}
+        >
+          {isMobile && (
+            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 h-1 w-10 rounded-full bg-muted-foreground/25 z-20" />
+          )}
+          <SheetHeader className={cn('px-6 pb-4 border-b border-border/40 shrink-0', isMobile ? 'pt-8' : 'pt-6')}>
+            <SheetTitle className="text-base">Nota</SheetTitle>
+            <SheetDescription className="sr-only">Detalhes da nota.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+            {selectedNota && (
+              <ObservationItem
+                activity={selectedNota}
+                contactId={leadId}
+                hideNegocioBadge={scope === 'negocio'}
+                forceExpanded
+                onChanged={() => { void load(); onMutated?.(); setSelectedNota(null) }}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </section>
   )
 }

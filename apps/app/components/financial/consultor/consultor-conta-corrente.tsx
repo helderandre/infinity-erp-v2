@@ -153,7 +153,7 @@ export function ConsultorContaCorrente({ agentId }: { agentId: string }) {
                         {isCredit ? 'Entrada' : 'Saída'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{cat?.label ?? t.category}</TableCell>
+                    <TableCell className="text-sm">{cat ?? t.category}</TableCell>
                     <TableCell className="text-sm max-w-[260px] truncate">{t.description}</TableCell>
                     <TableCell className={cn('text-sm text-right font-medium tabular-nums', isCredit ? 'text-emerald-600' : 'text-red-600')}>
                       {isCredit ? '+' : '−'} {formatCurrency(t.amount)}

@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 const TYPE_ICON: Record<string, React.ElementType> = {
   call: Phone,
@@ -97,6 +98,11 @@ interface ObservationItemProps {
   hideNegocioBadge?: boolean
   onChanged?: () => void
   onNegocioClick?: (negocioId: string) => void
+  /** Mobile: ao tocar no cartão compacto, abre o detalhe (ex.: num sheet) em
+   *  vez de expandir inline. Sem isto, o toque expande no próprio sítio. */
+  onOpenDetail?: () => void
+  /** Força a vista completa mesmo em mobile (ex.: dentro do sheet de detalhe). */
+  forceExpanded?: boolean
 }
 
 export function ObservationItem({
@@ -105,10 +111,16 @@ export function ObservationItem({
   hideNegocioBadge,
   onChanged,
   onNegocioClick,
+  onOpenDetail,
+  forceExpanded,
 }: ObservationItemProps) {
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Mobile mostra um cartão compacto (ícone + título + hora); toca para abrir.
+  const isMobile = useIsMobile()
+  const [expanded, setExpanded] = useState(false)
+  const collapsed = isMobile && !expanded && !forceExpanded
 
   const [editText, setEditText] = useState(activity.description ?? '')
   const effective = activity.occurred_at || activity.created_at
@@ -178,8 +190,10 @@ export function ObservationItem({
   return (
     <>
       <div
+        onClick={collapsed ? (onOpenDetail ?? (() => setExpanded(true))) : undefined}
         className={cn(
           'group rounded-2xl border bg-card/50 backdrop-blur-sm px-4 py-3 transition-all hover:bg-card/80',
+          collapsed && 'cursor-pointer',
           activity.is_pinned
             ? 'border-amber-500/40 ring-1 ring-amber-500/20'
             : 'border-border/30',
@@ -193,13 +207,13 @@ export function ObservationItem({
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-sm font-medium">{label}</span>
-              {activity.is_pinned && (
+              {!collapsed && activity.is_pinned && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
                   <Pin className="h-2.5 w-2.5 fill-current" />
                   Fixado
                 </span>
               )}
-              {!hideNegocioBadge && (
+              {!collapsed && !hideNegocioBadge && (
                 activity.negocio ? (
                   (() => {
                     // Constrói uma lista de chips: perspectiva, tipo de imóvel,
@@ -244,8 +258,8 @@ export function ObservationItem({
               )}
             </div>
 
-            {/* Body — view mode OR edit mode */}
-            {editing ? (
+            {/* Body — escondido no cartão compacto (mobile colapsado). */}
+            {!collapsed && (editing ? (
               <div className="mt-2 space-y-2">
                 <Textarea
                   value={editText}
@@ -314,11 +328,12 @@ export function ObservationItem({
                   </p>
                 )}
               </>
-            )}
+            ))}
 
             <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground/70">
               <span>{dateLabel}</span>
-              {activity.created_by_user?.commercial_name && (
+              {/* Autor escondido em mobile — só relevante em desktop. */}
+              {!isMobile && activity.created_by_user?.commercial_name && (
                 <>
                   <span>·</span>
                   <span>{activity.created_by_user.commercial_name}</span>
@@ -327,8 +342,8 @@ export function ObservationItem({
             </div>
           </div>
 
-          {/* Actions — sempre visíveis no topo do card (não só em hover) */}
-          {!editing && (
+          {/* Actions — escondidas no cartão compacto (mobile colapsado). */}
+          {!editing && !collapsed && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
