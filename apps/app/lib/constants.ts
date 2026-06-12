@@ -1939,6 +1939,13 @@ export const REQUISITION_STATUS = {
 
 export const SUPPLIER_ORDER_STATUS = {
   draft:              { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-400',   label: 'Rascunho' },
+  // Fluxo principal: encomendada → em trânsito → na agência → levantada
+  ordered:            { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Encomendada' },
+  in_transit:         { bg: 'bg-amber-500/15',   text: 'text-amber-500',   dot: 'bg-amber-500',   label: 'Em Trânsito' },
+  at_store:           { bg: 'bg-emerald-500/15', text: 'text-emerald-600', dot: 'bg-emerald-500', label: 'Na Agência' },
+  picked_up:          { bg: 'bg-emerald-500/15', text: 'text-emerald-500', dot: 'bg-emerald-500', label: 'Levantada' },
+  completed:          { bg: 'bg-slate-500/15',   text: 'text-slate-500',   dot: 'bg-slate-400',   label: 'Concluída' },
+  // Estados legacy/auxiliares
   sent:               { bg: 'bg-blue-500/15',    text: 'text-blue-500',    dot: 'bg-blue-500',    label: 'Enviada' },
   confirmed:          { bg: 'bg-indigo-500/15',  text: 'text-indigo-500',  dot: 'bg-indigo-500',  label: 'Confirmada' },
   in_production:      { bg: 'bg-purple-500/15',  text: 'text-purple-500',  dot: 'bg-purple-500',  label: 'Em Produção' },

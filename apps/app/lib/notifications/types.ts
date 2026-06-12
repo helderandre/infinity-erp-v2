@@ -33,6 +33,7 @@ export type NotificationType =
   | 'meta_sync_completed'
   | 'meta_sync_failed'
   | 'event_rsvp_responded'
+  | 'encomenda_at_store'
 
 export type NotificationEntityType =
   | 'proc_instance'
@@ -47,6 +48,7 @@ export type NotificationEntityType =
   | 'deal'
   | 'meta_sync'
   | 'calendar_event'
+  | 'supplier_order'
 
 export const PROCESS_NOTIFICATION_TYPES = [
   'comment_mention',

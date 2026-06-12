@@ -2,16 +2,25 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { createSupplierOrderSchema } from '@/lib/validations/encomenda'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
+    // RLS está desactivado nas tabelas temp_* — o gate é aqui. Gestão vê
+    // tudo; consultor fica scoped às próprias encomendas.
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = createAdminClient() as any
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get('status')
     const supplier_id = searchParams.get('supplier_id')
 
-    const agent_id = searchParams.get('agent_id')
+    const agent_id = isManagementRole(auth.roles)
+      ? searchParams.get('agent_id')
+      : auth.user.id
 
     let query = supabase
       .from('temp_supplier_orders')

@@ -160,8 +160,10 @@ export default function MinhasRequisicoesPage() {
   const fmtCurrency = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' })
 
   const statusLabels: Record<string, { label: string; color: string }> = {
+    draft: { label: 'Em preparação', color: 'bg-neutral-500/10 text-neutral-600' },
     ordered: { label: 'Encomendado', color: 'bg-blue-500/10 text-blue-600' },
-    at_store: { label: 'Na Loja', color: 'bg-amber-500/10 text-amber-600' },
+    in_transit: { label: 'Em Trânsito', color: 'bg-amber-500/10 text-amber-600' },
+    at_store: { label: 'Na Agência', color: 'bg-emerald-500/10 text-emerald-600' },
     picked_up: { label: 'Levantado', color: 'bg-emerald-500/10 text-emerald-600' },
     completed: { label: 'Concluído', color: 'bg-neutral-500/10 text-neutral-600' },
     cancelled: { label: 'Cancelado', color: 'bg-red-500/10 text-red-600' },

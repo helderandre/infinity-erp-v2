@@ -223,21 +223,29 @@ export default function EncomendasFornecedorPage() {
                       <DropdownMenuContent align="end">
                         {order.status === 'draft' && (
                           <DropdownMenuItem
-                            onClick={() => handleStatusUpdate(order.id, 'sent')}
+                            onClick={() => handleStatusUpdate(order.id, 'ordered')}
                           >
                             <Truck className="mr-2 h-4 w-4" />
-                            Marcar como Enviada
+                            Marcar como Encomendada
                           </DropdownMenuItem>
                         )}
-                        {(order.status === 'sent' || order.status === 'confirmed' || order.status === 'shipped' || order.status === 'partially_received') && (
+                        {order.status === 'ordered' && (
+                          <DropdownMenuItem
+                            onClick={() => handleStatusUpdate(order.id, 'in_transit')}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Marcar Em Trânsito
+                          </DropdownMenuItem>
+                        )}
+                        {['ordered', 'in_transit', 'sent', 'confirmed', 'shipped', 'partially_received'].includes(order.status) && (
                           <DropdownMenuItem
                             onClick={() => setReceiveOrderData(order)}
                           >
                             <PackageCheck className="mr-2 h-4 w-4" />
-                            Registar Recepcao
+                            Registar Recepção
                           </DropdownMenuItem>
                         )}
-                        {['draft', 'sent'].includes(order.status) && (
+                        {['draft', 'ordered', 'in_transit', 'sent'].includes(order.status) && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

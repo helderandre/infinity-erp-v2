@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 /**
  * GET /api/encomendas/requisitions/items-for-order
@@ -8,6 +10,14 @@ import { NextResponse } from 'next/server'
  */
 export async function GET() {
   try {
+    // Expõe dados de facturação (NIF, moradas) de todos os agentes —
+    // exclusivo da gestão (diálogo de criação de encomenda a fornecedor).
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+    if (!isManagementRole(auth.roles)) {
+      return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+    }
+
     const supabase = await createClient() as any
 
     // Get approved requisitions with invoice payment that have items not yet ordered

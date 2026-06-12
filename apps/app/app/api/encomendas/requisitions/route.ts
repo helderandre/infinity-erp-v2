@@ -1,14 +1,23 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { createRequisitionSchema } from '@/lib/validations/encomenda'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export async function GET(request: Request) {
   try {
+    // RLS está desactivado nas tabelas temp_* — o gate é aqui. Gestão vê
+    // tudo; consultor fica scoped às próprias requisições.
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+
     const supabase = await createClient() as any
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get('status')
-    const agent_id = searchParams.get('agent_id')
+    const agent_id = isManagementRole(auth.roles)
+      ? searchParams.get('agent_id')
+      : auth.user.id
     const priority = searchParams.get('priority')
     const date_from = searchParams.get('date_from')
     const date_to = searchParams.get('date_to')

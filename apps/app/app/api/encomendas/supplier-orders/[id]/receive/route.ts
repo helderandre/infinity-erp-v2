@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { receiveSupplierOrderSchema } from '@/lib/validations/encomenda'
+import { notifyOrderArrival } from '@/lib/encomendas/notify-arrival'
 
 export async function POST(
   request: Request,
@@ -88,22 +90,39 @@ export async function POST(
       }
     }
 
-    // Update order status
-    const newStatus = allFullyReceived ? 'received' : 'partially_received'
+    // Update order status — recepção completa significa que a encomenda
+    // chegou à agência ('at_store'), o estado que a página "Minhas
+    // encomendas" do consultor usa para mostrar o passo de levantamento.
+    const newStatus = allFullyReceived ? 'at_store' : 'partially_received'
     const today = new Date().toISOString().split('T')[0]
+
+    const updates: Record<string, any> = {
+      status: newStatus,
+      actual_delivery_date: today,
+      received_by: user.id,
+    }
+    if (allFullyReceived) updates.at_store_at = new Date().toISOString()
 
     const { data: updatedOrder, error: updateError } = await supabase
       .from('temp_supplier_orders')
-      .update({
-        status: newStatus,
-        actual_delivery_date: today,
-        received_by: user.id,
-      })
+      .update(updates)
       .eq('id', id)
       .select()
       .single()
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+    // Chegada à agência → tarefa de levantamento + notificação + push ao
+    // consultor comprador (best-effort, não bloqueia a resposta).
+    if (allFullyReceived && order.status !== 'at_store' && updatedOrder?.agent_id) {
+      await notifyOrderArrival(createAdminClient(), {
+        orderId: id,
+        agentId: updatedOrder.agent_id,
+        reference: updatedOrder.reference,
+        actorId: user.id,
+      })
+    }
+
     return NextResponse.json(updatedOrder)
   } catch (error) {
     console.error('Erro ao receber encomenda de fornecedor:', error)

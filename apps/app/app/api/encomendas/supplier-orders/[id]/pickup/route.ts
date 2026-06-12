@@ -20,7 +20,7 @@ export async function POST(
     // Verify order exists and is at_store
     const { data: order, error: orderErr } = await admin
       .from('temp_supplier_orders')
-      .select('id, status')
+      .select('id, status, agent_id, reference')
       .eq('id', id)
       .single()
 
@@ -43,6 +43,26 @@ export async function POST(
 
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 })
+    }
+
+    // Fecha a tarefa de levantamento criada na chegada à agência. O título
+    // contém a referência única da encomenda — chave de matching suficiente
+    // (a tabela tasks não permite entity_type='supplier_order'). Best-effort.
+    if (order.agent_id && order.reference) {
+      try {
+        await admin
+          .from('tasks')
+          .update({
+            is_completed: true,
+            completed_at: new Date().toISOString(),
+            completed_by: user.id,
+          })
+          .eq('assigned_to', order.agent_id)
+          .eq('is_completed', false)
+          .eq('title', `Levantar encomenda ${order.reference} na agência`)
+      } catch (e) {
+        console.error('[encomendas] Falha ao fechar tarefa de levantamento:', e)
+      }
     }
 
     return NextResponse.json({ success: true })

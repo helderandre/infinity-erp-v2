@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { notifyOrderArrival } from '@/lib/encomendas/notify-arrival'
 
 export async function GET(
   request: Request,
@@ -61,6 +62,15 @@ export async function PUT(
     if (status === 'delivered' || status === 'picked_up') updates.delivered_at = new Date().toISOString()
 
     const admin = createAdminClient() as any
+
+    // Estado anterior — para disparar os side-effects de chegada apenas
+    // na transição efectiva para at_store (idempotente em re-saves).
+    const { data: prev } = await admin
+      .from('temp_supplier_orders')
+      .select('status, agent_id, reference')
+      .eq('id', id)
+      .single()
+
     const { data, error } = await admin
       .from('temp_supplier_orders')
       .update(updates)
@@ -70,6 +80,18 @@ export async function PUT(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!data) return NextResponse.json({ error: 'Encomenda não encontrada' }, { status: 404 })
+
+    // ── Chegada à agência: criar tarefa de levantamento + notificar o
+    // consultor comprador. Best-effort — falhas não revertem o update.
+    if (status === 'at_store' && prev && prev.status !== 'at_store' && prev.agent_id) {
+      await notifyOrderArrival(admin, {
+        orderId: id,
+        agentId: prev.agent_id,
+        reference: prev.reference || data.reference,
+        actorId: user.id,
+      })
+    }
+
     return NextResponse.json(data)
   } catch (error) {
     console.error('Erro ao actualizar encomenda a fornecedor:', error)

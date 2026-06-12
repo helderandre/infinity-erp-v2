@@ -6,7 +6,22 @@ export type RequisitionPriority = 'low' | 'normal' | 'high' | 'urgent'
 
 export type DeliveryType = 'pickup' | 'delivery'
 
-export type SupplierOrderStatus = 'draft' | 'sent' | 'confirmed' | 'in_production' | 'shipped' | 'partially_received' | 'received' | 'cancelled'
+// Fluxo principal: draft → ordered → in_transit → at_store → picked_up → completed.
+// Os restantes são estados legacy/auxiliares (sent/confirmed/shipped/received).
+export type SupplierOrderStatus =
+  | 'draft'
+  | 'ordered'
+  | 'in_transit'
+  | 'at_store'
+  | 'picked_up'
+  | 'completed'
+  | 'sent'
+  | 'confirmed'
+  | 'in_production'
+  | 'shipped'
+  | 'partially_received'
+  | 'received'
+  | 'cancelled'
 
 export type StockMovementType = 'in_purchase' | 'in_return' | 'in_adjustment' | 'out_requisition' | 'out_damage' | 'out_adjustment'
 
