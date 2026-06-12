@@ -189,16 +189,23 @@ export async function POST(request: Request) {
       const title = 'Importação em massa'
       const body = `${insertedTotal} contacto${insertedTotal !== 1 ? 's' : ''} importado${insertedTotal !== 1 ? 's' : ''} e atribuído${insertedTotal !== 1 ? 's' : ''} a si.`
       const link = '/dashboard/crm/contactos'
-      adminDb.from('leads_notifications').insert({
-        recipient_id: agent_id,
-        type: 'new_lead',
-        title,
-        body,
-        link,
-      }).then(() => {}).catch(() => {})
+      let notifId: string | null = null
+      try {
+        const { data: notif } = await adminDb.from('leads_notifications').insert({
+          recipient_id: agent_id,
+          type: 'new_lead',
+          title,
+          body,
+          link,
+        }).select('id').single()
+        notifId = (notif as { id?: string } | null)?.id ?? null
+      } catch {
+        // in-app feed insert is best-effort
+      }
 
-      // Push imediato — uma só notification para o batch inteiro
-      // (em vez de uma por lead, evita spam do device).
+      // Push imediato — uma só notification para o batch inteiro (em vez de uma
+      // por lead, evita spam do device). O cron é o fallback durável; marcamos
+      // is_push_sent=true só após o envio bem-sucedido.
       try {
         const adminPush = createAdminClient()
         await sendPushToUser(adminPush, agent_id, {
@@ -207,6 +214,9 @@ export async function POST(request: Request) {
           url: link,
           tag: `bulk_import:${batchId}`,
         })
+        if (notifId) {
+          await adminDb.from('leads_notifications').update({ is_push_sent: true }).eq('id', notifId)
+        }
       } catch (err) {
         console.error('[leads bulk] push:', err)
       }

@@ -364,9 +364,10 @@ export async function POST(request: Request) {
       const link = `/dashboard/crm/contactos/${contactId}`
       const title = 'Nova lead atribuída'
       const notifBody = `${input.raw_name} foi-lhe atribuída.`
+      const db = createCrmAdminClient()
+      let notifId: string | null = null
       try {
-        const db = createCrmAdminClient()
-        await db.from('leads_notifications').insert({
+        const { data: notif } = await db.from('leads_notifications').insert({
           recipient_id: assignedConsultantId,
           type: 'assignment',
           title,
@@ -374,13 +375,16 @@ export async function POST(request: Request) {
           link,
           entry_id: entry.id,
           contact_id: contactId,
-        })
+        }).select('id').single()
+        notifId = (notif as { id?: string } | null)?.id ?? null
       } catch (err) {
         console.error('[lead-entries POST] notification:', err)
       }
 
-      // Push imediato (cron de fallback só varre `notifications`,
-      // não `leads_notifications` — push tem de ser eager aqui).
+      // Push imediato (fast path). O cron `dispatch-pending-push` é o fallback
+      // durável: re-envia enquanto is_push_sent=false. Marcamos true só APÓS o
+      // envio para preservar essa rede de segurança se o push falhar ou se o
+      // pedido morrer antes de chegar aqui.
       try {
         const adminPush = createAdminClient()
         await sendPushToUser(adminPush, assignedConsultantId, {
@@ -389,6 +393,9 @@ export async function POST(request: Request) {
           url: link,
           tag: `new_lead_entry:${entry.id}`,
         })
+        if (notifId) {
+          await db.from('leads_notifications').update({ is_push_sent: true }).eq('id', notifId)
+        }
       } catch (err) {
         console.error('[lead-entries POST] push:', err)
       }

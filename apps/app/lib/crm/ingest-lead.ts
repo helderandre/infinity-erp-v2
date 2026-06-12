@@ -322,7 +322,7 @@ export async function ingestLead(
 
   // 9. Create notification for assigned agent
   if (assignedAgentId) {
-    await supabase.from('leads_notifications').insert({
+    const { data: notif } = await supabase.from('leads_notifications').insert({
       recipient_id: assignedAgentId,
       type: 'new_lead',
       title: 'Nova lead recebida',
@@ -330,17 +330,29 @@ export async function ingestLead(
       link: `/dashboard/crm/contactos/${contactId}`,
       entry_id: entry.id,
       contact_id: contactId!,
-    })
+    }).select('id').single()
+    const notifId = (notif as { id?: string } | null)?.id ?? null
 
     // Web push (fire-and-forget) — click abre o sheet "Leads por qualificar"
-    // no topo (via ?openLeads=1, captado pelo <LeadsInboxButton>).
+    // no topo (via ?openLeads=1, captado pelo <LeadsInboxButton>). O cron
+    // `dispatch-pending-push` é o fallback durável; marcamos is_push_sent=true
+    // só depois do envio para que uma falha seja re-tentada pelo cron.
     import('./send-push').then(({ sendPushToUser }) => {
       sendPushToUser(supabase, assignedAgentId!, {
         title: 'Nova lead recebida',
         body: `${input.name} — via ${formatSource(input.source)}`,
         url: '/dashboard?openLeads=1',
         tag: `lead-${entry.id}`,
-      }).catch(() => {})
+      })
+        .then((sent) => {
+          if (sent > 0 && notifId) {
+            return supabase
+              .from('leads_notifications')
+              .update({ is_push_sent: true })
+              .eq('id', notifId)
+          }
+        })
+        .catch(() => {})
     }).catch(() => {})
 
     // Send email notification (fire-and-forget)

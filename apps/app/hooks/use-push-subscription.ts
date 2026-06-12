@@ -37,14 +37,87 @@ async function resolveVapidKey(): Promise<string | null> {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null
 }
 
+// Idempotently (re-)persist a live browser subscription to the server. The DB
+// upsert is keyed on (user_id, endpoint), so re-sending an existing subscription
+// is a no-op — but it HEALS the common failure where the browser still holds a
+// local PushSubscription while the `push_subscriptions` row is missing (the
+// initial POST failed silently, the row was pruned server-side after an expired
+// endpoint, or it was lost on a previous error). Without this self-heal the UI
+// shows "activas neste dispositivo" while sendPushToUser finds no row and
+// silently delivers nothing.
+async function syncSubscriptionToServer(sub: PushSubscription): Promise<void> {
+  try {
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    })
+    logRemote('reconcile.synced', { endpointPrefix: sub.endpoint.slice(0, 80) })
+  } catch {
+    // best-effort; the explicit subscribe() flow remains the primary path
+  }
+}
+
+// Silently (re)create a push subscription and persist it — WITHOUT any prompt.
+// Safe to call only when Notification.permission is already 'granted': in that
+// state pushManager.subscribe() never shows UI. This is what lets a consultant
+// keep receiving pushes after the local subscription is lost or invalidated
+// (browser eviction, stale VAPID key) WITHOUT having to press "Ativar" again —
+// the app re-subscribes itself on the next load. Returns true on success.
+async function ensureFreshSubscription(reg: ServiceWorkerRegistration): Promise<boolean> {
+  const vapidKey = await resolveVapidKey()
+  if (!vapidKey) return false
+  try {
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+    })
+    await syncSubscriptionToServer(sub)
+    logRemote('autoresubscribe.ok', { endpointPrefix: sub.endpoint.slice(0, 80) })
+    return true
+  } catch (err) {
+    logRemote('autoresubscribe.failed', {
+      name: err instanceof Error ? err.name : 'unknown',
+      message: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
+}
+
+// True on iPhone/iPad. iPadOS 13+ reports as "MacIntel" with a touch screen,
+// so the platform+maxTouchPoints check is needed alongside the UA test.
+function isIOSDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
+
+function isStandalonePWA(): boolean {
+  if (typeof window === 'undefined') return false
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  )
+}
+
 export function usePushSubscription() {
   const [permission, setPermission] = useState<PushPermission>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  // iOS Safari only exposes Web Push to apps installed to the Home Screen
+  // (standalone PWA). In a regular tab, PushManager is absent and the device
+  // reports as "unsupported" — but the real fix is to install the PWA, so we
+  // flag that distinct case to drive guidance copy instead of a dead end.
+  const [iosNeedsInstall, setIosNeedsInstall] = useState(false)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPermission('unsupported')
+      if (isIOSDevice() && !isStandalonePWA()) setIosNeedsInstall(true)
       return
     }
     setPermission(Notification.permission as PushPermission)
@@ -54,15 +127,26 @@ export function usePushSubscription() {
     // with the new key would be rejected by the provider. Detect the mismatch
     // and treat as not-subscribed so the user can re-activate.
     navigator.serviceWorker.ready.then(async (reg) => {
+      // Whether the user ever granted permission. If granted, we can keep the
+      // subscription alive silently (no prompt) so they never have to re-enable.
+      const granted = Notification.permission === 'granted'
       const sub = await reg.pushManager.getSubscription()
       if (!sub) {
-        setIsSubscribed(false)
+        // No local subscription. If permission is already granted, recreate it
+        // transparently — the consultant stays subscribed without any action.
+        if (granted) {
+          const ok = await ensureFreshSubscription(reg)
+          setIsSubscribed(ok)
+        } else {
+          setIsSubscribed(false)
+        }
         return
       }
       try {
         const currentKey = await resolveVapidKey()
         if (!currentKey) {
           setIsSubscribed(true) // can't verify; trust local
+          void syncSubscriptionToServer(sub) // heal a possibly-missing DB row
           return
         }
         const expected = urlBase64ToUint8Array(currentKey)
@@ -72,9 +156,21 @@ export function usePushSubscription() {
           expected.every((b, i) => b === actual[i])
         if (matches) {
           setIsSubscribed(true)
+          // Self-heal: the local subscription is valid, but the server row may
+          // be missing (silent POST failure, server-side prune). Re-upsert so
+          // "activas neste dispositivo" always reflects a real push target.
+          void syncSubscriptionToServer(sub)
         } else {
-          console.warn('[Push] Local subscription uses stale VAPID key; clearing')
+          // Stale VAPID key: the cached subscription can never receive pushes
+          // signed with the current key. Replace it silently when permission is
+          // still granted (no prompt) so delivery resumes without re-activation.
+          console.warn('[Push] Local subscription uses stale VAPID key; replacing')
           try { await sub.unsubscribe() } catch {}
+          if (granted) {
+            const ok = await ensureFreshSubscription(reg)
+            setIsSubscribed(ok)
+            return
+          }
           setIsSubscribed(false)
         }
       } catch (err) {
@@ -218,7 +314,7 @@ export function usePushSubscription() {
     }
   }, [])
 
-  return { permission, isSubscribed, isLoading, subscribe, unsubscribe }
+  return { permission, isSubscribed, isLoading, iosNeedsInstall, subscribe, unsubscribe }
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {

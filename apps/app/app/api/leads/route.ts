@@ -231,17 +231,24 @@ export async function POST(request: Request) {
       const link = `/dashboard/leads/${lead.id}`
       const title = 'Nova lead atribuída'
       const body = `${data.nome} foi-lhe atribuída.`
-      db.from('leads_notifications').insert({
-        recipient_id: data.agent_id,
-        type: 'new_lead',
-        title,
-        body,
-        link,
-        contact_id: lead.id,
-      }).then(() => {}).catch(() => {})
+      let notifId: string | null = null
+      try {
+        const { data: notif } = await db.from('leads_notifications').insert({
+          recipient_id: data.agent_id,
+          type: 'new_lead',
+          title,
+          body,
+          link,
+          contact_id: lead.id,
+        }).select('id').single()
+        notifId = (notif as { id?: string } | null)?.id ?? null
+      } catch {
+        // in-app feed insert is best-effort
+      }
 
-      // Push imediato (cron de fallback só varre `notifications`,
-      // não `leads_notifications` — push tem de ser eager aqui).
+      // Push imediato (fast path). O cron `dispatch-pending-push` é o fallback
+      // durável: re-envia enquanto is_push_sent=false. Marcamos true só APÓS o
+      // envio para preservar essa rede de segurança.
       try {
         const adminPush = createAdminClient()
         await sendPushToUser(adminPush, data.agent_id, {
@@ -250,6 +257,9 @@ export async function POST(request: Request) {
           url: link,
           tag: `new_lead:${lead.id}`,
         })
+        if (notifId) {
+          await db.from('leads_notifications').update({ is_push_sent: true }).eq('id', notifId)
+        }
       } catch (err) {
         console.error('[leads POST] push:', err)
       }

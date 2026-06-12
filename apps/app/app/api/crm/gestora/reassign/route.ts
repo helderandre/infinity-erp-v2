@@ -87,11 +87,17 @@ export async function POST(req: NextRequest) {
           entry_id: e.id,
           contact_id: e.contact_id,
         }))
-        await db.from("leads_notifications").insert(notifications)
+        const { data: insertedNotifs } = await db
+          .from("leads_notifications")
+          .insert(notifications)
+          .select("id")
+        const notifIds = ((insertedNotifs as Array<{ id: string }> | null) ?? []).map((r) => r.id)
 
         // Push imediato — uma única notification consolidada para o
         // recipient (em vez de uma por entry; o device fica menos ruidoso
-        // e o consultor abre o inbox para ver a lista completa).
+        // e o consultor abre o inbox para ver a lista completa). O cron
+        // `dispatch-pending-push` é o fallback durável; marcamos is_push_sent
+        // só após o envio para preservar a rede de segurança.
         try {
           const adminPush = createAdminClient()
           const n = entries.length
@@ -101,6 +107,9 @@ export async function POST(req: NextRequest) {
             url: '/dashboard/crm/contactos',
             tag: `gestora_reassign:${target_agent_id}:${Date.now()}`,
           })
+          if (notifIds.length) {
+            await db.from("leads_notifications").update({ is_push_sent: true }).in("id", notifIds)
+          }
         } catch (err) {
           console.error('[gestora reassign] push:', err)
         }

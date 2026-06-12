@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, BellOff, BellRing, Loader2 } from 'lucide-react'
+import { Bell, BellOff, BellRing, Loader2, Share, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -17,9 +17,12 @@ export function DeviceNotificationsControl({
   variant = 'card',
   className,
 }: DeviceNotificationsControlProps) {
-  const { permission, isSubscribed, isLoading, subscribe, unsubscribe } = usePushSubscription()
+  const { permission, isSubscribed, isLoading, iosNeedsInstall, subscribe, unsubscribe } =
+    usePushSubscription()
 
-  const unsupported = permission === 'unsupported'
+  // On iPhone/iPad outside the installed PWA, "unsupported" is misleading — the
+  // real path is to add the app to the Home Screen. Render dedicated guidance.
+  const unsupported = permission === 'unsupported' && !iosNeedsInstall
   const denied = permission === 'denied'
 
   const handleToggle = async (next: boolean) => {
@@ -51,6 +54,50 @@ export function DeviceNotificationsControl({
     : 'Desactivadas'
 
   const Icon = isSubscribed ? BellRing : unsupported || denied ? BellOff : Bell
+
+  // iOS-not-installed: same guidance in both variants. Web Push on iPhone/iPad
+  // only works from the app installed on the Home Screen.
+  if (iosNeedsInstall) {
+    const steps = (
+      <span className="inline-flex flex-wrap items-center gap-1">
+        Toca em
+        <Share className="inline h-3.5 w-3.5" aria-label="Partilhar" />
+        <span className="font-medium">Partilhar</span>
+        e depois
+        <Plus className="inline h-3.5 w-3.5" aria-label="Adicionar" />
+        <span className="font-medium">Adicionar ao ecrã principal</span>.
+        Abre a app pelo ícone e activa aqui as notificações.
+      </span>
+    )
+
+    if (variant === 'compact') {
+      return (
+        <div
+          className={cn(
+            'rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground',
+            className,
+          )}
+        >
+          <p className="font-medium text-foreground mb-0.5">Instala a app para receber notificações</p>
+          {steps}
+        </div>
+      )
+    }
+
+    return (
+      <Card className={className}>
+        <CardContent className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <BellOff className="h-5 w-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">Instala a app para receber notificações</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{steps}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (variant === 'compact') {
     return (
