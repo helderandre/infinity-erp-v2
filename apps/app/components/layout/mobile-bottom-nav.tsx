@@ -57,7 +57,7 @@ interface Section {
 const SECTIONS: Section[] = [
   { key: 'meu_espaco', label: 'Espaço', icon: LayoutDashboard, items: meuEspacoItems, prefixes: [] },
   { key: 'comunicacao', label: 'Comunic.', icon: MessageCircle, items: comunicacaoItems, prefixes: [] },
-  { key: 'crm', label: 'Leads', icon: ContactRound, items: crmItems, prefixes: ['/dashboard/acompanhamentos'] },
+  { key: 'crm', label: 'Leads', icon: ContactRound, items: crmItems, prefixes: [] },
   { key: 'negocio', label: 'Negócio', icon: Briefcase, items: negocioItems, prefixes: [] },
   { key: 'financeiro', label: 'Financeiro', icon: Euro, items: financeiroItems, prefixes: [] },
   { key: 'infinity', label: 'Infinity', icon: Infinity, items: infinityItems, prefixes: [] },

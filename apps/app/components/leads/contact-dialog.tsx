@@ -35,9 +35,14 @@ interface ContactDialogProps {
   onOpenChange: (open: boolean) => void
   onComplete?: (id: string) => void
   defaultValues?: Partial<CreateLeadInput>
+  /**
+   * Transcript fed to the AI extractor automatically when the sheet opens
+   * (ex.: conversa de WhatsApp). Corre uma vez por abertura.
+   */
+  autoExtractText?: string
 }
 
-export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }: ContactDialogProps) {
+export function ContactDialog({ open, onOpenChange, onComplete, defaultValues, autoExtractText }: ContactDialogProps) {
   const isMobile = useIsMobile()
   const { user } = useUser()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -98,6 +103,22 @@ export function ContactDialog({ open, onOpenChange, onComplete, defaultValues }:
       setValue('agent_id', user.id)
     }
   }, [open, user?.id, setValue])
+
+  // Auto-extracção a partir de transcript externo (uma vez por abertura).
+  const autoExtractRanRef = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      autoExtractRanRef.current = false
+      return
+    }
+    if (!autoExtractText?.trim() || autoExtractRanRef.current) return
+    autoExtractRanRef.current = true
+    setIsProcessing(true)
+    extractAndFill(autoExtractText)
+      .catch(() => toast.error('Não foi possível extrair dados da conversa'))
+      .finally(() => setIsProcessing(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoExtractText])
 
   const startRecording = useCallback(async () => {
     try {

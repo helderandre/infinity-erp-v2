@@ -694,7 +694,7 @@ export function AppSidebar() {
           items={filterMgmt(crmItems)}
           pathname={pathname}
           hasPermission={hasPermission}
-          pathPrefixes={['/dashboard/crm', '/dashboard/leads', '/dashboard/acompanhamentos']}
+          pathPrefixes={['/dashboard/crm', '/dashboard/leads']}
         />
 
         {/* 5. Negócio */}

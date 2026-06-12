@@ -3,9 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { X, Archive, VolumeX, Image as ImageIcon, FileText, Link2, Users, Shield, MessageSquare, Loader2, UserPlus, Handshake, ChevronDown, Briefcase, Phone, Mail, MapPin, Tag, Thermometer, ShoppingCart, Store, Key, Building2, BedDouble, ChevronRight, Calendar } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { LeadForm } from '@/components/leads/lead-form'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { ContactDialog } from '@/components/leads/contact-dialog'
 import { CreatePartnerDialog } from './create-partner-dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
@@ -141,22 +139,11 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
   const [negocios, setNegocios] = useState<NegocioData[]>([])
   const [loadingCrm, setLoadingCrm] = useState(false)
   // Lead form state (for creating contact + negocio from chat)
-  const [consultants, setConsultants] = useState<{ id: string; commercial_name: string }[]>([])
   const [aiTranscript, setAiTranscript] = useState('')
 
-  // Fetch consultants + recent messages when "Criar Lead" dialog opens
+  // Fetch recent messages when "Criar Lead" dialog opens
   useEffect(() => {
     if (!createLeadOpen) return
-
-    fetch('/api/users/consultants')
-      .then((r) => r.json())
-      .then((d) => setConsultants(
-        (d.data || d || []).map((c: Record<string, unknown>) => ({
-          id: c.id as string,
-          commercial_name: c.commercial_name as string,
-        }))
-      ))
-      .catch(() => {})
 
     // Build a transcript from the last 20 messages of this chat to feed the AI extractor
     fetch(`/api/whatsapp/chats/${chatId}/messages?limit=20`)
@@ -740,45 +727,35 @@ export function ChatInfoPanel({ chatId, instanceId, onClose, onChatSelect }: Cha
           onOpenChange={setLinkDialogOpen}
         />
       )}
-      {/* Create contacto + negócio (same form as /dashboard/leads "Novo Contacto") */}
-      <Dialog open={createLeadOpen} onOpenChange={setCreateLeadOpen}>
-        <DialogContent
-          className="sm:max-w-md !rounded-2xl !p-0 !gap-0 !ring-0 overflow-hidden max-h-[90vh] overflow-y-auto"
-          showCloseButton={false}
-        >
-          <VisuallyHidden><DialogTitle>Novo Contacto</DialogTitle></VisuallyHidden>
-          <LeadForm
-            consultants={consultants}
-            initialValues={{
-              nome: displayName !== 'Conversa' ? displayName : '',
-              // Strip PT country code so the mask (which already shows +351) doesn't duplicate it
-              telemovel: (() => {
-                const digits = (phone || '').replace(/\D/g, '')
-                if (digits.startsWith('351') && digits.length > 9) return digits.slice(3)
-                return digits
-              })(),
-            }}
-            autoExtractText={aiTranscript}
-            onSuccess={async (newLeadId) => {
-              setCreateLeadOpen(false)
-              // Link the wpp_contact to the newly created lead, then refresh
-              if (chat?.contact?.id && newLeadId) {
-                try {
-                  await fetch(`/api/whatsapp/contacts/${chat.contact.id}/link`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lead_id: newLeadId }),
-                  })
-                } catch {
-                  // non-fatal — auto-match will catch it on next sync
-                }
-              }
-              handleLinked()
-            }}
-            onCancel={() => setCreateLeadOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Create contacto + negócio (same sheet as /dashboard/leads "Novo Contacto") */}
+      <ContactDialog
+        open={createLeadOpen}
+        onOpenChange={setCreateLeadOpen}
+        defaultValues={{
+          nome: displayName !== 'Conversa' ? displayName : '',
+          telemovel: (() => {
+            const digits = (phone || '').replace(/\D/g, '')
+            if (digits.startsWith('351') && digits.length > 9) return `+351 ${digits.slice(3)}`
+            return digits ? `+${digits}` : '+351 '
+          })(),
+        }}
+        autoExtractText={aiTranscript}
+        onComplete={async (newLeadId) => {
+          // Link the wpp_contact to the newly created lead, then refresh
+          if (chat?.contact?.id && newLeadId) {
+            try {
+              await fetch(`/api/whatsapp/contacts/${chat.contact.id}/link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lead_id: newLeadId }),
+              })
+            } catch {
+              // non-fatal — auto-match will catch it on next sync
+            }
+          }
+          handleLinked()
+        }}
+      />
       <CreatePartnerDialog
         open={createPartnerOpen}
         onOpenChange={setCreatePartnerOpen}
