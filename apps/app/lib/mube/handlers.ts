@@ -191,7 +191,7 @@ export async function bridgeMetaLeadToCrm(
               sendPushToUser(supabase, uid, {
                 title: 'Nova lead por atribuir',
                 body: `${input.name} — via Meta Ads`,
-                url: '/dashboard/crm/gestora?tab=por_atribuir',
+                url: '/dashboard/crm/leads?gestao=por_atribuir',
                 tag: `lead-unattributed-${lead.leadgen_id}`,
               }),
             ),

@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const sent = await sendPushToUser(db, user.id, {
       title: "🔔 Teste de Notificação",
       body: "Se está a ver isto, as push notifications estão a funcionar!",
-      url: "/dashboard/crm/gestora",
+      url: "/dashboard/crm/leads?gestao=por_atribuir",
       tag: "test",
     })
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       type: "system",
       title: "Teste de notificação push",
       body: `Push enviado para ${sent} dispositivo(s).`,
-      link: "/dashboard/crm/gestora",
+      link: "/dashboard/crm/leads?gestao=por_atribuir",
     })
 
     return NextResponse.json({
