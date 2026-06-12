@@ -71,7 +71,7 @@ export function useMetaSyncJob() {
         const { job_id } = (await res.json()) as { job_id: string }
         setRunning(true)
         toast.info('Sincronização iniciada…', {
-          description: 'Avisamos quando terminar — podes sair desta página.',
+          description: 'Pode demorar alguns minutos (até ~5). Avisamos quando terminar — podes sair desta página.',
         })
 
         const supabase = createClient()

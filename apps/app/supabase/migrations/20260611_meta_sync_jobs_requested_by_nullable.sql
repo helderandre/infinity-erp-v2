@@ -1,0 +1,11 @@
+-- ============================================================================
+-- meta_sync_jobs.requested_by nullable
+--
+-- Os syncs Meta passaram a poder correr agendados (cron 2×/dia) via
+-- /api/cron/sync-meta, sem utilizador associado. requested_by deixa de ser
+-- obrigatório (null = job agendado/sistema).
+--
+-- Aditiva. Revert: ALTER TABLE public.meta_sync_jobs ALTER COLUMN requested_by SET NOT NULL;
+-- (só seguro se não houver rows com requested_by IS NULL.)
+-- ============================================================================
+ALTER TABLE public.meta_sync_jobs ALTER COLUMN requested_by DROP NOT NULL;

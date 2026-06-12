@@ -171,7 +171,7 @@ export async function GET() {
       it.cost_per_lead = it.total_leads > 0 ? t.spend / it.total_leads : null
     }
 
-    const totals = items.reduce(
+    let totals = items.reduce(
       (acc, it) => ({
         total_leads: acc.total_leads + it.total_leads,
         in_crm: acc.in_crm + it.in_crm,
@@ -179,6 +179,25 @@ export async function GET() {
       }),
       { total_leads: 0, in_crm: 0, spend: 0 },
     )
+
+    // Gestão: os KPIs do topo reflectem TODO o dataset Meta, não só os `items`
+    // listados (limitados a CAMPAIGN_LIMIT e ordenados por received_at, que
+    // colapsa em cada backfill). Sem isto, leads/CRM/gasto podiam dar 0 mesmo
+    // com dados — contamos directo às tabelas do mirror.
+    if (canSeeAll) {
+      const [leadsCountRes, crmCountRes, spendRowsRes] = await Promise.all([
+        db.schema('meta').from('meta_leads_raw').select('*', { count: 'exact', head: true }),
+        db.schema('meta').from('meta_leads_raw').select('*', { count: 'exact', head: true }).eq('processed', true),
+        db.schema('meta').from('meta_insights_raw').select('spend').eq('level', 'campaign').limit(20000),
+      ])
+      const spendAll = ((spendRowsRes.data ?? []) as Array<{ spend: number | null }>)
+        .reduce((s, r) => s + Number(r.spend ?? 0), 0)
+      totals = {
+        total_leads: leadsCountRes.count ?? 0,
+        in_crm: crmCountRes.count ?? 0,
+        spend: spendAll,
+      }
+    }
 
     return NextResponse.json({ items, totals, mode: canSeeAll ? 'all' : 'mine' })
   } catch (err) {

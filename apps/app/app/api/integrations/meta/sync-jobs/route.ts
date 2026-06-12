@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { hasPermissionServer } from '@/lib/auth/check-permission-server'
 import { createClient } from '@/lib/supabase/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
-import { runMetaSyncJob } from '@/lib/mube/run-sync-job'
+import { runMetaGraphSync } from '@/lib/meta/graph-sync'
 import { SYNC_RESOURCES, type SyncResource } from '@/lib/mube/internal-client'
 
 export const runtime = 'nodejs'
@@ -94,7 +94,8 @@ export async function POST(req: NextRequest) {
   const jobId = (data as { id: string }).id
 
   // Fire-and-forget — corre depois da resposta (servidor Node persistente).
-  void runMetaSyncJob(db, jobId, resources, since, user.id).catch((err) => {
+  // Sync via Graph API directa (app Meta), em substituição do caminho mube.
+  void runMetaGraphSync(db, jobId, resources, user.id).catch((err) => {
     console.error('[sync-jobs] uncaught job error', { jobId, err })
   })
 

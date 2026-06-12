@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { BarChart3, Facebook } from 'lucide-react'
 
 import { AnaliseTab } from '@/components/leads/pipeline/analise-tab'
@@ -25,7 +26,10 @@ const TABS: { key: Tab; label: string; Icon: typeof BarChart3 }[] = [
 ]
 
 export default function AnalisePage() {
-  const [tab, setTab] = useState<Tab>('analise')
+  // Deep-link: ?tab=meta abre directamente a sub-secção Meta (ex.: vindo da
+  // página de Integração ou de notificações de sincronização).
+  const searchParams = useSearchParams()
+  const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'meta' ? 'meta' : 'analise')
 
   return (
     <div className="space-y-6">

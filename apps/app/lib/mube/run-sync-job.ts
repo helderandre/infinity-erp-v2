@@ -31,7 +31,7 @@ import { notificationService } from '@/lib/notifications/service'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AdminSupabase = SupabaseClient<any, 'public', any>
 
-const ANALISE_META_URL = '/dashboard/analise-meta/campanhas'
+const ANALISE_META_URL = '/dashboard/crm/analise?tab=meta'
 
 const RESOURCE_LABELS: Record<SyncResource, string> = {
   forms: 'Formulários',
@@ -143,26 +143,36 @@ export async function runMetaSyncJob(
       })
       .eq('id', jobId)
 
-    await notify(db, userId, jobId, resources, 'error')
+    await notify(db, userId, jobId, resources, 'error', message)
   }
 }
 
-async function notify(
+const RECONNECT_URL = '/dashboard/integracoes/meta'
+
+export async function notify(
   db: AdminSupabase,
   userId: string,
   jobId: string,
   resources: SyncResource[],
   outcome: 'done' | 'error',
+  errorCode?: string,
 ): Promise<void> {
   const label = labelFor(resources)
-  const title =
-    outcome === 'done'
+  // Falha por ligação Meta inactiva — accionável: manda reconectar em vez de
+  // "tenta novamente mais tarde" (tentar de novo sem reconectar não resolve).
+  const noConnection = outcome === 'error' && errorCode === 'no_active_connection'
+
+  const title = noConnection
+    ? 'Ligação ao Meta inactiva'
+    : outcome === 'done'
       ? `${label} ${resources.length === 1 ? 'actualizado' : 'actualizados'}`
       : `Falha a sincronizar ${label.toLowerCase()}`
-  const body =
-    outcome === 'done'
+  const body = noConnection
+    ? 'A ligação à conta Meta não está activa. Reconecta em Integrações → Meta para sincronizar.'
+    : outcome === 'done'
       ? 'Os dados mais recentes já estão disponíveis em Análise Meta.'
       : 'A sincronização não terminou. Tenta novamente mais tarde.'
+  const actionUrl = noConnection ? RECONNECT_URL : ANALISE_META_URL
 
   // Bell (sobrevive à navegação — subscrição global em useNotifications).
   try {
@@ -173,7 +183,7 @@ async function notify(
       entityId: jobId,
       title,
       body,
-      actionUrl: ANALISE_META_URL,
+      actionUrl,
       metadata: { resources, outcome },
     })
   } catch (err) {
@@ -185,7 +195,7 @@ async function notify(
     await sendPushToUser(db, userId, {
       title,
       body,
-      url: ANALISE_META_URL,
+      url: actionUrl,
       tag: `meta-sync-${jobId}`,
     })
   } catch {

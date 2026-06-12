@@ -156,10 +156,8 @@ export const lojaItems = marketingItems
  * outros chamadores que ainda referenciam o nome antigo.
  */
 export const estudioItems = [
-  { title: 'Analytics', icon: BarChart3, href: '/dashboard/crm/analytics', permission: 'pipeline' },
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
   { title: 'Meta Ads', icon: Target, href: '/dashboard/meta-ads' },
-  { title: 'Análise Meta', icon: BarChart3, href: '/dashboard/analise-meta' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
   { title: 'Recursos', icon: FolderOpen, href: '/dashboard/marketing/recursos', permission: 'marketing' },
 ]
@@ -768,7 +766,7 @@ export function AppSidebar() {
             items={estudioItems}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/crm/analytics', '/dashboard/meta-ads', '/dashboard/analise-meta', '/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/marketing/recursos']}
+            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/marketing/recursos']}
           />
         )}
 

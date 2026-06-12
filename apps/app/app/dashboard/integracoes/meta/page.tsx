@@ -193,7 +193,7 @@ export default async function MetaIntegrationPage({
                   </>
                 )}
                 <Button asChild variant="ghost" size="sm">
-                  <Link href="/dashboard/analise-meta">
+                  <Link href="/dashboard/crm/analise?tab=meta">
                     <Link2 className="mr-2 h-4 w-4" />
                     Ver dados sincronizados
                   </Link>

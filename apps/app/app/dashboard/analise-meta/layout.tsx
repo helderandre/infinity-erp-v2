@@ -1,5 +1,8 @@
-import { MetaChrome } from './_components/meta-chrome'
-
+// A secção standalone "Análise Meta" foi descontinuada — vive agora em
+// CRM → Análise → Meta (components/analise-meta/meta-section-tabs.tsx). Só
+// permanecem as páginas de detalhe (campanha / anúncio / formulário / lead),
+// alcançadas por drill-in a partir do imóvel, da lead ou do CRM. Sem chrome de
+// tabs aqui — cada detalhe tem o seu próprio cabeçalho + botão voltar.
 export default function AnaliseMetaLayout({
   children,
 }: {
@@ -12,9 +15,6 @@ export default function AnaliseMetaLayout({
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -top-10 -z-10 h-64 bg-gradient-to-b from-primary/10 via-primary/[0.03] to-transparent blur-2xl"
       />
-      {/* Title + tabs — only on the list views, hidden inside a record */}
-      <MetaChrome />
-
       {children}
     </div>
   )

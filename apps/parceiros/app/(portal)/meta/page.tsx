@@ -10,7 +10,7 @@
  * leads gerados. Tudo via o proxy /api/* para o ERP principal (self-scoped).
  */
 
-import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageHero, EmptyState } from '@portal/components/portal/page-hero'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -21,12 +21,14 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { CAMPAIGN_OBJECTIVES } from '@/lib/constants'
 import {
-  Megaphone, Building2, Link2, User, Loader2, Check, X, Target, Wallet,
-  CalendarDays, ExternalLink, TrendingUp, RefreshCw,
+  Building2, Link2, User, Loader2, Check, X, Target,
+  ExternalLink, TrendingUp, RefreshCw, MapPin, Users, ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { PartnerPropertySheet } from '@portal/components/portal/partner-property-sheet'
 
 type PartnerStatus = 'pedido' | 'aceite' | 'criada' | 'activa' | 'terminada' | 'rejeitada'
 
@@ -42,6 +44,8 @@ interface MetaSummary {
 interface Campaign {
   id: string
   agent_id: string
+  /** Estado geral do pedido (aprovação interna): pending | approved | rejected. */
+  status?: string | null
   partner_status: PartnerStatus
   meta_campaign_id: string | null
   partner_rejection_reason: string | null
@@ -104,6 +108,13 @@ const STATUS_META: Record<PartnerStatus, { label: string; dot: string; chip: str
   activa: { label: 'Activa', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700' },
   terminada: { label: 'Terminada', dot: 'bg-neutral-400', chip: 'bg-neutral-100 text-neutral-600' },
   rejeitada: { label: 'Rejeitada', dot: 'bg-red-500', chip: 'bg-red-50 text-red-700' },
+}
+
+// Estado geral do pedido (aprovação interna) — chip secundário no detalhe.
+const REQUEST_STATUS_META: Record<string, { label: string; dot: string; chip: string }> = {
+  pending: { label: 'Pendente', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700' },
+  approved: { label: 'Aprovado', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Rejeitado', dot: 'bg-red-500', chip: 'bg-red-50 text-red-700' },
 }
 
 const BOARD_COLUMNS: PartnerStatus[] = ['pedido', 'aceite', 'criada', 'activa', 'terminada']
@@ -370,6 +381,8 @@ function CampaignDetailSheet({
   const [refreshing, setRefreshing] = useState(false)
   const [chosenMeta, setChosenMeta] = useState('')
   const [referralPct, setReferralPct] = useState('')
+  // Imóvel aberto no sheet de detalhe (click no cartão Imóvel).
+  const [propertyId, setPropertyId] = useState<string | null>(null)
 
   // Reset transient UI whenever a different campaign opens.
   useEffect(() => {
@@ -378,6 +391,7 @@ function CampaignDetailSheet({
     setLinking(false)
     setChosenMeta('')
     setReferralPct('')
+    setPropertyId(null)
   }, [campaign?.id])
 
   // Read the current (partner-scoped) Meta campaign options from the mirror.
@@ -465,70 +479,135 @@ function CampaignDetailSheet({
   }
 
   return (
+    <>
     <Sheet open={!!campaign} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-[460px]">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Megaphone className="h-5 w-5" />
-            {objective}
-          </SheetTitle>
-          <SheetDescription>
-            Pedido de {c.agent?.commercial_name ?? '—'} · {type ?? 'Campanha'}
-          </SheetDescription>
+      <SheetContent className="w-full overflow-y-auto p-0 sm:max-w-[460px]">
+        <SheetHeader className="sr-only">
+          <SheetTitle>{objective}</SheetTitle>
+          <SheetDescription>Pedido de campanha de {c.agent?.commercial_name ?? '—'}</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-2 space-y-5 px-4 pb-8">
-          {/* Estado actual */}
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${STATUS_META[c.partner_status].chip}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${STATUS_META[c.partner_status].dot}`} />
-              {STATUS_META[c.partner_status].label}
-            </span>
-          </div>
-
-          {c.partner_status === 'rejeitada' && c.partner_rejection_reason && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{c.partner_rejection_reason}</p>
-          )}
-
-          {/* Live Meta data */}
-          {c.meta && (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
-              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                <TrendingUp className="h-3.5 w-3.5" /> Desempenho Meta
-              </div>
-              {c.meta.name && <p className="mb-2 text-sm font-medium text-neutral-800">{c.meta.name}</p>}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <Stat label="Investimento" value={eur(c.meta.spend, c.meta.currency ?? 'EUR')} />
-                <Stat label="Leads" value={c.meta.leads_count} />
-                <Stat label="Anúncios" value={c.meta.ads_count} />
+        <div className="flex flex-col">
+          {/* Hero header */}
+          <div className="bg-gradient-to-br from-sky-500/10 via-sky-500/[0.04] to-transparent px-6 pt-8 pb-6">
+            <div className="flex items-start gap-4">
+              <Avatar className="h-12 w-12 shadow-sm ring-2 ring-white/60">
+                <AvatarFallback className="bg-sky-500/15 text-sm font-bold text-sky-600">
+                  {(c.agent?.commercial_name ?? '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold leading-tight text-neutral-900">{objective}</h3>
+                <p className="mt-0.5 text-sm text-neutral-500">
+                  {c.agent?.commercial_name ?? '—'}{type ? ` · ${type}` : ''}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {c.status && REQUEST_STATUS_META[c.status] && (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${REQUEST_STATUS_META[c.status].chip}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${REQUEST_STATUS_META[c.status].dot}`} />
+                      {REQUEST_STATUS_META[c.status].label}
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_META[c.partner_status].chip}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${STATUS_META[c.partner_status].dot}`} />
+                    {STATUS_META[c.partner_status].label}
+                  </span>
+                  <span className="text-[11px] text-neutral-400">
+                    {new Date(c.created_at).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Detalhes do pedido */}
-          <div className="space-y-2.5">
-            <Detail icon={Target} label="Objectivo & tipo" value={`${objective}${type ? ` · ${type}` : ''}`} />
-            <Detail
-              icon={c.property ? Building2 : Link2}
-              label={c.property ? 'Imóvel' : 'Link'}
-              value={c.property?.title ?? c.promote_url ?? '—'}
-            />
-            <Detail icon={Wallet} label="Orçamento" value={`${eur(c.budget_amount)} ${c.budget_type === 'daily' ? '/dia' : 'total'} · ${c.duration_days} dias`} />
-            {c.start_date && c.end_date && (
-              <Detail
-                icon={CalendarDays}
-                label="Período"
-                value={`${new Date(c.start_date).toLocaleDateString('pt-PT')} – ${new Date(c.end_date).toLocaleDateString('pt-PT')}`}
-              />
-            )}
-            <Detail icon={Wallet} label="Total estimado" value={eur(c.total_cost)} />
-            {c.target_zone && <Detail icon={Target} label="Zona-alvo" value={c.target_zone} />}
-            {(c.target_age_min || c.target_age_max) && (
-              <Detail icon={Target} label="Idades" value={`${c.target_age_min ?? 18}–${c.target_age_max ?? 65}`} />
-            )}
-            {c.target_interests && <Detail icon={Target} label="Interesses" value={c.target_interests} />}
-            <Detail icon={CalendarDays} label="Pedido em" value={new Date(c.created_at).toLocaleDateString('pt-PT')} />
+            {/* Investimento total */}
+            <div className="mt-5 rounded-2xl border border-white/40 bg-white/60 p-4 text-center shadow-sm backdrop-blur-md">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-neutral-400">Investimento Total</p>
+              <p className="mt-1 text-3xl font-extrabold text-neutral-900">{eur(c.total_cost)}</p>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                {c.budget_type === 'daily'
+                  ? `${eur(c.budget_amount)}/dia × ${c.duration_days} dias`
+                  : `Orçamento total · ${c.duration_days} dias`}
+              </p>
+            </div>
           </div>
+
+          {/* Body */}
+          <div className="space-y-4 px-6 py-5">
+            {/* Imóvel / URL — o cartão Imóvel abre o detalhe do imóvel */}
+            {(c.property || c.promote_url) && (
+              <div className="rounded-xl bg-muted/40 p-4">
+                <p className="mb-2.5 text-[9px] font-medium uppercase tracking-wider text-neutral-400">
+                  {c.property ? 'Imóvel' : 'URL de Promoção'}
+                </p>
+                {c.property ? (
+                  <button
+                    type="button"
+                    onClick={() => setPropertyId(c.property!.id)}
+                    className="flex w-full items-center gap-2.5 text-left transition-opacity hover:opacity-80"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
+                      <Building2 className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <span className="truncate text-sm font-medium text-neutral-900">{c.property.title}</span>
+                    <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-neutral-400" />
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
+                      <Link2 className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <span className="truncate text-sm font-medium text-neutral-900">{c.promote_url}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Segmentação */}
+            {(c.target_zone || c.target_age_min || c.target_age_max || c.target_interests) && (
+              <div className="rounded-xl bg-muted/40 p-4">
+                <p className="mb-3 text-[9px] font-medium uppercase tracking-wider text-neutral-400">Segmentação</p>
+                <div className="flex flex-wrap gap-2">
+                  {c.target_zone && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs font-medium">
+                      <MapPin className="h-3 w-3 text-sky-600" />{c.target_zone}
+                    </span>
+                  )}
+                  {(c.target_age_min || c.target_age_max) && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs font-medium">
+                      <Users className="h-3 w-3 text-sky-600" />{c.target_age_min ?? 18}–{c.target_age_max ?? 65} anos
+                    </span>
+                  )}
+                  {c.target_interests && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs font-medium">
+                      <Target className="h-3 w-3 text-sky-600" />{c.target_interests}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Motivo de rejeição */}
+            {c.partner_status === 'rejeitada' && c.partner_rejection_reason && (
+              <div className="rounded-xl border border-red-200/60 bg-red-50/50 p-4">
+                <p className="mb-1.5 text-[9px] font-medium uppercase tracking-wider text-red-500">Motivo de Rejeição</p>
+                <p className="text-sm leading-relaxed text-red-700">{c.partner_rejection_reason}</p>
+              </div>
+            )}
+
+            {/* Desempenho Meta */}
+            {c.meta && (
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  <TrendingUp className="h-3.5 w-3.5" /> Desempenho Meta
+                </div>
+                {c.meta.name && <p className="mb-2 text-sm font-medium text-neutral-800">{c.meta.name}</p>}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <Stat label="Investimento" value={eur(c.meta.spend, c.meta.currency ?? 'EUR')} />
+                  <Stat label="Leads" value={c.meta.leads_count} />
+                  <Stat label="Anúncios" value={c.meta.ads_count} />
+                </div>
+              </div>
+            )}
 
           {c.creative_notes && (
             <div>
@@ -665,21 +744,16 @@ function CampaignDetailSheet({
               )}
             </div>
           )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
-  )
-}
 
-function Detail({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-neutral-400" />
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">{label}</p>
-        <p className="text-sm text-neutral-700">{value}</p>
-      </div>
-    </div>
+    <PartnerPropertySheet
+      propertyId={propertyId}
+      onOpenChange={(o) => !o && setPropertyId(null)}
+    />
+    </>
   )
 }
 

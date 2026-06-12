@@ -64,8 +64,8 @@ export default async function AdDetailPage({
   const { ad_id } = await params
   const { from } = await searchParams
   // "Voltar" honra a página de origem (ex.: imóvel → Interessados → Campanhas).
-  const backHref = from && from.startsWith('/dashboard/') ? from : '/dashboard/analise-meta/ads'
-  const backLabel = backHref === '/dashboard/analise-meta/ads' ? 'Anúncios' : 'Voltar'
+  const backHref = from && from.startsWith('/dashboard/') ? from : '/dashboard/crm/analise?tab=meta'
+  const backLabel = backHref === '/dashboard/crm/analise?tab=meta' ? 'Anúncios' : 'Voltar'
   const supabase = createCrmAdminClient()
 
   const adRes = await supabase

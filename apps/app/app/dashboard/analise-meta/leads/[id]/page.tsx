@@ -145,7 +145,7 @@ export default async function LeadDetailPage({
     <div className="space-y-6">
       <div className="space-y-2">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link href="/dashboard/analise-meta/leads">
+          <Link href="/dashboard/crm/analise?tab=meta">
             <ArrowLeft className="mr-1 h-4 w-4" />
             Voltar
           </Link>

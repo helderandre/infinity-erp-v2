@@ -69,7 +69,7 @@ const SECTIONS: Section[] = [
 ]
 
 // Longest-prefix match across all sections. Items in different sections can
-// share URL prefixes (e.g. Marketing's `/dashboard/crm/analytics` lives under
+// share URL prefixes (e.g. a deep `/dashboard/crm/...` route can sit under
 // CRM's `/dashboard/crm`), so scoring by match length picks the true owner.
 function pathMatchLen(href: string, path: string): number {
   const clean = href.split('?')[0]

@@ -166,7 +166,7 @@ export default async function FormularioDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <Button asChild variant="ghost" size="sm" className="-ml-3">
-            <Link href="/dashboard/analise-meta/formularios">
+            <Link href="/dashboard/crm/analise?tab=meta">
               <ArrowLeft className="mr-1 h-4 w-4" />
               Voltar
             </Link>

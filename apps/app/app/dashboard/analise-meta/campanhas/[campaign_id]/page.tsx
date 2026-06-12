@@ -29,8 +29,8 @@ export default async function CampanhaDetailPage({
   const { from } = await searchParams
   // "Voltar" honra a página de origem (ex.: imóvel → Interessados → Campanhas).
   // Só aceitamos caminhos internos (/dashboard/...) para evitar open-redirect.
-  const backHref = from && from.startsWith('/dashboard/') ? from : '/dashboard/analise-meta/campanhas'
-  const backLabel = backHref === '/dashboard/analise-meta/campanhas' ? 'Campanhas' : 'Voltar'
+  const backHref = from && from.startsWith('/dashboard/') ? from : '/dashboard/crm/analise?tab=meta'
+  const backLabel = backHref === '/dashboard/crm/analise?tab=meta' ? 'Campanhas' : 'Voltar'
   const supabase = createCrmAdminClient()
 
   const detail = await getMetaCampaignDetail(supabase, campaign_id)
