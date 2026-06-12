@@ -21,6 +21,8 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { canManageAttribution } from '@/lib/analise-meta/can-manage-attribution'
+import { getConsultantAssignmentScope } from '@/lib/analise-meta/consultant-scope'
+import { parseDateRange, timestampBounds } from '@/lib/meta/date-range'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,40 +40,31 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
     const from = (page - 1) * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
+    const range = parseDateRange(searchParams)
+    const leadBounds = timestampBounds(range)
+    // Management may scope to one consultor; consultores are always self-scoped.
+    const consultantFilter = canSeeAll ? (searchParams.get('consultant_id')?.trim() || null) : null
 
     const supabase = createCrmAdminClient()
     const canManage = await canManageAttribution(supabase, auth.user.id)
 
-    // Consultor — restringe aos leads das campanhas/anúncios atribuídos a si.
+    // Restrict to the leads of the campaigns/ads attributed to a consultor:
+    // the viewer themselves (consultor) or the chosen consultor (management).
+    const scopeConsultantId = !canSeeAll ? auth.user.id : consultantFilter
     let scopeOr: string | null = null
-    if (!canSeeAll) {
-      const { data: rules } = await supabase
-        .from('leads_assignment_rules')
-        .select('campaign_external_id_match, ad_id_match')
-        .eq('consultant_id', auth.user.id)
-        .eq('is_active', true)
+    if (scopeConsultantId) {
+      const { campaignIds, adIds } = await getConsultantAssignmentScope(supabase, scopeConsultantId)
 
-      const campIds = Array.from(new Set(
-        ((rules ?? []) as { campaign_external_id_match: string | null }[])
-          .map((r) => r.campaign_external_id_match)
-          .filter(Boolean) as string[],
-      ))
-      const adIds = Array.from(new Set(
-        ((rules ?? []) as { ad_id_match: string | null }[])
-          .map((r) => r.ad_id_match)
-          .filter(Boolean) as string[],
-      ))
-
-      if (campIds.length === 0 && adIds.length === 0) {
+      if (campaignIds.length === 0 && adIds.length === 0) {
         // Sem campanhas atribuídas — inbox vazia (não é um erro).
         return NextResponse.json({
           leads: [], total: 0, page, page_size: PAGE_SIZE,
-          can_manage: canManage, mode: 'mine',
+          can_manage: canManage, mode: canSeeAll ? 'all' : 'mine',
         })
       }
 
       const parts: string[] = []
-      if (campIds.length) parts.push(`campaign_id.in.(${campIds.join(',')})`)
+      if (campaignIds.length) parts.push(`campaign_id.in.(${campaignIds.join(',')})`)
       if (adIds.length) parts.push(`ad_id.in.(${adIds.join(',')})`)
       scopeOr = parts.join(',')
     }
@@ -93,6 +86,9 @@ export async function GET(request: Request) {
     if (onlyUnattributed) {
       query = query.eq('processed', false)
     }
+
+    if (leadBounds.gte) query = query.gte('fb_created_time', leadBounds.gte)
+    if (leadBounds.lte) query = query.lte('fb_created_time', leadBounds.lte)
 
     if (q) {
       const safe = q.replace(/%/g, '\\%').replace(/_/g, '\\_')

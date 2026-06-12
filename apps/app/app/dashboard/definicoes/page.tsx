@@ -27,7 +27,6 @@ import {
   Save, Loader2, Users, Landmark, Layers, Plug, Bell, MessageSquare,
   Tags,
 } from 'lucide-react'
-import { MetaIntegrationsClient } from './integracoes/meta/meta-client'
 import { TaxonomyExtrasManager } from '@/components/settings/taxonomy-extras-manager'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -116,25 +115,6 @@ function DefinicoesPageInner() {
 
   const vendaTiers = tiers.filter(t => t.business_type === 'venda')
   const arrendamentoTiers = tiers.filter(t => t.business_type === 'arrendamento')
-
-  // Integrations
-  const [intLoading, setIntLoading] = useState(false)
-  const [intConfig, setIntConfig] = useState<any>(null)
-  const [intAudiences, setIntAudiences] = useState<any[]>([])
-
-  const loadIntegrations = useCallback(async () => {
-    if (intConfig) return
-    setIntLoading(true)
-    try {
-      const [configRes, audRes] = await Promise.all([
-        fetch('/api/settings/integrations/meta'),
-        fetch('/api/meta-ads/audiences'),
-      ])
-      if (configRes.ok) setIntConfig(await configRes.json())
-      if (audRes.ok) { const d = await audRes.json(); setIntAudiences(d.audiences || []) }
-    } catch {}
-    finally { setIntLoading(false) }
-  }, [intConfig])
 
   // ── Roles fetch ──
   const fetchRoles = useCallback(async () => {
@@ -290,7 +270,6 @@ function DefinicoesPageInner() {
       <Tabs value={mainTab} onValueChange={(v) => {
         setMainTab(v)
         if (v === 'financeiro' && tiers.length === 0 && settings.length === 0) loadFinancial()
-        if (v === 'integracoes') loadIntegrations()
       }}>
         <TabsList className="bg-muted/30">
           <TabsTrigger value="roles" className="gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow-sm">
@@ -517,28 +496,19 @@ function DefinicoesPageInner() {
 
         {/* ═══ Integrações Tab ═══ */}
         <TabsContent value="integracoes" className="mt-6">
-          {intLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-80" />
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
-            </div>
-          ) : intConfig ? (
-            <MetaIntegrationsClient
-              webhookUrl={intConfig.webhookUrl}
-              appId={intConfig.appId}
-              hasAppSecret={intConfig.hasAppSecret}
-              hasAccessToken={intConfig.hasAccessToken}
-              hasPixelId={intConfig.hasPixelId}
-              pixelId={intConfig.pixelId}
-              audiences={intAudiences}
-              audiencesError={null}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-              <Plug className="h-8 w-8 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">Clique na tab para carregar as integrações</p>
-            </div>
-          )}
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+            <Plug className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <p className="text-sm font-medium text-foreground">Integração Meta</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              A configuração da integração Meta (webhook, app, token, audiências e sincronização) tem agora uma página dedicada.
+            </p>
+            <Button variant="outline" className="rounded-full mt-4" asChild>
+              <a href="/dashboard/integracoes/meta">
+                <Plug className="mr-2 h-4 w-4" />
+                Abrir Integração Meta
+              </a>
+            </Button>
+          </div>
         </TabsContent>
 
         {/* ═══ CRM Tab ═══ */}

@@ -157,7 +157,6 @@ export const lojaItems = marketingItems
  */
 export const estudioItems = [
   { title: 'Redes Sociais', icon: UserPlus, href: '/dashboard/marketing/redes-sociais' },
-  { title: 'Meta Ads', icon: Target, href: '/dashboard/meta-ads' },
   { title: 'Instagram', icon: Instagram, href: '/dashboard/instagram' },
   { title: 'Recursos', icon: FolderOpen, href: '/dashboard/marketing/recursos', permission: 'marketing' },
 ]
@@ -766,7 +765,7 @@ export function AppSidebar() {
             items={estudioItems}
             pathname={pathname}
             hasPermission={() => true}
-            pathPrefixes={['/dashboard/meta-ads', '/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/marketing/recursos']}
+            pathPrefixes={['/dashboard/instagram', '/dashboard/marketing/redes-sociais', '/dashboard/marketing/recursos']}
           />
         )}
 

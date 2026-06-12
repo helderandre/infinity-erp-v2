@@ -11,7 +11,9 @@ import { NextResponse } from 'next/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
-import { listMetaCampaigns } from '@/lib/meta/campaign-queries'
+import { listMetaCampaigns, getMetaCampaignsGlobalTotals } from '@/lib/meta/campaign-queries'
+import { parseDateRange } from '@/lib/meta/date-range'
+import { getConsultantCampaignIds } from '@/lib/analise-meta/consultant-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,11 +30,22 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q') ?? ''
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
+    const range = parseDateRange(searchParams)
+    const consultantId = searchParams.get('consultant_id')?.trim() || null
 
     const supabase = createCrmAdminClient()
-    const { campaigns, total } = await listMetaCampaigns(supabase, { q, page, pageSize: PAGE_SIZE })
 
-    return NextResponse.json({ campaigns, total, page, page_size: PAGE_SIZE })
+    // Management can scope the grid to one consultor's attributed campaigns.
+    const campaignIds = consultantId
+      ? await getConsultantCampaignIds(supabase, consultantId)
+      : undefined
+
+    const [{ campaigns, total }, totals] = await Promise.all([
+      listMetaCampaigns(supabase, { q, page, pageSize: PAGE_SIZE, campaignIds, range }),
+      getMetaCampaignsGlobalTotals(supabase, { range, campaignIds }),
+    ])
+
+    return NextResponse.json({ campaigns, total, totals, page, page_size: PAGE_SIZE })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Erro a carregar campanhas.' },

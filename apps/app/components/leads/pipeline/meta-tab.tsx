@@ -11,7 +11,7 @@ import { Loader2, Target, Image as ImageIcon, Gift } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatEur } from '@/lib/meta/labels'
+import { formatEur, formatMetaInt, formatMetaPct } from '@/lib/meta/labels'
 
 interface Item {
   key: string
@@ -26,28 +26,44 @@ interface Item {
   assigned_to: string | null
   spend: number | null
   cost_per_lead: number | null
+  impressions: number | null
+  clicks: number | null
+  reach: number | null
+  ctr: number | null
+  cpm: number | null
+  cpc: number | null
   currency: string | null
 }
 
-export function MetaTab() {
+export function MetaTab({ from, to }: { from?: string; to?: string } = {}) {
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<Item[]>([])
   const [totals, setTotals] = useState({ total_leads: 0, in_crm: 0, spend: 0 })
   const [mode, setMode] = useState<'all' | 'mine'>('mine')
 
   useEffect(() => {
+    let active = true
+    setLoading(true)
     ;(async () => {
       try {
-        const res = await fetch('/api/leads/meta-performance')
+        const params = new URLSearchParams()
+        if (from) params.set('from', from)
+        if (to) params.set('to', to)
+        const qs = params.toString()
+        const res = await fetch(`/api/leads/meta-performance${qs ? `?${qs}` : ''}`)
         const json = await res.json()
+        if (!active) return
         setItems(json.items ?? [])
         setTotals(json.totals ?? { total_leads: 0, in_crm: 0, spend: 0 })
         setMode(json.mode === 'all' ? 'all' : 'mine')
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     })()
-  }, [])
+    return () => {
+      active = false
+    }
+  }, [from, to])
 
   if (loading) {
     return (
@@ -121,26 +137,30 @@ export function MetaTab() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-4 text-right">
-                  <div>
-                    <p className="text-sm font-semibold tabular-nums">{it.total_leads}</p>
-                    <p className="text-muted-foreground text-[10px]">leads</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold tabular-nums">{it.in_crm}</p>
-                    <p className="text-muted-foreground text-[10px]">no CRM</p>
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-sm font-semibold tabular-nums">
-                      {it.spend !== null ? formatEur(it.spend, it.currency, { maximumFractionDigits: 0 }) : '—'}
-                    </p>
-                    <p className="text-muted-foreground text-[10px]">gasto</p>
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-sm font-semibold tabular-nums">
-                      {it.cost_per_lead !== null ? formatEur(it.cost_per_lead, it.currency) : '—'}
-                    </p>
-                    <p className="text-muted-foreground text-[10px]">custo/lead</p>
-                  </div>
+                  <Stat value={String(it.total_leads)} label="leads" />
+                  <Stat value={String(it.in_crm)} label="no CRM" />
+                  <Stat
+                    className="hidden sm:block"
+                    value={it.spend !== null ? formatEur(it.spend, it.currency, { maximumFractionDigits: 0 }) : '—'}
+                    label="gasto"
+                  />
+                  <Stat
+                    className="hidden sm:block"
+                    value={it.cost_per_lead !== null ? formatEur(it.cost_per_lead, it.currency) : '—'}
+                    label="custo/lead"
+                  />
+                  <Stat className="hidden lg:block" value={formatMetaInt(it.impressions)} label="impressões" />
+                  <Stat className="hidden lg:block" value={formatMetaInt(it.clicks)} label="cliques" />
+                  <Stat
+                    className="hidden xl:block"
+                    value={it.ctr !== null ? formatMetaPct(it.ctr) : '—'}
+                    label="CTR"
+                  />
+                  <Stat
+                    className="hidden xl:block"
+                    value={it.cpm !== null ? formatEur(it.cpm, it.currency) : '—'}
+                    label="CPM"
+                  />
                 </div>
               </li>
             ))}
@@ -156,6 +176,15 @@ function Kpi({ label, value }: { label: string; value: number | string }) {
     <div className="bg-card rounded-lg border p-4">
       <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+    </div>
+  )
+}
+
+function Stat({ value, label, className }: { value: string; label: string; className?: string }) {
+  return (
+    <div className={className}>
+      <p className="text-sm font-semibold tabular-nums">{value}</p>
+      <p className="text-muted-foreground text-[10px]">{label}</p>
     </div>
   )
 }

@@ -12,7 +12,11 @@ import {
   getInsightKpis,
   getInsightTotalsByObject,
   type InsightKpis,
+  type InsightObjectTotals,
 } from './insights-kpis'
+import { timestampBounds, type MetaDateRange } from './date-range'
+
+const INSIGHT_SCAN_LIMIT = 20000
 
 type AdminClient = ReturnType<typeof createCrmAdminClient>
 
@@ -32,6 +36,8 @@ export interface MetaCampaignListItem {
   ads_count: number
   leads_count: number
   spend: number | null
+  impressions: number | null
+  clicks: number | null
   currency: string | null
 }
 
@@ -118,7 +124,8 @@ export async function listMetaCampaigns(
     page = 1,
     pageSize = 30,
     campaignIds,
-  }: { q?: string; page?: number; pageSize?: number; campaignIds?: string[] },
+    range,
+  }: { q?: string; page?: number; pageSize?: number; campaignIds?: string[]; range?: MetaDateRange },
 ): Promise<{ campaigns: MetaCampaignListItem[]; total: number }> {
   // Scope to an explicit allow-list of campaign_ids (used by the Parceiros
   // app to show only the campaigns a partner manages/references). An empty
@@ -161,17 +168,23 @@ export async function listMetaCampaigns(
 
   const rows = (data ?? []) as CampaignRow[]
   const ids = rows.map((c) => c.campaign_id)
+  const leadBounds = timestampBounds(range ?? {})
 
   const [adsRes, leadsRes, spendByCamp] = await Promise.all([
     ids.length
       ? supabase.schema('meta').from('meta_ads_raw').select('campaign_id').in('campaign_id', ids).limit(5000)
       : Promise.resolve({ data: [] as { campaign_id: string | null }[] }),
     ids.length
-      ? supabase.schema('meta').from('meta_leads_raw').select('campaign_id').in('campaign_id', ids).limit(8000)
+      ? (() => {
+          let lq = supabase.schema('meta').from('meta_leads_raw').select('campaign_id').in('campaign_id', ids)
+          if (leadBounds.gte) lq = lq.gte('fb_created_time', leadBounds.gte)
+          if (leadBounds.lte) lq = lq.lte('fb_created_time', leadBounds.lte)
+          return lq.limit(8000)
+        })()
       : Promise.resolve({ data: [] as { campaign_id: string | null }[] }),
     ids.length
-      ? getInsightTotalsByObject(supabase, 'campaign', ids)
-      : Promise.resolve({} as Record<string, { spend: number; leads: number; currency: string | null }>),
+      ? getInsightTotalsByObject(supabase, 'campaign', ids, range)
+      : Promise.resolve({} as Record<string, InsightObjectTotals>),
   ])
   const adsByCamp = countBy(adsRes.data ?? [])
   const leadsByCamp = countBy(leadsRes.data ?? [])
@@ -181,10 +194,246 @@ export async function listMetaCampaigns(
     ads_count: adsByCamp[c.campaign_id] ?? 0,
     leads_count: leadsByCamp[c.campaign_id] ?? 0,
     spend: spendByCamp[c.campaign_id]?.spend ?? null,
+    impressions: spendByCamp[c.campaign_id]?.impressions ?? null,
+    clicks: spendByCamp[c.campaign_id]?.clicks ?? null,
     currency: spendByCamp[c.campaign_id]?.currency ?? null,
   }))
 
   return { campaigns, total: count ?? 0 }
+}
+
+export interface MetaCampaignsGlobalTotals {
+  spend: number
+  impressions: number
+  clicks: number
+  leads: number
+  currency: string | null
+}
+
+/**
+ * Account-wide totals for the metric cards above the campaigns grid (matches
+ * the Meta Ads page header cards). Spend/impressions/clicks come from the
+ * campaign-level insight mirror; leads is the raw lead count. Independent of
+ * pagination so the cards reflect the whole dataset, not the current page.
+ */
+export async function getMetaCampaignsGlobalTotals(
+  supabase: AdminClient,
+  { range, campaignIds }: { range?: MetaDateRange; campaignIds?: string[] } = {},
+): Promise<MetaCampaignsGlobalTotals> {
+  // Scoped to a consultor's campaigns? An empty allow-list means "nothing".
+  if (campaignIds && campaignIds.length === 0) {
+    return { spend: 0, impressions: 0, clicks: 0, leads: 0, currency: null }
+  }
+  const leadBounds = timestampBounds(range ?? {})
+
+  let insightsQuery = supabase
+    .schema('meta')
+    .from('meta_insights_raw')
+    .select('spend, impressions, clicks, account_currency')
+    .eq('level', 'campaign')
+  if (campaignIds && campaignIds.length) insightsQuery = insightsQuery.in('object_id', campaignIds)
+  if (range?.from) insightsQuery = insightsQuery.gte('date_start', range.from)
+  if (range?.to) insightsQuery = insightsQuery.lte('date_start', range.to)
+
+  let leadsCountQuery = supabase.schema('meta').from('meta_leads_raw').select('id', { count: 'exact', head: true })
+  if (campaignIds && campaignIds.length) leadsCountQuery = leadsCountQuery.in('campaign_id', campaignIds)
+  if (leadBounds.gte) leadsCountQuery = leadsCountQuery.gte('fb_created_time', leadBounds.gte)
+  if (leadBounds.lte) leadsCountQuery = leadsCountQuery.lte('fb_created_time', leadBounds.lte)
+
+  const [insightsRes, leadsCountRes] = await Promise.all([
+    insightsQuery.limit(INSIGHT_SCAN_LIMIT),
+    leadsCountQuery,
+  ])
+
+  const acc: MetaCampaignsGlobalTotals = { spend: 0, impressions: 0, clicks: 0, leads: 0, currency: null }
+  for (const r of (insightsRes.data ?? []) as Array<{
+    spend: number | null
+    impressions: number | null
+    clicks: number | null
+    account_currency: string | null
+  }>) {
+    acc.spend += Number(r.spend ?? 0)
+    acc.impressions += Number(r.impressions ?? 0)
+    acc.clicks += Number(r.clicks ?? 0)
+    if (!acc.currency && r.account_currency) acc.currency = r.account_currency
+  }
+  acc.leads = leadsCountRes.count ?? 0
+  return acc
+}
+
+export interface MetaCampaignAdItem {
+  id: string
+  ad_id: string
+  name: string | null
+  status: string | null
+  adset_id: string | null
+  creative_name: string | null
+  leads_count: number
+  spend: number | null
+  impressions: number | null
+  clicks: number | null
+  ctr: number | null
+  cost_per_lead: number | null
+  currency: string | null
+}
+
+/** Sentinel adset_id for ads that have no adset (mirrors the detail funnel). */
+export const NO_ADSET = '__none__'
+
+export interface MetaCampaignAdsetGroup {
+  adset_id: string
+  /** real adset name (live Graph, best-effort) — null when unavailable */
+  name: string | null
+  /** real adset configured status (live Graph) — null when unavailable */
+  status: string | null
+  leads_count: number
+  spend: number | null
+  impressions: number | null
+  clicks: number | null
+  ctr: number | null
+  cost_per_lead: number | null
+  currency: string | null
+  ads: MetaCampaignAdItem[]
+}
+
+/**
+ * Best-effort live lookup of a campaign's adsets (name + configured status) from
+ * the Graph API. Adsets aren't synced to the mirror, so this is the only source
+ * for their name/status — used to label adset groups and drive the pause/activate
+ * toggle. Returns an empty map when the token is missing or the call fails.
+ */
+async function fetchAdsetMeta(campaignId: string): Promise<Map<string, { name: string | null; status: string | null }>> {
+  const out = new Map<string, { name: string | null; status: string | null }>()
+  const token = process.env.META_ACCESS_TOKEN
+  if (!token) return out
+  try {
+    const url = `https://graph.facebook.com/v21.0/${campaignId}/adsets?fields=id,name,status&limit=500&access_token=${token}`
+    const res = await fetch(url)
+    if (!res.ok) return out
+    const body = await res.json()
+    for (const a of (body.data ?? []) as Array<{ id: string; name?: string; status?: string }>) {
+      out.set(a.id, { name: a.name ?? null, status: a.status ?? null })
+    }
+  } catch {
+    // best-effort — groups just render without name/status
+  }
+  return out
+}
+
+/**
+ * Ads of a single campaign grouped by adset_id (same grouping as the campaign
+ * detail funnel), each ad + each adset group enriched with insight totals and
+ * lead counts. Powers the lazy accordion expansion under a campaign row
+ * (campaign → adset → ad), mirroring the Meta Ads page. Adsets aren't synced
+ * as their own entity, so the group is keyed/labelled by adset_id; ads without
+ * an adset fall into the NO_ADSET group, which is sorted last.
+ */
+export async function listCampaignAdsetGroups(
+  supabase: AdminClient,
+  campaignId: string,
+  range?: MetaDateRange,
+): Promise<MetaCampaignAdsetGroup[]> {
+  const leadBounds = timestampBounds(range ?? {})
+  const [adsRes, leadsRes] = await Promise.all([
+    supabase
+      .schema('meta')
+      .from('meta_ads_raw')
+      .select('id, ad_id, name, status, adset_id, creative_name, fb_created_time')
+      .eq('campaign_id', campaignId)
+      .order('fb_created_time', { ascending: false, nullsFirst: false }),
+    (() => {
+      let lq = supabase.schema('meta').from('meta_leads_raw').select('ad_id').eq('campaign_id', campaignId)
+      if (leadBounds.gte) lq = lq.gte('fb_created_time', leadBounds.gte)
+      if (leadBounds.lte) lq = lq.lte('fb_created_time', leadBounds.lte)
+      return lq.limit(DETAIL_LEAD_SCAN)
+    })(),
+  ])
+
+  const ads = (adsRes.data ?? []) as AdRow[]
+  const leadsByAd = countByAd((leadsRes.data ?? []) as { ad_id: string | null }[])
+  const adIds = ads.map((a) => a.ad_id)
+  const insightsByAd = await getInsightTotalsByObject(supabase, 'ad', adIds, range)
+
+  const adItems: MetaCampaignAdItem[] = ads.map((a) => {
+    const ins = insightsByAd[a.ad_id]
+    const leads_count = leadsByAd[a.ad_id] ?? 0
+    return {
+      id: a.id,
+      ad_id: a.ad_id,
+      name: a.name,
+      status: a.status,
+      adset_id: a.adset_id,
+      creative_name: a.creative_name,
+      leads_count,
+      spend: ins?.spend ?? null,
+      impressions: ins?.impressions ?? null,
+      clicks: ins?.clicks ?? null,
+      ctr: ins && ins.impressions > 0 ? (ins.clicks / ins.impressions) * 100 : null,
+      cost_per_lead: ins && leads_count > 0 ? ins.spend / leads_count : null,
+      currency: ins?.currency ?? null,
+    }
+  })
+
+  // Group by adset_id, preserving first-seen order; each group totals = sum of
+  // its ads (so the group row always equals the visible ad rows beneath it).
+  const groups = new Map<string, MetaCampaignAdsetGroup>()
+  for (const ad of adItems) {
+    const key = ad.adset_id ?? NO_ADSET
+    let g = groups.get(key)
+    if (!g) {
+      g = {
+        adset_id: key,
+        name: null,
+        status: null,
+        leads_count: 0,
+        spend: null,
+        impressions: null,
+        clicks: null,
+        ctr: null,
+        cost_per_lead: null,
+        currency: null,
+        ads: [],
+      }
+      groups.set(key, g)
+    }
+    g.ads.push(ad)
+    g.leads_count += ad.leads_count
+    if (ad.spend !== null) g.spend = (g.spend ?? 0) + ad.spend
+    if (ad.impressions !== null) g.impressions = (g.impressions ?? 0) + ad.impressions
+    if (ad.clicks !== null) g.clicks = (g.clicks ?? 0) + ad.clicks
+    if (!g.currency && ad.currency) g.currency = ad.currency
+  }
+
+  const result = Array.from(groups.values())
+  for (const g of result) {
+    g.ctr = g.impressions && g.impressions > 0 ? ((g.clicks ?? 0) / g.impressions) * 100 : null
+    g.cost_per_lead = g.spend !== null && g.leads_count > 0 ? g.spend / g.leads_count : null
+  }
+
+  // Live-enrich adset name + status (the mirror has neither) — best-effort.
+  const adsetMeta = await fetchAdsetMeta(campaignId)
+  if (adsetMeta.size) {
+    for (const g of result) {
+      const meta = adsetMeta.get(g.adset_id)
+      if (meta) {
+        g.name = meta.name
+        g.status = meta.status
+      }
+    }
+  }
+
+  // Named adsets first, the "no adset" bucket last.
+  result.sort((a, b) => (a.adset_id === NO_ADSET ? 1 : 0) - (b.adset_id === NO_ADSET ? 1 : 0))
+  return result
+}
+
+function countByAd(rows: { ad_id: string | null }[]): Record<string, number> {
+  const map: Record<string, number> = {}
+  for (const r of rows) {
+    if (!r.ad_id) continue
+    map[r.ad_id] = (map[r.ad_id] ?? 0) + 1
+  }
+  return map
 }
 
 export interface MetaCampaignDetail {
@@ -218,7 +467,22 @@ interface AdRow {
 export async function getMetaCampaignDetail(
   supabase: AdminClient,
   campaignId: string,
+  range?: MetaDateRange,
 ): Promise<MetaCampaignDetail | null> {
+  const leadBounds = timestampBounds(range ?? {})
+  const leadsCountQuery = (() => {
+    let q = supabase.schema('meta').from('meta_leads_raw').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId)
+    if (leadBounds.gte) q = q.gte('fb_created_time', leadBounds.gte)
+    if (leadBounds.lte) q = q.lte('fb_created_time', leadBounds.lte)
+    return q
+  })()
+  const leadsScanQuery = (() => {
+    let q = supabase.schema('meta').from('meta_leads_raw').select('id, ad_id, form_id, processed').eq('campaign_id', campaignId)
+    if (leadBounds.gte) q = q.gte('fb_created_time', leadBounds.gte)
+    if (leadBounds.lte) q = q.lte('fb_created_time', leadBounds.lte)
+    return q.limit(DETAIL_LEAD_SCAN)
+  })()
+
   const [campRes, adsRes, leadsCountRes, leadsRes, insightKpis] = await Promise.all([
     supabase.schema('meta').from('meta_campaigns_raw').select('*').eq('campaign_id', campaignId).maybeSingle(),
     supabase
@@ -227,14 +491,9 @@ export async function getMetaCampaignDetail(
       .select('id, ad_id, name, status, adset_id, creative_name, fb_created_time')
       .eq('campaign_id', campaignId)
       .order('fb_created_time', { ascending: false, nullsFirst: false }),
-    supabase.schema('meta').from('meta_leads_raw').select('id', { count: 'exact', head: true }).eq('campaign_id', campaignId),
-    supabase
-      .schema('meta')
-      .from('meta_leads_raw')
-      .select('id, ad_id, form_id, processed')
-      .eq('campaign_id', campaignId)
-      .limit(DETAIL_LEAD_SCAN),
-    getInsightKpis(supabase, 'campaign', campaignId),
+    leadsCountQuery,
+    leadsScanQuery,
+    getInsightKpis(supabase, 'campaign', campaignId, range),
   ])
 
   if (!campRes.data) return null

@@ -1,9 +1,12 @@
 /**
- * GET /api/analise-meta/campaigns/[campaign_id]
+ * GET /api/analise-meta/campaigns/[campaign_id]/ads
  *
- * Full campaign detail payload (header + summary KPIs + adset/ad funnel +
- * insight KPIs) for the inline drill-in in the CRM → Análise → Meta tab.
- * Management-only — same audience as the standalone Análise Meta page.
+ * A campaign's ads grouped by adset (campaign → adset → ad), each ad + each
+ * adset group enriched with insight totals (spend/impressions/clicks/CTR/CPL)
+ * and lead counts. Powers the lazy accordion expansion under a campaign row in
+ * the CRM → Análise → Meta tab (mirrors the Meta Ads page funnel).
+ *
+ * Management-only — reads the whole `meta` schema with the admin client.
  */
 
 import { NextResponse } from 'next/server'
@@ -11,7 +14,7 @@ import { NextResponse } from 'next/server'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
-import { getMetaCampaignDetail } from '@/lib/meta/campaign-queries'
+import { listCampaignAdsetGroups } from '@/lib/meta/campaign-queries'
 import { parseDateRange } from '@/lib/meta/date-range'
 
 export const dynamic = 'force-dynamic'
@@ -30,13 +33,12 @@ export async function GET(
     const { campaign_id } = await params
     const range = parseDateRange(new URL(request.url).searchParams)
     const supabase = createCrmAdminClient()
-    const detail = await getMetaCampaignDetail(supabase, campaign_id, range)
+    const adsetGroups = await listCampaignAdsetGroups(supabase, campaign_id, range)
 
-    if (!detail) return NextResponse.json({ error: 'not found' }, { status: 404 })
-    return NextResponse.json(detail)
+    return NextResponse.json({ adsetGroups })
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Erro a carregar campanha.' },
+      { error: e instanceof Error ? e.message : 'Erro a carregar anúncios.' },
       { status: 500 },
     )
   }

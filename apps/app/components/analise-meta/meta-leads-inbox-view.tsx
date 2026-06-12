@@ -1,11 +1,12 @@
 'use client'
 
 /**
- * Inbox de leads Meta — sub-tab Leads em CRM → Análise → Meta. Pesquisa,
- * filtro "Por atribuir", paginação e atribuição manual, alimentada por
- * GET /api/analise-meta/leads. Totalmente auto-contida: o detalhe do lead
- * abre num <LeadDetailSheet> inline (a secção standalone /dashboard/analise-meta
- * está em vias de ser removida — não linkar para lá).
+ * Inbox de leads Meta — sub-tab Leads em CRM → Análise → Meta. Lista limpa dos
+ * leads recebidos (pesquisa + paginação), alimentada por GET /api/analise-meta/
+ * leads. O detalhe abre num <LeadDetailSheet> inline.
+ *
+ * É uma vista de leitura para gestão de leads: NÃO mostra estado de atribuição
+ * nem acções de atribuir/reatribuir — isso é gerido nas regras de atribuição.
  *
  * Scope: gestão vê todos os leads; um consultor vê apenas os leads das
  * campanhas/anúncios atribuídos a si (enforced server-side, mode='mine').
@@ -14,41 +15,27 @@
 import { useEffect, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
-import {
-  CheckCircle2, Clock, Loader2, Mail, Phone, Search, User,
-} from 'lucide-react'
+import { Clock, Loader2, Mail, Phone, Search, User } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Card, CardContent, CardHeader, CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useDebounce } from '@/hooks/use-debounce'
-import { cn } from '@/lib/utils'
-import { AssignLeadButton } from '@/components/analise-meta/assign-lead-button'
 import { LeadDetailSheet } from '@/components/analise-meta/lead-detail-sheet'
 
 const PAGE_SIZE = 50
 
 type LeadRow = {
   id: string
-  leadgen_id: string
   email: string | null
   full_name: string | null
   phone: string | null
-  form_id: string | null
-  ad_id: string | null
   campaign_id: string | null
-  signature_valid: boolean
   received_at: string
   fb_created_time: string | null
-  processed: boolean
-  lead_id: string | null
-  form_name: string | null
   campaign_name: string | null
   ad_name: string | null
 }
@@ -58,26 +45,35 @@ function fmtRelative(iso: string | null): string {
   return formatDistanceToNow(new Date(iso), { locale: pt, addSuffix: true })
 }
 
-export function MetaLeadsInboxView() {
+export function MetaLeadsInboxView({
+  from,
+  to,
+  consultantId,
+}: {
+  from?: string
+  to?: string
+  consultantId?: string | null
+} = {}) {
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [total, setTotal] = useState(0)
-  const [canManage, setCanManage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
   const [mode, setMode] = useState<'all' | 'mine'>('all')
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebounce(query, 300)
-  const [onlyUnattributed, setOnlyUnattributed] = useState(false)
   const [page, setPage] = useState(1)
-  const [reloadKey, setReloadKey] = useState(0)
   const [openLeadId, setOpenLeadId] = useState<string | null>(null)
 
+  // (Filter changes remount this view via a `key` in the parent, so page resets
+  // to 1 automatically — no separate reset effect needed.)
   useEffect(() => {
     let active = true
     setLoading(true)
     const params = new URLSearchParams({ page: String(page) })
     if (debouncedQuery.trim()) params.set('q', debouncedQuery.trim())
-    if (onlyUnattributed) params.set('status', 'por_atribuir')
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    if (consultantId) params.set('consultant_id', consultantId)
     fetch(`/api/analise-meta/leads?${params}`)
       .then(async (r) => {
         if (r.status === 403) {
@@ -90,7 +86,6 @@ export function MetaLeadsInboxView() {
         if (!active || !j) return
         setLeads(j.leads ?? [])
         setTotal(j.total ?? 0)
-        setCanManage(j.can_manage === true)
         setMode(j.mode === 'mine' ? 'mine' : 'all')
       })
       .catch(() => {})
@@ -100,7 +95,7 @@ export function MetaLeadsInboxView() {
     return () => {
       active = false
     }
-  }, [debouncedQuery, onlyUnattributed, page, reloadKey])
+  }, [debouncedQuery, page, from, to, consultantId])
 
   if (forbidden) {
     return (
@@ -128,33 +123,8 @@ export function MetaLeadsInboxView() {
           />
         </div>
         <p className="text-muted-foreground text-xs tabular-nums">
-          {total} lead{total === 1 ? '' : 's'} {onlyUnattributed ? 'por atribuir' : 'no total'}
+          {total} lead{total === 1 ? '' : 's'}
         </p>
-      </div>
-
-      {/* Quick filters */}
-      <div className="flex items-center gap-2">
-        {([
-          { active: !onlyUnattributed, label: 'Todos', value: false },
-          { active: onlyUnattributed, label: 'Por atribuir', value: true },
-        ] as const).map((f) => (
-          <button
-            key={f.label}
-            type="button"
-            onClick={() => {
-              setOnlyUnattributed(f.value)
-              setPage(1)
-            }}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              f.active
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'text-muted-foreground hover:bg-muted',
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
       </div>
 
       {loading ? (
@@ -170,93 +140,60 @@ export function MetaLeadsInboxView() {
               : 'Ainda não há leads Meta sincronizados.'}
         </div>
       ) : (
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="text-base">Leads recebidos</CardTitle>
-          </CardHeader>
+        <Card className="overflow-hidden">
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Contacto</TableHead>
-                  <TableHead className="hidden md:table-cell">Formulário / Campanha</TableHead>
-                  <TableHead className="w-[140px]">Criado</TableHead>
-                  <TableHead className="w-[110px]">Estado</TableHead>
+                  <TableHead className="hidden md:table-cell">Campanha</TableHead>
+                  <TableHead className="w-[150px]">Criado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leads.map((lead) => (
-                  <TableRow key={lead.id}>
+                  <TableRow
+                    key={lead.id}
+                    className="cursor-pointer"
+                    onClick={() => setOpenLeadId(lead.id)}
+                  >
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setOpenLeadId(lead.id)}
-                          className="flex items-center gap-1.5 text-left font-medium hover:underline"
-                        >
-                          <User className="text-muted-foreground h-3.5 w-3.5" />
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <User className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
                           {lead.full_name ?? '—'}
-                        </button>
+                        </span>
                         {lead.email && (
                           <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                            <Mail className="h-3 w-3" />
-                            {lead.email}
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{lead.email}</span>
                           </span>
                         )}
                         {lead.phone && (
                           <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                            <Phone className="h-3 w-3" />
+                            <Phone className="h-3 w-3 shrink-0" />
                             {lead.phone}
                           </span>
                         )}
-                        <span className="text-muted-foreground font-mono text-[10px]">
-                          ID Facebook: {lead.leadgen_id}
-                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <div className="flex flex-col gap-0.5 text-xs">
-                        <RelatedInfo label="Formulário" id={lead.form_id} name={lead.form_name} />
-                        <RelatedInfo label="Campanha" id={lead.campaign_id} name={lead.campaign_name} />
-                        <RelatedInfo label="Anúncio" id={lead.ad_id} name={lead.ad_name} />
-                      </div>
+                      {lead.campaign_name ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm">{lead.campaign_name}</span>
+                          {lead.ad_name && (
+                            <span className="text-muted-foreground text-xs">{lead.ad_name}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground/70 text-sm">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span className="text-muted-foreground flex items-center gap-1 text-xs">
                         <Clock className="h-3 w-3" />
                         {fmtRelative(lead.fb_created_time ?? lead.received_at)}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col items-start gap-1">
-                        {lead.processed ? (
-                          <Badge variant="default" className="gap-1 text-[10px]">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Processado
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px]">
-                            Por processar
-                          </Badge>
-                        )}
-                        {!lead.signature_valid && (
-                          <Badge variant="destructive" className="text-[10px]">
-                            Assinatura inválida
-                          </Badge>
-                        )}
-                        {lead.lead_id && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            Associado
-                          </Badge>
-                        )}
-                        {!lead.processed && canManage && (
-                          <AssignLeadButton
-                            leadId={lead.id}
-                            leadName={lead.full_name}
-                            onAssigned={() => setReloadKey((k) => k + 1)}
-                          />
-                        )}
-                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -297,36 +234,5 @@ export function MetaLeadsInboxView() {
         onOpenChange={(o) => !o && setOpenLeadId(null)}
       />
     </div>
-  )
-}
-
-function RelatedInfo({
-  label,
-  id,
-  name,
-}: {
-  label: string
-  id: string | null
-  name: string | null
-}) {
-  if (!id) {
-    return (
-      <span className="text-muted-foreground">
-        {label}: <span className="text-muted-foreground/70">—</span>
-      </span>
-    )
-  }
-
-  return (
-    <span className="text-muted-foreground">
-      {label}:{' '}
-      {name ? (
-        <span className="text-foreground">{name}</span>
-      ) : (
-        <span className="font-mono text-[10px]" title={id}>
-          {id}
-        </span>
-      )}
-    </span>
   )
 }

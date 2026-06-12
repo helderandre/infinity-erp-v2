@@ -17,6 +17,7 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
 import { getInsightTotalsByObject } from '@/lib/meta/insights-kpis'
+import { parseDateRange, timestampBounds } from '@/lib/meta/date-range'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,10 +39,16 @@ interface Item {
   spend: number | null
   /** custo por lead = spend ÷ total_leads (aproximação) */
   cost_per_lead: number | null
+  impressions: number | null
+  clicks: number | null
+  reach: number | null
+  ctr: number | null
+  cpm: number | null
+  cpc: number | null
   currency: string | null
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const auth = await requireAuth()
     if (!auth.authorized) return auth.response
@@ -49,12 +56,17 @@ export async function GET() {
     const canSeeAll = isManagementRole(auth.roles)
     const db = createCrmAdminClient()
 
+    const range = parseDateRange(new URL(request.url).searchParams)
+    const leadBounds = timestampBounds(range)
+
     // One scan of the raw leads → per-campaign / per-ad counts.
-    const { data: leadRows } = await db
+    let leadScan = db
       .schema('meta')
       .from('meta_leads_raw')
       .select('campaign_id, ad_id, processed')
-      .limit(LEAD_SCAN_LIMIT)
+    if (leadBounds.gte) leadScan = leadScan.gte('fb_created_time', leadBounds.gte)
+    if (leadBounds.lte) leadScan = leadScan.lte('fb_created_time', leadBounds.lte)
+    const { data: leadRows } = await leadScan.limit(LEAD_SCAN_LIMIT)
 
     const totalByCamp: Record<string, number> = {}
     const crmByCamp: Record<string, number> = {}
@@ -107,6 +119,12 @@ export async function GET() {
           assigned_to: rule?.consultant_id ? nameById.get(rule.consultant_id) ?? null : null,
           spend: null,
           cost_per_lead: null,
+          impressions: null,
+          clicks: null,
+          reach: null,
+          ctr: null,
+          cpm: null,
+          cpc: null,
           currency: null,
         }
       })
@@ -149,6 +167,12 @@ export async function GET() {
           assigned_to: null,
           spend: null,
           cost_per_lead: null,
+          impressions: null,
+          clicks: null,
+          reach: null,
+          ctr: null,
+          cpm: null,
+          cpc: null,
           currency: null,
         }
       })
@@ -160,8 +184,8 @@ export async function GET() {
     const campIds = items.filter((i) => i.scope === 'campaign').map((i) => i.target_id)
     const adIds = items.filter((i) => i.scope === 'ad').map((i) => i.target_id)
     const [campTotals, adTotals] = await Promise.all([
-      getInsightTotalsByObject(db, 'campaign', campIds),
-      getInsightTotalsByObject(db, 'ad', adIds),
+      getInsightTotalsByObject(db, 'campaign', campIds, range),
+      getInsightTotalsByObject(db, 'ad', adIds, range),
     ])
     for (const it of items) {
       const t = it.scope === 'ad' ? adTotals[it.target_id] : campTotals[it.target_id]
@@ -169,6 +193,12 @@ export async function GET() {
       it.spend = t.spend
       it.currency = t.currency
       it.cost_per_lead = it.total_leads > 0 ? t.spend / it.total_leads : null
+      it.impressions = t.impressions
+      it.clicks = t.clicks
+      it.reach = t.reach
+      it.ctr = t.impressions > 0 ? (t.clicks / t.impressions) * 100 : null
+      it.cpm = t.impressions > 0 ? (t.spend / t.impressions) * 1000 : null
+      it.cpc = t.clicks > 0 ? t.spend / t.clicks : null
     }
 
     let totals = items.reduce(
@@ -185,10 +215,20 @@ export async function GET() {
     // colapsa em cada backfill). Sem isto, leads/CRM/gasto podiam dar 0 mesmo
     // com dados — contamos directo às tabelas do mirror.
     if (canSeeAll) {
+      const buildLeadCount = (processedOnly: boolean) => {
+        let lq = db.schema('meta').from('meta_leads_raw').select('*', { count: 'exact', head: true })
+        if (processedOnly) lq = lq.eq('processed', true)
+        if (leadBounds.gte) lq = lq.gte('fb_created_time', leadBounds.gte)
+        if (leadBounds.lte) lq = lq.lte('fb_created_time', leadBounds.lte)
+        return lq
+      }
+      let spendQuery = db.schema('meta').from('meta_insights_raw').select('spend').eq('level', 'campaign')
+      if (range.from) spendQuery = spendQuery.gte('date_start', range.from)
+      if (range.to) spendQuery = spendQuery.lte('date_start', range.to)
       const [leadsCountRes, crmCountRes, spendRowsRes] = await Promise.all([
-        db.schema('meta').from('meta_leads_raw').select('*', { count: 'exact', head: true }),
-        db.schema('meta').from('meta_leads_raw').select('*', { count: 'exact', head: true }).eq('processed', true),
-        db.schema('meta').from('meta_insights_raw').select('spend').eq('level', 'campaign').limit(20000),
+        buildLeadCount(false),
+        buildLeadCount(true),
+        spendQuery.limit(20000),
       ])
       const spendAll = ((spendRowsRes.data ?? []) as Array<{ spend: number | null }>)
         .reduce((s, r) => s + Number(r.spend ?? 0), 0)
