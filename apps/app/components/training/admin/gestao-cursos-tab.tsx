@@ -159,9 +159,9 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
   return (
     <div className="space-y-5">
       {/* ─── Toolbar ─── */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-0 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Pesquisar formações..."
