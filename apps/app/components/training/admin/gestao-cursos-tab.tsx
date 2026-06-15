@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, ChevronLeft, ChevronRight, Search, MoreHorizontal,
-  Pencil, Globe, Archive, Eye, X, GraduationCap, LayoutGrid, List, BarChart3,
+  Pencil, Globe, Archive, Eye, X, GraduationCap, LayoutGrid, List, BarChart3, Filter,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
@@ -14,11 +14,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
-  Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
-} from '@/components/ui/table'
-import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -31,6 +31,8 @@ import { useDebounce } from '@/hooks/use-debounce'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { CourseAdminCard } from './course-admin-card'
+import { CourseActivitySheet } from './course-activity-sheet'
+import { CourseEditSheet } from './course-edit-sheet'
 import type { TrainingCourse, TrainingCategory } from '@/types/training'
 
 const PAGE_SIZE = 20
@@ -54,6 +56,8 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const [page, setPage] = useState(0)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [activityCourseId, setActivityCourseId] = useState<string | null>(null)
+  const [editCourseId, setEditCourseId] = useState<string | null>(null)
   const debouncedSearch = useDebounce(search, 300)
 
   // Fetch categories for filter
@@ -142,7 +146,8 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
-  const hasFilters = search || statusFilter !== 'all' || categoryFilter !== 'all' || difficultyFilter !== 'all'
+  const activeFilterCount = [statusFilter, categoryFilter, difficultyFilter].filter(v => v !== 'all').length
+  const hasFilters = search || activeFilterCount > 0
 
   const clearFilters = () => {
     setSearch('')
@@ -171,44 +176,77 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
           )}
         </div>
 
-        {/* Status Select */}
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            {TRAINING_COURSE_STATUS_OPTIONS.map(s => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Filtros — agrupados num único botão com popup */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="rounded-full gap-1" title="Filtros">
+              <Filter className="h-3.5 w-3.5" />
+              {activeFilterCount > 0 && (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Estado</p>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {TRAINING_COURSE_STATUS_OPTIONS.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Category Select */}
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {categories.map(c => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Categoria</p>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {categories.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Difficulty Select */}
-        <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Dificuldade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {TRAINING_DIFFICULTY_OPTIONS.map(d => (
-              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Dificuldade</p>
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Dificuldade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {TRAINING_DIFFICULTY_OPTIONS.map(d => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {activeFilterCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full rounded-full text-xs"
+                onClick={() => { setStatusFilter('all'); setCategoryFilter('all'); setDifficultyFilter('all') }}
+              >
+                <X className="mr-1 h-3.5 w-3.5" />
+                Limpar filtros
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
 
         {/* Spacer */}
         <div className="flex-1" />
@@ -237,10 +275,10 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
           </button>
         </div>
 
-        {/* Create button */}
-        <Button size="sm" onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nova Formação
+        {/* Create button — só "+" em mobile */}
+        <Button size="sm" onClick={onCreateClick} title="Nova Formação">
+          <Plus className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Nova Formação</span>
         </Button>
       </div>
 
@@ -283,84 +321,82 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
           ))}
         </div>
       ) : (
-        /* ─── Table View ─── */
-        <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Título</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Categoria</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Dificuldade</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Criado</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {courses.map(course => {
-                const statusOpt = TRAINING_COURSE_STATUS_OPTIONS.find(s => s.value === course.status)
-                const diffConfig = TRAINING_DIFFICULTY_COLORS[course.difficulty_level as keyof typeof TRAINING_DIFFICULTY_COLORS]
-                return (
-                  <TableRow
-                    key={course.id}
-                    className="cursor-pointer transition-colors duration-200 hover:bg-muted/30"
-                    onClick={() => router.push(`/dashboard/formacoes/gestao/${course.id}/editar`)}
+        /* ─── List View (cards — sem scroll horizontal) ─── */
+        <div className="space-y-2.5">
+          {courses.map(course => {
+            const statusOpt = TRAINING_COURSE_STATUS_OPTIONS.find(s => s.value === course.status)
+            const diffConfig = TRAINING_DIFFICULTY_COLORS[course.difficulty_level as keyof typeof TRAINING_DIFFICULTY_COLORS]
+            return (
+              <div
+                key={course.id}
+                className="rounded-xl border bg-card/30 backdrop-blur-sm p-4 flex items-center gap-3 cursor-pointer transition-colors duration-200 hover:bg-muted/30"
+                onClick={() => setActivityCourseId(course.id)}
+                title="Ver quem viu e o progresso de cada utilizador"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">{course.title}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Badge variant="outline" className={cn(
+                      'rounded-full text-[10px] px-2 py-0.5',
+                      course.status === 'published' && 'bg-emerald-500/15 text-emerald-600',
+                      course.status === 'draft' && 'bg-slate-500/15 text-slate-500',
+                      course.status === 'archived' && 'bg-amber-500/15 text-amber-600',
+                    )}>
+                      {statusOpt?.label || course.status}
+                    </Badge>
+                    {diffConfig && (
+                      <Badge className={cn('rounded-full text-[10px] px-2 py-0.5', diffConfig.bg, diffConfig.text)}>{diffConfig.label}</Badge>
+                    )}
+                    {(course.category as any)?.name && (
+                      <span className="text-xs text-muted-foreground">{(course.category as any).name}</span>
+                    )}
+                    <span className="text-xs text-muted-foreground">· {formatDate(course.created_at)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    title="Editar formação"
+                    onClick={(e) => { e.stopPropagation(); setEditCourseId(course.id) }}
                   >
-                    <TableCell className="font-medium">{course.title}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{(course.category as any)?.name || '—'}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(
-                        'rounded-full text-[10px] px-2 py-0.5',
-                        course.status === 'published' && 'bg-emerald-500/15 text-emerald-600',
-                        course.status === 'draft' && 'bg-slate-500/15 text-slate-500',
-                        course.status === 'archived' && 'bg-amber-500/15 text-amber-600',
-                      )}>
-                        {statusOpt?.label || course.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {diffConfig && (
-                        <Badge className={cn('rounded-full text-[10px] px-2 py-0.5', diffConfig.bg, diffConfig.text)}>{diffConfig.label}</Badge>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onClick={() => setEditCourseId(course.id)}>
+                        <Pencil className="h-4 w-4 mr-2" />Editar
+                      </DropdownMenuItem>
+                      {canSeeActivity && (
+                        <DropdownMenuItem onClick={() => setActivityCourseId(course.id)}>
+                          <BarChart3 className="h-4 w-4 mr-2" />Actividade
+                        </DropdownMenuItem>
                       )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(course.created_at)}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/gestao/${course.id}/editar`)}>
-                            <Pencil className="h-4 w-4 mr-2" />Editar
-                          </DropdownMenuItem>
-                          {canSeeActivity && (
-                            <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/gestao/${course.id}/actividade`)}>
-                              <BarChart3 className="h-4 w-4 mr-2" />Actividade
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/cursos/${course.id}`)}>
-                            <Eye className="h-4 w-4 mr-2" />Pré-visualizar
-                          </DropdownMenuItem>
-                          {course.status === 'draft' && (
-                            <DropdownMenuItem onClick={() => handlePublish(course.id)}>
-                              <Globe className="h-4 w-4 mr-2" />Publicar
-                            </DropdownMenuItem>
-                          )}
-                          {course.status !== 'archived' && (
-                            <DropdownMenuItem onClick={() => setDeleteId(course.id)} className="text-red-600">
-                              <Archive className="h-4 w-4 mr-2" />Arquivar
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                      <DropdownMenuItem onClick={() => router.push(`/dashboard/formacoes/cursos/${course.id}`)}>
+                        <Eye className="h-4 w-4 mr-2" />Pré-visualizar
+                      </DropdownMenuItem>
+                      {course.status === 'draft' && (
+                        <DropdownMenuItem onClick={() => handlePublish(course.id)}>
+                          <Globe className="h-4 w-4 mr-2" />Publicar
+                        </DropdownMenuItem>
+                      )}
+                      {course.status !== 'archived' && (
+                        <DropdownMenuItem onClick={() => setDeleteId(course.id)} className="text-red-600">
+                          <Archive className="h-4 w-4 mr-2" />Arquivar
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -411,6 +447,21 @@ export function GestaoCursosTab({ onCreateClick }: GestaoCursosTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Activity sheet (row click) */}
+      <CourseActivitySheet
+        courseId={activityCourseId}
+        open={activityCourseId !== null}
+        onOpenChange={(o) => { if (!o) setActivityCourseId(null) }}
+      />
+
+      {/* Edit sheet (pencil button) */}
+      <CourseEditSheet
+        courseId={editCourseId}
+        open={editCourseId !== null}
+        onOpenChange={(o) => { if (!o) setEditCourseId(null) }}
+        onChanged={fetchCourses}
+      />
     </div>
   )
 }

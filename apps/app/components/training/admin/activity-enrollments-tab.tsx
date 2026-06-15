@@ -201,39 +201,39 @@ export function ActivityEnrollmentsTab({ courseId }: Props) {
 
       {/* Drill-down sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto px-6 py-6 sm:px-8 sm:py-8 gap-6">
+          <SheetHeader className="p-0">
             <SheetTitle>{selected?.user_name ?? 'Utilizador'}</SheetTitle>
             <SheetDescription>
               {selected?.user_email ?? ''} · Inscrito em {selected?.enrolled_at ? new Date(selected.enrolled_at).toLocaleDateString('pt-PT') : '—'}
             </SheetDescription>
           </SheetHeader>
           {selected && (
-            <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-md border p-3">
+            <div className="space-y-8">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg border p-4">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Progresso</p>
-                  <p className="text-lg font-semibold">{selected.progress_percent}%</p>
+                  <p className="mt-1 text-xl font-semibold">{selected.progress_percent}%</p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-lg border p-4">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tempo total</p>
-                  <p className="text-lg font-semibold">{formatSeconds(selected.total_time_spent_seconds)}</p>
+                  <p className="mt-1 text-xl font-semibold">{formatSeconds(selected.total_time_spent_seconds)}</p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-lg border p-4">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Lições</p>
-                  <p className="text-lg font-semibold">{selected.lessons_completed}/{selected.lessons_total}</p>
+                  <p className="mt-1 text-xl font-semibold">{selected.lessons_completed}/{selected.lessons_total}</p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-lg border p-4">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</p>
-                  <p className="text-lg font-semibold">{STATUS_LABEL[selected.status] ?? selected.status}</p>
+                  <p className="mt-1 text-xl font-semibold">{STATUS_LABEL[selected.status] ?? selected.status}</p>
                 </div>
               </div>
 
               <div>
-                <h4 className="text-sm font-medium mb-2">Lições</h4>
-                <div className="rounded-md border divide-y">
+                <h4 className="text-sm font-medium mb-3">Lições</h4>
+                <div className="rounded-lg border divide-y">
                   {selected.lessons.map((l) => (
-                    <div key={l.lesson_id} className="px-3 py-2 flex items-center gap-2 text-sm">
+                    <div key={l.lesson_id} className="px-4 py-3 flex items-center gap-3 text-sm">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{l.title}</p>
                         <p className="text-xs text-muted-foreground truncate">{l.module_title}</p>
@@ -261,10 +261,10 @@ export function ActivityEnrollmentsTab({ courseId }: Props) {
 
               {selected.quiz_attempts.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Tentativas de quiz</h4>
-                  <div className="rounded-md border divide-y">
+                  <h4 className="text-sm font-medium mb-3">Tentativas de quiz</h4>
+                  <div className="rounded-lg border divide-y">
                     {selected.quiz_attempts.map((a) => (
-                      <div key={a.attempt_id} className="px-3 py-2 flex items-center gap-2 text-sm">
+                      <div key={a.attempt_id} className="px-4 py-3 flex items-center gap-3 text-sm">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{a.quiz_title}</p>
                           <p className="text-xs text-muted-foreground">Tentativa #{a.attempt_number} · {a.completed_at ? new Date(a.completed_at).toLocaleDateString('pt-PT') : '—'}</p>

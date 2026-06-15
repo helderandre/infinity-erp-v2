@@ -216,8 +216,8 @@ function FormacoesPageContent() {
               className="rounded-full bg-white/15 backdrop-blur-sm text-white border border-white/20 hover:bg-white/25"
               onClick={() => setCreateDialogOpen(true)}
             >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Nova Formação
+              <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Nova Formação</span>
             </Button>
           </div>
         )}

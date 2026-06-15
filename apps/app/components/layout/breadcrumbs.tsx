@@ -68,7 +68,6 @@ const segmentTranslations: Record<string, string> = {
   categorias: 'Categorias',
   certificados: 'Certificados',
   estatisticas: 'Estatísticas',
-  percursos: 'Percursos',
   'meus-cursos': 'Meus Cursos',
   campanhas: 'Campanhas',
   actividade: 'Actividade',

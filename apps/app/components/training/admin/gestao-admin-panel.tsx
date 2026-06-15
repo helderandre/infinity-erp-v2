@@ -2,17 +2,15 @@
 'use client'
 
 import { useState } from 'react'
-import { BarChart3, AlertTriangle, MessageSquare, Download, Users } from 'lucide-react'
+import { AlertTriangle, MessageSquare, Download, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CourseFilterSelect } from './course-filter-select'
-import { CompletionOverview } from './completion-overview'
 import { ReportsTable } from './reports-table'
 import { CommentsTable } from './comments-table'
 import { DownloadsTable } from './downloads-table'
 import { UserProgressTable } from './user-progress-table'
 
 const ADMIN_SUB_TABS = [
-  { key: 'overview', label: 'Visão Geral', icon: BarChart3 },
   { key: 'reports', label: 'Reports', icon: AlertTriangle },
   { key: 'comments', label: 'Comentários', icon: MessageSquare },
   { key: 'downloads', label: 'Downloads', icon: Download },
@@ -22,7 +20,7 @@ const ADMIN_SUB_TABS = [
 type AdminSubTabKey = (typeof ADMIN_SUB_TABS)[number]['key']
 
 export function GestaoAdminPanel() {
-  const [subTab, setSubTab] = useState<AdminSubTabKey>('overview')
+  const [subTab, setSubTab] = useState<AdminSubTabKey>('reports')
   const [courseId, setCourseId] = useState('all')
 
   const effectiveCourseId = courseId === 'all' ? undefined : courseId
@@ -59,7 +57,6 @@ export function GestaoAdminPanel() {
 
       {/* Content */}
       <div className="animate-in fade-in duration-300">
-        {subTab === 'overview' && <CompletionOverview courseId={effectiveCourseId} />}
         {subTab === 'reports' && <ReportsTable courseId={effectiveCourseId} />}
         {subTab === 'comments' && <CommentsTable courseId={effectiveCourseId} />}
         {subTab === 'downloads' && <DownloadsTable courseId={effectiveCourseId} />}

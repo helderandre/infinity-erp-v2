@@ -2,18 +2,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import {
-  Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
-} from '@/components/ui/table'
-import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
 } from '@/components/ui/sheet'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
@@ -28,6 +29,8 @@ export function GestaoCategoriasTab() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({ name: '', description: '', color: 'blue-500' })
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const fetchCategories = useCallback(async () => {
     setIsLoading(true)
@@ -82,6 +85,25 @@ export function GestaoCategoriasTab() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/training/categories/${deleteId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Erro ao eliminar')
+      }
+      toast.success('Categoria eliminada')
+      setDeleteId(null)
+      fetchCategories()
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao eliminar categoria')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const colorOptions = ['blue-500', 'emerald-500', 'orange-500', 'purple-500', 'red-500', 'cyan-500', 'pink-500', 'amber-500']
 
   return (
@@ -92,43 +114,59 @@ export function GestaoCategoriasTab() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
       ) : (
-        <div className="rounded-2xl border overflow-hidden bg-card/30 backdrop-blur-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Nome</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Slug</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Cor</TableHead>
-                <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Estado</TableHead>
-                <TableHead className="w-24 text-[11px] uppercase tracking-wider font-semibold">Acções</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {categories.map(cat => (
-                <TableRow key={cat.id}>
-                  <TableCell className="font-medium">{cat.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{cat.slug}</TableCell>
-                  <TableCell>
-                    <div className={`w-6 h-6 rounded-full bg-${cat.color}`} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={cat.is_active ? 'default' : 'secondary'}>
-                      {cat.is_active ? 'Ativa' : 'Inativa'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(cat)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="space-y-2.5">
+          {categories.map(cat => (
+            <div
+              key={cat.id}
+              className="rounded-xl border bg-card/30 backdrop-blur-sm p-4 flex items-center gap-3"
+            >
+              <div className={`h-7 w-7 rounded-full shrink-0 bg-${cat.color}`} />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">{cat.name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Badge variant={cat.is_active ? 'default' : 'secondary'} className="rounded-full text-[10px] px-2 py-0.5">
+                    {cat.is_active ? 'Ativa' : 'Inativa'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground truncate">{cat.slug}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" title="Editar categoria" onClick={() => openEdit(cat)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-red-600 hover:text-red-600" title="Eliminar categoria" onClick={() => setDeleteId(cat.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar categoria</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem a certeza de que pretende eliminar esta categoria? Esta acção pode ser revertida reactivando a categoria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete() }}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
         <SheetContent
