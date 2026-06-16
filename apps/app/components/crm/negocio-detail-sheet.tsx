@@ -35,6 +35,7 @@ import {
   Sparkles,
   Pencil,
   Send,
+  XCircle,
   Thermometer,
   Trash2,
   User as UserIcon,
@@ -78,7 +79,8 @@ import { cn } from '@/lib/utils'
 import { NEGOCIO_PROPERTY_STATUS, STATUS_COLORS, VISIT_STATUS_COLORS } from '@/lib/constants'
 
 import { type Temperatura } from '@/components/negocios/temperatura-selector'
-import { EstadoPipelineSelector } from '@/components/negocios/estado-pipeline-selector'
+import { EstadoPipelineSelector, tipoToPipelineType, type PipelineStage } from '@/components/negocios/estado-pipeline-selector'
+import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { AiFillDialog } from '@/components/negocios/ai-fill-dialog'
 import { NegocioDataCard } from '@/components/negocios/negocio-data-card'
 import {
@@ -605,6 +607,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                     setEditInitialForm({ ...form })
                     setEditOpen(true)
                   }}
+                  onReferenciar={() => setReferOpen(true)}
                   onClose={() => onOpenChange(false)}
                   onCreateTask={() => setTaskFormOpen(true)}
                   onCreateEvent={() => setEventFormOpen(true)}
@@ -777,20 +780,11 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                         onSave={doSave}
                       />
                     </div>
-                    {/* Footer — Referenciar + Eliminar (esquerda) · Guardar (direita) */}
+                    {/* Footer — Eliminar (esquerda) · Guardar (direita).
+                        Referenciar foi movido para o fundo da ficha principal
+                        (Início), junto ao Perdido, para consistência de UX. */}
                     <div className="shrink-0 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 rounded-full px-3 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                          onClick={() => setReferOpen(true)}
-                          disabled={editSaving}
-                        >
-                          <Send className="h-3.5 w-3.5" />
-                          Referenciar
-                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1016,6 +1010,7 @@ function DetalhesTab({
   onPipelineStageChange,
   onTemperaturaChange,
   onOpenFullEdit,
+  onReferenciar,
   onClose,
   onCreateTask,
   onCreateEvent,
@@ -1040,6 +1035,8 @@ function DetalhesTab({
   onTemperaturaChange: (t: Temperatura) => void
   /** "Ver tudo" abre o mesmo Sheet de edição que o botão Pencil do header. */
   onOpenFullEdit?: () => void
+  /** Abre o diálogo de Referenciar (handover) — vive no parent. */
+  onReferenciar?: () => void
   /** Fecha o sheet — usado quando se navega para o perfil do lead. */
   onClose?: () => void
   /** Quick-action handlers — sheets vivem no parent. */
@@ -1073,6 +1070,27 @@ function DetalhesTab({
   const [contactosOpen, setContactosOpen] = useState(false)
   const [acoesOpen, setAcoesOpen] = useState(false)
   const [imovelOpen, setImovelOpen] = useState(false)
+
+  // Perdido — busca a fase terminal "lost" deste pipeline para o botão de
+  // fecho ao fundo da ficha poder marcar o negócio como perdido (reutiliza o
+  // LostReasonDialog partilhado, igual ao EstadoPipelineSelector).
+  const [lostStage, setLostStage] = useState<{ id: string; name: string } | null>(null)
+  const [lostDialogOpen, setLostDialogOpen] = useState(false)
+  useEffect(() => {
+    if (readOnly || partnerView) return
+    let cancelled = false
+    fetch(`/api/crm/pipeline-stages?pipeline_type=${tipoToPipelineType(tipo)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PipelineStage[]) => {
+        if (cancelled) return
+        const lost = (data || []).find((s) => s.is_terminal && s.terminal_type === 'lost')
+        setLostStage(lost ? { id: lost.id, name: lost.name } : null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [tipo, readOnly, partnerView])
 
   // Refetch das pessoas associadas quando o sheet Info fecha (é lá que se
   // gerem as relações) — o estado vive no parent para alimentar também o
@@ -1285,6 +1303,56 @@ function DetalhesTab({
           )}
         </div>
       </div>
+
+      {/* Acções de fecho: Perdido + Referenciar — ao fundo da ficha principal,
+          para consistência de UX (estado/transferência sempre visíveis sem
+          abrir a edição). Escondidas em read-only / vista de parceiro. */}
+      {!readOnly && !partnerView && (lostStage || onReferenciar) && (
+        <div className="grid grid-cols-2 gap-2">
+          {lostStage && (
+            <button
+              type="button"
+              onClick={() => setLostDialogOpen(true)}
+              className={cn(
+                'group inline-flex items-center justify-center gap-2 h-10 rounded-full border px-3 text-xs font-medium transition-colors shadow-sm',
+                pipelineStageId === lostStage.id
+                  ? 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300'
+                  : 'border-red-700/25 bg-red-700/8 text-red-700 dark:text-red-300 hover:bg-red-700/12',
+              )}
+              title="Marcar negócio como perdido"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Perdido
+            </button>
+          )}
+          {onReferenciar && (
+            <button
+              type="button"
+              onClick={onReferenciar}
+              className={cn(
+                'group inline-flex items-center justify-center gap-2 h-10 rounded-full border border-cyan-700/25 bg-cyan-700/8 text-cyan-700 dark:text-cyan-300 px-3 text-xs font-medium hover:bg-cyan-700/12 transition-colors shadow-sm',
+                !lostStage && 'col-span-2',
+              )}
+              title="Referenciar a outro consultor"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Referenciar
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Perdido — diálogo de motivo/descrição (mesmo fluxo do pipeline). */}
+      {lostStage && (
+        <LostReasonDialog
+          open={lostDialogOpen}
+          onConfirm={(reason, notes) => {
+            setLostDialogOpen(false)
+            onPipelineStageChange(lostStage, { reason, notes: notes ?? '' })
+          }}
+          onCancel={() => setLostDialogOpen(false)}
+        />
+      )}
 
       {/* Sheets glassmórficos accionados pelos 4 botões */}
       {negocio.id && (
