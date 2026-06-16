@@ -136,6 +136,8 @@ function LeadsPageContent() {
   const [temperatura, setTemperatura] = useState(searchParams.get('temperatura') || 'all')
   const [origem, setOrigem] = useState(searchParams.get('origem') || 'all')
   const [agentId, setAgentId] = useState(searchParams.get('agent_id') || 'all')
+  const [dateFrom, setDateFrom] = useState(searchParams.get('date_from') || '')
+  const [dateTo, setDateTo] = useState(searchParams.get('date_to') || '')
   const [qualifTipos, setQualifTipos] = useState<string[]>(() => {
     const csv = searchParams.get('qualif_tipos') || ''
     return csv ? csv.split(',').filter(Boolean) : []
@@ -149,7 +151,8 @@ function LeadsPageContent() {
 
   const hasActiveFilters =
     debouncedSearch !== '' || estado !== 'all' || temperatura !== 'all' ||
-    origem !== 'all' || agentId !== 'all' || qualifTipos.length > 0
+    origem !== 'all' || agentId !== 'all' || qualifTipos.length > 0 ||
+    dateFrom !== '' || dateTo !== ''
 
   const loadLeads = useCallback(async () => {
     setIsLoading(true)
@@ -160,6 +163,8 @@ function LeadsPageContent() {
       if (temperatura !== 'all') params.set('temperatura', temperatura)
       if (origem !== 'all') params.set('origem', origem)
       if (agentId !== 'all') params.set('agent_id', agentId)
+      if (dateFrom) params.set('date_from', dateFrom)
+      if (dateTo) params.set('date_to', dateTo)
       if (qualifTipos.length > 0) params.set('qualif_tipos', qualifTipos.join(','))
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String(page * PAGE_SIZE))
@@ -177,7 +182,7 @@ function LeadsPageContent() {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, qualifiedTab, page])
+  }, [debouncedSearch, estado, temperatura, origem, agentId, dateFrom, dateTo, qualifTipos, qualifiedTab, page])
 
   const loadConsultants = useCallback(async () => {
     try {
@@ -198,7 +203,7 @@ function LeadsPageContent() {
     // o filtro fica escondido e a API força agent_id=self.
     if (isManagement) loadConsultants()
   }, [loadConsultants, isManagement])
-  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, qualifTipos, qualifiedTab])
+  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, dateFrom, dateTo, qualifTipos, qualifiedTab])
 
 
   const handleDelete = async () => {
@@ -221,6 +226,8 @@ function LeadsPageContent() {
     setTemperatura('all')
     setOrigem('all')
     setAgentId('all')
+    setDateFrom('')
+    setDateTo('')
     setQualifTipos([])
     setPage(0)
   }
@@ -328,6 +335,9 @@ function LeadsPageContent() {
             onAgentChange={setAgentId}
             selectedQualifs={qualifTipos}
             onQualifsChange={setQualifTipos}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateRangeChange={(from, to) => { setDateFrom(from); setDateTo(to) }}
             hideConsultantFilter={!isManagement}
             onClearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}

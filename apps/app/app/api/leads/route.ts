@@ -30,6 +30,10 @@ export async function GET(request: Request) {
     const agent_id = canSeeAll ? agentParam : auth.user.id
     const qualified_only = searchParams.get('qualified_only') === 'true'
     const unqualified_only = searchParams.get('unqualified_only') === 'true'
+    // Filtro pela data de chegada do contacto (created_at). `date_to` é
+    // inclusivo do dia inteiro (até às 23:59:59.999).
+    const date_from = searchParams.get('date_from')
+    const date_to = searchParams.get('date_to')
     const qualifTiposCsv = searchParams.get('qualif_tipos') || ''
     const qualifTipos = qualifTiposCsv
       .split(',')
@@ -78,6 +82,14 @@ export async function GET(request: Request) {
     }
     if (agent_id) {
       query = query.eq('agent_id', agent_id)
+    }
+    if (date_from) {
+      query = query.gte('created_at', date_from)
+    }
+    if (date_to) {
+      // Inclui o dia inteiro de `date_to` (formato YYYY-MM-DD → fim do dia).
+      const end = /^\d{4}-\d{2}-\d{2}$/.test(date_to) ? `${date_to}T23:59:59.999` : date_to
+      query = query.lte('created_at', end)
     }
 
     // Filtrar por qualificação (tipo do negocio associado): pre-fetch dos

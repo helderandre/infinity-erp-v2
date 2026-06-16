@@ -2,7 +2,12 @@
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
+import { Search, X, CalendarDays } from 'lucide-react'
 import {
   LEAD_ESTADOS,
   LEAD_TEMPERATURAS,
@@ -10,6 +15,54 @@ import {
 } from '@/lib/constants'
 import { MultiSelectFilter } from '@/components/shared/multi-select-filter'
 import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
+
+/** Filtro de intervalo de datas (data de chegada do contacto). */
+function DateRangeFilter({
+  from, to, onChange,
+}: {
+  from: string
+  to: string
+  onChange: (from: string, to: string) => void
+}) {
+  const active = !!(from || to)
+  const label = from && to ? `${from} → ${to}` : from ? `Desde ${from}` : to ? `Até ${to}` : null
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 border-dashed">
+          <CalendarDays className="mr-2 h-4 w-4" />
+          Data
+          {active && (
+            <>
+              <Separator orientation="vertical" className="mx-2 h-4" />
+              <Badge variant="secondary" className="rounded-sm px-1 font-normal text-[11px]">
+                {label}
+              </Badge>
+            </>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 space-y-3">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Data de chegada</p>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground w-8">De</span>
+            <Input type="date" value={from} max={to || undefined} onChange={(e) => onChange(e.target.value, to)} className="h-9 rounded-lg text-xs" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground w-8">Até</span>
+            <Input type="date" value={to} min={from || undefined} onChange={(e) => onChange(from, e.target.value)} className="h-9 rounded-lg text-xs" />
+          </div>
+        </div>
+        {active && (
+          <Button type="button" variant="ghost" size="sm" className="w-full text-[11px] h-7" onClick={() => onChange('', '')}>
+            Limpar datas
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 interface LeadFiltersProps {
   search: string
@@ -32,6 +85,10 @@ interface LeadFiltersProps {
   /** Filtro de qualificação por tipo de negócio (Compra/Venda/Arrendatário/Arrendador). */
   selectedQualifs?: string[]
   onQualifsChange?: (value: string[]) => void
+  /** Filtro pela data de chegada do contacto (created_at). */
+  dateFrom?: string
+  dateTo?: string
+  onDateRangeChange?: (from: string, to: string) => void
   // Single-select (backward compat)
   estado?: string
   onEstadoChange?: (value: string) => void
@@ -69,6 +126,9 @@ export function LeadFilters({
   onAgentsChange,
   selectedQualifs = [],
   onQualifsChange,
+  dateFrom = '',
+  dateTo = '',
+  onDateRangeChange,
   consultants,
   onClearFilters,
   hasActiveFilters,
@@ -102,7 +162,7 @@ export function LeadFilters({
   const showConsultantFilter = !hideConsultantFilter && consultants.length > 0
   const activeFilterCount =
     effectiveEstados.length + effectiveTemps.length + effectiveOrigens.length +
-    effectiveAgents.length + selectedQualifs.length
+    effectiveAgents.length + selectedQualifs.length + (dateFrom || dateTo ? 1 : 0)
 
   const filterButtons = (
     <>
@@ -112,6 +172,9 @@ export function LeadFilters({
         <MultiSelectFilter title="Qualificação" options={qualifOptions} selected={selectedQualifs} onSelectedChange={handleQualifs} />
       )}
       <MultiSelectFilter title="Fonte" options={origemOptions} selected={effectiveOrigens} onSelectedChange={handleOrigens} />
+      {onDateRangeChange && (
+        <DateRangeFilter from={dateFrom} to={dateTo} onChange={onDateRangeChange} />
+      )}
       {showConsultantFilter && (
         <MultiSelectFilter title="Consultor" options={consultantOptions} selected={effectiveAgents} onSelectedChange={handleAgents} searchable />
       )}

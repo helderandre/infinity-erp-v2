@@ -33,6 +33,7 @@ import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
 import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
+import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { SourceBadge } from '@/components/leads/source-badge'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -141,6 +142,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const [outcomeOpen, setOutcomeOpen] = useState(false)
   const [contactMethod, setContactMethod] = useState<'phone' | 'email' | 'whatsapp'>('phone')
   const [referOpen, setReferOpen] = useState(false)
+  const [lostOpen, setLostOpen] = useState(false)
   const router = useRouter()
 
   const triggerContact = useCallback((method: 'phone' | 'email' | 'whatsapp', value: string) => {
@@ -185,13 +187,13 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
     if (!isOpen) { setEntry(null); setContactHistory(null) }
   }, [isOpen, entryId, loadEntry])
 
-  const updateStatus = async (status: string) => {
+  const updateStatus = async (status: string, extra?: Record<string, unknown>) => {
     if (!entryId) return
     try {
       const res = await fetch(`/api/lead-entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...extra }),
       })
       if (!res.ok) throw new Error()
       toast.success(`Lead marcado como ${STATUS_CONFIG[status]?.label || status}`)
@@ -199,6 +201,13 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
       if (status === 'discarded') onClose()
       else loadEntry()
     } catch { toast.error('Erro ao actualizar lead') }
+  }
+
+  // "Perdido" exige motivo + descrição (o backend rejeita um discard sem
+  // ambos). O LostReasonDialog recolhe-os antes de confirmarmos.
+  const handleConfirmLost = (reason: string, notes?: string) => {
+    setLostOpen(false)
+    updateStatus('discarded', { lost_reason: reason, lost_notes: notes })
   }
 
   const copyToClipboard = (text: string, label: string) => {
@@ -641,10 +650,10 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
             {isActionable && (
               <div className="shrink-0 px-6 py-4 border-t border-border/40 bg-background/40 supports-[backdrop-filter]:bg-background/30 backdrop-blur-md flex items-center gap-3">
                 <button
-                  onClick={() => updateStatus('discarded')}
+                  onClick={() => setLostOpen(true)}
                   className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 >
-                  Descartar
+                  Perdido
                 </button>
                 <button
                   onClick={() => setReferOpen(true)}
@@ -696,6 +705,11 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
           }}
         />
       )}
+      <LostReasonDialog
+        open={lostOpen}
+        onConfirm={handleConfirmLost}
+        onCancel={() => setLostOpen(false)}
+      />
     </>
   )
 }
