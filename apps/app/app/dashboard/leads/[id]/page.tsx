@@ -55,8 +55,6 @@ import {
   CheckSquare,
   CalendarPlus,
   Sparkles,
-  Send,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, formatCurrency, NEGOCIO_TIPOS_PICKER, LEAD_ESTADOS, LEAD_TEMPERATURAS } from '@/lib/constants'
@@ -841,40 +839,6 @@ export default function LeadDetailPage() {
             </div>
           )}
 
-          {/* ─── Acções de fecho: Perdido + Referenciar ───────────────
-              Movidas do edit sheet para o fundo do cartão principal,
-              para consistência de UX (acções de estado/transferência
-              ficam sempre visíveis sem abrir a edição rápida). */}
-          {lead && (
-            <div className="rounded-2xl bg-white/35 dark:bg-neutral-800/45 backdrop-blur-2xl border border-white/70 dark:border-white/15 shadow-[inset_0_1px_0_0_rgb(255_255_255_/_0.5),0_4px_20px_-4px_rgb(0_0_0_/_0.1),0_1px_3px_-1px_rgb(0_0_0_/_0.06)] p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => saveSidebarField('estado', 'Perdido')}
-                  className={cn(
-                    'group inline-flex items-center justify-center gap-2 h-9 rounded-full border px-3 text-xs font-medium transition-colors shadow-sm',
-                    estadoValue === 'Perdido'
-                      ? 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300'
-                      : 'border-red-700/25 bg-red-700/8 text-red-700 dark:text-red-300 hover:bg-red-700/12',
-                  )}
-                  title="Marcar contacto como perdido"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Perdido
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReferOpen(true)}
-                  className="group inline-flex items-center justify-center gap-2 h-9 rounded-full border border-cyan-700/25 bg-cyan-700/8 text-cyan-700 dark:text-cyan-300 px-3 text-xs font-medium hover:bg-cyan-700/12 transition-colors shadow-sm"
-                  title="Referenciar a outro consultor"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  Referenciar
-                </button>
-              </div>
-            </div>
-          )}
-
         </div>
       </aside>
 
@@ -1435,6 +1399,10 @@ export default function LeadDetailPage() {
           // Optimistic merge to avoid an extra fetch
           setLead((prev) => (prev ? { ...prev, ...next } : prev))
           setForm((prev) => ({ ...prev, ...next }))
+        }}
+        onReferenciar={() => {
+          setEditSheetOpen(false)
+          setReferOpen(true)
         }}
       />
 
