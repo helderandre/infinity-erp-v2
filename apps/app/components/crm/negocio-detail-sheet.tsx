@@ -1308,20 +1308,20 @@ function DetalhesTab({
           para consistência de UX (estado/transferência sempre visíveis sem
           abrir a edição). Escondidas em read-only / vista de parceiro. */}
       {!readOnly && !partnerView && (lostStage || onReferenciar) && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center justify-end gap-1.5">
           {lostStage && (
             <button
               type="button"
               onClick={() => setLostDialogOpen(true)}
               className={cn(
-                'group inline-flex items-center justify-center gap-2 h-10 rounded-full border px-3 text-xs font-medium transition-colors shadow-sm',
+                'group inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-medium transition-colors shadow-sm',
                 pipelineStageId === lostStage.id
                   ? 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300'
                   : 'border-red-700/25 bg-red-700/8 text-red-700 dark:text-red-300 hover:bg-red-700/12',
               )}
               title="Marcar negócio como perdido"
             >
-              <XCircle className="h-3.5 w-3.5" />
+              <XCircle className="h-3 w-3" />
               Perdido
             </button>
           )}
@@ -1329,13 +1329,10 @@ function DetalhesTab({
             <button
               type="button"
               onClick={onReferenciar}
-              className={cn(
-                'group inline-flex items-center justify-center gap-2 h-10 rounded-full border border-cyan-700/25 bg-cyan-700/8 text-cyan-700 dark:text-cyan-300 px-3 text-xs font-medium hover:bg-cyan-700/12 transition-colors shadow-sm',
-                !lostStage && 'col-span-2',
-              )}
+              className="group inline-flex items-center gap-1.5 h-7 rounded-full border border-cyan-700/25 bg-cyan-700/8 text-cyan-700 dark:text-cyan-300 px-2.5 text-[11px] font-medium hover:bg-cyan-700/12 transition-colors shadow-sm"
               title="Referenciar a outro consultor"
             >
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-3 w-3" />
               Referenciar
             </button>
           )}
