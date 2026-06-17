@@ -23,7 +23,7 @@ import { StepCondicoes } from './step-3-condicoes'
 import { StepExtra } from './step-4-extra'
 import { StepReferenciacao } from './step-5-referenciacao'
 import { NegocioPickerDialog, type NegocioPickerItem } from '@/components/negocios/negocio-picker-dialog'
-import { buildDealPropertyContextFromNegocio } from '@/lib/negocios/prefill-from-negocio'
+import { buildDealPropertyContextFromNegocio, mapNegocioContactsToParticipants } from '@/lib/negocios/prefill-from-negocio'
 
 const TABS = [
   { value: 'partilha', label: 'Partilha', icon: Handshake },
@@ -63,6 +63,9 @@ export interface DealFormProps {
     leadName?: string | null
     leadEmail?: string | null
     leadPhone?: string | null
+    /** Contactos associados à oportunidade (negocio_contacts não-titulares) —
+     *  semeados como clientes adicionais a seguir ao titular. */
+    participants?: Array<{ name: string; email?: string | null; phone?: string | null }>
   }
 }
 
@@ -94,7 +97,7 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
       scenario: 'pleno',
       commission_type: 'percentage',
       person_type: 'singular',
-      // Pre-fill clients[0] do contexto do negócio (lead = comprador)
+      // Pre-fill clientes: titular (lead) + contactos associados da oportunidade.
       clients: [
         {
           person_type: 'singular',
@@ -103,6 +106,15 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
           phone: negocioContext?.leadPhone || '',
           order_index: 0,
         },
+        ...(negocioContext?.participants ?? [])
+          .filter((p) => p.name?.trim())
+          .map((p, i) => ({
+            person_type: 'singular' as const,
+            name: p.name,
+            email: p.email || '',
+            phone: p.phone || '',
+            order_index: i + 1,
+          })),
       ],
       share_pct: 50,
       // Prefill from property context
@@ -113,7 +125,7 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
     },
   })
 
-  const applyPickedNegocio = useCallback((n: NegocioPickerItem) => {
+  const applyPickedNegocio = useCallback(async (n: NegocioPickerItem) => {
     setPickedNegocio(n)
     const { businessType } = buildDealPropertyContextFromNegocio(n as any, null)
     const dealValue =
@@ -123,6 +135,12 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
       n.renda_pretendida ??
       n.renda_max_mensal ??
       undefined
+    // Contactos associados da oportunidade → clientes adicionais.
+    let participants: Array<{ name: string; email?: string | null; phone?: string | null }> = []
+    try {
+      const res = await fetch(`/api/crm/negocios/${n.id}/contactos`)
+      if (res.ok) participants = mapNegocioContactsToParticipants((await res.json()).data)
+    } catch { /* sem associados → só o titular */ }
     const current = form.getValues()
     form.reset({
       ...current,
@@ -134,6 +152,15 @@ export function DealForm({ onComplete, onClose, draftId: initialDraftId, propert
           phone: n.lead?.telemovel || '',
           order_index: 0,
         },
+        ...participants
+          .filter((p) => p.name?.trim())
+          .map((p, i) => ({
+            person_type: 'singular' as const,
+            name: p.name,
+            email: p.email || '',
+            phone: p.phone || '',
+            order_index: i + 1,
+          })),
       ],
       business_type: businessType as any,
       deal_value: dealValue,

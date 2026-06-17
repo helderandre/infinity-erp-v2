@@ -27,6 +27,7 @@ interface DealDialogProps {
     leadName?: string | null
     leadEmail?: string | null
     leadPhone?: string | null
+    participants?: Array<{ name: string; email?: string | null; phone?: string | null }>
   }
   onComplete?: (dealId: string) => void
 }

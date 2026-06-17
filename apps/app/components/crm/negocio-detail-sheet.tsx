@@ -109,6 +109,8 @@ import {
   buildAcquisitionPrefillFromNegocio,
   buildDealPropertyContextFromNegocio,
 } from '@/lib/negocios/prefill-from-negocio'
+import { useNegocioParticipants } from '@/hooks/use-negocio-participants'
+import { useLinkedNegocios } from '@/hooks/use-linked-negocios'
 import { InicioExtras } from '@/components/crm/negocio-inicio-extras'
 import { NegocioInfoSheet } from '@/components/crm/negocio-info-sheet'
 import { NegocioContactosSheet } from '@/components/crm/negocio-contactos-sheet'
@@ -250,6 +252,9 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   // footer persistente do sheet (consistência com a ficha de Lead).
   const [lostStage, setLostStage] = useState<{ id: string; name: string } | null>(null)
   const [lostDialogOpen, setLostDialogOpen] = useState(false)
+  // Oportunidade ligada (mesmo deal_group_id) — atalho no footer que abre a
+  // outra ficha numa sheet empilhada.
+  const [linkedSheetId, setLinkedSheetId] = useState<string | null>(null)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
   // through the negócio sheet).
@@ -467,6 +472,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   }, [isBuyerType, isSellerType, readOnly, partnerView])
 
   const leadId = negocio?.lead_id ?? null
+  const linkedNegocios = useLinkedNegocios(negocio?.id, negocio?.deal_group_id)
 
   const lead = negocio?.lead
   const clientName = lead?.full_name || lead?.nome || 'Oportunidade'
@@ -696,41 +702,73 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
             WhatsApp / Email (pílulas) à direita. Espelha a ficha de Lead para
             um design consistente entre as duas sheets. ─── */}
         {negocio && !readOnly && !partnerView && (
-          <div className="shrink-0 px-6 py-3.5 border-t border-border/40 bg-muted/30 supports-[backdrop-filter]:bg-muted/20 backdrop-blur-md flex items-center gap-2">
-            {lostStage && (
+          <div className="shrink-0 px-6 py-3.5 border-t border-border/40 bg-muted/30 supports-[backdrop-filter]:bg-muted/20 backdrop-blur-md flex flex-col gap-2.5">
+            <div className="flex items-center gap-2">
+              {lostStage && (
+                <button
+                  type="button"
+                  onClick={() => setLostDialogOpen(true)}
+                  className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  Perdido
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setLostDialogOpen(true)}
-                className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                onClick={() => setReferOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/60 transition-colors"
+                title="Referenciar a outro consultor"
               >
-                Perdido
+                <Send className="h-3 w-3" />
+                Referenciar
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setReferOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/60 transition-colors"
-              title="Referenciar a outro consultor"
-            >
-              <Send className="h-3 w-3" />
-              Referenciar
-            </button>
-            <div className="flex-1" />
-            {(lead?.telemovel || lead?.telefone) && (
-              <WhatsAppChatBubble
-                contactPhone={lead?.telemovel || lead?.telefone || null}
-                contactName={clientName}
-                contactLeadId={leadId}
-                launcherClassName="h-11 w-11 shrink-0"
-              />
-            )}
-            {lead?.email && (
-              <EmailChatBubble
-                contactEmail={lead.email}
-                contactName={clientName}
-                launcherClassName="h-11 w-11 shrink-0"
-              />
-            )}
+              <div className="flex-1" />
+              {(lead?.telemovel || lead?.telefone) && (
+                <WhatsAppChatBubble
+                  contactPhone={lead?.telemovel || lead?.telefone || null}
+                  contactName={clientName}
+                  contactLeadId={leadId}
+                  launcherClassName="h-11 w-11 shrink-0"
+                />
+              )}
+              {lead?.email && (
+                <EmailChatBubble
+                  contactEmail={lead.email}
+                  contactName={clientName}
+                  launcherClassName="h-11 w-11 shrink-0"
+                />
+              )}
+            </div>
+
+            {/* Oportunidade(s) ligada(s) — mesmo deal_group_id. Abre a outra
+                ficha numa sheet empilhada. */}
+            {linkedNegocios.map((n) => {
+              const personName =
+                n.lead_id && n.lead_id !== leadId
+                  ? (n.lead?.full_name || n.lead?.nome || null)
+                  : null
+              const typology =
+                n.quartos_min != null ? `T${n.quartos_min}+` : n.quartos != null ? `T${n.quartos}` : null
+              const label = [personName, n.tipo, typology, n.localizacao].filter(Boolean).join(' · ') || 'Negócio'
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setLinkedSheetId(n.id)}
+                  className="w-full flex items-center gap-2 rounded-xl border border-sky-400/30 bg-sky-500/5 hover:bg-sky-500/10 px-3 py-2 text-left transition-colors"
+                  title="Abrir a oportunidade ligada"
+                >
+                  <Link2 className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-medium text-sky-700 dark:text-sky-300 leading-tight">
+                      Oportunidade ligada
+                    </p>
+                    <p className="text-xs font-medium text-foreground truncate leading-tight">{label}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                </button>
+              )
+            })}
           </div>
         )}
 
@@ -989,6 +1027,18 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
       open={!!previewPropertyId}
       onOpenChange={(o) => { if (!o) setPreviewPropertyId(null) }}
     />
+
+    {/* Oportunidade ligada — sheet empilhada (mesma ficha, outro negócio).
+        Renderizada APENAS quando há um id seleccionado: caso contrário a
+        auto-referência montaria infinitamente esta mesma componente. */}
+    {linkedSheetId && (
+      <NegocioDetailSheet
+        negocioId={linkedSheetId}
+        open
+        onOpenChange={(o) => { if (!o) setLinkedSheetId(null) }}
+        onChanged={loadNegocio}
+      />
+    )}
 
     {/* Quick action sheets — Tarefa / Evento / Nota linkadas ao contacto. */}
     {leadId && (
@@ -3487,6 +3537,8 @@ function FechoTab({
   const leadName = negocio?.lead?.full_name || negocio?.lead?.nome || null
   const leadEmail = negocio?.lead?.email || null
   const leadPhone = negocio?.lead?.telemovel || negocio?.lead?.telefone || null
+  // Contactos associados da oportunidade → clientes adicionais no fecho.
+  const participants = useNegocioParticipants(negocioId)
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -3663,6 +3715,7 @@ function FechoTab({
           leadName,
           leadEmail,
           leadPhone,
+          participants: participants.map((p) => ({ name: p.name, email: p.email, phone: p.phone })),
         }}
         propertyContext={dealPrefill.propertyContext}
         onComplete={() => {
@@ -3689,7 +3742,9 @@ function AngariacaoTab({ negocioId, negocio }: { negocioId: string; negocio: any
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
 
-  const acquisitionPrefill = buildAcquisitionPrefillFromNegocio(negocio)
+  // Contactos associados da oportunidade → proprietários adicionais (partes iguais).
+  const participants = useNegocioParticipants(negocioId)
+  const acquisitionPrefill = buildAcquisitionPrefillFromNegocio(negocio, participants)
 
   const refetch = useCallback(async () => {
     setLoading(true)
