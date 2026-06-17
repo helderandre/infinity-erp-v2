@@ -49,6 +49,10 @@ const MobileBottomNav = dynamic(
   () => import('@/components/layout/mobile-bottom-nav').then((m) => m.MobileBottomNav),
   { ssr: false }
 )
+const MobileNavLauncher = dynamic(
+  () => import('@/components/layout/mobile-nav-launcher').then((m) => m.MobileNavLauncher),
+  { ssr: false }
+)
 const AiAgentChat = dynamic(
   () => import('@/components/shared/ai-agent-chat').then((m) => m.AiAgentChat),
   { ssr: false }
@@ -155,6 +159,8 @@ export default function DashboardLayout({
         <SidebarInset className={cn("min-w-0 border border-border/60 md:!rounded-2xl md:!shadow-lg", isFullBleed && "overflow-hidden")}>
           <header className="sticky top-0 z-40 flex py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] shrink-0 items-center gap-2 border-b px-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 md:rounded-t-2xl">
             <SidebarTrigger className="-ml-1" />
+            {/* Lupa (mobile): abre o menu de navegação curvo alfabético. */}
+            <MobileNavLauncher />
             <Separator
               orientation="vertical"
               className={cn('mr-2 h-6', hideBreadcrumbsOnMobile && 'hidden sm:block')}
