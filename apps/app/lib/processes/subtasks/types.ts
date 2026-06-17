@@ -182,6 +182,34 @@ export interface SubtaskRule {
    */
   personTypeFilter?: 'all' | 'singular' | 'coletiva'
 
+  /**
+   * (PROC-NEG) Cria uma linha por `deal_clients` (comprador) — análogo a
+   * `repeatPerOwner`/`ownerScope` mas para clientes do negócio em vez de
+   * proprietários do imóvel. Filtrado por `personTypeFilter`. O
+   * `client_id`/`client_name` é gravado em `config` (NÃO em `owner_id`,
+   * cujo FK aponta para `owners`). Substitui o helper `repeatTasksPerClient`
+   * (que clonava tasks) por expansão ao nível da subtarefa.
+   */
+  repeatPerClient?: boolean
+
+  /**
+   * (PROC-NEG) Predicado de aplicabilidade por cenário do negócio. Avaliado
+   * no populate contra o contexto do deal (deal_type + clients + property).
+   * Se algum predicado declarado NÃO bater, a regra não materializa
+   * subtarefa. Omitido/vazio → aplica-se sempre. AND lógico entre predicados.
+   * Funde a lógica do antigo `bypassNonApplicableNegTasks` ao nível da regra
+   * (tasks que ficam sem subtarefas são marcadas `is_bypassed` no fim do
+   * populate de negócio).
+   */
+  appliesWhen?: {
+    deal_type?: string
+    buyer_has_singular?: boolean
+    buyer_has_coletiva?: boolean
+    angariacao_interna?: boolean
+    property_has_mortgage?: boolean
+    property_has_condominium?: boolean
+  }
+
   /** Se false, linha nasce com `is_mandatory=false`. Default: true. */
   isMandatory?: boolean
 

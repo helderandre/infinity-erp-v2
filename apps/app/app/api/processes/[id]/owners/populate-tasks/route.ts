@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { autoCompleteTasks, recalculateProgress } from '@/lib/process-engine'
+import { populateSubtasks } from '@/lib/processes/subtasks/populate'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -93,6 +94,38 @@ export async function POST(
 
     const isMainContact = junction.is_main_contact ?? false
     const ownerType = owner.person_type // 'singular' ou 'coletiva'
+
+    // ─── Angariação (Fase 1): a fonte de verdade das subtarefas é o registry
+    // hardcoded, não as tpl_subtasks (removidas do template). Re-corremos o
+    // populate idempotente — expande as rules por owner (ownerScope) e salta
+    // as linhas já existentes via ON CONFLICT. Substitui as estratégias
+    // declarativas A/B abaixo para angariação (o template já não tem
+    // owner_type tasks nem tpl_subtasks). ───
+    const { data: tplProc } = await adminSupabase
+      .from('tpl_processes')
+      .select('process_type')
+      .eq('id', proc.tpl_process_id)
+      .single()
+
+    if (tplProc?.process_type === 'angariacao') {
+      const result = await populateSubtasks(adminSupabase, processId, 'angariacao')
+      try {
+        await autoCompleteTasks(processId, proc.property_id)
+      } catch (e) {
+        console.error('[populate-tasks] auto-complete (angariação):', e)
+      }
+      try {
+        await recalculateProgress(processId)
+      } catch (e) {
+        console.error('[populate-tasks] recalc (angariação):', e)
+      }
+      return NextResponse.json({
+        success: true,
+        tasks_created: 0,
+        subtasks_created: result.inserted,
+        owner_name: owner.name,
+      })
+    }
 
     // 3. Verificar duplicados (apenas no modo "adicionar todas")
     if (!isSelectiveMode) {

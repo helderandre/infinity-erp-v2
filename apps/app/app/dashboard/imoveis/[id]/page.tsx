@@ -28,6 +28,8 @@ import { PropertyVisitasTab } from '@/components/properties/property-visitas-tab
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
 import { PropertyCampaignsTab } from '@/components/properties/property-campaigns-tab'
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
+import { AngariacaoProcessPanel } from '@/components/processes/angariacao-timeline/angariacao-process-panel'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { DescriptionEditorCanvas } from '@/components/properties/description-editor/description-editor-canvas'
@@ -1654,9 +1656,23 @@ export default function ImovelDetalhePage() {
               )
             }
             return (
-              <div className="animate-in fade-in duration-200">
-                <ProcessPipelinePanel processId={angariacao.id} onProcessChange={fetchProcesses} toolbarElement={processToolbarEl} />
-              </div>
+              <Tabs defaultValue="novo" className="animate-in fade-in duration-200">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="novo">Novo</TabsTrigger>
+                  <TabsTrigger value="antigo">Antigo</TabsTrigger>
+                </TabsList>
+                <TabsContent value="novo">
+                  <AngariacaoProcessPanel
+                    title="Processo de Angariação"
+                    onEditProperty={() => setEditSheetOpen(true)}
+                    propertyId={property?.id ?? null}
+                    processId={angariacao.id}
+                  />
+                </TabsContent>
+                <TabsContent value="antigo">
+                  <ProcessPipelinePanel processId={angariacao.id} onProcessChange={fetchProcesses} toolbarElement={processToolbarEl} />
+                </TabsContent>
+              </Tabs>
             )
           })()}
 

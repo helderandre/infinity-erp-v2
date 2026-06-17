@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { notificationService } from '@/lib/notifications/service'
 import { requireRoles } from '@/lib/auth/permissions'
 import { PROCESS_MANAGER_ROLES } from '@/lib/auth/roles'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { populateSubtasks } from '@/lib/processes/subtasks/populate'
 
 const reTemplateSchema = z.object({
   tpl_process_id: z.string().min(1, 'Template obrigatório').regex(
@@ -49,7 +51,7 @@ export async function POST(
     // Verificar se o template existe e está activo
     const { data: template, error: templateError } = await supabase
       .from('tpl_processes')
-      .select('id, name, is_active')
+      .select('id, name, is_active, process_type')
       .eq('id', tpl_process_id)
       .single()
 
@@ -129,6 +131,22 @@ export async function POST(
 
     if (populateError) {
       console.error('[RE-TEMPLATE] Erro ao popular tarefas:', populateError)
+    }
+
+    // Popular subtarefas hardcoded — fonte de verdade pós-Fase 1. Sem isto,
+    // uma angariação re-templated ficaria sem subtarefas (o template já não
+    // tem tpl_subtasks). No-op para process_types sem rules registadas
+    // (ex.: negócio, até à Fase 2). Usa admin client (RLS bypass) como o
+    // auto-activate. Idempotente.
+    try {
+      const admin = createAdminClient()
+      await populateSubtasks(
+        admin,
+        id,
+        template.process_type as 'angariacao' | 'negocio'
+      )
+    } catch (subErr) {
+      console.error('[RE-TEMPLATE] Erro ao popular subtarefas hardcoded:', subErr)
     }
 
     // Resolver dependências
