@@ -29,7 +29,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const SECTOR_LABELS: Record<string, string> = {
   real_estate_buy: 'Compra', real_estate_sell: 'Venda', real_estate_rent: 'Arrendamento',
-  recruitment: 'Recrutamento', credit: 'Crédito',
+  real_estate_landlord: 'Senhorio', recruitment: 'Recrutamento', credit: 'Crédito',
 }
 
 const PRIORITY_LABELS: Record<string, string> = {

@@ -18,8 +18,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, CalendarDays, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { formatDistanceToNow, format, startOfDay, endOfDay, subDays } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
 
@@ -45,6 +45,36 @@ import {
 import { SourceBadge } from '@/components/leads/source-badge'
 import { PhaseTabs, type PhaseTab } from '@/components/leads/phase-tabs'
 import { useUser } from '@/hooks/use-user'
+import { isManagementRole } from '@/lib/auth/roles'
+
+type PeriodPreset = 'all' | 'today' | '7d' | '30d' | 'custom'
+
+const PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
+  { value: 'all', label: 'Qualquer período' },
+  { value: 'today', label: 'Hoje' },
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
+  { value: 'custom', label: 'Personalizado' },
+]
+
+// Sectores possíveis numa lead entry (espelha o filtro da Gestão de Leads).
+const SECTOR_LABELS: Record<string, string> = {
+  real_estate_buy: 'Compra',
+  real_estate_sell: 'Venda',
+  real_estate_rent: 'Arrendamento',
+  real_estate_landlord: 'Senhorio',
+  recruitment: 'Recrutamento',
+  credit: 'Crédito',
+}
+
+function presetToRange(preset: PeriodPreset): { from: string; to: string } {
+  const today = startOfDay(new Date())
+  const toStr = format(today, 'yyyy-MM-dd')
+  if (preset === 'today') return { from: toStr, to: toStr }
+  if (preset === '7d') return { from: format(subDays(today, 6), 'yyyy-MM-dd'), to: toStr }
+  if (preset === '30d') return { from: format(subDays(today, 29), 'yyyy-MM-dd'), to: toStr }
+  return { from: '', to: '' }
+}
 
 type ColumnKey = 'novo' | 'contactado' | 'qualificado' | 'perdido'
 type View = 'minhas' | 'referenciadas'
@@ -80,6 +110,7 @@ interface LeadEntry {
   id: string
   status: string
   source: string
+  sector?: string | null
   created_at: string
   contact_id: string | null
   /** For source='portal', form_data.portal holds the portal slug. */
@@ -147,12 +178,23 @@ export function LeadsKanban({
   const setView = onViewChange ?? setInternalView
   const isControlled = controlledView !== undefined
   const readOnly = view === 'referenciadas'
+  // Filtro de consultor: gestão vê sempre (carrega leads de todos os
+  // consultores); a app Parceiros activa-o via showConsultantFilter.
+  const isManagement = isManagementRole(user?.role_names ?? [])
+  const showConsultant = showConsultantFilter || isManagement
 
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string>('')
-  // Consultor filter (Parceiros only — see showConsultantFilter). Holds the
-  // assigned_consultant id; client-side, so it just narrows the loaded set.
+  const [campaignFilter, setCampaignFilter] = useState<string>('')
+  const [sectorFilter, setSectorFilter] = useState<string>('')
+  // Período de chegada (created_at). `period` controla os presets; dateFrom/To
+  // guardam o intervalo efectivo (YYYY-MM-DD) — vazio = sem limite.
+  const [period, setPeriod] = useState<PeriodPreset>('all')
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateTo, setDateTo] = useState<string>('')
+  // Consultor filter: visível à gestão (que carrega leads de todos) e ainda à
+  // app Parceiros (showConsultantFilter). Filtra client-side por assigned_consultant.
   const [consultantFilter, setConsultantFilter] = useState<string>('')
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [newOpen, setNewOpen] = useState(false)
@@ -242,12 +284,22 @@ export function LeadsKanban({
     if (isControlled) setSelectedIds(new Set())
   }, [view, isControlled])
 
-  // Pesquisa + filtros client-side (nome/email/telefone + origem + consultor).
+  // Pesquisa + filtros client-side (nome/email/telefone + período + origem +
+  // campanha + sector + consultor).
   const filteredEntries = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const fromTs = dateFrom ? startOfDay(new Date(dateFrom)).getTime() : null
+    const toTs = dateTo ? endOfDay(new Date(dateTo)).getTime() : null
     return entries.filter((e) => {
       if (sourceFilter && e.source !== sourceFilter) return false
+      if (campaignFilter && e.campaign?.id !== campaignFilter) return false
+      if (sectorFilter && (e.sector ?? '') !== sectorFilter) return false
       if (consultantFilter && e.assigned_consultant?.id !== consultantFilter) return false
+      if (fromTs != null || toTs != null) {
+        const t = new Date(e.created_at).getTime()
+        if (fromTs != null && t < fromTs) return false
+        if (toTs != null && t > toTs) return false
+      }
       if (!q) return true
       const c = e.contact
       return (
@@ -256,7 +308,7 @@ export function LeadsKanban({
         (c?.telemovel?.toLowerCase().includes(q) ?? false)
       )
     })
-  }, [entries, search, sourceFilter, consultantFilter])
+  }, [entries, search, sourceFilter, campaignFilter, sectorFilter, consultantFilter, dateFrom, dateTo])
 
   // Origens presentes nas entries carregadas — alimenta o filtro de Origem.
   const availableSources = useMemo(() => {
@@ -277,6 +329,23 @@ export function LeadsKanban({
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [entries])
 
+  // Campanhas e sectores presentes nas entries carregadas — alimentam os
+  // respectivos filtros (derivados da data para não inventar opções vazias).
+  const availableCampaigns = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const e of entries) {
+      if (e.campaign?.id) map.set(e.campaign.id, e.campaign.name ?? 'Campanha')
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [entries])
+
+  const availableSectors = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of entries) if (e.sector) set.add(e.sector)
+    return Array.from(set)
+  }, [entries])
+
   // Emit filtered counts upward (Parceiros hero KPIs track the filters).
   useEffect(() => {
     if (!onFilteredCountsChange) return
@@ -289,12 +358,37 @@ export function LeadsKanban({
     onFilteredCountsChange({ novo, contactado, qualificado })
   }, [filteredEntries, onFilteredCountsChange])
 
-  const hasActiveFilters = search.trim() !== '' || sourceFilter !== '' || consultantFilter !== ''
+  const hasActiveFilters =
+    search.trim() !== '' || sourceFilter !== '' || campaignFilter !== '' ||
+    sectorFilter !== '' || consultantFilter !== '' || dateFrom !== '' || dateTo !== ''
+  // Filtros atrás do botão (tudo menos a pesquisa inline) — controla o ponto.
+  const hasPopoverFilters =
+    sourceFilter !== '' || campaignFilter !== '' || sectorFilter !== '' ||
+    consultantFilter !== '' || dateFrom !== '' || dateTo !== ''
   const clearFilters = useCallback(() => {
     setSearch('')
     setSourceFilter('')
+    setCampaignFilter('')
+    setSectorFilter('')
     setConsultantFilter('')
+    setPeriod('all')
+    setDateFrom('')
+    setDateTo('')
   }, [])
+
+  const applyPeriodPreset = useCallback((preset: PeriodPreset) => {
+    setPeriod(preset)
+    if (preset === 'custom') return // mantém datas existentes
+    const { from, to } = presetToRange(preset)
+    setDateFrom(from)
+    setDateTo(to)
+  }, [])
+
+  const periodLabel = period === 'today' ? 'Hoje'
+    : period === '7d' ? 'Últimos 7 dias'
+    : period === '30d' ? 'Últimos 30 dias'
+    : (dateFrom || dateTo) ? `${dateFrom || '…'} → ${dateTo || '…'}`
+    : 'Qualquer período'
 
   const byColumn = useMemo(() => {
     const map: Record<ColumnKey, LeadEntry[]> = { novo: [], contactado: [], qualificado: [], perdido: [] }
@@ -502,13 +596,14 @@ export function LeadsKanban({
             >
               <SlidersHorizontal className="h-3 w-3 text-muted-foreground" />
               <span className="hidden sm:inline">Filtros</span>
-              {hasActiveFilters && (
+              {hasPopoverFilters && (
                 <span className="absolute sm:static -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-sky-400 ring-2 ring-background sm:ring-0" />
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-64 p-3 space-y-3">
-            {showConsultantFilter && (
+          <PopoverContent align="end" className="w-72 p-3 space-y-3">
+            {/* Consultor — só para a gestão (e app Parceiros). */}
+            {showConsultant && (
               <div className="space-y-1">
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Consultor</p>
                 <Select
@@ -521,14 +616,63 @@ export function LeadsKanban({
                   <SelectContent>
                     <SelectItem value="all">Todos os consultores</SelectItem>
                     {availableConsultants.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             )}
+
+            {/* Período (data de chegada) */}
+            <div className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Período</p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'h-9 w-full rounded-full text-xs justify-start font-normal',
+                      (period !== 'all' || dateFrom || dateTo) && 'border-primary/40 bg-primary/5',
+                    )}
+                  >
+                    <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
+                    {periodLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3" align="start">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-1.5 max-w-[230px]">
+                      {PERIOD_PRESETS.map((p) => (
+                        <Button
+                          key={p.value}
+                          size="sm"
+                          variant={period === p.value ? 'default' : 'outline'}
+                          className="h-7 rounded-full text-[11px]"
+                          onClick={() => applyPeriodPreset(p.value)}
+                        >
+                          {p.label}
+                        </Button>
+                      ))}
+                    </div>
+                    {period === 'custom' && (
+                      <div className="border-t pt-3 mt-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-8">De</span>
+                          <Input type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-lg text-xs" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-8">Até</span>
+                          <Input type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-lg text-xs" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Fonte */}
             <div className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Fonte</p>
               <Select
@@ -548,6 +692,49 @@ export function LeadsKanban({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Campanha */}
+            {availableCampaigns.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Campanha</p>
+                <Select
+                  value={campaignFilter || 'all'}
+                  onValueChange={(v) => setCampaignFilter(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Todas as campanhas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as campanhas</SelectItem>
+                    {availableCampaigns.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Sector */}
+            {availableSectors.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sector</p>
+                <Select
+                  value={sectorFilter || 'all'}
+                  onValueChange={(v) => setSectorFilter(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-full text-xs">
+                    <SelectValue placeholder="Todos os sectores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os sectores</SelectItem>
+                    {availableSectors.map((s) => (
+                      <SelectItem key={s} value={s}>{SECTOR_LABELS[s] ?? s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {hasActiveFilters && (
               <Button
                 variant="ghost"

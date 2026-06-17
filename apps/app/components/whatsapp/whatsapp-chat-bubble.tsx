@@ -20,6 +20,12 @@ interface WhatsAppChatBubbleProps {
   contactName: string
   /** Optional lead id for CRM-aware AI suggestions */
   contactLeadId?: string | null
+  /**
+   * When set, the launcher renders inline with these classes instead of the
+   * default fixed bottom-right FAB — used to place it inside a sheet footer
+   * as a pill. The chat panel still opens as a fixed overlay.
+   */
+  launcherClassName?: string
 }
 
 interface ResolvedChat {
@@ -46,7 +52,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
   )
 }
 
-export function WhatsAppChatBubble({ contactPhone, contactName, contactLeadId }: WhatsAppChatBubbleProps) {
+export function WhatsAppChatBubble({ contactPhone, contactName, contactLeadId, launcherClassName }: WhatsAppChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [resolved, setResolved] = useState<ResolvedChat | null>(null)
   const [resolving, setResolving] = useState(false)
@@ -330,8 +336,8 @@ export function WhatsAppChatBubble({ contactPhone, contactName, contactLeadId }:
       <button
         onClick={handleToggle}
         className={cn(
-          'fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95',
-          'h-14 w-14',
+          'flex items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95',
+          launcherClassName ?? 'fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 h-14 w-14',
           isOpen
             ? 'bg-muted text-muted-foreground hover:bg-muted/90'
             : 'bg-emerald-500 text-white hover:bg-emerald-600'

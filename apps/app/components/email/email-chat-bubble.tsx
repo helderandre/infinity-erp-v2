@@ -20,6 +20,12 @@ import type { ImapMessageEnvelope } from '@/types/email'
 interface EmailChatBubbleProps {
   contactEmail: string | null
   contactName: string
+  /**
+   * When set, the launcher renders inline with these classes instead of the
+   * default fixed bottom-right FAB — used to place it inside a sheet footer
+   * as a pill. The email panel still opens as a fixed overlay.
+   */
+  launcherClassName?: string
 }
 
 type ThreadMessage = ImapMessageEnvelope & { _folder: 'INBOX' | 'Sent' }
@@ -50,7 +56,7 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubbleProps) {
+export function EmailChatBubble({ contactEmail, contactName, launcherClassName }: EmailChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [thread, setThread] = useState<ThreadMessage[]>([])
   const [isLoadingThread, setIsLoadingThread] = useState(false)
@@ -414,7 +420,7 @@ export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubblePr
       {/* Email Panel */}
       <div
         className={cn(
-          'fixed bottom-28 sm:bottom-20 right-20 sm:right-24 left-4 z-50 sm:left-auto sm:w-[420px] rounded-2xl border bg-background shadow-2xl transition-all duration-300 ease-out overflow-hidden',
+          'fixed bottom-28 sm:bottom-20 right-4 sm:right-6 left-4 z-50 sm:left-auto sm:w-[420px] rounded-2xl border bg-background shadow-2xl transition-all duration-300 ease-out overflow-hidden',
           isOpen
             ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
             : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
@@ -765,8 +771,8 @@ export function EmailChatBubble({ contactEmail, contactName }: EmailChatBubblePr
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          'fixed bottom-20 sm:bottom-6 right-20 sm:right-24 z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95',
-          'h-14 w-14',
+          'flex items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95',
+          launcherClassName ?? 'fixed bottom-20 sm:bottom-6 right-20 sm:right-24 z-50 h-14 w-14',
           isOpen
             ? 'bg-muted text-muted-foreground hover:bg-muted/90'
             : 'bg-neutral-900 text-white hover:bg-neutral-800'

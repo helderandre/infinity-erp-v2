@@ -246,6 +246,10 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [referOpen, setReferOpen] = useState(false)
+  // Perdido — fase terminal "lost" do pipeline + diálogo de motivo. Vive no
+  // footer persistente do sheet (consistência com a ficha de Lead).
+  const [lostStage, setLostStage] = useState<{ id: string; name: string } | null>(null)
+  const [lostDialogOpen, setLostDialogOpen] = useState(false)
   // Property preview: when set, the shared PropertyDetailSheet opens on top
   // (rendered as a sibling outside this Sheet so its clicks don't bubble back
   // through the negócio sheet).
@@ -392,6 +396,23 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   )
 
   const tipo = (form.tipo as string) || negocio?.tipo || ''
+
+  // Busca a fase terminal "lost" do pipeline deste negócio para o botão
+  // Perdido no footer poder marcar o negócio como perdido.
+  useEffect(() => {
+    if (readOnly || partnerView || !tipo) { setLostStage(null); return }
+    let cancelled = false
+    fetch(`/api/crm/pipeline-stages?pipeline_type=${tipoToPipelineType(tipo)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PipelineStage[]) => {
+        if (cancelled) return
+        const lost = (data || []).find((s) => s.is_terminal && s.terminal_type === 'lost')
+        setLostStage(lost ? { id: lost.id, name: lost.name } : null)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [tipo, readOnly, partnerView])
+
   // 2026-06-XX: tipo post-refactor = perspective only; accept legacy + new
   const isBuyerType = ['Comprador', 'Compra', 'Arrendatário'].includes(tipo)
   const isSellerType = ['Vendedor', 'Venda', 'Senhorio', 'Arrendador'].includes(tipo)
@@ -567,9 +588,7 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           <DetailSkeleton />
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-            {/* pb extra à direita/baixo para o utilizador conseguir fazer scroll
-                além das bubbles WhatsApp/Email que ficam fixas no canto. */}
-            <div className="px-6 space-y-4 pb-40 sm:pb-24">
+            <div className="px-6 space-y-4 pb-6">
               {/* Tab selector — centered pills */}
               <div className="flex items-center gap-1 p-1 rounded-full bg-background border border-border/50 w-fit max-w-full mx-auto overflow-x-auto">
                 {tabs.map((t) => {
@@ -671,6 +690,60 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
               )}
             </div>
           </div>
+        )}
+
+        {/* ─── Footer persistente — Perdido / Referenciar à esquerda + atalhos
+            WhatsApp / Email (pílulas) à direita. Espelha a ficha de Lead para
+            um design consistente entre as duas sheets. ─── */}
+        {negocio && !readOnly && !partnerView && (
+          <div className="shrink-0 px-6 py-3.5 border-t border-border/40 bg-muted/30 supports-[backdrop-filter]:bg-muted/20 backdrop-blur-md flex items-center gap-2">
+            {lostStage && (
+              <button
+                type="button"
+                onClick={() => setLostDialogOpen(true)}
+                className="px-4 py-2 rounded-full text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                Perdido
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setReferOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/60 transition-colors"
+              title="Referenciar a outro consultor"
+            >
+              <Send className="h-3 w-3" />
+              Referenciar
+            </button>
+            <div className="flex-1" />
+            {(lead?.telemovel || lead?.telefone) && (
+              <WhatsAppChatBubble
+                contactPhone={lead?.telemovel || lead?.telefone || null}
+                contactName={clientName}
+                contactLeadId={leadId}
+                launcherClassName="h-11 w-11 shrink-0"
+              />
+            )}
+            {lead?.email && (
+              <EmailChatBubble
+                contactEmail={lead.email}
+                contactName={clientName}
+                launcherClassName="h-11 w-11 shrink-0"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Perdido — diálogo de motivo/descrição accionado pelo footer. */}
+        {lostStage && !readOnly && !partnerView && (
+          <LostReasonDialog
+            open={lostDialogOpen}
+            onConfirm={(reason, notes) => {
+              setLostDialogOpen(false)
+              handlePipelineStageChange(lostStage, { reason, notes: notes ?? '' })
+            }}
+            onCancel={() => setLostDialogOpen(false)}
+          />
         )}
 
         {negocio?.id && (
@@ -909,23 +982,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
           />
         )}
 
-        {/* Floating WhatsApp + Email chat bubbles — replicam o que existia
-            na página dedicada do negócio antes desta ser substituída pela sheet.
-            Bubble buttons usam `position: fixed` ancorado ao viewport mas só
-            renderizam enquanto o sheet está aberto. */}
-        {!partnerView && (lead?.telemovel || lead?.telefone) && (
-          <WhatsAppChatBubble
-            contactPhone={lead?.telemovel || lead?.telefone || null}
-            contactName={clientName}
-            contactLeadId={leadId}
-          />
-        )}
-        {!partnerView && lead?.email && (
-          <EmailChatBubble
-            contactEmail={lead.email}
-            contactName={clientName}
-          />
-        )}
       </SheetContent>
     </Sheet>
     <PropertyDetailSheet
@@ -1070,27 +1126,6 @@ function DetalhesTab({
   const [contactosOpen, setContactosOpen] = useState(false)
   const [acoesOpen, setAcoesOpen] = useState(false)
   const [imovelOpen, setImovelOpen] = useState(false)
-
-  // Perdido — busca a fase terminal "lost" deste pipeline para o botão de
-  // fecho ao fundo da ficha poder marcar o negócio como perdido (reutiliza o
-  // LostReasonDialog partilhado, igual ao EstadoPipelineSelector).
-  const [lostStage, setLostStage] = useState<{ id: string; name: string } | null>(null)
-  const [lostDialogOpen, setLostDialogOpen] = useState(false)
-  useEffect(() => {
-    if (readOnly || partnerView) return
-    let cancelled = false
-    fetch(`/api/crm/pipeline-stages?pipeline_type=${tipoToPipelineType(tipo)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: PipelineStage[]) => {
-        if (cancelled) return
-        const lost = (data || []).find((s) => s.is_terminal && s.terminal_type === 'lost')
-        setLostStage(lost ? { id: lost.id, name: lost.name } : null)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [tipo, readOnly, partnerView])
 
   // Refetch das pessoas associadas quando o sheet Info fecha (é lá que se
   // gerem as relações) — o estado vive no parent para alimentar também o
@@ -1304,52 +1339,8 @@ function DetalhesTab({
         </div>
       </div>
 
-      {/* Acções de fecho: Perdido + Referenciar — ao fundo da ficha principal,
-          para consistência de UX (estado/transferência sempre visíveis sem
-          abrir a edição). Escondidas em read-only / vista de parceiro. */}
-      {!readOnly && !partnerView && (lostStage || onReferenciar) && (
-        <div className="flex items-center justify-end gap-1.5">
-          {lostStage && (
-            <button
-              type="button"
-              onClick={() => setLostDialogOpen(true)}
-              className={cn(
-                'group inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-[11px] font-medium transition-colors shadow-sm',
-                pipelineStageId === lostStage.id
-                  ? 'border-red-500/40 bg-red-500/15 text-red-700 dark:text-red-300'
-                  : 'border-red-700/25 bg-red-700/8 text-red-700 dark:text-red-300 hover:bg-red-700/12',
-              )}
-              title="Marcar negócio como perdido"
-            >
-              <XCircle className="h-3 w-3" />
-              Perdido
-            </button>
-          )}
-          {onReferenciar && (
-            <button
-              type="button"
-              onClick={onReferenciar}
-              className="group inline-flex items-center gap-1.5 h-7 rounded-full border border-cyan-700/25 bg-cyan-700/8 text-cyan-700 dark:text-cyan-300 px-2.5 text-[11px] font-medium hover:bg-cyan-700/12 transition-colors shadow-sm"
-              title="Referenciar a outro consultor"
-            >
-              <Send className="h-3 w-3" />
-              Referenciar
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Perdido — diálogo de motivo/descrição (mesmo fluxo do pipeline). */}
-      {lostStage && (
-        <LostReasonDialog
-          open={lostDialogOpen}
-          onConfirm={(reason, notes) => {
-            setLostDialogOpen(false)
-            onPipelineStageChange(lostStage, { reason, notes: notes ?? '' })
-          }}
-          onCancel={() => setLostDialogOpen(false)}
-        />
-      )}
+      {/* Perdido + Referenciar foram movidos para o footer persistente do
+          sheet (ver NegocioDetailSheet) — consistência com a ficha de Lead. */}
 
       {/* Sheets glassmórficos accionados pelos 4 botões */}
       {negocio.id && (

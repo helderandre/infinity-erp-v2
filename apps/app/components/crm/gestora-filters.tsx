@@ -76,6 +76,7 @@ const SECTOR_OPTIONS = [
   { value: 'real_estate_buy', label: 'Compra' },
   { value: 'real_estate_sell', label: 'Venda' },
   { value: 'real_estate_rent', label: 'Arrendamento' },
+  { value: 'real_estate_landlord', label: 'Senhorio' },
   { value: 'recruitment', label: 'Recrutamento' },
   { value: 'credit', label: 'Crédito' },
 ]
