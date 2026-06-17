@@ -4,10 +4,9 @@ import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CallContactButton } from '@/components/goals/v2/call-contact-button'
 import { useUser } from '@/hooks/use-user'
 import {
-  Clock, AlertTriangle, Euro, Home, MapPin, Sparkles, Check, Phone, Send, X, Link2,
+  Clock, AlertTriangle, Euro, Home, MapPin, Sparkles, Check, Send, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -108,7 +107,6 @@ export function KanbanCard({
   onToggleSelect,
   stageColor,
   readOnly = false,
-  onOpenLinked,
   variant = 'full',
 }: KanbanCardProps) {
   const router = useRouter()
@@ -217,6 +215,10 @@ export function KanbanCard({
   ].filter(Boolean).join(' · ')
 
   const metaParts = [typology || null, localizacao || null, sourceLabel].filter(Boolean) as string[]
+
+  // Card completo (ERP): só a tipologia (T{n}+) em destaque — sem tipo de
+  // imóvel, morada ou contacto, para reduzir o ruído visual.
+  const tipologia = quartosMin ? `T${quartosMin}+` : null
 
   function handleDragStart(e: React.DragEvent<HTMLDivElement>) {
     e.dataTransfer.setData('negocio_id', negocio.id)
@@ -470,71 +472,41 @@ export function KanbanCard({
           {tempEmoji && <span aria-hidden className="text-[11px] shrink-0">{tempEmoji}</span>}
         </p>
 
-        {/* Meta row — typology · localização · source. Single line,
-            truncates to keep the card compact. */}
-        {metaParts.length > 0 && (
-          <p className="text-[10px] text-muted-foreground leading-snug truncate mt-0.5 flex items-center gap-1">
-            {typology && <Home className="h-2.5 w-2.5 shrink-0 opacity-70" />}
-            {!typology && localizacao && <MapPin className="h-2.5 w-2.5 shrink-0 opacity-70" />}
-            <span className="truncate">{metaParts.join(' · ')}</span>
-          </p>
-        )}
-
-        {/* Phone — tap-to-call without triggering the card navigation. */}
-        {contact?.telemovel && (
-          <span
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="mt-0.5 inline-block"
-          >
-            <CallContactButton
-              phone={contact.telemovel}
-              contactName={contact.nome}
-              leadId={contact.id ?? null}
-              sourceRefType="lead"
-              sourceRefId={contact.id ?? null}
-              className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors tabular-nums"
-            >
-              <Phone className="h-2.5 w-2.5" />
-              <span>{contact.telemovel}</span>
-            </CallContactButton>
-          </span>
+        {/* Tipologia + referências na mesma linha. Tipo de imóvel/morada/
+            contacto ficam de fora (reduz o ruído); os badges de referência
+            mostram só ícone + percentagem. */}
+        {(tipologia || isInternalReferral || hasReferral) && (
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
+            {tipologia && (
+              <span className="text-base font-semibold text-muted-foreground leading-none tabular-nums">
+                {tipologia}
+              </span>
+            )}
+            {isInternalReferral && (
+              <Badge
+                variant="secondary"
+                className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15"
+                title={referrerName ? `Referenciado por ${referrerName}` : 'Referenciado'}
+              >
+                <Send className="h-2.5 w-2.5 shrink-0" />
+                {referralPct !== null && Number.isFinite(referralPct) ? (
+                  <span className="shrink-0 tabular-nums">{referralPct}%</span>
+                ) : null}
+              </Badge>
+            )}
+            {hasReferral && (
+              <Badge
+                variant="secondary"
+                className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5"
+                title="Referência"
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                {negocio.referral_pct ? `${negocio.referral_pct}%` : ''}
+              </Badge>
+            )}
+          </div>
         )}
       </div>
-
-      {/* Referral badges — internal (consultor → consultor) takes precedence
-          visually because it changes the card's whole tone. has_referral is
-          the legacy partner/external referral flag and stays compact. */}
-      {(isInternalReferral || hasReferral) && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {isInternalReferral && (
-            <Badge
-              variant="secondary"
-              className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15 max-w-[200px]"
-            >
-              <Send className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">
-                {referrerName ? `Ref. ${referrerName}` : 'Referenciado'}
-              </span>
-              {referralPct !== null && Number.isFinite(referralPct) ? (
-                <span className="shrink-0 tabular-nums">{referralPct}%</span>
-              ) : null}
-              {referralCommission !== null && referralCommission > 0 ? (
-                <span className="shrink-0 tabular-nums">
-                  · {formatEUR(referralCommission)}
-                </span>
-              ) : null}
-            </Badge>
-          )}
-          {hasReferral && (
-            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5">
-              <Sparkles className="h-2.5 w-2.5" />
-              Ref.{negocio.referral_side === 'angariacao' ? ' Ang.' : negocio.referral_side === 'comprador' ? ' Comp.' : ''}
-              {negocio.referral_pct ? ` ${negocio.referral_pct}%` : ''}
-            </Badge>
-          )}
-        </div>
-      )}
 
       {/* Lost reason — red chip with the predefined motivo. Only shows once
           the deal sits in the terminal "Perdido" stage. */}
@@ -549,40 +521,6 @@ export function KanbanCard({
           </Badge>
         </div>
       )}
-
-      {/* Linked deal — sky chip when this négocio is part of a "compra depende
-          da venda" pair (shared deal_group_id). The dependent purchase also
-          shows it carries a dependency. */}
-      {negocio.deal_group_id && (() => {
-        const linkedId = negocio.linked_deal_id as string | undefined
-        const tooltip = negocio.depends_on_negocio_id
-          ? 'Compra dependente de uma venda ligada — abrir'
-          : 'Negócio ligado — compra depende da venda — abrir'
-        const badgeCls =
-          'text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/25 transition-colors'
-        return (
-          <div className="mt-1.5">
-            {linkedId && onOpenLinked ? (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onOpenLinked(linkedId) }}
-                onMouseDown={(e) => e.stopPropagation()}
-                title={tooltip}
-              >
-                <Badge variant="secondary" className={cn(badgeCls, 'cursor-pointer')}>
-                  <Link2 className="h-2.5 w-2.5 shrink-0" />
-                  Ligado
-                </Badge>
-              </button>
-            ) : (
-              <Badge variant="secondary" className={badgeCls} title={tooltip}>
-                <Link2 className="h-2.5 w-2.5 shrink-0" />
-                Ligado
-              </Badge>
-            )}
-          </div>
-        )
-      })()}
 
       {/* Value — primary financial signal. Tabular-nums for column alignment. */}
       {hasValue && (

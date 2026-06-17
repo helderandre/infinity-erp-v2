@@ -28,7 +28,7 @@ import { StepContract } from './step-4-contract'
 import { StepDocuments } from './step-5-documents'
 import { AcquisitionQuickFill } from './acquisition-quick-fill'
 import { NegocioPickerDialog, type NegocioPickerItem } from '@/components/negocios/negocio-picker-dialog'
-import { buildAcquisitionPrefillFromNegocio } from '@/lib/negocios/prefill-from-negocio'
+import { buildAcquisitionPrefillFromNegocio, mapNegocioContactsToParticipants, type PrefillParticipant } from '@/lib/negocios/prefill-from-negocio'
 
 type AcquisitionFormData = z.infer<typeof acquisitionSchema>
 
@@ -281,11 +281,17 @@ export function AcquisitionFormV2({
   })
 
   const applyPickedNegocio = useCallback(
-    (n: NegocioPickerItem) => {
+    async (n: NegocioPickerItem) => {
       setPickedNegocio(n)
       setEffectiveNegocioId(n.id)
+      // Contactos associados da oportunidade → proprietários adicionais.
+      let participants: PrefillParticipant[] = []
+      try {
+        const res = await fetch(`/api/crm/negocios/${n.id}/contactos`)
+        if (res.ok) participants = mapNegocioContactsToParticipants((await res.json()).data)
+      } catch { /* sem associados → só o titular */ }
       // Reusa o helper partilhado entre tab Angariação e picker standalone.
-      const prefill = buildAcquisitionPrefillFromNegocio(n as any)
+      const prefill = buildAcquisitionPrefillFromNegocio(n as any, participants)
       const current = form.getValues()
       form.reset({ ...current, ...prefill } as any)
       toast.success('Pré-preenchido a partir do negócio')

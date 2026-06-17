@@ -68,11 +68,83 @@ const FEATURE_FIELDS: Array<{ field: keyof NegocioForPrefill; label: string }> =
 ]
 
 /**
+ * Contacto associado a uma oportunidade (linha de `negocio_contacts`, não-
+ * titular) reduzido ao essencial para semear um proprietário/cliente.
+ */
+export interface PrefillParticipant {
+  name: string
+  email?: string | null
+  phone?: string | null
+  nif?: string | null
+}
+
+/** Converte a resposta de GET /api/crm/negocios/[id]/contactos em participantes
+ *  prontos para prefill — exclui o titular (is_primary) e linhas sem nome. */
+export function mapNegocioContactsToParticipants(rows: unknown[]): PrefillParticipant[] {
+  return (rows ?? [])
+    .map((row) => row as {
+      is_primary?: boolean
+      lead?: { nome?: string | null; full_name?: string | null; email?: string | null; telemovel?: string | null; telefone_fixo?: string | null; telefone?: string | null; nif?: string | null } | null
+    })
+    .filter((r) => !r.is_primary)
+    .map((r) => {
+      const l = r.lead || {}
+      return {
+        name: l.full_name || l.nome || '',
+        email: l.email ?? null,
+        phone: l.telemovel ?? l.telefone_fixo ?? l.telefone ?? null,
+        nif: l.nif ?? null,
+      }
+    })
+    .filter((p) => p.name.trim() !== '')
+}
+
+/** Divide 100% igualmente por `count` proprietários; o resto vai para o
+ *  primeiro (o contacto principal). Ex.: 2 → [50,50], 3 → [34,33,33]. */
+function splitOwnershipEqually(count: number): number[] {
+  if (count <= 0) return []
+  const base = Math.floor(100 / count)
+  const out = Array(count).fill(base) as number[]
+  out[0] += 100 - base * count
+  return out
+}
+
+function makeSingularOwner(
+  o: { name: string; email?: string | null; phone?: string | null; nif?: string | null; address?: string | null },
+  ownershipPct: number,
+  isMain: boolean,
+) {
+  return {
+    person_type: 'singular' as const,
+    name: o.name,
+    email: o.email || '',
+    phone: o.phone || '',
+    nif: o.nif || '',
+    nationality: '',
+    naturality: '',
+    marital_status: '',
+    address: o.address || '',
+    observations: '',
+    ownership_percentage: ownershipPct,
+    is_main_contact: isMain,
+    is_pep: false,
+    funds_origin: [],
+    is_portugal_resident: true,
+    country_of_incorporation: 'Portugal',
+    beneficiaries: [],
+  } as Record<string, unknown>
+}
+
+/**
  * Para Venda / Arrendador / Compra-e-Venda: gera prefillData para o
  * AcquisitionFormV2 a partir do negócio + lead (que é o proprietário).
  */
 export function buildAcquisitionPrefillFromNegocio(
   negocio: NegocioForPrefill,
+  /** Contactos associados à oportunidade (negocio_contacts não-titulares).
+   *  Cada um vira um proprietário adicional; a propriedade é dividida em
+   *  partes iguais entre todos (titular + associados). */
+  participants: PrefillParticipant[] = [],
 ): Partial<AcquisitionFormData> {
   const tipo = negocio.tipo || ''
   // Pós-refactor: `tipo` passou a ser perspectiva ('Vendedor'/'Senhorio') e
@@ -107,10 +179,22 @@ export function buildAcquisitionPrefillFromNegocio(
   const city = locParts[0] || negocio.concelho || ''
   const zone = locParts.slice(1).join(', ') || negocio.freguesia || ''
 
-  // Owner = lead
+  // Proprietários = titular (lead) + contactos associados da oportunidade.
+  // Dividem a propriedade em partes iguais; o titular é o contacto principal.
   const lead = negocio.lead
   const ownerName = lead?.full_name || lead?.nome || ''
   const ownerPhone = lead?.telemovel || lead?.telefone || ''
+
+  const ownerSeeds: Array<{ name: string; email?: string | null; phone?: string | null; nif?: string | null; address?: string | null }> = []
+  if (ownerName) {
+    ownerSeeds.push({ name: ownerName, email: lead?.email, phone: ownerPhone, nif: lead?.nif, address: lead?.morada })
+  }
+  for (const p of participants) {
+    if (!p.name?.trim()) continue
+    ownerSeeds.push({ name: p.name, email: p.email, phone: p.phone, nif: p.nif })
+  }
+  const ownershipSplit = splitOwnershipEqually(ownerSeeds.length)
+  const owners = ownerSeeds.map((o, i) => makeSingularOwner(o, ownershipSplit[i], i === 0))
 
   const prefill: Partial<AcquisitionFormData> = {
     title,
@@ -133,31 +217,9 @@ export function buildAcquisitionPrefillFromNegocio(
       has_elevator: !!negocio.tem_elevador,
       features: FEATURE_FIELDS.filter((f) => !!(negocio as any)[f.field]).map((f) => f.label),
     },
-    // Owner seed — só semeamos se tiver pelo menos nome.
-    // Se não houver, o user adiciona manualmente (o schema exige min 1).
-    owners: ownerName
-      ? ([
-          {
-            person_type: 'singular' as const,
-            name: ownerName,
-            email: lead?.email || '',
-            phone: ownerPhone,
-            nif: lead?.nif || '',
-            nationality: '',
-            naturality: '',
-            marital_status: '',
-            address: lead?.morada || '',
-            observations: '',
-            ownership_percentage: 100,
-            is_main_contact: true,
-            is_pep: false,
-            funds_origin: [],
-            is_portugal_resident: true,
-            country_of_incorporation: 'Portugal',
-            beneficiaries: [],
-          } as any,
-        ])
-      : [],
+    // Proprietários — titular + associados (partes iguais). Vazio se não
+    // houver sequer nome; o schema exige min 1 e o user adiciona manualmente.
+    owners: owners as any,
   }
 
   return prefill
