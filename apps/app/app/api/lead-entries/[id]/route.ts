@@ -19,7 +19,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         ),
         campaign:leads_campaigns(id, name, platform, external_campaign_id, status, start_date, end_date),
         property:dev_properties!leads_entries_property_id_fkey(id, title, slug, external_ref),
-        assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name)
+        assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name),
+        referral_consultant:dev_users!leads_entries_referral_consultant_id_fkey(id, commercial_name),
+        referrals:leads_referrals!entry_id(
+          id, status, notes, from_consultant_id, to_consultant_id, referral_pct, created_at,
+          referrer:dev_users!leads_referrals_from_consultant_id_fkey(id, commercial_name)
+        )
       `)
       .eq('id', id)
       .single()

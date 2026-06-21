@@ -65,7 +65,7 @@ export async function GET(
     const entryRows: any[] = entries ?? []
 
     // 3. Stats — total + breakdown por status.
-    const byStatus: Record<string, number> = { new: 0, seen: 0, processing: 0, converted: 0, discarded: 0 }
+    const byStatus: Record<string, number> = { new: 0, seen: 0, no_answer: 0, no_answer_2plus: 0, processing: 0, converted: 0, discarded: 0 }
     for (const e of entryRows) {
       if (e.status in byStatus) byStatus[e.status] += 1
     }

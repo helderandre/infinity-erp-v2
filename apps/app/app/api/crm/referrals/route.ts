@@ -68,8 +68,12 @@ export async function GET(request: Request) {
  * Create a referral. For internal user → user referrals this also performs
  * the hand-off side-effects on the underlying entity:
  *
- *  - entry_id  → transfer leads_entries to recipient + flag the contact's
- *                referred_by_consultant_id so future négocios are auditable
+ *  - entry_id  → hand the lead over to the recipient: reassign the entry
+ *                (assigned_consultant_id + assigned_agent_id) AND the
+ *                underlying contacto (leads.agent_id), and denormalize the
+ *                referral onto the entry (has_referral / referral_pct /
+ *                referral_consultant_id) so the recipient sees the badge.
+ *                The referrer's note stays in leads_referrals.notes.
  *  - negocio_id → transfer the négocio to recipient + record commission slice
  *                 (referrer_consultant_id + referral_pct) — contacto stays
  *  - else (contact only) → reassign agent_id + flag referred_by_consultant_id
@@ -158,10 +162,38 @@ export async function POST(request: Request) {
     if (input.referral_type === 'internal' && input.to_consultant_id) {
       try {
         if (input.entry_id) {
-          await supabase
+          // Full ownership hand-off: the recipient gets this AS A LEAD, not a
+          // borrowed entry. Flip the entry to the recipient AND denormalize the
+          // referral onto it so the recipient's inbox/sheet shows the
+          // "Referenciação" badge + % + referrer. The free-text note stays in
+          // leads_referrals.notes (surfaced read-only by the inbox queries).
+          const { error: entryErr } = await supabase
             .from('leads_entries')
-            .update({ assigned_consultant_id: input.to_consultant_id })
+            .update({
+              assigned_consultant_id: input.to_consultant_id,
+              // Mirror onto assigned_agent_id — the column that feeds the
+              // Gestora "Por atribuir" page, the SLA engine and the
+              // active_lead_count trigger. Without this the entry would still
+              // surface in the unassigned pool. Same person, two columns.
+              assigned_agent_id: input.to_consultant_id,
+              has_referral: true,
+              referral_consultant_id: input.from_consultant_id,
+              referral_pct: effectivePct,
+            })
             .eq('id', input.entry_id)
+          if (entryErr) throw new Error(entryErr.message)
+
+          // Reassign the underlying contacto to the recipient too — so it's
+          // genuinely their lead, not just an entry pointing at someone else's
+          // contact. Future négocios on this contacto already inherit the
+          // slice via the négocio-creation handler.
+          if (input.contact_id) {
+            const { error: contactErr } = await supabase
+              .from('leads')
+              .update({ agent_id: input.to_consultant_id })
+              .eq('id', input.contact_id)
+            if (contactErr) throw new Error(contactErr.message)
+          }
         } else if (input.negocio_id) {
           await supabase
             .from('negocios')

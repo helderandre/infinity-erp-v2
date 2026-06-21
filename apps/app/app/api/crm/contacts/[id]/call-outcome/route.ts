@@ -111,18 +111,39 @@ export async function POST(
       }
     }
 
-    // 3. Update SLA tracking on lead entries (first contact)
+    // 3. Reflect the call outcome on the lead-entry funnel + SLA tracking.
+    //    The Leads kanban (leads_entries.status) has two pre-contact stages
+    //    inserted before "Contactado":
+    //      new/seen → no_answer → no_answer_2plus → processing (Contactado)
+    //    so registar uma chamada move automaticamente a lead na pipeline.
+    const nowIso = new Date().toISOString()
     if (outcome === 'success') {
-      // Mark all uncontacted entries for this contact as contacted
+      // Reached them → advance any still-open early entry to Contactado.
       await admin
         .from('leads_entries')
-        .update({
-          first_contact_at: new Date().toISOString(),
-          sla_status: 'completed',
-          status: 'contacted',
-        })
+        .update({ status: 'processing' })
+        .eq('contact_id', contactId)
+        .in('status', ['new', 'seen', 'no_answer', 'no_answer_2plus'])
+      // First successful contact stops the SLA clock.
+      await admin
+        .from('leads_entries')
+        .update({ first_contact_at: nowIso, sla_status: 'completed' })
         .eq('contact_id', contactId)
         .is('first_contact_at', null)
+    } else if (['no_answer', 'busy', 'voicemail'].includes(outcome)) {
+      // Tried but didn't reach them → register the attempt on the funnel.
+      // Escalate an existing 1st-attempt to "Não atendeu 2+" BEFORE promoting
+      // fresh entries, so a brand-new entry only advances one stage.
+      await admin
+        .from('leads_entries')
+        .update({ status: 'no_answer_2plus' })
+        .eq('contact_id', contactId)
+        .eq('status', 'no_answer')
+      await admin
+        .from('leads_entries')
+        .update({ status: 'no_answer' })
+        .eq('contact_id', contactId)
+        .in('status', ['new', 'seen'])
     }
 
     // 4. Log to goals system

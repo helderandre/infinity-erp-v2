@@ -34,6 +34,8 @@ const STATUS_STYLES: Record<string, { label: string; class: string; icon: typeof
   new: { label: 'Novo', class: 'bg-sky-500/10 text-sky-600', icon: Zap },
   contacted: { label: 'Contactado', class: 'bg-amber-500/10 text-amber-600', icon: Clock },
   seen: { label: 'Visto', class: 'bg-yellow-500/10 text-yellow-600', icon: Clock },
+  no_answer: { label: 'Não atendeu', class: 'bg-slate-400/10 text-slate-500', icon: Clock },
+  no_answer_2plus: { label: 'Não atendeu 2+', class: 'bg-slate-500/10 text-slate-600', icon: Clock },
   processing: { label: 'Em Curso', class: 'bg-blue-500/10 text-blue-600', icon: ArrowRight },
   converted: { label: 'Convertido', class: 'bg-emerald-500/10 text-emerald-600', icon: CheckCircle2 },
   discarded: { label: 'Descartado', class: 'bg-slate-500/10 text-slate-600', icon: XCircle },

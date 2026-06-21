@@ -2,8 +2,9 @@
 
 /**
  * Leads pipeline — kanban of lead ENTRIES by lifecycle status (distinct from
- * the opportunities/negócios board). Lean 4-column set:
- *   Novo (new/seen) · Contactado (processing) · Qualificado (converted) · Perdido (discarded)
+ * the opportunities/negócios board). Column set:
+ *   Novo (new/seen) · Não atendeu (no_answer) · Não atendeu 2+ (no_answer_2plus)
+ *   · Contactado (processing) · Qualificado (converted) · Perdido (discarded)
  *
  * Two views via a Minhas/Referenciadas toggle:
  *   • Minhas        — entries assigned to me. Drag to advance, qualify, lose,
@@ -18,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Phone, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, CalendarDays, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Phone, PhoneOff, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, CalendarDays, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { formatDistanceToNow, format, startOfDay, endOfDay, subDays } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -76,7 +77,7 @@ function presetToRange(preset: PeriodPreset): { from: string; to: string } {
   return { from: '', to: '' }
 }
 
-type ColumnKey = 'novo' | 'contactado' | 'qualificado' | 'perdido'
+type ColumnKey = 'novo' | 'nao_atendeu' | 'nao_atendeu_2' | 'contactado' | 'qualificado' | 'perdido'
 type View = 'minhas' | 'referenciadas'
 
 interface Column {
@@ -91,12 +92,14 @@ interface Column {
 
 const COLUMNS: Column[] = [
   { key: 'novo', label: 'Novo', statuses: ['new', 'seen'], setStatus: 'new', color: '#3b82f6' },
+  { key: 'nao_atendeu', label: 'Não atendeu', statuses: ['no_answer'], setStatus: 'no_answer', color: '#94a3b8' },
+  { key: 'nao_atendeu_2', label: 'Não atendeu 2+', statuses: ['no_answer_2plus'], setStatus: 'no_answer_2plus', color: '#64748b' },
   { key: 'contactado', label: 'Contactado', statuses: ['processing'], setStatus: 'processing', color: '#f59e0b' },
   { key: 'qualificado', label: 'Qualificado', statuses: ['converted'], color: '#10b981', qualify: true },
   { key: 'perdido', label: 'Perdido', statuses: ['discarded'], color: '#ef4444', lost: true },
 ]
 
-const ALL_STATUSES = 'new,seen,processing,converted,discarded'
+const ALL_STATUSES = 'new,seen,no_answer,no_answer_2plus,processing,converted,discarded'
 const TERMINAL_STATUSES = ['converted', 'discarded']
 
 interface ReferralLite {
@@ -391,7 +394,7 @@ export function LeadsKanban({
     : 'Qualquer período'
 
   const byColumn = useMemo(() => {
-    const map: Record<ColumnKey, LeadEntry[]> = { novo: [], contactado: [], qualificado: [], perdido: [] }
+    const map: Record<ColumnKey, LeadEntry[]> = { novo: [], nao_atendeu: [], nao_atendeu_2: [], contactado: [], qualificado: [], perdido: [] }
     for (const e of filteredEntries) {
       const col = COLUMNS.find((c) => c.statuses.includes(e.status))
       if (col) map[col.key].push(e)
@@ -1109,6 +1112,8 @@ const STATUS_TO_COLUMN: Record<string, Column> = COLUMNS.reduce((acc, col) => {
 
 const PHASE_ICONS: Record<ColumnKey, PhaseTab['Icon']> = {
   novo: Sparkles,
+  nao_atendeu: PhoneOff,
+  nao_atendeu_2: PhoneOff,
   contactado: Phone,
   qualificado: Check,
   perdido: X,
@@ -1124,7 +1129,7 @@ function LeadEntriesList({
   const [tab, setTab] = useState<ColumnKey>('novo')
 
   const byPhase = useMemo(() => {
-    const map: Record<ColumnKey, LeadEntry[]> = { novo: [], contactado: [], qualificado: [], perdido: [] }
+    const map: Record<ColumnKey, LeadEntry[]> = { novo: [], nao_atendeu: [], nao_atendeu_2: [], contactado: [], qualificado: [], perdido: [] }
     for (const e of entries) {
       const col = COLUMNS.find((c) => c.statuses.includes(e.status))
       if (col) map[col.key].push(e)

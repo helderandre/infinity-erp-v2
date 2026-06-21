@@ -15,8 +15,11 @@ import {
   Phone, Mail, MessageSquare, ArrowRight, X,
   Megaphone, Calendar, User, FileText, Hash,
   History, Sparkles, Copy, Check, ShoppingCart, Store, Key, Building2,
-  Handshake, Percent, UserCheck, Send, ChevronRight, Home,
+  Handshake, Percent, UserCheck, Send, ChevronRight, Home, ChevronsUpDown,
 } from 'lucide-react'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 
 // Inline WhatsApp brand glyph (Lucide doesn't ship one)
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -53,12 +56,26 @@ const SOURCE_CONFIG: Record<string, { label: string; class: string }> = {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string }> = {
-  new:        { label: 'Novo',       dot: 'bg-sky-500' },
-  seen:       { label: 'Visto',      dot: 'bg-yellow-500' },
-  processing: { label: 'Em Curso',   dot: 'bg-blue-500' },
-  converted:  { label: 'Convertido', dot: 'bg-emerald-500' },
-  discarded:  { label: 'Descartado', dot: 'bg-slate-400' },
+  new:             { label: 'Novo',           dot: 'bg-sky-500' },
+  seen:            { label: 'Visto',          dot: 'bg-yellow-500' },
+  no_answer:       { label: 'Não atendeu',    dot: 'bg-slate-400' },
+  no_answer_2plus: { label: 'Não atendeu 2+', dot: 'bg-slate-500' },
+  processing:      { label: 'Contactado',     dot: 'bg-amber-500' },
+  converted:       { label: 'Qualificado',    dot: 'bg-emerald-500' },
+  discarded:       { label: 'Perdido',        dot: 'bg-red-500' },
 }
+
+// Stages offered in the "Mudar de estado" picker — mirror the Leads kanban
+// columns (single source = STATUS_CONFIG for label + dot). `qualify`/`lost`
+// open the same dialogs as the kanban (Qualificar → negócio, Perdido → motivo).
+const STAGE_OPTIONS: { status: string; qualify?: boolean; lost?: boolean }[] = [
+  { status: 'new' },
+  { status: 'no_answer' },
+  { status: 'no_answer_2plus' },
+  { status: 'processing' },
+  { status: 'converted', qualify: true },
+  { status: 'discarded', lost: true },
+]
 
 const SECTOR_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
   real_estate_buy:      { label: 'Comprador',    icon: ShoppingCart },
@@ -143,6 +160,7 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const [contactMethod, setContactMethod] = useState<'phone' | 'email' | 'whatsapp'>('phone')
   const [referOpen, setReferOpen] = useState(false)
   const [lostOpen, setLostOpen] = useState(false)
+  const [stageMenuOpen, setStageMenuOpen] = useState(false)
   const router = useRouter()
 
   const triggerContact = useCallback((method: 'phone' | 'email' | 'whatsapp', value: string) => {
@@ -210,6 +228,17 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
     updateStatus('discarded', { lost_reason: reason, lost_notes: notes })
   }
 
+  // Pick a stage from the "Mudar de estado" popover. Plain stages PATCH the
+  // status directly; Qualificar / Perdido defer to their existing dialogs so
+  // the required extra info (negócio / motivo) is collected as usual.
+  const handlePickStage = (opt: { status: string; qualify?: boolean; lost?: boolean }) => {
+    setStageMenuOpen(false)
+    if (!entry || opt.status === currentStatusForMenu) return
+    if (opt.qualify) { onQualify(entry); onClose(); return }
+    if (opt.lost) { setLostOpen(true); return }
+    updateStatus(opt.status)
+  }
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
     setCopied(label)
@@ -222,6 +251,8 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
   const name = entry?.raw_name || entry?.contact?.nome || '—'
   const srcInfo = entry ? SOURCE_CONFIG[entry.source] || SOURCE_CONFIG.other : null
   const statusInfo = entry ? STATUS_CONFIG[entry.status] || STATUS_CONFIG.new : null
+  // 'seen' shares the "Novo" stage in the funnel, so the picker treats it as 'new'.
+  const currentStatusForMenu = entry ? (entry.status === 'seen' ? 'new' : entry.status) : null
   const consultant = entry?.assigned_consultant?.commercial_name || entry?.contact?.agent?.commercial_name
   const timeAgo = entry ? formatDistanceToNow(new Date(entry.created_at), { addSuffix: true, locale: pt }) : ''
   const isActionable = entry && !['converted', 'discarded'].includes(entry.status)
@@ -349,6 +380,47 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                     </Tooltip>
                   )}
                 </TooltipProvider>
+              </div>
+
+              {/* ─── Mudar de estado — move the lead through the funnel ─── */}
+              <div className="mt-3 flex justify-center">
+                <Popover open={stageMenuOpen} onOpenChange={setStageMenuOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-background border border-border/40 shadow-sm hover:shadow-md hover:bg-muted/50 transition-all text-xs font-medium"
+                    >
+                      <span className={cn('h-2 w-2 rounded-full', statusInfo?.dot ?? 'bg-slate-400')} />
+                      Mudar de estado
+                      <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="center" className="w-56 p-1.5">
+                    <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Mover para
+                    </p>
+                    {STAGE_OPTIONS.map((opt) => {
+                      const info = STATUS_CONFIG[opt.status]
+                      const isCurrent = opt.status === currentStatusForMenu
+                      return (
+                        <button
+                          key={opt.status}
+                          type="button"
+                          disabled={isCurrent}
+                          onClick={() => handlePickStage(opt)}
+                          className={cn(
+                            'w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
+                            isCurrent ? 'bg-muted/40 opacity-60 cursor-default' : 'hover:bg-muted/60',
+                          )}
+                        >
+                          <span className={cn('h-2 w-2 rounded-full shrink-0', info?.dot ?? 'bg-slate-400')} />
+                          <span className="flex-1 text-left">{info?.label ?? opt.status}</span>
+                          {isCurrent && <Check className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                        </button>
+                      )
+                    })}
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
@@ -498,6 +570,26 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                         </div>
                       </div>
                     )}
+                    {/* Nota de referência — texto livre que o referrer deixou ao
+                        referenciar. Vive em leads_referrals.notes (read-only para
+                        quem recebe); mostramos a mais recente não-cancelada. */}
+                    {(() => {
+                      const refNote = Array.isArray(entry.referrals)
+                        ? entry.referrals
+                            .filter((r) => r?.notes && r.notes.trim() && r.status !== 'cancelled')
+                            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+                        : null
+                      if (!refNote) return null
+                      return (
+                        <div className="flex items-start gap-3 px-4 py-3">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-[10px] text-muted-foreground">Nota de referência</p>
+                            <p className="text-sm whitespace-pre-wrap">{refNote.notes}</p>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}

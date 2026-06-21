@@ -39,7 +39,7 @@ export const createLeadEntrySchema = z.object({
 })
 
 export const updateLeadEntryStatusSchema = z.object({
-  status: z.enum(['new', 'seen', 'processing', 'converted', 'discarded']),
+  status: z.enum(['new', 'seen', 'no_answer', 'no_answer_2plus', 'processing', 'converted', 'discarded']),
   // Only meaningful when status='discarded' (Perdido). Optional.
   lost_reason: z.string().optional().nullable(),
   lost_notes: z.string().optional().nullable(),

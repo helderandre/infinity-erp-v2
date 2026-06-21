@@ -56,6 +56,8 @@ const STATUS_PRIMARY: { value: string; label: string }[] = [
 ]
 
 const STATUS_SECONDARY: { value: string; label: string }[] = [
+  { value: 'no_answer',       label: 'Não atendeu' },
+  { value: 'no_answer_2plus', label: 'Não atendeu 2+' },
   { value: 'processing', label: 'Em curso' },
   { value: 'converted',  label: 'Convertidos' },
   { value: 'discarded',  label: 'Descartados' },

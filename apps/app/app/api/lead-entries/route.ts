@@ -70,7 +70,7 @@ export async function GET(request: Request) {
         deal:negocios!negocios_entry_id_fkey(id, pipeline_stage_id),
         assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name),
         referrals:leads_referrals!entry_id(
-          id, status, from_consultant_id, to_consultant_id, referral_pct, created_at,
+          id, status, notes, from_consultant_id, to_consultant_id, referral_pct, created_at,
           referrer:dev_users!leads_referrals_from_consultant_id_fkey(id, commercial_name)
         )
       `, { count: 'exact' })

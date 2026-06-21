@@ -478,6 +478,21 @@ export interface MapaGestaoRow {
   agency_invoice_amount_gross: number | null
   network_invoice_number: string | null
   network_invoice_date: string | null
+  // Moloni (faturação) — agency invoice linkage
+  moloni_document_id: number | null
+  moloni_document_type: string | null
+  moloni_status: number | null // 0=draft, 1=closed/AT, 2=credited/cancelled
+  moloni_pdf_url: string | null
+  moloni_pdf_r2_url: string | null
+  moloni_synced_at: string | null
+  moloni_error: string | null
+  moloni_creditnote_id: number | null
+  moloni_creditnote_number: string | null
+  moloni_creditnote_issued_at: string | null
+  moloni_receipt_id: number | null
+  moloni_receipt_issued_at: string | null
+  moloni_email_sent_at: string | null
+  moloni_email_sent_to: string | null
   // Split info (per-agent)
   split_id: string
   agent: { id: string; commercial_name: string } | null

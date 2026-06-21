@@ -2,7 +2,24 @@
 
 ## 📊 Estado Actual do Projecto
 
-**Última actualização:** 2026-06-07
+**Última actualização:** 2026-06-20
+
+### ✅ Moloni — Faturação (MVP: faturas de comissão da agência)
+- **Integração com o Moloni v1** (mesma API que o MUBE CRM usa) para emitir as **faturas de comissão da agência** por `deal_payment` como documentos fiscais reais (reportados à AT). Portado da implementação de produção do MUBE — gotchas todos documentados em [moloni-integration-portable-spec.md](moloni-integration-portable-spec.md) (raiz) e [docs/MOLONI-INTEGRATION.md](apps/app/docs/MOLONI-INTEGRATION.md).
+- **Migration** [20260629_moloni_integration.sql](apps/app/supabase/migrations/20260629_moloni_integration.sql) (⚠️ aplicar ANTES do deploy — as GET de `mapa-gestao`/`mapa-row` passam a fazer SELECT das colunas `moloni_*`): cria `moloni_tokens` (token store password-grant, 1 row, RLS on sem policies = service-role only), `moloni_idempotency_keys` (salvaguarda de produção do MUBE contra dupla emissão), e colunas aditivas `moloni_document_id/document_type/status/customer_id/pdf_url/synced_at/error` em `deal_payments`.
+- **`lib/moloni/`**: `client.ts` (password grant + auto-refresh com buffer 5min + `moloniPost` com deteção de erro array-em-HTTP-200 + escolha de empresa real ignorando demo ID 5 + lock serializado de token), `idempotency.ts` (`withIdempotency`/`clearIdempotency`), `customers.ts` (sync idempotente por NIF + enriquecimento nif.pt), `catalog.ts` (taxas/séries/auto-criação de produto-serviço), `invoices.ts` (insert/delete-draft/cancel/PDF via meta-refresh), `issue-agency-invoice.ts` (glue de domínio reutilizado por rascunho e finalização).
+- **Fluxo manual, rascunho primeiro** (escolha do stakeholder): server actions em [moloni-actions.ts](apps/app/app/dashboard/financeiro/deals/moloni-actions.ts) — `issueMoloniDraft` (status 0, eliminável) → `finalizeMoloniInvoice` (emite fechado status 1 reportado à AT + apaga rascunho best-effort + busca PDF) → `deleteMoloniDraft`. Tudo gated por `requirePermission('financial')` e envolto em idempotência.
+- **Destinatário configurável por pagamento** — usa `agency_invoice_recipient` + NIF já existentes; sem destinatário a emissão é bloqueada.
+- **UI**: secção **Moloni** na tab Gestão de [mapa-row-sheet.tsx](apps/app/components/financial/sheets/mapa-row-sheet.tsx) — badge (Por emitir / Rascunho / Emitida·AT / Creditada·Anulada), emitir rascunho, confirmação em 2 passos para "Finalizar e reportar à AT" (irreversível), eliminar rascunho, ver PDF, emitir recibo, enviar por email, nota de crédito e anular. Health check em `GET /api/financial/moloni/status`.
+- **Env (Coolify)**: `MOLONI_DEVELOPER_ID`, `MOLONI_CLIENT_SECRET`, `MOLONI_USERNAME`, `MOLONI_PASSWORD` (conta + app developer já existem). `NIF_PT_API_KEY` reutilizado.
+
+#### ✅ Moloni — extensões (conjunto completo) — migration [20260630_moloni_extensions.sql](apps/app/supabase/migrations/20260630_moloni_extensions.sql)
+- **Arquivo do PDF em R2**: no `finalizeMoloniInvoice`, o PDF é descarregado e guardado de forma durável em R2 ([archive-pdf.ts](apps/app/lib/moloni/archive-pdf.ts), `uploadToR2`) em `moloni/faturas/{paymentId}/...`; `deal_payments.moloni_pdf_r2_url/path`. A rota `…/pdf` redirige para o R2 quando existe, senão busca ao Moloni.
+- **Enviar por email** ([send-invoice-email.ts](apps/app/lib/moloni/send-invoice-email.ts)): reusa `resolveEmailAccount` (conta SMTP do próprio utilizador, sem fallback partilhado) + `sendViaSMTP` com o PDF anexado (Buffer); `sendMoloniInvoiceEmail` default do destinatário via deal→negócio→lead; regista `moloni_email_sent_at/to`.
+- **Nota de crédito** ([credit-notes.ts](apps/app/lib/moloni/credit-notes.ts)): `invoices/getOne` → `creditNotes/insert` com `related_id = document_product_id` por linha; **anular** via `documents/documentCancel`. Ambos põem `moloni_status=2` + `moloni_creditnote_id/number`.
+- **Recibo** ([receipts.ts](apps/app/lib/moloni/receipts.ts)): `paymentMethods/getAll` → `receipts/insert` (net_value=bruto, expiration_date obrigatório); `moloni_receipt_id`.
+- Todas as operações fiscais novas envoltas em `withIdempotency` (chaves `moloni:creditnote|cancel|receipt:<paymentId>`). Colunas novas em `deal_payments`: `moloni_creditnote_id/number/issued_at`, `moloni_receipt_id/issued_at`, `moloni_email_sent_at/to`, `moloni_pdf_r2_path/url` — todas adicionadas ao SELECT/map de `mapa-gestao` + `mapa-row` e ao tipo `MapaGestaoRow`.
+- **Fora de âmbito (futuro)**: faturas de despesa a fornecedores, emissão automática/cron, retenção na fonte parametrizável.
 
 ### ✅ Despesas pessoais do consultor (versão simples, sem arquivo legal)
 - **Tabela** `agent_personal_expenses` ([20260607_agent_personal_expenses.sql](supabase/migrations/20260607_agent_personal_expenses.sql)) com RLS **self-only sem excepção** (gestão NÃO vê via API normal). Schema mínimo: data, categoria livre, vendor (nome+NIF), montantes (gross/net/IVA), nº doc, recibo (URL R2 + mimetype + size), confidências OCR, notas, e **`recurrence_id` FK** para regras de recorrência. **Isolada da contabilidade da empresa** — não toca em `company_transactions` / `conta_corrente_transactions` / KPIs de gestão.

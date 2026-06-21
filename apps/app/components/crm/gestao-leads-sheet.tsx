@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Target, Clock, Inbox, AlertTriangle, Users, ChevronLeft,
-  Loader2, Phone, Mail, ArrowRight, Eye, Sparkles, Check, X,
+  Loader2, Phone, PhoneOff, Mail, ArrowRight, Eye, Sparkles, Check, X,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -93,6 +93,8 @@ const SOURCE_LABELS: Record<string, string> = {
 // Lead-entry pipeline phases (mirror leads-kanban COLUMNS).
 const PHASES: { key: string; label: string; statuses: string[]; color: string; Icon: PhaseTab['Icon'] }[] = [
   { key: 'novo', label: 'Novo', statuses: ['new', 'seen'], color: '#3b82f6', Icon: Sparkles },
+  { key: 'nao_atendeu', label: 'Não atendeu', statuses: ['no_answer'], color: '#94a3b8', Icon: PhoneOff },
+  { key: 'nao_atendeu_2', label: 'Não atendeu 2+', statuses: ['no_answer_2plus'], color: '#64748b', Icon: PhoneOff },
   { key: 'contactado', label: 'Contactado', statuses: ['processing'], color: '#f59e0b', Icon: Phone },
   { key: 'qualificado', label: 'Qualificado', statuses: ['converted'], color: '#10b981', Icon: Check },
   { key: 'perdido', label: 'Perdido', statuses: ['discarded'], color: '#ef4444', Icon: X },
@@ -679,7 +681,7 @@ function ConsultantDetail({
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`/api/lead-entries?consultant_id=${agent.id}&status=new,seen,processing,converted,discarded&limit=300`)
+    fetch(`/api/lead-entries?consultant_id=${agent.id}&status=new,seen,no_answer,no_answer_2plus,processing,converted,discarded&limit=300`)
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((j) => { if (!cancelled) setEntries(Array.isArray(j.data) ? j.data : []) })
       .catch(() => { if (!cancelled) setEntries([]) })

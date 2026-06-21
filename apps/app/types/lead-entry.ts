@@ -87,6 +87,28 @@ export interface LeadEntry {
   property_id?: string | null
   property_external_ref?: string | null
   assigned_consultant?: { id: string; commercial_name: string } | null
+  // Referral denormalization (set on the entry so the "Referenciação" block
+  // renders). For internal consultor→consultor referrals these are populated
+  // by POST /api/crm/referrals; the referrer's free-text note lives in the
+  // joined `referrals` rows (leads_referrals.notes), not on the entry.
+  has_referral?: boolean | null
+  referral_pct?: number | null
+  referral_consultant_id?: string | null
+  referral_consultant?: { id: string; commercial_name: string } | null
+  referral_external_name?: string | null
+  referral_external_phone?: string | null
+  referral_external_email?: string | null
+  referral_external_agency?: string | null
+  referrals?: Array<{
+    id: string
+    status: string
+    notes: string | null
+    referral_pct: number | null
+    from_consultant_id: string | null
+    to_consultant_id: string | null
+    created_at: string
+    referrer?: { id: string; commercial_name: string } | null
+  }> | null
 }
 
 export interface LeadCampaign {
