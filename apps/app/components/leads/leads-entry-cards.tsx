@@ -296,6 +296,7 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
                           <CallContactButton
                             phone={selectedEntry.raw_phone}
                             contactName={selectedEntry.raw_name ?? null}
+                            leadId={selectedEntry.contact?.id ?? selectedEntry.contact_id ?? null}
                             sourceRefType="lead_entry"
                             sourceRefId={selectedEntry.id ?? null}
                             className="flex items-center gap-3 text-sm hover:text-primary transition-colors"

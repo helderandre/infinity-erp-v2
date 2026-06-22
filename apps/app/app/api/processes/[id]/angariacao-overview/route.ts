@@ -87,7 +87,51 @@ export async function GET(
     const progressOrder =
       firstIncomplete === -1 ? steps.length + 1 : firstIncomplete + 1
 
-    return NextResponse.json({ progressOrder, steps })
+    // ── Entidades para o pré-preenchimento do CMI (proprietário + angariador) ──
+    // O passo "Geração do CMI" precisa do owner (contacto principal) e do
+    // consultor para resolver as variáveis proprietario_* / consultor_*.
+    let propertyId: string | null = null
+    let consultantId: string | null = null
+    let mainContactOwnerId: string | null = null
+
+    const { data: inst } = await (
+      db.from('proc_instances') as ReturnType<typeof supabase.from>
+    )
+      .select('property_id')
+      .eq('id', id)
+      .single()
+
+    propertyId = (inst as { property_id?: string } | null)?.property_id ?? null
+
+    if (propertyId) {
+      const { data: prop } = await (
+        db.from('dev_properties') as ReturnType<typeof supabase.from>
+      )
+        .select('consultant_id')
+        .eq('id', propertyId)
+        .single()
+      consultantId = (prop as { consultant_id?: string } | null)?.consultant_id ?? null
+
+      const { data: owners } = await (
+        db.from('property_owners') as ReturnType<typeof supabase.from>
+      )
+        .select('owner_id, is_main_contact')
+        .eq('property_id', propertyId)
+        .order('is_main_contact', { ascending: false })
+      const ownerRows = (owners ?? []) as { owner_id: string; is_main_contact: boolean | null }[]
+      mainContactOwnerId =
+        ownerRows.find((o) => o.is_main_contact)?.owner_id ??
+        ownerRows[0]?.owner_id ??
+        null
+    }
+
+    return NextResponse.json({
+      progressOrder,
+      steps,
+      propertyId,
+      consultantId,
+      mainContactOwnerId,
+    })
   } catch {
     return NextResponse.json(
       { error: 'Erro interno do servidor' },

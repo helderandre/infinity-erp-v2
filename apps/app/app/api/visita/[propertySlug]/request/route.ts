@@ -27,6 +27,15 @@ const bookingRequestSchema = z.object({
   { message: 'Agência obrigatória quando és consultor', path: ['client_agency'] }
 )
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function buildRequestReceivedEmail(params: {
   clientName: string
   propertyTitle: string
@@ -47,7 +56,7 @@ function buildRequestReceivedEmail(params: {
   return `
     <h2 style="margin:0 0 12px 0; font-size:20px; color:#0a0a0a;">Pedido de visita recebido</h2>
     <p style="margin:0 0 16px 0; color:#4a4a4a; font-size:14px; line-height:1.6;">
-      Olá <strong>${params.clientName}</strong>,
+      Olá <strong>${escapeHtml(params.clientName)}</strong>,
     </p>
     <p style="margin:0 0 16px 0; color:#4a4a4a; font-size:14px; line-height:1.6;">
       Recebemos o seu pedido de visita ao imóvel <strong>${params.propertyTitle}</strong>.
@@ -101,7 +110,8 @@ export async function POST(
       .eq('consultant_id', property.consultant_id)
       .maybeSingle()
 
-    if (settingsRow && !settingsRow.public_booking_enabled) {
+    // Opt-in: sem settings activas, o agendamento público está desligado.
+    if (!settingsRow || !settingsRow.public_booking_enabled) {
       return NextResponse.json(
         { error: 'Agendamento público não está disponível' },
         { status: 404 }

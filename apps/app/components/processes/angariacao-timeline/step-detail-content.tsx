@@ -42,6 +42,9 @@ export function StepDetailContent({
   doneAt,
   onComplete,
   propertyId,
+  ownerId,
+  consultantId,
+  processId,
 }: {
   step: AngariacaoStep
   status: StepStatus
@@ -51,6 +54,12 @@ export function StepDetailContent({
   onComplete?: () => void
   /** id real do imóvel — quando presente, o CMI usa o modelo real (PDF + prefill) */
   propertyId?: string | null
+  /** contacto principal do imóvel — resolve as variáveis proprietario_* do CMI */
+  ownerId?: string | null
+  /** consultor/angariador — resolve as variáveis consultor_* do CMI */
+  consultantId?: string | null
+  /** proc_instance — resolve processo_ref */
+  processId?: string | null
 }) {
   const isEmail = step.action === 'email'
 
@@ -71,7 +80,14 @@ export function StepDetailContent({
       {isEmail ? (
         <EmailArea step={step} status={status} sentBy={doneBy} sentAt={doneAt} />
       ) : status !== 'done' ? (
-        <ActionArea step={step} onComplete={onComplete} propertyId={propertyId} />
+        <ActionArea
+          step={step}
+          onComplete={onComplete}
+          propertyId={propertyId}
+          ownerId={ownerId}
+          consultantId={consultantId}
+          processId={processId}
+        />
       ) : null}
     </div>
   )
@@ -81,17 +97,30 @@ function ActionArea({
   step,
   onComplete,
   propertyId,
+  ownerId,
+  consultantId,
+  processId,
 }: {
   step: AngariacaoStep
   onComplete?: () => void
   propertyId?: string | null
+  ownerId?: string | null
+  consultantId?: string | null
+  processId?: string | null
 }) {
   switch (step.action) {
     case 'upload':
       return <DocumentsNeeded propertyId={propertyId} />
     case 'generate_doc':
       return (
-        <GeneratePanel step={step} onComplete={onComplete} propertyId={propertyId} />
+        <GeneratePanel
+          step={step}
+          onComplete={onComplete}
+          propertyId={propertyId}
+          ownerId={ownerId}
+          consultantId={consultantId}
+          processId={processId}
+        />
       )
     case 'confirm':
       return <ConfirmPanel step={step} />
@@ -123,6 +152,21 @@ Por favor, reveja e assine o documento. Ficamos à disposição para qualquer es
 
 Obrigado,
 {{consultor}}`,
+  email_agradecimento: `Olá,
+
+O seu imóvel já se encontra publicado e divulgado nos nossos canais.
+
+Queremos agradecer a confiança que depositou na Infinity Group. Vamos manter-lhe informado de cada passo e estamos sempre disponíveis para qualquer esclarecimento.
+
+Obrigado,
+{{consultor}}`,
+}
+
+// Assunto por defeito quando não há template real associado ao passo.
+const FALLBACK_SUBJECT: Record<string, string> = {
+  pedido_documentacao: 'Documentação para a angariação do seu imóvel',
+  envio_cmi: 'Contrato de Mediação Imobiliária para assinatura',
+  email_agradecimento: 'Obrigado pela sua confiança',
 }
 
 function useEmailTemplate(step: AngariacaoStep) {
@@ -151,9 +195,8 @@ function useEmailTemplate(step: AngariacaoStep) {
 
   const subject =
     data?.subject ??
-    (step.order === 1
-      ? 'Documentação para a angariação do seu imóvel'
-      : 'Contrato de Mediação Imobiliária para assinatura')
+    FALLBACK_SUBJECT[step.key] ??
+    'Mensagem da Infinity Group'
 
   return { loading, subject, bodyHtml: data?.body_html ?? null }
 }
@@ -593,42 +636,64 @@ const CMI_FIELDS_INIT: CmiField[] = [
 function GeneratePanel({
   onComplete,
   propertyId,
+  ownerId,
+  consultantId,
+  processId,
 }: {
   step: AngariacaoStep
   onComplete?: () => void
   propertyId?: string | null
+  ownerId?: string | null
+  consultantId?: string | null
+  processId?: string | null
 }) {
   // Com imóvel real → modelo CMI real (PDF + prefill). Sem (rota preview) →
   // builder de amostra.
   if (propertyId)
-    return <CmiRealBuilder propertyId={propertyId} onComplete={onComplete} />
+    return (
+      <CmiRealBuilder
+        propertyId={propertyId}
+        ownerId={ownerId}
+        consultantId={consultantId}
+        processId={processId}
+        onComplete={onComplete}
+      />
+    )
   return <CmiMockBuilder onComplete={onComplete} />
 }
 
-/** Usa o editor real do CMI (SubtaskPdfSheet em modo preview): carrega o PDF
- * do modelo e pré-preenche os campos a partir do imóvel via useTemplateVariables. */
+/** Editor real do CMI embebido inline na sheet do passo (como o email aparece):
+ * carrega o PDF do modelo já pré-preenchido a partir do imóvel e permite editar
+ * os campos. Os campos em falta ficam destacados. */
 function CmiRealBuilder({
   propertyId,
+  ownerId,
+  consultantId,
+  processId,
   onComplete,
 }: {
   propertyId: string
+  ownerId?: string | null
+  consultantId?: string | null
+  processId?: string | null
   onComplete?: () => void
 }) {
-  const [open, setOpen] = useState(false)
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border bg-card p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          CMI — pré-preenchido a partir do imóvel
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="h-[68vh] min-h-[460px]">
+          <SubtaskPdfSheet
+            inline
+            open
+            onOpenChange={() => {}}
+            propertyId={propertyId}
+            ownerId={ownerId ?? undefined}
+            consultantId={consultantId ?? undefined}
+            processId={processId ?? undefined}
+            docLibraryId={CMI_DOC_LIBRARY_ID}
+            previewTitle="CMI — pré-preenchido a partir do imóvel"
+          />
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Abre o modelo CMI (o mesmo do processo actual) já preenchido com os
-          dados do imóvel. Os campos em falta ficam destacados e são editáveis.
-        </p>
-        <Button className="mt-3" onClick={() => setOpen(true)}>
-          Abrir CMI pré-preenchido
-        </Button>
       </div>
       <Button
         variant="outline"
@@ -637,13 +702,6 @@ function CmiRealBuilder({
       >
         Concluir CMI
       </Button>
-      <SubtaskPdfSheet
-        open={open}
-        onOpenChange={setOpen}
-        propertyId={propertyId}
-        docLibraryId={CMI_DOC_LIBRARY_ID}
-        previewTitle="CMI"
-      />
     </div>
   )
 }

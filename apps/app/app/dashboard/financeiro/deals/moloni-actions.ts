@@ -130,6 +130,16 @@ async function recordMoloniDocument(
   },
 ): Promise<void> {
   try {
+    // Idempotent: a retry must not duplicate the ledger row for the same document.
+    const { data: existing } = await admin
+      .from('deal_payment_moloni_documents')
+      .select('id')
+      .eq('deal_payment_id', payment.id)
+      .eq('moloni_document_id', row.moloni_document_id)
+      .eq('kind', row.kind)
+      .maybeSingle()
+    if (existing) return
+
     await admin.from('deal_payment_moloni_documents').insert({
       deal_payment_id: payment.id,
       reissue_seq: Number(payment.moloni_reissue_count || 0),

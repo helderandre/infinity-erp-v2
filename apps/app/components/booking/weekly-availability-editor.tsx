@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
-import { Plus, Trash2, Copy, Sparkles, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Copy, Sparkles, Loader2, Mic } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { VoiceInputButton } from '@/components/shared/voice-input-button'
 
 export interface WeeklyRule {
   day_of_week: number
@@ -194,34 +195,49 @@ export function WeeklyAvailabilityEditor({
                   size="sm"
                   className="h-7 text-[11px] gap-1 border-primary/30"
                 >
-                  <Sparkles className="h-3 w-3 text-primary" />
-                  Gerar com IA
+                  <Mic className="h-3 w-3 text-primary" />
+                  Dizer / Gerar com IA
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-semibold">Descreve os teus horários</span>
+                  <span className="text-xs font-semibold">Diz ou escreve os teus horários</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  A IA interpreta e preenche a grelha automaticamente. Isto substitui os horários actuais.
+                  Carrega no microfone e fala (ex.: &quot;segundas das 12 às 16, sábados e domingos de manhã&quot;)
+                  ou escreve. A IA interpreta e preenche a grelha. Isto substitui os horários actuais.
                 </p>
-                <Textarea
-                  value={aiText}
-                  onChange={(e) => setAiText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault()
-                      runAi()
-                    }
-                  }}
-                  placeholder="Ex: Seg a sex das 9 às 18, pausa de almoço 13-14. Sábado só de manhã."
-                  rows={4}
-                  className="text-xs resize-none"
-                  autoFocus
-                  disabled={aiLoading}
-                  maxLength={500}
-                />
+                <div className="relative">
+                  <Textarea
+                    value={aiText}
+                    onChange={(e) => setAiText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault()
+                        runAi()
+                      }
+                    }}
+                    placeholder="Carrega no 🎤 e fala, ou escreve. Ex: Seg a sex das 9 às 18, pausa 13-14. Sábado só de manhã."
+                    rows={4}
+                    className="text-xs resize-none pr-10"
+                    autoFocus
+                    disabled={aiLoading}
+                    maxLength={500}
+                  />
+                  <div className="absolute top-1.5 right-1.5">
+                    <VoiceInputButton
+                      onTranscribe={(t) => setAiText((prev) => (prev ? `${prev} ${t}`.trim() : t))}
+                      onInterimText={(t) => setAiText(t)}
+                      mode="append"
+                      size="icon"
+                      variant="ghost"
+                      label="Ditar disponibilidade"
+                      disabled={aiLoading}
+                      className="h-7 w-7"
+                    />
+                  </div>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] text-muted-foreground">⌘+Enter</span>
                   <Button

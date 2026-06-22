@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { createVisitSchema } from '@/lib/validations/visit'
@@ -58,7 +57,7 @@ export async function GET(request: Request) {
       const today = new Date().toISOString().split('T')[0]
       query = query
         .gte('visit_date', today)
-        .in('status', ['scheduled', 'confirmed'])
+        .eq('status', 'scheduled')
         .order('visit_date', { ascending: true })
         .order('visit_time', { ascending: true })
     } else {
@@ -98,11 +97,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.authorized) return auth.response
+    const user = auth.user
 
     const body = await request.json()
     const parsed = createVisitSchema.safeParse(body)
@@ -111,6 +108,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Dados inválidos.', details: parsed.error.flatten().fieldErrors },
         { status: 400 }
+      )
+    }
+
+    // Scope: um consultor sem permissão de gestão só pode criar visitas para
+    // si próprio. Sem isto, qualquer consultor autenticado podia marcar uma
+    // visita em nome de outro (e, via negocio_id, derivar o lead alheio).
+    if (!isManagementRole(auth.roles) && parsed.data.consultant_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Só podes marcar visitas para ti.' },
+        { status: 403 }
       )
     }
 

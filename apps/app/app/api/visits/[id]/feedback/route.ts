@@ -27,7 +27,9 @@ export async function POST(
 
     const admin = createAdminClient() as any
 
-    // Verify visit exists and is completed or confirmed
+    // O feedback só faz sentido depois de a visita ter desfecho 'completed'
+    // (registado via /outcome). Não pode reabrir/sobrepor um 'no_show' ou
+    // 'cancelled' — só se escrevem os campos de feedback, nunca o status.
     const { data: visit, error: fetchError } = await admin
       .from('visits')
       .select('id, status')
@@ -38,13 +40,19 @@ export async function POST(
       return NextResponse.json({ error: 'Visita não encontrada.' }, { status: 404 })
     }
 
-    // Update visit with feedback and mark as completed
+    if (visit.status !== 'completed') {
+      return NextResponse.json(
+        { error: `Só podes dar feedback de visitas realizadas (estado actual: ${visit.status}). Regista primeiro o desfecho.` },
+        { status: 409 }
+      )
+    }
+
+    // Update visit with feedback only — never touch status/outcome.
     const { data, error } = await admin
       .from('visits')
       .update({
         ...parsed.data,
         feedback_submitted_at: new Date().toISOString(),
-        status: 'completed',
       })
       .eq('id', id)
       .select()

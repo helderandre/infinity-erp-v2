@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { createClient } from '@/lib/supabase/server'
+import { pLimit } from '@/lib/concurrency'
 import OpenAI from 'openai'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -123,17 +124,23 @@ export async function POST(
       return NextResponse.json({ updated: 0, results: [] })
     }
 
-    const results: { id: string; valid_until: string | null }[] = []
-    for (const doc of docs as DocRow[]) {
-      const validity = await extractValidityFromUrl(doc)
-      if (validity) {
-        await supabase
-          .from('doc_registry')
-          .update({ valid_until: validity })
-          .eq('id', doc.id)
-      }
-      results.push({ id: doc.id, valid_until: validity })
-    }
+    // Processa os documentos em paralelo (com limite de concorrência) — antes
+    // era um loop sequencial (fetch + parse + IA por doc), o gargalo principal.
+    const limit = pLimit(5)
+    const results = await Promise.all(
+      (docs as DocRow[]).map((doc) =>
+        limit(async () => {
+          const validity = await extractValidityFromUrl(doc)
+          if (validity) {
+            await supabase
+              .from('doc_registry')
+              .update({ valid_until: validity })
+              .eq('id', doc.id)
+          }
+          return { id: doc.id, valid_until: validity }
+        })
+      )
+    )
 
     const updated = results.filter((r) => r.valid_until).length
     return NextResponse.json({ updated, total: results.length, results })

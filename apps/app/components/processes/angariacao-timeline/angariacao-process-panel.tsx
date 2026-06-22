@@ -1,17 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { PropertyEditSheet } from '@/components/properties/property-edit-sheet'
 import { TaskActivityTimeline } from '@/components/processes/task-activity-timeline'
 import type { TaskActivity } from '@/types/process'
 import { cn } from '@/lib/utils'
 import {
-  ChevronLeft,
-  ChevronRight,
   Check,
-  Pencil,
-  Maximize2,
+  CheckCircle2,
+  ChevronRight,
   GitCommitHorizontal,
   Activity,
 } from 'lucide-react'
@@ -20,10 +16,9 @@ import {
   getStepStatus,
   type StepStatus,
 } from './process-timeline'
-import { StepDetailContent } from './step-detail-content'
 import { StepDetailSheet } from './step-detail-sheet'
 import { ProcessActivityTimeline } from './process-activity-timeline'
-import { ANGARIACAO_STEPS } from './steps'
+import { ANGARIACAO_STEPS, type AngariacaoStep } from './steps'
 
 const PILL: Record<StepStatus, { label: string; cls: string }> = {
   done: {
@@ -40,22 +35,24 @@ const PILL: Record<StepStatus, { label: string; cls: string }> = {
   },
 }
 
+type ProcessView = 'passos' | 'atividade'
+
 interface AngariacaoProcessPanelProps {
   /** quão longe o processo avançou (1..N+1). Default 3 para preview. */
   initialProgress?: number
-  /** mostra o título no topo do card */
-  title?: string
   className?: string
-  /**
-   * Abre a ficha do imóvel (o mesmo sheet do botão Editar). Quando fornecido,
-   * o botão "Dados do imóvel" delega no parent (reusa o sheet da página). Sem
-   * isto, abre o `<PropertyEditSheet>` em modo create (preview).
-   */
-  onEditProperty?: () => void
   /** id real do imóvel — activa o CMI real (PDF + prefill) no passo de geração */
   propertyId?: string | null
   /** id do proc_instance real — activa progresso + atividade reais */
   processId?: string | null
+  /**
+   * Vista controlada (Passos/Atividade). Quando fornecida em conjunto com
+   * `onViewChange`, o toggle é gerido pelo parent (renderizado fora do card,
+   * ex.: ao lado do selector Novo/Antigo) e o card deixa de ter header próprio.
+   * Sem isto, o card gere a vista internamente e mostra o seu próprio toggle.
+   */
+  view?: ProcessView
+  onViewChange?: (v: ProcessView) => void
 }
 
 /**
@@ -70,20 +67,26 @@ interface AngariacaoProcessPanelProps {
  */
 export function AngariacaoProcessPanel({
   initialProgress = 3,
-  title = 'Processo de Angariação',
   className,
-  onEditProperty,
   propertyId,
   processId,
+  view: viewProp,
+  onViewChange,
 }: AngariacaoProcessPanelProps) {
   const total = ANGARIACAO_STEPS.length
   const [progress, setProgress] = useState(initialProgress)
   const [selected, setSelected] = useState(Math.min(initialProgress, total))
-  const [view, setView] = useState<'passos' | 'atividade'>('passos')
+  const [internalView, setInternalView] = useState<ProcessView>('passos')
+  // Vista controlada pelo parent quando ambos os props são fornecidos.
+  const controlled = viewProp !== undefined && onViewChange !== undefined
+  const view = viewProp ?? internalView
+  const setView = onViewChange ?? setInternalView
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [infoOpen, setInfoOpen] = useState(false)
   const [activities, setActivities] = useState<TaskActivity[] | null>(null)
   const [activitiesLoading, setActivitiesLoading] = useState(Boolean(processId))
+  // IDs reais para o pré-preenchimento do CMI (vêm do angariacao-overview).
+  const [cmiOwnerId, setCmiOwnerId] = useState<string | null>(null)
+  const [cmiConsultantId, setCmiConsultantId] = useState<string | null>(null)
 
   // Dados reais: progresso (mapeado dos subtask_key) + feed de atividade.
   useEffect(() => {
@@ -92,10 +95,13 @@ export function AngariacaoProcessPanel({
     fetch(`/api/processes/${processId}/angariacao-overview`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (active && d?.progressOrder) {
+        if (!active || !d) return
+        if (d.progressOrder) {
           setProgress(d.progressOrder)
           setSelected(Math.min(d.progressOrder, total))
         }
+        setCmiOwnerId(d.mainContactOwnerId ?? null)
+        setCmiConsultantId(d.consultantId ?? null)
       })
       .catch(() => {})
     fetch(`/api/processes/${processId}/activities`)
@@ -114,12 +120,13 @@ export function AngariacaoProcessPanel({
     }
   }, [processId, total])
 
-  const doneCount = ANGARIACAO_STEPS.filter((s) => s.order < progress).length
-  const pct = Math.round((doneCount / total) * 100)
-
   const selectedStep = ANGARIACAO_STEPS.find((s) => s.order === selected)!
   const selectedStatus = getStepStatus(selectedStep, progress)
-  const pill = PILL[selectedStatus]
+
+  const openStep = (order: number) => {
+    setSelected(order)
+    setSheetOpen(true)
+  }
 
   const completeCurrent = () => {
     if (selectedStatus !== 'current') return
@@ -129,45 +136,28 @@ export function AngariacaoProcessPanel({
   }
 
   return (
-    <div className={cn('rounded-3xl border bg-card shadow-sm', className)}>
-      {/* HEADER */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 sm:px-6">
-        <div>
-          <h2 className="text-lg font-bold">{title}</h2>
-          <p className="text-sm text-muted-foreground">
-            {progress > total
-              ? 'Processo concluído'
-              : `${doneCount}/${total} passos · ${pct}%`}
-          </p>
+    <div className={cn('space-y-4', className)}>
+      {/* Toggle Passos/Atividade — só em modo não-controlado (ex.: preview).
+          Em modo controlado vive ao lado do selector Novo/Antigo. */}
+      {!controlled && (
+        <div className="flex justify-end">
+          <AngariacaoViewToggle view={view} onViewChange={setView} />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-full bg-muted p-0.5">
-            <Toggle
-              active={view === 'passos'}
-              onClick={() => setView('passos')}
-              icon={GitCommitHorizontal}
-              label="Passos"
-            />
-            <Toggle
-              active={view === 'atividade'}
-              onClick={() => setView('atividade')}
-              icon={Activity}
-              label="Atividade"
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => (onEditProperty ? onEditProperty() : setInfoOpen(true))}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            Dados do imóvel
-          </Button>
-        </div>
+      )}
+
+      {/* STEPPER — círculos no topo, fora dos cards dos passos (overview).
+          Clicar num passo abre o seu detalhe (qualquer passo, sempre). */}
+      <div className="rounded-3xl border bg-card p-5 shadow-sm sm:p-8">
+        <ProcessTimeline
+          progressOrder={progress}
+          selectedOrder={selected}
+          view="responsive"
+          onStepClick={(s) => openStep(s.order)}
+        />
       </div>
 
       {view === 'atividade' ? (
-        <div className="p-5 sm:p-6">
+        <div className="rounded-3xl border bg-card p-5 shadow-sm sm:p-6">
           {processId ? (
             <TaskActivityTimeline
               activities={activities ?? []}
@@ -178,98 +168,23 @@ export function AngariacaoProcessPanel({
           )}
         </div>
       ) : (
-        <>
-          {/* linha de passos */}
-          <div className="border-b p-5 sm:p-8">
-            <ProcessTimeline
-              progressOrder={progress}
-              selectedOrder={selected}
-              view="responsive"
-              onStepClick={(s) => setSelected(s.order)}
-            />
-          </div>
-
-          {/* detalhe do passo seleccionado — MESMO card */}
-          <div>
-            <div className="flex items-center gap-3 border-b p-5 sm:px-6">
-              <span
-                className={cn(
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl',
-                  selectedStatus === 'done'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                )}
-              >
-                {selectedStatus === 'done' ? (
-                  <Check className="h-5 w-5" />
-                ) : (
-                  <selectedStep.icon className="h-5 w-5" strokeWidth={1.5} />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Passo {selectedStep.order} de {total}
-                  </p>
-                  <span
-                    className={cn(
-                      'rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                      pill.cls
-                    )}
-                  >
-                    {pill.label}
-                  </span>
-                </div>
-                <h3 className="truncate text-base font-bold">
-                  {selectedStep.label}
-                </h3>
-              </div>
-
-              {/* setas modernas — navegam a SELECÇÃO (não o progresso) */}
-              <div className="flex items-center gap-1.5">
-                <NavButton
-                  onClick={() => setSelected((s) => Math.max(1, s - 1))}
-                  disabled={selected <= 1}
-                  aria="Passo anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </NavButton>
-                <NavButton
-                  onClick={() => setSelected((s) => Math.min(total, s + 1))}
-                  disabled={selected >= total}
-                  aria="Passo seguinte"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </NavButton>
-                <NavButton onClick={() => setSheetOpen(true)} aria="Abrir em detalhe">
-                  <Maximize2 className="h-4 w-4" />
-                </NavButton>
-              </div>
-            </div>
-
-            <div className="p-5 sm:p-6">
-              <StepDetailContent
-                step={selectedStep}
-                status={selectedStatus}
-                doneBy="Ana Silva"
-                doneAt="12/01 14:32"
-                onComplete={completeCurrent}
-                propertyId={propertyId}
+        /* Um card por passo — info simplificada + acção que abre a sheet */
+        <div className="space-y-3">
+          {ANGARIACAO_STEPS.map((s) => {
+            const st = getStepStatus(s, progress)
+            return (
+              <StepCard
+                key={s.key}
+                step={s}
+                status={st}
+                total={total}
+                doneBy={st === 'done' ? 'Ana Silva' : null}
+                doneAt={st === 'done' ? '12/01 14:32' : null}
+                onOpen={() => openStep(s.order)}
               />
-              {selectedStatus === 'current' &&
-                selectedStep.action !== 'generate_doc' && (
-                  <Button className="mt-6 w-full sm:w-auto" onClick={completeCurrent}>
-                    {selectedStep.cta}
-                  </Button>
-                )}
-              {selectedStatus === 'pending' && (
-                <p className="mt-6 text-sm text-muted-foreground">
-                  Disponível depois de concluir os passos anteriores.
-                </p>
-              )}
-            </div>
-          </div>
-        </>
+            )
+          })}
+        </div>
       )}
 
       <StepDetailSheet
@@ -281,14 +196,40 @@ export function AngariacaoProcessPanel({
         doneAt="12/01 14:32"
         onComplete={completeCurrent}
         propertyId={propertyId}
+        ownerId={cmiOwnerId}
+        consultantId={cmiConsultantId}
+        processId={processId}
       />
+    </div>
+  )
+}
 
-      {/* Sem onEditProperty (ex.: rota de preview) abre a ficha em modo create
-          — o mesmo sheet "Novo imóvel". Na página de imóvel, o parent passa
-          onEditProperty e reusa o sheet de edição da própria página. */}
-      {!onEditProperty && (
-        <PropertyEditSheet open={infoOpen} onOpenChange={setInfoOpen} mode="create" />
-      )}
+/**
+ * Toggle Passos/Atividade — exportado para o parent o poder renderizar fora do
+ * card (ao lado do selector Novo/Antigo). O card usa-o internamente em modo
+ * não-controlado (preview).
+ */
+export function AngariacaoViewToggle({
+  view,
+  onViewChange,
+}: {
+  view: ProcessView
+  onViewChange: (v: ProcessView) => void
+}) {
+  return (
+    <div className="flex rounded-full bg-muted p-0.5">
+      <Toggle
+        active={view === 'passos'}
+        onClick={() => onViewChange('passos')}
+        icon={GitCommitHorizontal}
+        label="Passos"
+      />
+      <Toggle
+        active={view === 'atividade'}
+        onClick={() => onViewChange('atividade')}
+        icon={Activity}
+        label="Atividade"
+      />
     </div>
   )
 }
@@ -321,26 +262,95 @@ function Toggle({
   )
 }
 
-function NavButton({
-  onClick,
-  disabled,
-  aria,
-  children,
+/**
+ * Card de um passo — info simplificada (o quê + estado) + acção. O detalhe
+ * (compositor de email, gerador de CMI, uploader…) só aparece na sheet, ao
+ * abrir. NÃO mostra o conteúdo rico inline.
+ */
+function StepCard({
+  step,
+  status,
+  total,
+  doneBy,
+  doneAt,
+  onOpen,
 }: {
-  onClick: () => void
-  disabled?: boolean
-  aria: string
-  children: React.ReactNode
+  step: AngariacaoStep
+  status: StepStatus
+  total: number
+  doneBy?: string | null
+  doneAt?: string | null
+  onOpen: () => void
 }) {
+  const Icon = step.icon
+  const pill = PILL[status]
+  const isCurrent = status === 'current'
+  const isDone = status === 'done'
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={aria}
-      className="flex h-9 w-9 items-center justify-center rounded-full border bg-background transition-colors hover:bg-muted disabled:opacity-30"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      className={cn(
+        'cursor-pointer rounded-2xl border bg-card p-5 shadow-sm transition-all hover:border-foreground/20 hover:shadow-md',
+        isCurrent && 'border-emerald-500/40 ring-1 ring-emerald-500/20'
+      )}
     >
-      {children}
-    </button>
+      <div className="flex items-start gap-4">
+        <span
+          className={cn(
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl',
+            isDone
+              ? 'bg-emerald-500 text-white'
+              : isCurrent
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'bg-muted text-muted-foreground'
+          )}
+        >
+          {isDone ? (
+            <Check className="h-5 w-5" />
+          ) : (
+            <Icon className="h-5 w-5" strokeWidth={1.5} />
+          )}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Passo {step.order} de {total}
+            </p>
+            <span
+              className={cn(
+                'rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                pill.cls
+              )}
+            >
+              {pill.label}
+            </span>
+          </div>
+          <h3 className="mt-0.5 text-base font-bold">{step.label}</h3>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            {step.description}
+          </p>
+
+          {isDone && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              Concluído{doneBy ? ` por ${doneBy}` : ''}
+              {doneAt ? ` · ${doneAt}` : ''}
+            </p>
+          )}
+        </div>
+
+        <ChevronRight className="h-5 w-5 shrink-0 self-center text-muted-foreground/40" />
+      </div>
+    </div>
   )
 }

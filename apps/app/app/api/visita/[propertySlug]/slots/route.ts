@@ -54,8 +54,8 @@ export async function GET(
       .eq('consultant_id', property.consultant_id)
       .maybeSingle()
 
-    // Only block if explicitly disabled; missing row means "use defaults + enabled"
-    if (settingsRow && !settingsRow.public_booking_enabled) {
+    // Opt-in: sem settings activas → sem slots (ver info/route.ts).
+    if (!settingsRow || !settingsRow.public_booking_enabled) {
       return NextResponse.json({ slots: {} })
     }
 

@@ -1,16 +1,86 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
-import { logGoalActivity } from '@/lib/goals/log-activity'
+import { logGoalActivity, pipelineTypeToOrigin } from '@/lib/goals/log-activity'
+
+const VALID_OUTCOMES = ['success', 'failed', 'no_answer', 'busy', 'voicemail'] as const
+type Outcome = (typeof VALID_OUTCOMES)[number]
+
+const OUTCOME_LABELS: Record<Outcome, string> = {
+  success: 'Chamada atendida',
+  no_answer: 'Sem resposta',
+  busy: 'Ocupado',
+  voicemail: 'Caixa de correio de voz',
+  failed: 'Chamada não atendida',
+}
+
+type CrmAdmin = ReturnType<typeof createCrmAdminClient>
+
+/**
+ * Derive the goals funnel side (sellers/buyers) for a call.
+ * Prefers the opportunity the call was placed from; otherwise infers it from the
+ * lead's own negócios, but only trusts the inference when it is unambiguous.
+ * Falls back to 'sellers' (the historical default) when the side is unknown.
+ */
+async function resolveGoalOrigin(
+  admin: CrmAdmin,
+  negocioId: string | null | undefined,
+  leadId: string,
+): Promise<'sellers' | 'buyers'> {
+  try {
+    let stageIds: string[] = []
+
+    if (negocioId) {
+      const { data } = await admin
+        .from('negocios')
+        .select('pipeline_stage_id')
+        .eq('id', negocioId)
+        .maybeSingle()
+      if (data?.pipeline_stage_id) stageIds = [data.pipeline_stage_id]
+    }
+
+    if (stageIds.length === 0) {
+      const { data: negs } = await admin
+        .from('negocios')
+        .select('pipeline_stage_id')
+        .eq('lead_id', leadId)
+      stageIds = [
+        ...new Set(
+          (negs ?? [])
+            .map((n: { pipeline_stage_id: string | null }) => n.pipeline_stage_id)
+            .filter(Boolean) as string[],
+        ),
+      ]
+    }
+
+    if (stageIds.length === 0) return 'sellers'
+
+    const { data: stages } = await admin
+      .from('leads_pipeline_stages')
+      .select('pipeline_type')
+      .in('id', stageIds)
+
+    const origins = [
+      ...new Set(
+        (stages ?? []).map((s: { pipeline_type: string }) => pipelineTypeToOrigin(s.pipeline_type)),
+      ),
+    ]
+    return origins.length === 1 ? origins[0] : 'sellers'
+  } catch {
+    return 'sellers'
+  }
+}
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
@@ -20,143 +90,152 @@ export async function POST(
     const { outcome, direction: callDirection, notes, negocio_id } = body
     const direction = callDirection === 'inbound' ? 'inbound' : 'outbound'
 
-    if (!outcome || !['success', 'failed', 'no_answer', 'busy', 'voicemail'].includes(outcome)) {
+    if (!outcome || !VALID_OUTCOMES.includes(outcome)) {
       return NextResponse.json({ error: 'Resultado inválido' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const admin = createCrmAdminClient()
 
-    const activityDescription = outcome === 'success'
-      ? 'Chamada atendida'
-      : outcome === 'no_answer'
-        ? 'Sem resposta'
-        : outcome === 'busy'
-          ? 'Ocupado'
-          : outcome === 'voicemail'
-            ? 'Caixa de correio de voz'
-            : 'Chamada não atendida'
-
-    // Detect if this is a CRM contact (leads_contacts) or old lead (leads)
-    const { data: crmContact } = await admin
-      .from('leads_contacts')
-      .select('id, lifecycle_stage_id, assigned_consultant_id')
+    // `contactId` is a leads.id in the unified pipeline. Both
+    // leads_activities.contact_id and leads_entries.contact_id FK to leads.id.
+    const { data: lead, error: leadError } = await admin
+      .from('leads')
+      .select('id, agent_id, lifecycle_stage_id')
       .eq('id', contactId)
       .maybeSingle()
 
-    const isCrmContact = !!crmContact
-
-    // 1. Log the call activity to the appropriate table
-    if (isCrmContact) {
-      await admin
-        .from('leads_activities')
-        .insert({
-          contact_id: contactId,
-          negocio_id: negocio_id || null,
-          activity_type: 'call',
-          direction,
-          subject: activityDescription,
-          description: notes || null,
-          metadata: { outcome, direction, timestamp: new Date().toISOString() },
-          created_by: user.id,
-        })
-    } else {
-      // Old leads table — log to lead_activities
-      await admin
-        .from('lead_activities')
-        .insert({
-          lead_id: contactId,
-          agent_id: user.id,
-          activity_type: 'call',
-          description: `${activityDescription}${notes ? ` — ${notes}` : ''}`,
-          metadata: { outcome, direction, timestamp: new Date().toISOString() },
-        })
+    if (leadError) {
+      console.error('[call-outcome] lead lookup failed:', leadError)
+      return NextResponse.json({ error: 'Erro ao consultar o contacto' }, { status: 500 })
+    }
+    if (!lead) {
+      return NextResponse.json({ error: 'Contacto não encontrado' }, { status: 404 })
     }
 
-    // 2. If successful call and CRM contact is still "Lead", upgrade to "Contactado"
+    const activityDescription = OUTCOME_LABELS[outcome as Outcome]
+
+    // 1. PRIMARY WRITE — the contact-history row. If this fails the whole
+    //    operation failed: registering the outcome IS the point of the feature,
+    //    so we surface a 500 instead of silently reporting success.
+    const { error: activityError } = await admin.from('leads_activities').insert({
+      contact_id: contactId,
+      negocio_id: negocio_id || null,
+      activity_type: 'call',
+      direction,
+      subject: activityDescription,
+      description: notes || null,
+      metadata: { outcome, direction, timestamp: new Date().toISOString() },
+      created_by: user.id,
+    })
+
+    if (activityError) {
+      console.error('[call-outcome] failed to write contact history:', activityError)
+      return NextResponse.json({ error: 'Erro ao registar o contacto' }, { status: 500 })
+    }
+
+    // ── Secondary effects below are best-effort: they must never fail the
+    //    request now that the history row is safely persisted. ──────────────
+
+    // 2. Lifecycle bump Lead → Contactado on the first answered call.
     let stageUpdated = false
-    if (outcome === 'success' && isCrmContact) {
-      const { data: stageInfo } = await admin
-        .from('leads_contacts')
-        .select('lifecycle_stage_id, leads_contact_stages(name, order_index)')
-        .eq('id', contactId)
-        .single()
-
-      const stage = stageInfo?.leads_contact_stages
-      if (stage && stage.order_index === 0) {
-        const { data: nextStage } = await admin
+    if (outcome === 'success' && lead.lifecycle_stage_id) {
+      try {
+        const { data: currentStage } = await admin
           .from('leads_contact_stages')
-          .select('id, name')
-          .eq('name', 'Contactado')
-          .single()
+          .select('id, name, order_index')
+          .eq('id', lead.lifecycle_stage_id)
+          .maybeSingle()
 
-        if (nextStage) {
-          await admin
-            .from('leads_contacts')
-            .update({ lifecycle_stage_id: nextStage.id })
-            .eq('id', contactId)
+        if (currentStage && currentStage.order_index === 0) {
+          const { data: contactadoStage } = await admin
+            .from('leads_contact_stages')
+            .select('id, name')
+            .eq('name', 'Contactado')
+            .limit(1)
+            .maybeSingle()
 
-          await admin
-            .from('leads_activities')
-            .insert({
-              contact_id: contactId,
-              activity_type: 'lifecycle_change',
-              subject: `${stage.name} → ${nextStage.name}`,
-              description: 'Alteração automática após primeira chamada atendida',
-              metadata: { from_stage: stage.name, to_stage: nextStage.name, trigger: 'call_success' },
-              created_by: user.id,
-            })
+          if (contactadoStage) {
+            // Guard on the current stage to avoid clobbering a concurrent bump.
+            const { error: bumpError } = await admin
+              .from('leads')
+              .update({ lifecycle_stage_id: contactadoStage.id })
+              .eq('id', contactId)
+              .eq('lifecycle_stage_id', lead.lifecycle_stage_id)
 
-          stageUpdated = true
+            if (!bumpError) {
+              stageUpdated = true
+              await admin.from('leads_activities').insert({
+                contact_id: contactId,
+                activity_type: 'lifecycle_change',
+                subject: `${currentStage.name} → ${contactadoStage.name}`,
+                description: 'Alteração automática após primeira chamada atendida',
+                metadata: {
+                  from_stage: currentStage.name,
+                  to_stage: contactadoStage.name,
+                  trigger: 'call_success',
+                },
+                created_by: user.id,
+              })
+            }
+          }
         }
+      } catch (err) {
+        console.warn('[call-outcome] lifecycle bump failed:', err)
       }
     }
 
-    // 3. Reflect the call outcome on the lead-entry funnel + SLA tracking.
-    //    The Leads kanban (leads_entries.status) has two pre-contact stages
-    //    inserted before "Contactado":
-    //      new/seen → no_answer → no_answer_2plus → processing (Contactado)
-    //    so registar uma chamada move automaticamente a lead na pipeline.
-    const nowIso = new Date().toISOString()
-    if (outcome === 'success') {
-      // Reached them → advance any still-open early entry to Contactado.
-      await admin
-        .from('leads_entries')
-        .update({ status: 'processing' })
-        .eq('contact_id', contactId)
-        .in('status', ['new', 'seen', 'no_answer', 'no_answer_2plus'])
-      // First successful contact stops the SLA clock.
-      await admin
-        .from('leads_entries')
-        .update({ first_contact_at: nowIso, sla_status: 'completed' })
-        .eq('contact_id', contactId)
-        .is('first_contact_at', null)
-    } else if (['no_answer', 'busy', 'voicemail'].includes(outcome)) {
-      // Tried but didn't reach them → register the attempt on the funnel.
-      // Escalate an existing 1st-attempt to "Não atendeu 2+" BEFORE promoting
-      // fresh entries, so a brand-new entry only advances one stage.
-      await admin
-        .from('leads_entries')
-        .update({ status: 'no_answer_2plus' })
-        .eq('contact_id', contactId)
-        .eq('status', 'no_answer')
-      await admin
-        .from('leads_entries')
-        .update({ status: 'no_answer' })
-        .eq('contact_id', contactId)
-        .in('status', ['new', 'seen'])
+    // 3. Reflect the outcome on the lead-entry funnel + SLA tracking.
+    //    Pre-contact funnel: new/seen → no_answer → no_answer_2plus → processing.
+    try {
+      const nowIso = new Date().toISOString()
+      if (outcome === 'success') {
+        // Reached them → advance any still-open early entry to Contactado…
+        await admin
+          .from('leads_entries')
+          .update({ status: 'processing' })
+          .eq('contact_id', contactId)
+          .in('status', ['new', 'seen', 'no_answer', 'no_answer_2plus'])
+        // …and stop the SLA clock on first contact (only once).
+        await admin
+          .from('leads_entries')
+          .update({ first_contact_at: nowIso, sla_status: 'completed' })
+          .eq('contact_id', contactId)
+          .is('first_contact_at', null)
+      } else if (['no_answer', 'busy', 'voicemail'].includes(outcome)) {
+        // Tried but didn't reach them → escalate an existing 1st attempt BEFORE
+        // promoting a fresh entry, so a brand-new entry only advances one stage.
+        await admin
+          .from('leads_entries')
+          .update({ status: 'no_answer_2plus' })
+          .eq('contact_id', contactId)
+          .eq('status', 'no_answer')
+        await admin
+          .from('leads_entries')
+          .update({ status: 'no_answer' })
+          .eq('contact_id', contactId)
+          .in('status', ['new', 'seen'])
+      }
+    } catch (err) {
+      console.warn('[call-outcome] funnel/SLA update failed:', err)
     }
 
-    // 4. Log to goals system
-    await logGoalActivity({
-      consultantId: crmContact?.assigned_consultant_id || user.id,
-      activityType: 'call',
-      origin: 'sellers',
-      direction,
-      createdBy: user.id,
-      referenceId: contactId,
-      referenceType: 'lead',
-      notes: activityDescription,
-    })
+    // 4. Goals — only an ANSWERED call counts as a "contacto efetivo".
+    //    Attempts (no_answer/busy/voicemail/failed) live in the history and the
+    //    funnel, but must not inflate the objetivos "Chamadas" target.
+    if (outcome === 'success') {
+      const origin = await resolveGoalOrigin(admin, negocio_id, contactId)
+      await logGoalActivity({
+        // Credit the lead's owner (assignee), matching the pre-existing policy.
+        consultantId: lead.agent_id || user.id,
+        activityType: 'call',
+        origin,
+        direction,
+        createdBy: user.id,
+        referenceId: contactId,
+        referenceType: 'lead',
+        notes: activityDescription,
+      })
+    }
 
     return NextResponse.json({
       success: true,

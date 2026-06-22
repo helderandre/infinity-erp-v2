@@ -28,7 +28,7 @@ import { PropertyVisitasTab } from '@/components/properties/property-visitas-tab
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
 import { PropertyCampaignsTab } from '@/components/properties/property-campaigns-tab'
 import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
-import { AngariacaoProcessPanel } from '@/components/processes/angariacao-timeline/angariacao-process-panel'
+import { AngariacaoProcessPanel, AngariacaoViewToggle } from '@/components/processes/angariacao-timeline/angariacao-process-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
@@ -243,6 +243,8 @@ export default function ImovelDetalhePage() {
   }, [property, canEditProperty, activeTab])
   const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>(initialProcessSubTab)
   const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
+  const [angariacaoTab, setAngariacaoTab] = useState<'novo' | 'antigo'>('novo')
+  const [angariacaoView, setAngariacaoView] = useState<'passos' | 'atividade'>('passos')
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0)
@@ -1656,17 +1658,29 @@ export default function ImovelDetalhePage() {
               )
             }
             return (
-              <Tabs defaultValue="novo" className="animate-in fade-in duration-200">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="novo">Novo</TabsTrigger>
-                  <TabsTrigger value="antigo">Antigo</TabsTrigger>
-                </TabsList>
+              <Tabs
+                value={angariacaoTab}
+                onValueChange={(v) => setAngariacaoTab(v as 'novo' | 'antigo')}
+                className="animate-in fade-in duration-200"
+              >
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <TabsList>
+                    <TabsTrigger value="novo">Novo</TabsTrigger>
+                    <TabsTrigger value="antigo">Antigo</TabsTrigger>
+                  </TabsList>
+                  {angariacaoTab === 'novo' && (
+                    <AngariacaoViewToggle
+                      view={angariacaoView}
+                      onViewChange={setAngariacaoView}
+                    />
+                  )}
+                </div>
                 <TabsContent value="novo">
                   <AngariacaoProcessPanel
-                    title="Processo de Angariação"
-                    onEditProperty={() => setEditSheetOpen(true)}
                     propertyId={property?.id ?? null}
                     processId={angariacao.id}
+                    view={angariacaoView}
+                    onViewChange={setAngariacaoView}
                   />
                 </TabsContent>
                 <TabsContent value="antigo">

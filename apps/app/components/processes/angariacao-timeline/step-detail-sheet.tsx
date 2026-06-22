@@ -24,6 +24,9 @@ interface StepDetailSheetProps {
   doneAt?: string | null
   onComplete?: (step: AngariacaoStep) => void
   propertyId?: string | null
+  ownerId?: string | null
+  consultantId?: string | null
+  processId?: string | null
 }
 
 const PILL: Record<StepStatus, { label: string; cls: string }> = {
@@ -50,6 +53,9 @@ export function StepDetailSheet({
   doneAt,
   onComplete,
   propertyId,
+  ownerId,
+  consultantId,
+  processId,
 }: StepDetailSheetProps) {
   const isMobile = useIsMobile()
   if (!step) return null
@@ -119,6 +125,9 @@ export function StepDetailSheet({
             doneAt={doneAt}
             onComplete={() => onComplete?.(step)}
             propertyId={propertyId}
+            ownerId={ownerId}
+            consultantId={consultantId}
+            processId={processId}
           />
 
           {/* Histórico compacto */}

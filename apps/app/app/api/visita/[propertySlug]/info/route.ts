@@ -71,8 +71,11 @@ export async function GET(
       .eq('consultant_id', property.consultant_id)
       .maybeSingle()
 
-    // Consultor only blocks booking if they explicitly disabled it
-    if (settings && !settings.public_booking_enabled) {
+    // Opt-in: o agendamento público só está disponível quando o consultor o
+    // activou explicitamente (consultant_booking_settings.public_booking_enabled).
+    // Sem linha de settings → considera-se desactivado (coerente com o DEFAULT
+    // false da migration; evita que imóveis por configurar fiquem reserváveis).
+    if (!settings || !settings.public_booking_enabled) {
       return NextResponse.json(
         { error: 'Agendamento público não está disponível para este imóvel' },
         { status: 404 }

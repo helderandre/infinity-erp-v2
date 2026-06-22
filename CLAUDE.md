@@ -19,6 +19,13 @@
 - **Nota de crédito** ([credit-notes.ts](apps/app/lib/moloni/credit-notes.ts)): `invoices/getOne` → `creditNotes/insert` com `related_id = document_product_id` por linha; **anular** via `documents/documentCancel`. Ambos põem `moloni_status=2` + `moloni_creditnote_id/number`.
 - **Recibo** ([receipts.ts](apps/app/lib/moloni/receipts.ts)): `paymentMethods/getAll` → `receipts/insert` (net_value=bruto, expiration_date obrigatório); `moloni_receipt_id`.
 - Todas as operações fiscais novas envoltas em `withIdempotency` (chaves `moloni:creditnote|cancel|receipt:<paymentId>`). Colunas novas em `deal_payments`: `moloni_creditnote_id/number/issued_at`, `moloni_receipt_id/issued_at`, `moloni_email_sent_at/to`, `moloni_pdf_r2_path/url` — todas adicionadas ao SELECT/map de `mapa-gestao` + `mapa-row` e ao tipo `MapaGestaoRow`.
+- **⚠ Moloni inverte os nomes dos campos de valor**: `gross_value` = base (líquido, s/ IVA); `net_value` = total (bruto, c/ IVA). O mapeamento em `issue-agency-invoice.ts` / `findClosedInvoiceByReference` / `/document` troca-os para a convenção PT (descoberto em testes reais).
+- **PDF servido pela rota autenticada** (`…/pdf?kind=invoice|creditnote` ou `?moloni_doc_id=<id>`), nunca um URL R2 público — `Content-Disposition: inline` para `<iframe>`. Pré-visualização **dentro do sistema** numa sheet (`<MoloniDocumentSheet>`): fatura/NC em PDF inline com toggle; rascunhos (sem PDF no Moloni) mostram os dados.
+
+#### ✅ Moloni — ciclo de re-emissão + histórico (migration [20260701_moloni_document_history.sql](apps/app/supabase/migrations/20260701_moloni_document_history.sql))
+- Suporta **fatura → nota de crédito → NOVA fatura** repetível no mesmo `deal_payment`. `reissueMoloniInvoice` (gated a `moloni_status=2`) incrementa `deal_payments.moloni_reissue_count`, faz reset dos ponteiros actuais (mantém destinatário+NIF) e limpa as chaves de idempotência → novo ciclo.
+- **`our_reference` único por ciclo** (`… · R2`, `R3`, …) via `moloni_reissue_count` — impede o dedupe guard de adoptar a fatura anterior (creditada).
+- **Tabela ledger `deal_payment_moloni_documents`** (append-only, service-role only): regista cada fatura/NC/recibo de todos os ciclos (`kind`, `moloni_document_id`, `number`, `moloni_status`, montantes, `related_moloni_document_id`, `reissue_seq`, `is_current`). Recording idempotente (não duplica em retry). `GET …/history` + secção "Histórico Moloni" na sheet com pré-visualização de qualquer documento (`?moloni_doc_id`, validado contra o pagamento).
 - **Fora de âmbito (futuro)**: faturas de despesa a fornecedores, emissão automática/cron, retenção na fonte parametrizável.
 
 ### ✅ Despesas pessoais do consultor (versão simples, sem arquivo legal)

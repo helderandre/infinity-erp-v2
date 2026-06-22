@@ -70,11 +70,11 @@ export async function PUT(
 
     const admin = createAdminClient() as any
 
-    // If confirming, set confirmed_at
+    // Nota: 'confirmed' deixou de ser um status válido (ver migration
+    // 20260408 — a confirmação do cliente vive nas colunas confirmed_at/_by,
+    // a visita mantém-se 'scheduled'). A máquina de estados é gerida pelos
+    // endpoints /respond e /outcome.
     const updateData: any = { ...parsed.data }
-    if (parsed.data.status === 'confirmed' && !updateData.confirmed_at) {
-      updateData.confirmed_at = new Date().toISOString()
-    }
 
     const { data, error } = await admin
       .from('visits')

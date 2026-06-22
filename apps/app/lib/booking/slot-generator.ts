@@ -44,6 +44,14 @@ export interface SlotMap {
 
 const pad = (n: number) => n.toString().padStart(2, '0')
 
+// ── Timezone ────────────────────────────────────────────────────────────────
+// Todas as horas de disponibilidade são "wall-clock" de Lisboa (o que o
+// consultor escreve e o que o visitante lê). O servidor corre em UTC (Coolify),
+// por isso converte-se explicitamente para Europe/Lisbon em vez de usar
+// `Date#getHours/getDay` (que dependem do fuso do servidor) — evita off-by-one
+// na antecedência mínima e erros à volta da mudança da hora (DST).
+const LISBON_TZ = 'Europe/Lisbon'
+
 function toMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number)
   return h * 60 + m
@@ -53,8 +61,56 @@ function fromMinutes(mins: number): string {
   return `${pad(Math.floor(mins / 60))}:${pad(mins % 60)}`
 }
 
-function dateISO(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+/** Offset (wall-clock − UTC) em ms para uma zona horária num dado instante. */
+function tzOffsetMs(instant: Date, timeZone: string): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  const parts = dtf.formatToParts(instant)
+  const map: Record<string, number> = {}
+  for (const p of parts) if (p.type !== 'literal') map[p.type] = Number(p.value)
+  const asUTC = Date.UTC(map.year, map.month - 1, map.day, map.hour, map.minute, map.second)
+  return asUTC - instant.getTime()
+}
+
+/** Converte uma hora de parede de Lisboa (data ISO + minutos do dia) no instante absoluto correspondente. */
+function lisbonWallClockToInstant(iso: string, minutes: number): Date {
+  const [y, mo, d] = iso.split('-').map(Number)
+  const h = Math.floor(minutes / 60)
+  const mi = minutes % 60
+  const utcGuess = Date.UTC(y, mo - 1, d, h, mi)
+  const offset = tzOffsetMs(new Date(utcGuess), LISBON_TZ)
+  return new Date(utcGuess - offset)
+}
+
+/** "Hoje" em Lisboa como YYYY-MM-DD. */
+function lisbonTodayISO(now: Date): string {
+  // en-CA formata como YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: LISBON_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now)
+}
+
+/** Dia da semana (0=Dom..6=Sáb) de uma data ISO, independente do fuso. */
+function dowFromISO(iso: string): number {
+  const [y, mo, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, mo - 1, d)).getUTCDay()
+}
+
+/** Soma `days` a uma data ISO, devolvendo YYYY-MM-DD. */
+function addDaysISO(iso: string, days: number): string {
+  const [y, mo, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  return dt.toISOString().slice(0, 10)
+}
+
+/** Data de entrada (`new Date('YYYY-MM-DD')` = meia-noite UTC) → YYYY-MM-DD. */
+function inputDateToISO(d: Date): string {
+  return d.toISOString().slice(0, 10)
 }
 
 /**
@@ -95,10 +151,10 @@ export function generateSlots(params: {
   const buffer = settings.buffer_minutes
   const minNoticeMs = settings.min_notice_hours * 60 * 60 * 1000
 
+  // Instante absoluto mais cedo que ainda respeita a antecedência mínima.
   const earliest = new Date(now.getTime() + minNoticeMs)
-  const maxDate = new Date(now)
-  maxDate.setDate(maxDate.getDate() + settings.advance_days)
-  maxDate.setHours(23, 59, 59, 999)
+  // Janela de antecedência máxima, em dias de calendário de Lisboa.
+  const maxISO = addDaysISO(lisbonTodayISO(now), settings.advance_days)
 
   // Pre-index existing visits by date
   const visitsByDate = new Map<string, ExistingVisit[]>()
@@ -119,19 +175,15 @@ export function generateSlots(params: {
 
   const result: SlotMap = {}
 
-  const cursor = new Date(fromDate)
-  cursor.setHours(0, 0, 0, 0)
-  const end = new Date(toDate)
-  end.setHours(23, 59, 59, 999)
+  const toISO = inputDateToISO(toDate)
+  let iso = inputDateToISO(fromDate)
 
-  while (cursor <= end) {
-    if (cursor > maxDate) break
-
-    const iso = dateISO(cursor)
+  while (iso <= toISO) {
+    if (iso > maxISO) break
 
     // Window check
     if (!isWithinWindows(iso)) {
-      cursor.setDate(cursor.getDate() + 1)
+      iso = addDaysISO(iso, 1)
       continue
     }
 
@@ -140,15 +192,16 @@ export function generateSlots(params: {
     const override = overrideByDate.get(iso)
     if (override) {
       if (override.blocked) {
-        cursor.setDate(cursor.getDate() + 1)
+        iso = addDaysISO(iso, 1)
         continue
       }
       if (override.start_time && override.end_time) {
         dayRanges = [{ start: override.start_time, end: override.end_time }]
       }
     } else {
+      const dow = dowFromISO(iso)
       dayRanges = activeRules
-        .filter((r) => r.day_of_week === cursor.getDay())
+        .filter((r) => r.day_of_week === dow)
         .map((r) => ({ start: r.start_time, end: r.end_time }))
     }
 
@@ -164,11 +217,9 @@ export function generateSlots(params: {
           const slotStart = m
           const slotEnd = m + slotDur
 
-          const slotDateTime = new Date(cursor)
-          slotDateTime.setHours(0, 0, 0, 0)
-          slotDateTime.setMinutes(slotStart)
-
-          if (slotDateTime < earliest) continue
+          // Instante absoluto do início do slot (hora de parede de Lisboa).
+          const slotInstant = lisbonWallClockToInstant(iso, slotStart)
+          if (slotInstant < earliest) continue
 
           const hasConflict = dayVisits.some((v) => {
             const vStart = toMinutes(v.visit_time)
@@ -185,7 +236,7 @@ export function generateSlots(params: {
       if (slots.length > 0) result[iso] = slots
     }
 
-    cursor.setDate(cursor.getDate() + 1)
+    iso = addDaysISO(iso, 1)
   }
 
   return result

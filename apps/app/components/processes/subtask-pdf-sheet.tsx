@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -26,7 +25,18 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  RotateCcw,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -53,6 +63,12 @@ interface SubtaskPdfSheetProps {
   docLibraryId?: string
   ownerId?: string
   previewTitle?: string
+  /**
+   * Render the editor embedded (no Sheet shell) so it can live inline inside
+   * another container — ex.: o detalhe do passo do CMI. Default false (Sheet
+   * full-screen, comportamento legado).
+   */
+  inline?: boolean
 }
 
 interface PdfFieldData {
@@ -94,6 +110,31 @@ function getDocLibraryId(subtask: ProcSubtask): string | undefined {
 
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2]
 const DEFAULT_ZOOM_INDEX = 2 // 100%
+
+// ─── Caches ao nível do módulo: persistem entre montagens, por isso reabrir o
+// mesmo documento (ex.: o CMI no passo) é instantâneo — não volta a ir à rede.
+const _fieldsCache = new Map<string, PdfFieldData[]>() // por docLibraryId
+const _tplNameCache = new Map<string, string>() // por docLibraryId
+const _varsCache = new Map<string, Record<string, string>>() // por chave de contexto
+const _pdfBytesCache = new Map<string, ArrayBuffer>() // por docLibraryId
+
+// Valores originais de um campo: variável resolvida (com transform) ou default.
+function buildPrefill(
+  fields: PdfFieldData[],
+  vars: Record<string, string>
+): Record<string, string> {
+  const initial: Record<string, string> = {}
+  for (const f of fields) {
+    const m = f.mapping
+    if (!m) continue
+    if (m.variable_key && vars[m.variable_key]) {
+      initial[f.name] = applyTransform(vars[m.variable_key], m.transform)
+    } else if (m.default_value) {
+      initial[f.name] = m.default_value
+    }
+  }
+  return initial
+}
 
 // ─── AutoScaleInput: reduces font size (both dimensions) when text overflows ──
 
@@ -168,6 +209,7 @@ export function SubtaskPdfSheet({
   docLibraryId: docLibraryIdProp,
   ownerId: ownerIdProp,
   previewTitle,
+  inline = false,
 }: SubtaskPdfSheetProps) {
   const isPreviewOnly = !subtask
   const [isLoading, setIsLoading] = useState(false)
@@ -183,9 +225,10 @@ export function SubtaskPdfSheet({
   const [selectedFieldName, setSelectedFieldName] = useState<string | null>(null)
   const [totalPages, setTotalPages] = useState(0)
   const [pageInfos, setPageInfos] = useState<PageRenderInfo[]>([])
-  const [variablesSidebarOpen, setVariablesSidebarOpen] = useState(true)
+  const [variablesSidebarOpen, setVariablesSidebarOpen] = useState(!inline)
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX)
   const [isPdfReady, setIsPdfReady] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
 
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -203,16 +246,57 @@ export function SubtaskPdfSheet({
   const pdfProxyUrl = docLibraryId ? `/api/libraries/docs/${docLibraryId}/pdf` : null
   const zoom = ZOOM_LEVELS[zoomIndex]
 
+  // Em modo pré-visualização (CMI inline, sem subtask) não há rascunho no
+  // servidor — guardamos as edições à mão em localStorage para que NÃO sejam
+  // sobrepostas pelos valores retirados dos documentos ao reabrir.
+  const overridesKey =
+    isPreviewOnly && docLibraryId
+      ? `cmi-overrides:${propertyId || ''}:${docLibraryId}:${ownerId || ''}`
+      : null
+
   // ─── Load template data + resolve variables ──────────────────────
   const loadData = useCallback(async () => {
     if (!docLibraryId || !open) return
-    setIsLoading(true)
     setError(null)
 
+    const varsKey = `${docLibraryId}|${propertyId || ''}|${ownerId || ''}|${consultantId || ''}|${processId || ''}`
+    const cachedFields = _fieldsCache.get(docLibraryId)
+    const cachedVars = _varsCache.get(varsKey)
+
+    // Só mostra o skeleton quando há mesmo de ir à rede (1.ª vez).
+    if (!cachedFields || !cachedVars) setIsLoading(true)
+
     try {
-      const [fieldsRes, varsRes, tplRes] = await Promise.all([
-        fetch(`/api/libraries/docs/${docLibraryId}/fields`),
-        fetch('/api/libraries/emails/preview-data', {
+      // Campos do PDF (cache por modelo)
+      let fieldsData = cachedFields
+      if (!fieldsData) {
+        const fieldsRes = await fetch(`/api/libraries/docs/${docLibraryId}/fields`)
+        if (!fieldsRes.ok) throw new Error('Erro ao carregar campos do PDF')
+        fieldsData = (await fieldsRes.json()) as PdfFieldData[]
+        _fieldsCache.set(docLibraryId, fieldsData)
+      }
+      setFields(fieldsData)
+
+      // Nome do template (cache por modelo) — não bloqueia o resto
+      const cachedTpl = _tplNameCache.get(docLibraryId)
+      if (cachedTpl) {
+        setTemplateName(cachedTpl)
+      } else {
+        fetch(`/api/libraries/docs/${docLibraryId}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((tpl) => {
+            if (tpl?.name) {
+              _tplNameCache.set(docLibraryId, tpl.name)
+              setTemplateName(tpl.name)
+            }
+          })
+          .catch(() => {})
+      }
+
+      // Variáveis resolvidas (cache por modelo + imóvel + owner + consultor + processo)
+      let vars = cachedVars
+      if (!vars) {
+        const varsRes = await fetch('/api/libraries/emails/preview-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -221,23 +305,9 @@ export function SubtaskPdfSheet({
             consultant_id: consultantId || undefined,
             process_id: processId || undefined,
           }),
-        }),
-        fetch(`/api/libraries/docs/${docLibraryId}`),
-      ])
-
-      if (tplRes.ok) {
-        const tpl = await tplRes.json()
-        setTemplateName(tpl.name || 'Template PDF')
-      }
-
-      if (!fieldsRes.ok) throw new Error('Erro ao carregar campos do PDF')
-      const fieldsData: PdfFieldData[] = await fieldsRes.json()
-      setFields(fieldsData)
-
-      let vars: Record<string, string> = {}
-      if (varsRes.ok) {
-        const varsData = await varsRes.json()
-        vars = varsData.variables || {}
+        })
+        vars = varsRes.ok ? ((await varsRes.json()).variables as Record<string, string>) || {} : {}
+        _varsCache.set(varsKey, vars)
       }
       setResolvedVariables(vars)
 
@@ -251,24 +321,25 @@ export function SubtaskPdfSheet({
       if (rendered?.pdf_field_values) {
         setFieldValues(rendered.pdf_field_values)
       } else {
-        const initial: Record<string, string> = {}
-        for (const f of fieldsData) {
-          const m = f.mapping
-          if (!m) continue
-          if (m.variable_key && vars[m.variable_key]) {
-            initial[f.name] = applyTransform(vars[m.variable_key], m.transform)
-          } else if (m.default_value) {
-            initial[f.name] = m.default_value
+        const initial = buildPrefill(fieldsData, vars)
+        // Edições à mão (overrides) ganham sempre — não são sobrepostas pelos
+        // valores retirados dos documentos.
+        let overrides: Record<string, string> = {}
+        if (overridesKey && typeof window !== 'undefined') {
+          try {
+            overrides = JSON.parse(window.localStorage.getItem(overridesKey) || '{}')
+          } catch {
+            overrides = {}
           }
         }
-        setFieldValues(initial)
+        setFieldValues({ ...initial, ...overrides })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar template')
     } finally {
       setIsLoading(false)
     }
-  }, [docLibraryId, open, propertyId, ownerId, consultantId, processId, subtask])
+  }, [docLibraryId, open, propertyId, ownerId, consultantId, processId, subtask, overridesKey])
 
   useEffect(() => {
     if (open) {
@@ -314,14 +385,24 @@ export function SubtaskPdfSheet({
 
   // Load PDF document
   useEffect(() => {
-    if (!open || !pdfProxyUrl || isLoading) return
+    if (!open || !pdfProxyUrl || !docLibraryId || isLoading) return
     let cancelled = false
 
     async function load() {
       try {
         const pdfjsLib = await import('pdfjs-dist')
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
-        const doc = await pdfjsLib.getDocument({ url: pdfProxyUrl, withCredentials: false }).promise
+
+        // Bytes do PDF em cache por modelo → reabrir não volta a descarregar.
+        let bytes = _pdfBytesCache.get(docLibraryId!)
+        if (!bytes) {
+          const res = await fetch(pdfProxyUrl!)
+          bytes = await res.arrayBuffer()
+          if (!cancelled) _pdfBytesCache.set(docLibraryId!, bytes)
+        }
+        if (cancelled) return
+        // slice(0) → cópia, porque o pdf.js pode "detach" o ArrayBuffer.
+        const doc = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise
         if (cancelled) return
         pdfDocRef.current = doc
         setTotalPages(doc.numPages)
@@ -335,9 +416,10 @@ export function SubtaskPdfSheet({
       }
     }
 
-    const timer = setTimeout(load, 100)
+    // Inline não tem animação de sheet → arranca já; no sheet espera o slide.
+    const timer = setTimeout(load, inline ? 0 : 100)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [open, pdfProxyUrl, isLoading])
+  }, [open, pdfProxyUrl, docLibraryId, isLoading, inline])
 
   // Re-render all pages when PDF is ready or zoom changes
   useEffect(() => {
@@ -356,9 +438,33 @@ export function SubtaskPdfSheet({
   // Stats
   const filledCount = fields.filter((f) => fieldValues[f.name]).length
 
+  // ─── Repor todos os campos aos valores originais (perde edições à mão) ──
+  const resetToOriginal = () => {
+    setFieldValues(buildPrefill(fields, resolvedVariables))
+    if (overridesKey && typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(overridesKey)
+      } catch {
+        /* ignora falhas de storage */
+      }
+    }
+    setResetOpen(false)
+    toast.success('Campos repostos aos valores originais')
+  }
+
   // ─── Field value update ──────────────────────────────────────────
   const updateFieldValue = (name: string, value: string) => {
     setFieldValues((prev) => ({ ...prev, [name]: value }))
+    // Persiste a edição à mão para sobreviver a reaberturas (modo preview).
+    if (overridesKey && typeof window !== 'undefined') {
+      try {
+        const cur = JSON.parse(window.localStorage.getItem(overridesKey) || '{}')
+        cur[name] = value
+        window.localStorage.setItem(overridesKey, JSON.stringify(cur))
+      } catch {
+        /* ignora falhas de storage */
+      }
+    }
   }
 
   // ─── Variable click → fill selected field ────────────────────────
@@ -473,7 +579,8 @@ export function SubtaskPdfSheet({
       }
 
       const pdfBytes = await newPdf.save()
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      // Cópia ArrayBuffer-backed → satisfaz BlobPart (TS 5.7 Uint8Array genérico).
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -534,23 +641,18 @@ export function SubtaskPdfSheet({
   // Page numbers array
   const pageNums = useMemo(() => Array.from({ length: totalPages }, (_, i) => i + 1), [totalPages])
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        className="flex flex-col p-0 gap-0"
-        style={{ position: 'fixed', inset: 0, width: '100vw', maxWidth: '100vw', height: '100dvh' }}
-        side="right"
-      >
+  const content = (
+    <div className="flex h-full min-h-0 flex-col">
         {/* ─── Header ──────────────────────────────────────── */}
-        <SheetHeader className="px-6 py-3 border-b shrink-0">
+        <div className="px-6 py-3 border-b shrink-0">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-full bg-red-100 p-1.5 shrink-0">
               <FileType className="h-4 w-4 text-red-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-base leading-snug">
+              <h2 className="text-base font-semibold leading-snug">
                 {previewTitle || templateName || 'Documento PDF'}
-              </SheetTitle>
+              </h2>
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
                   PDF
@@ -616,7 +718,7 @@ export function SubtaskPdfSheet({
               </div>
             )}
           </div>
-        </SheetHeader>
+        </div>
 
         {/* ─── Body ────────────────────────────────────────── */}
         {isLoading ? (
@@ -668,6 +770,12 @@ export function SubtaskPdfSheet({
 
               {/* All pages stacked vertically */}
               <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4 bg-muted/20">
+                {!isPdfReady && (
+                  <div className="flex min-h-[280px] flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Spinner className="h-5 w-5" />
+                    A preparar o documento…
+                  </div>
+                )}
                 <div className="flex flex-col items-center gap-6">
                   {pageNums.map((pageNum) => {
                     const info = pageInfos[pageNum - 1]
@@ -817,6 +925,15 @@ export function SubtaskPdfSheet({
                 {isDownloading ? <Spinner className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
                 Descarregar PDF
               </Button>
+              <Button
+                variant="ghost" size="sm"
+                className="rounded-full text-muted-foreground"
+                onClick={() => setResetOpen(true)}
+                disabled={isSaving || isCompleting}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Repor valores
+              </Button>
             </div>
             <Button
               size="sm"
@@ -845,17 +962,64 @@ export function SubtaskPdfSheet({
                 </>
               )}
             </div>
-            <Button
-              variant="outline" size="sm"
-              className="rounded-full"
-              onClick={handleDownload}
-              disabled={isDownloading || !pdfDocRef.current}
-            >
-              {isDownloading ? <Spinner className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
-              Descarregar PDF
-            </Button>
+            <div className="flex items-center gap-2">
+              {!isCompleted && (
+                <Button
+                  variant="ghost" size="sm"
+                  className="rounded-full text-muted-foreground"
+                  onClick={() => setResetOpen(true)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Repor valores
+                </Button>
+              )}
+              <Button
+                variant="outline" size="sm"
+                className="rounded-full"
+                onClick={handleDownload}
+                disabled={isDownloading || !pdfDocRef.current}
+              >
+                {isDownloading ? <Spinner className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
+                Descarregar PDF
+              </Button>
+            </div>
           </div>
         )}
+
+        {/* Confirmação antes de repor — todas as edições à mão serão perdidas */}
+        <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Repor valores originais?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Todos os campos voltam aos valores extraídos dos documentos. As
+                alterações feitas à mão serão perdidas. Esta acção é irreversível.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={resetToOriginal}>
+                Repor valores
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+    </div>
+  )
+
+  if (inline) return content
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        className="flex flex-col p-0 gap-0"
+        style={{ position: 'fixed', inset: 0, width: '100vw', maxWidth: '100vw', height: '100dvh' }}
+        side="right"
+      >
+        <SheetTitle className="sr-only">
+          {previewTitle || templateName || 'Documento PDF'}
+        </SheetTitle>
+        {content}
       </SheetContent>
     </Sheet>
   )

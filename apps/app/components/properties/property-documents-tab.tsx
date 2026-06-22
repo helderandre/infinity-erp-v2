@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/constants'
+import { pLimit } from '@/lib/concurrency'
 import { toast } from 'sonner'
 import { PropertyCmiReadiness } from './property-cmi-readiness'
 
@@ -359,45 +360,43 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
       if (!classifyRes.ok) throw new Error('Erro na classificação')
       const { data: classified } = await classifyRes.json()
 
-      // 2. Upload each file with the classified doc_type_id
+      // 2. Carregar os ficheiros EM PARALELO (uploads são independentes — antes
+      //    era um loop sequencial, um round-trip de cada vez).
       toast.dismiss(tId)
       const uploadId = toast.loading(`A carregar ${files.length} ficheiro(s)...`)
-      const uploadedIds: string[] = []
-      const uploadedForLegalExtract: { file: File; docTypeName: string; docTypeCategory: string; docId: string }[] = []
-      let skipped = 0
+      const uploadLimit = pLimit(4)
+      const uploadResults = await Promise.all(
+        Array.from(files).map((file, i) =>
+          uploadLimit(async () => {
+            const match = classified?.find((c: any) => c.index === i)
+            const docTypeId = match?.doc_type_id
+            if (!docTypeId) return null
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        const match = classified?.find((c: any) => c.index === i)
-        const docTypeId = match?.doc_type_id
-        if (!docTypeId) {
-          skipped++
-          continue
-        }
+            const fd = new FormData()
+            fd.append('file', file)
+            fd.append('doc_type_id', docTypeId)
+            fd.append('property_id', propertyId)
 
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('doc_type_id', docTypeId)
-        fd.append('property_id', propertyId)
-
-        const uploadRes = await fetch('/api/documents/upload', { method: 'POST', body: fd })
-        if (uploadRes.ok) {
-          const { id } = await uploadRes.json()
-          if (id) {
-            uploadedIds.push(id)
-            uploadedForLegalExtract.push({
+            const uploadRes = await fetch('/api/documents/upload', { method: 'POST', body: fd })
+            if (!uploadRes.ok) return null
+            const { id } = await uploadRes.json()
+            if (!id) return null
+            return {
+              docId: id as string,
               file,
               docTypeName: match?.doc_type_name || '',
               docTypeCategory: match?.doc_type_category || '',
-              docId: id,
-            })
-          }
-        } else {
-          skipped++
-        }
-      }
-
+            }
+          })
+        )
+      )
       toast.dismiss(uploadId)
+
+      const uploaded = uploadResults.filter(
+        (r): r is { docId: string; file: File; docTypeName: string; docTypeCategory: string } => r !== null
+      )
+      const skipped = files.length - uploaded.length
+      const uploadedIds = uploaded.map((d) => d.docId)
 
       if (uploadedIds.length === 0) {
         toast.error(`Nenhum documento foi carregado (${skipped} falharam ou não classificados)`)
@@ -406,26 +405,11 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
 
       toast.success(`${uploadedIds.length} documento(s) carregado(s)${skipped > 0 ? ` · ${skipped} ignorado(s)` : ''}`)
 
-      // 3. Extract validity for the just-uploaded ones (background)
-      const extractId = toast.loading('A extrair validades...')
-      try {
-        const extractRes = await fetch(`/api/properties/${propertyId}/documents/extract-validity`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc_ids: uploadedIds }),
-        })
-        const extractData = await extractRes.json()
-        toast.dismiss(extractId)
-        if (extractRes.ok) {
-          toast.success(`${extractData.updated} de ${extractData.total} validades extraídas`)
-        }
-      } catch {
-        toast.dismiss(extractId)
-      }
+      // Mostra já os documentos carregados — o enriquecimento por IA (validades
+      // + dados legais) corre em segundo plano e não bloqueia a UI.
+      fetchDocs()
 
-      // 4. Extract legal_data (Caderneta Predial + Certidão CRP) → dev_property_legal_data
-      // Filtra para os documentos legais relevantes
-      const legalDocs = uploadedForLegalExtract.filter((d) => {
+      const legalDocs = uploaded.filter((d) => {
         const name = (d.docTypeName || '').toLowerCase()
         const cat = (d.docTypeCategory || '').toLowerCase()
         return (
@@ -439,38 +423,56 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
         )
       })
 
-      if (legalDocs.length > 0) {
-        const legalId = toast.loading('A extrair dados legais (Caderneta/CRP)...')
-        try {
-          const legalForm = new FormData()
-          const docTypesArr: { name: string; category: string }[] = []
-          const docIdsArr: string[] = []
-          for (const d of legalDocs) {
-            legalForm.append('files', d.file)
-            docTypesArr.push({ name: d.docTypeName, category: d.docTypeCategory })
-            docIdsArr.push(d.docId)
-          }
-          legalForm.append('doc_types', JSON.stringify(docTypesArr))
-          legalForm.append('property_id', propertyId)
-          legalForm.append('doc_registry_ids', JSON.stringify(docIdsArr))
-
-          const legalRes = await fetch('/api/documents/extract', {
-            method: 'POST',
-            body: legalForm,
-          })
-          toast.dismiss(legalId)
-          if (legalRes.ok) {
-            const j = await legalRes.json()
-            if (j.legal_data_saved) {
-              toast.success(`${j.legal_data_fields_set} campo(s) legal(is) extraído(s)`)
+      // 3 + 4. Validades e dados legais extraídos EM PARALELO, em segundo plano.
+      void (async () => {
+        await Promise.all([
+          // Validades
+          (async () => {
+            const extractId = toast.loading('A extrair validades...')
+            try {
+              const extractRes = await fetch(`/api/properties/${propertyId}/documents/extract-validity`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ doc_ids: uploadedIds }),
+              })
+              const extractData = await extractRes.json()
+              toast.dismiss(extractId)
+              if (extractRes.ok) {
+                toast.success(`${extractData.updated} de ${extractData.total} validades extraídas`)
+              }
+            } catch {
+              toast.dismiss(extractId)
             }
-          }
-        } catch {
-          toast.dismiss(legalId)
-        }
-      }
+          })(),
+          // Dados legais (Caderneta Predial + Certidão CRP) → dev_property_legal_data
+          (async () => {
+            if (legalDocs.length === 0) return
+            const legalId = toast.loading('A extrair dados legais (Caderneta/CRP)...')
+            try {
+              const legalForm = new FormData()
+              legalDocs.forEach((d) => legalForm.append('files', d.file))
+              legalForm.append(
+                'doc_types',
+                JSON.stringify(legalDocs.map((d) => ({ name: d.docTypeName, category: d.docTypeCategory })))
+              )
+              legalForm.append('property_id', propertyId)
+              legalForm.append('doc_registry_ids', JSON.stringify(legalDocs.map((d) => d.docId)))
 
-      fetchDocs()
+              const legalRes = await fetch('/api/documents/extract', { method: 'POST', body: legalForm })
+              toast.dismiss(legalId)
+              if (legalRes.ok) {
+                const j = await legalRes.json()
+                if (j.legal_data_saved) {
+                  toast.success(`${j.legal_data_fields_set} campo(s) legal(is) extraído(s)`)
+                }
+              }
+            } catch {
+              toast.dismiss(legalId)
+            }
+          })(),
+        ])
+        fetchDocs()
+      })()
     } catch (err: any) {
       toast.dismiss(tId)
       toast.error(err.message || 'Erro ao carregar documentos')

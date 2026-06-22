@@ -4,6 +4,8 @@ import {
   FileSignature,
   Send,
   FileCheck2,
+  Images,
+  Heart,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -121,5 +123,33 @@ export const ANGARIACAO_STEPS: AngariacaoStep[] = [
     action: 'confirm',
     cta: 'Guardar assinado',
     requires: ['CMI assinado por todos os proprietários'],
+  },
+  {
+    key: 'descricao_imagens',
+    order: 6,
+    label: 'Descrição e Imagens do Imóvel',
+    shortLabel: 'Descrição',
+    description:
+      'Escrever a descrição do imóvel e adicionar as imagens para a publicação.',
+    icon: Images,
+    action: 'upload',
+    cta: 'Adicionar descrição e imagens',
+    requires: [
+      'Descrição comercial do imóvel',
+      'Fotografias do imóvel',
+      'Imóvel pronto para publicação nos portais',
+    ],
+  },
+  {
+    key: 'email_agradecimento',
+    order: 7,
+    label: 'Email de Agradecimento',
+    shortLabel: 'Agradecer',
+    description:
+      'Enviar email de agradecimento aos clientes depois de o imóvel estar publicado.',
+    icon: Heart,
+    action: 'email',
+    cta: 'Enviar agradecimento',
+    requires: ['Imóvel publicado', 'Email dos clientes confirmado'],
   },
 ]

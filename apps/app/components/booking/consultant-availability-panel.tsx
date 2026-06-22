@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, Save, CalendarClock } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Loader2, Save, CalendarClock, ChevronDown, Settings2, Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WeeklyAvailabilityEditor, type WeeklyRule } from './weekly-availability-editor'
 import { BookingWindowsEditor, type BookingWindow } from './booking-windows-editor'
@@ -40,6 +41,7 @@ export function ConsultantAvailabilityPanel() {
   const [windows, setWindows] = useState<BookingWindow[]>([])
   const [overrides, setOverrides] = useState<DateOverride[]>([])
   const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -55,19 +57,22 @@ export function ConsultantAvailabilityPanel() {
         min_notice_hours: data.settings?.min_notice_hours ?? DEFAULTS.min_notice_hours,
         public_booking_enabled: data.settings?.public_booking_enabled ?? DEFAULTS.public_booking_enabled,
       })
-      setWindows((data.windows ?? []).map((w: BookingWindow) => ({
+      const loadedWindows = (data.windows ?? []).map((w: BookingWindow) => ({
         start_date: w.start_date,
         end_date: w.end_date,
         note: w.note ?? null,
         active: w.active ?? true,
-      })))
-      setOverrides((data.overrides ?? []).map((o: DateOverride) => ({
+      }))
+      const loadedOverrides = (data.overrides ?? []).map((o: DateOverride) => ({
         override_date: o.override_date,
         blocked: o.blocked,
         start_time: o.start_time ?? null,
         end_time: o.end_time ?? null,
         note: o.note ?? null,
-      })))
+      }))
+      setWindows(loadedWindows)
+      setOverrides(loadedOverrides)
+      setAdvancedOpen(loadedWindows.length + loadedOverrides.length > 0)
     } catch {
       toast.error('Erro ao carregar disponibilidade')
     } finally {
@@ -137,6 +142,16 @@ export function ConsultantAvailabilityPanel() {
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {settings.public_booking_enabled && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+            <Link2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Agendamento activo. Para partilhar o link, abre um imóvel teu → aba <strong>Visitas</strong> → <strong>Partilhar link de agendamento</strong>.
+              Cada imóvel tem o seu link; por defeito usa esta agenda.
+            </span>
+          </div>
+        )}
+
         {/* Settings grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1.5">
@@ -228,15 +243,24 @@ export function ConsultantAvailabilityPanel() {
               onChange={setRules}
             />
 
-            <BookingWindowsEditor
-              windows={windows}
-              onChange={setWindows}
-            />
+            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                <Settings2 className="h-3.5 w-3.5" />
+                Avançado — períodos e dias específicos
+                <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-6 pt-3">
+                <BookingWindowsEditor
+                  windows={windows}
+                  onChange={setWindows}
+                />
 
-            <DateOverridesEditor
-              overrides={overrides}
-              onChange={setOverrides}
-            />
+                <DateOverridesEditor
+                  overrides={overrides}
+                  onChange={setOverrides}
+                />
+              </CollapsibleContent>
+            </Collapsible>
           </>
         ) : (
           <AvailabilityCalendarView

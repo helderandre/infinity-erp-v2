@@ -23,7 +23,10 @@ Regras importantes:
 - Só inclui dias explicitamente mencionados; se não foi mencionado, não aparece
 - "dias úteis" ou "semana" = Seg a Sex (1-5)
 - "fim-de-semana" = Sábado e Domingo (6 e 0)
+- "todos os dias" = Seg a Dom (0-6)
+- EXCEÇÕES: se o utilizador disser "exceto", "menos", "tirando" ou "não" um dia, REMOVE esse dia do resultado (ex: "segunda a sexta menos quarta" = Seg, Ter, Qui, Sex)
 - "manhã" típica = 09:00-13:00; "tarde" = 14:00-18:00 (usa estes defaults se não especificado)
+- Interpreta horas faladas em PT-PT: "5 da tarde" = 17:00, "meio-dia" = 12:00, "9h" ou "9 da manhã" = 09:00. Devolve sempre 24h.
 - Se o utilizador disser algo tipo "9-18 com pausa 13-14", cria 2 rows por dia: 09:00-13:00 + 14:00-18:00
 - Usa horários realistas (típica abertura 08:00-20:00)
 
@@ -55,6 +58,23 @@ Input: "só fins-de-semana"
 Output: {"rules": [
   {"day_of_week": 6, "start_time": "09:00", "end_time": "18:00"},
   {"day_of_week": 0, "start_time": "09:00", "end_time": "18:00"}
+]}
+
+Input: "todos os dias das 10 ao meio-dia, menos quarta"
+Output: {"rules": [
+  {"day_of_week": 1, "start_time": "10:00", "end_time": "12:00"},
+  {"day_of_week": 2, "start_time": "10:00", "end_time": "12:00"},
+  {"day_of_week": 4, "start_time": "10:00", "end_time": "12:00"},
+  {"day_of_week": 5, "start_time": "10:00", "end_time": "12:00"},
+  {"day_of_week": 6, "start_time": "10:00", "end_time": "12:00"},
+  {"day_of_week": 0, "start_time": "10:00", "end_time": "12:00"}
+]}
+
+Input: "segundas das 12 às 16, e sábados e domingos das 9 às 5 da tarde"
+Output: {"rules": [
+  {"day_of_week": 1, "start_time": "12:00", "end_time": "16:00"},
+  {"day_of_week": 6, "start_time": "09:00", "end_time": "17:00"},
+  {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}
 ]}`
 
 export async function POST(request: Request) {
