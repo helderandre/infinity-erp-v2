@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
+import { ContactOutcomeSheet } from '@/components/crm/contact-outcome-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +43,7 @@ export function NegocioContactosSheet({
 }: NegocioContactosSheetProps) {
   const isMobile = useIsMobile()
   const [copied, setCopied] = useState<'phone' | 'email' | null>(null)
+  const [outcomeOpen, setOutcomeOpen] = useState(false)
 
   const copyToClipboard = (text: string, label: string, key: 'phone' | 'email') => {
     navigator.clipboard.writeText(text)
@@ -74,6 +76,7 @@ export function NegocioContactosSheet({
   const cleanPhone = phone?.replace(/[^0-9+]/g, '') ?? ''
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={isMobile ? 'bottom' : 'right'}
@@ -122,7 +125,11 @@ export function NegocioContactosSheet({
                   href={`tel:${phone}`}
                   className={PILL}
                   aria-label="Ligar"
-                  onClick={() => logContact('call', `Chamada iniciada para ${phone}`)}
+                  onClick={() => {
+                    // tel: fires natively; then prompt for the call outcome so it
+                    // lands in the history + funnel + objetivos, linked to this négocio.
+                    if (leadId) setTimeout(() => setOutcomeOpen(true), 50)
+                  }}
                 >
                   <Phone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   Ligar
@@ -187,5 +194,19 @@ export function NegocioContactosSheet({
         </div>
       </SheetContent>
     </Sheet>
+
+    {leadId && (
+      <ContactOutcomeSheet
+        open={outcomeOpen}
+        onOpenChange={setOutcomeOpen}
+        contactId={leadId}
+        contactName={clientName}
+        phone={phone}
+        negocioId={negocioId ?? null}
+        channel="phone"
+        onCompleted={() => onLogged?.()}
+      />
+    )}
+    </>
   )
 }

@@ -58,6 +58,11 @@ interface PropertyDoc {
 
 interface PropertyDocumentsTabProps {
   propertyId: string
+  /** Separador inicial (default 'todos'). Quando 'cmi', o CMI passa a ser a
+   *  vista principal (e o primeiro separador) — usado na sheet do passo. */
+  defaultTab?: DocTab
+  /** Esconde a barra lateral de "Próximos Alertas" (ex.: na sheet do passo). */
+  hideAlerts?: boolean
 }
 
 type ExpiryStatus = 'expired' | 'critical' | 'soon' | 'ok' | 'none'
@@ -102,12 +107,23 @@ function tabFor(category: string | null | undefined): DocTab {
   return 'imovel'
 }
 
-export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) {
+export function PropertyDocumentsTab({ propertyId, defaultTab = 'todos', hideAlerts = false }: PropertyDocumentsTabProps) {
   const [propertyDocs, setPropertyDocs] = useState<PropertyDoc[]>([])
   const [ownerDocs, setOwnerDocs] = useState<PropertyDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [previewDoc, setPreviewDoc] = useState<PropertyDoc | null>(null)
-  const [activeTab, setActiveTab] = useState<DocTab>('todos')
+  const [activeTab, setActiveTab] = useState<DocTab>(defaultTab)
+  // Quando o CMI é a vista principal (sheet do passo), mostra-o como 1.º separador.
+  const orderedTabs = useMemo(
+    () =>
+      defaultTab === 'cmi'
+        ? [
+            ...TABS.filter((t) => t.key === 'cmi'),
+            ...TABS.filter((t) => t.key !== 'cmi'),
+          ]
+        : TABS,
+    [defaultTab]
+  )
 
   // Selection mode (only active when user clicks "Seleccionar")
   const [selectionMode, setSelectionMode] = useState(false)
@@ -529,7 +545,7 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
       {/* ─── Tabs + actions row ─── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30">
-          {TABS.map((tab) => (
+          {orderedTabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
@@ -646,8 +662,9 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
 
       {/* ─── Two-column layout: alerts sidebar + docs list ─── */}
       {activeTab !== 'cmi' && (
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+      <div className={cn('grid gap-4', hideAlerts ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-[300px_1fr]')}>
         {/* Alerts sidebar */}
+        {!hideAlerts && (
         <aside className="space-y-3">
           <div className="rounded-2xl border bg-card/50 backdrop-blur-sm p-4">
             <div className="flex items-center gap-2 mb-3">
@@ -699,6 +716,7 @@ export function PropertyDocumentsTab({ propertyId }: PropertyDocumentsTabProps) 
             )}
           </div>
         </aside>
+        )}
 
         {/* Documents list */}
         <div>

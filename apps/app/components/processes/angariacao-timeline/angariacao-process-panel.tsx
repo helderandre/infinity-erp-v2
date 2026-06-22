@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { TaskActivityTimeline } from '@/components/processes/task-activity-timeline'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { TaskActivity } from '@/types/process'
 import { cn } from '@/lib/utils'
 import {
@@ -74,8 +75,14 @@ export function AngariacaoProcessPanel({
   onViewChange,
 }: AngariacaoProcessPanelProps) {
   const total = ANGARIACAO_STEPS.length
-  const [progress, setProgress] = useState(initialProgress)
-  const [selected, setSelected] = useState(Math.min(initialProgress, total))
+  // Em modo real (com processId) começa em 1 (nada concluído) até o overview
+  // carregar — evita o "flash" de passos concluídos com o valor de preview.
+  const [progress, setProgress] = useState(processId ? 1 : initialProgress)
+  const [selected, setSelected] = useState(
+    processId ? 1 : Math.min(initialProgress, total)
+  )
+  // Carregamento do estado real (só em modo real) → enquanto true, skeleton.
+  const [overviewLoading, setOverviewLoading] = useState(Boolean(processId))
   const [internalView, setInternalView] = useState<ProcessView>('passos')
   // Vista controlada pelo parent quando ambos os props são fornecidos.
   const controlled = viewProp !== undefined && onViewChange !== undefined
@@ -104,6 +111,9 @@ export function AngariacaoProcessPanel({
         setCmiConsultantId(d.consultantId ?? null)
       })
       .catch(() => {})
+      .finally(() => {
+        if (active) setOverviewLoading(false)
+      })
     fetch(`/api/processes/${processId}/activities`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => {
@@ -148,12 +158,16 @@ export function AngariacaoProcessPanel({
       {/* STEPPER — círculos no topo, fora dos cards dos passos (overview).
           Clicar num passo abre o seu detalhe (qualquer passo, sempre). */}
       <div className="rounded-3xl border bg-card p-5 shadow-sm sm:p-8">
-        <ProcessTimeline
-          progressOrder={progress}
-          selectedOrder={selected}
-          view="responsive"
-          onStepClick={(s) => openStep(s.order)}
-        />
+        {overviewLoading ? (
+          <Skeleton className="h-14 w-full" />
+        ) : (
+          <ProcessTimeline
+            progressOrder={progress}
+            selectedOrder={selected}
+            view="responsive"
+            onStepClick={(s) => openStep(s.order)}
+          />
+        )}
       </div>
 
       {view === 'atividade' ? (
@@ -167,6 +181,14 @@ export function AngariacaoProcessPanel({
             <ProcessActivityTimeline />
           )}
         </div>
+      ) : overviewLoading ? (
+        /* Enquanto o estado real não carrega → skeleton (sem flash de passos
+           concluídos com valores de preview). */
+        <div className="space-y-3">
+          {ANGARIACAO_STEPS.map((s) => (
+            <Skeleton key={s.key} className="h-28 w-full rounded-2xl" />
+          ))}
+        </div>
       ) : (
         /* Um card por passo — info simplificada + acção que abre a sheet */
         <div className="space-y-3">
@@ -178,8 +200,6 @@ export function AngariacaoProcessPanel({
                 step={s}
                 status={st}
                 total={total}
-                doneBy={st === 'done' ? 'Ana Silva' : null}
-                doneAt={st === 'done' ? '12/01 14:32' : null}
                 onOpen={() => openStep(s.order)}
               />
             )
@@ -192,8 +212,6 @@ export function AngariacaoProcessPanel({
         status={selectedStatus}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        doneBy="Ana Silva"
-        doneAt="12/01 14:32"
         onComplete={completeCurrent}
         propertyId={propertyId}
         ownerId={cmiOwnerId}

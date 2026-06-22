@@ -23,6 +23,7 @@ import { PropertyDocumentsRoot } from '@/components/properties/property-document
 import { cn } from '@/lib/utils'
 import type { AngariacaoStep } from './steps'
 import type { StepStatus } from './process-timeline'
+import { DescricaoImagensStep } from './descricao-imagens-step'
 
 // Modelo CMI real (tpl_doc_library, PDF overlay 75 campos) — o mesmo do
 // "Gerar CMI" do processo actual.
@@ -62,6 +63,9 @@ export function StepDetailContent({
   processId?: string | null
 }) {
   const isEmail = step.action === 'email'
+  // Passo 6 — "Descrição e Imagens do Imóvel" tem UI própria (2 tabs +
+  // botão Tarefa Media), distinta do uploader genérico de documentos.
+  const isDescricaoImagens = step.key === 'descricao_imagens'
 
   return (
     <div className="space-y-5">
@@ -77,7 +81,9 @@ export function StepDetailContent({
         </div>
       )}
 
-      {isEmail ? (
+      {isDescricaoImagens ? (
+        <DescricaoImagensStep propertyId={propertyId} processId={processId} />
+      ) : isEmail ? (
         <EmailArea step={step} status={status} sentBy={doneBy} sentAt={doneAt} />
       ) : status !== 'done' ? (
         <ActionArea
@@ -534,7 +540,7 @@ function DocumentsNeeded({ propertyId }: { propertyId?: string | null }) {
           <ListChecks className="h-3.5 w-3.5" />
           Documentos do imóvel
         </div>
-        <PropertyDocumentsRoot propertyId={propertyId} />
+        <PropertyDocumentsRoot propertyId={propertyId} defaultTab="cmi" hideAlerts />
       </div>
     )
   }

@@ -87,7 +87,7 @@ export async function POST(
 
     const { id: contactId } = await params
     const body = await request.json()
-    const { outcome, direction: callDirection, notes, negocio_id } = body
+    const { outcome, direction: callDirection, notes, negocio_id, request_id } = body
     const direction = callDirection === 'inbound' ? 'inbound' : 'outbound'
 
     if (!outcome || !VALID_OUTCOMES.includes(outcome)) {
@@ -112,6 +112,21 @@ export async function POST(
       return NextResponse.json({ error: 'Contacto não encontrado' }, { status: 404 })
     }
 
+    // Idempotency (M6): a double-tap sends the same request_id. If we already
+    // logged it for this contact, return the prior result without re-writing.
+    if (request_id) {
+      const { data: existing } = await admin
+        .from('leads_activities')
+        .select('id')
+        .eq('contact_id', contactId)
+        .eq('metadata->>request_id', request_id)
+        .limit(1)
+        .maybeSingle()
+      if (existing) {
+        return NextResponse.json({ success: true, outcome, stage_updated: false, deduped: true })
+      }
+    }
+
     const activityDescription = OUTCOME_LABELS[outcome as Outcome]
 
     // 1. PRIMARY WRITE — the contact-history row. If this fails the whole
@@ -124,7 +139,7 @@ export async function POST(
       direction,
       subject: activityDescription,
       description: notes || null,
-      metadata: { outcome, direction, timestamp: new Date().toISOString() },
+      metadata: { outcome, direction, timestamp: new Date().toISOString(), request_id: request_id || null },
       created_by: user.id,
     })
 
@@ -223,18 +238,49 @@ export async function POST(
     //    Attempts (no_answer/busy/voicemail/failed) live in the history and the
     //    funnel, but must not inflate the objetivos "Chamadas" target.
     if (outcome === 'success') {
-      const origin = await resolveGoalOrigin(admin, negocio_id, contactId)
-      await logGoalActivity({
+      try {
+        const origin = await resolveGoalOrigin(admin, negocio_id, contactId)
         // Credit the lead's owner (assignee), matching the pre-existing policy.
-        consultantId: lead.agent_id || user.id,
-        activityType: 'call',
-        origin,
-        direction,
-        createdBy: user.id,
-        referenceId: contactId,
-        referenceType: 'lead',
-        notes: activityDescription,
-      })
+        const consultantId = lead.agent_id || user.id
+
+        // 4a. CANONICAL v2 ledger — agent_funnel_events drives the primary
+        //     /dashboard/objetivos funil. This endpoint is the SOLE writer of
+        //     'contacto' events for calls (CallContactButton no longer writes
+        //     funnel events directly). Its unique index dedups one 'contacto'
+        //     per (source_ref, side, stage), so repeat calls don't double-count.
+        const funnelSide = origin === 'buyers' ? 'comprador' : 'vendedor'
+        const { error: funnelError } = await admin.from('agent_funnel_events').insert({
+          agent_id: consultantId,
+          side: funnelSide,
+          stage: 'contacto',
+          occurred_at: new Date().toISOString(),
+          count: 1,
+          source: 'call_outcome',
+          source_ref_type: negocio_id ? 'negocio' : 'lead',
+          source_ref_id: negocio_id || contactId,
+          notes: activityDescription,
+          created_by: user.id,
+        })
+        // 23505 = already counted for this source/side/stage → expected, ignore.
+        if (funnelError && funnelError.code !== '23505') {
+          console.warn('[call-outcome] funnel event insert failed:', funnelError)
+        }
+
+        // 4b. Legacy ledger — kept so the older /api/goals/* dashboards stay
+        //     populated. Safe to retire once those views move to v2.
+        await logGoalActivity({
+          consultantId,
+          activityType: 'call',
+          origin,
+          direction,
+          createdBy: user.id,
+          referenceId: contactId,
+          referenceType: 'lead',
+          notes: activityDescription,
+        })
+      } catch (err) {
+        console.warn('[call-outcome] goals logging failed:', err)
+      }
     }
 
     return NextResponse.json({

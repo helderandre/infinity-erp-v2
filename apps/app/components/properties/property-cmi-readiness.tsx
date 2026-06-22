@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import {
   AlertCircle,
   Building2,
@@ -12,6 +12,7 @@ import {
   Info,
   Loader2,
   Pencil,
+  Plus,
   Sparkles,
   User,
   UserPlus,
@@ -53,6 +54,11 @@ interface PropertyCmiReadinessProps {
   propertyId: string
   /** When provided, AddOwnerDialog offers to populate tasks for the new owner. */
   processId?: string
+  /** O parent regista aqui o gatilho do "Carregar em massa" para o expor como
+   *  botão "+" ao lado dos separadores. */
+  bulkTriggerRef?: MutableRefObject<(() => void) | null>
+  /** Reporta o estado de upload ao parent (para desactivar o botão "+"). */
+  onBulkUploadingChange?: (uploading: boolean) => void
 }
 
 // Category → target resolution strategy used by bulk upload.
@@ -68,20 +74,43 @@ const OWNER_EXTRACTABLE_DOC_TYPES = new Set<string>([
   'e433c9f1-b323-43ac-9607-05b31f72bbb9', // Certidão Permanente da Empresa
 ])
 
-export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadinessProps) {
+export function PropertyCmiReadiness({
+  propertyId,
+  processId,
+  bulkTriggerRef,
+  onBulkUploadingChange,
+}: PropertyCmiReadinessProps) {
   const [property, setProperty] = useState<PropertyDetail | null>(null)
   const [docs, setDocs] = useState<DocRef[]>([])
   const [roleTypes, setRoleTypes] = useState<OwnerRoleType[]>([])
   const [loading, setLoading] = useState(true)
   const [bulkUploading, setBulkUploading] = useState(false)
   const bulkInputRef = useRef<HTMLInputElement>(null)
+  // Quando definido, o próximo upload é forçado para este destino (botão "+"
+  // por secção: imóvel ou um proprietário específico). null = auto-classificar.
+  const scopedTargetRef = useRef<UploadTarget | null>(null)
   const [editTarget, setEditTarget] = useState<CmiFieldEditTarget | null>(null)
   const [cmiSheetOpen, setCmiSheetOpen] = useState(false)
   const [addOwnerOpen, setAddOwnerOpen] = useState(false)
-  const [reExtracting, setReExtracting] = useState(false)
   const [reviewDoc, setReviewDoc] = useState<DocRef | null>(null)
   const [pendingFieldAudits, setPendingFieldAudits] = useState<PendingFieldAudit[]>([])
   const [reviewAudit, setReviewAudit] = useState<PendingFieldAudit | null>(null)
+
+  // Expõe o gatilho de "Carregar em massa" ao parent (botão "+" junto aos tabs).
+  useEffect(() => {
+    if (!bulkTriggerRef) return
+    bulkTriggerRef.current = () => {
+      scopedTargetRef.current = null // auto-classificar (sem destino forçado)
+      bulkInputRef.current?.click()
+    }
+    return () => {
+      bulkTriggerRef.current = null
+    }
+  }, [bulkTriggerRef])
+
+  useEffect(() => {
+    onBulkUploadingChange?.(bulkUploading)
+  }, [bulkUploading, onBulkUploadingChange])
 
   // Ref kept in sync with `readiness` so the click handler can read it
   // without forcing a callback recreation per render and without TDZ issues
@@ -282,36 +311,8 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
       .filter((id): id is string => !!id) ?? []
   }, [property])
 
-  const handleReExtract = useCallback(async () => {
-    setReExtracting(true)
-    const tId = toast.loading('A extrair campos dos documentos existentes com IA...')
-    try {
-      const res = await fetch(`/api/properties/${propertyId}/cmi-re-extract`, {
-        method: 'POST',
-      })
-      toast.dismiss(tId)
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Falha na extracção')
-      }
-      const j = await res.json()
-      const total = (j.owners_fields_patched || 0) + (j.property_fields_patched || 0)
-      if (total > 0) {
-        toast.success(`${total} campo(s) preenchido(s) a partir de ${j.owner_docs_processed + j.property_docs_processed} documento(s)`)
-      } else {
-        toast.info('Nenhum campo novo encontrado nos documentos existentes')
-      }
-      await fetchAll()
-    } catch (e: any) {
-      toast.dismiss(tId)
-      toast.error(e?.message || 'Erro na extracção')
-    } finally {
-      setReExtracting(false)
-    }
-  }, [propertyId, fetchAll])
-
   const handleBulkUpload = useCallback(
-    async (files: FileList | null) => {
+    async (files: FileList | null, forceTarget?: UploadTarget | null) => {
       if (!files || files.length === 0) return
       setBulkUploading(true)
       const classifyToast = toast.loading(`A classificar ${files.length} ficheiro(s)...`)
@@ -342,7 +343,9 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
             continue
           }
 
-          const target = resolveTarget(match.doc_type_category)
+          // Botão "+" por secção força o destino (imóvel / proprietário X);
+          // caso contrário auto-classifica pelo tipo de documento.
+          const target = forceTarget ?? resolveTarget(match.doc_type_category)
           if (target.kind === 'skip') {
             skipped++
             continue
@@ -480,11 +483,18 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
         toast.error(e?.message || 'Erro ao carregar documentos')
       } finally {
         setBulkUploading(false)
+        scopedTargetRef.current = null
         if (bulkInputRef.current) bulkInputRef.current.value = ''
       }
     },
     [propertyId, resolveTarget, fetchAll]
   )
+
+  // Abre o seletor de ficheiros forçando o destino (secção Imóvel ou um owner).
+  const triggerScopedUpload = useCallback((target: UploadTarget) => {
+    scopedTargetRef.current = target
+    bulkInputRef.current?.click()
+  }, [])
 
   if (loading) {
     return (
@@ -520,7 +530,7 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
         multiple
         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
         className="hidden"
-        onChange={(e) => handleBulkUpload(e.target.files)}
+        onChange={(e) => handleBulkUpload(e.target.files, scopedTargetRef.current)}
       />
 
       {/* Overall header */}
@@ -555,63 +565,6 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
           </div>
         </div>
         <Progress value={percent} className="mt-3 h-1.5" />
-
-        {/* Actions row */}
-        <div className="mt-4 pt-3 border-t space-y-3">
-          <p className="text-[11px] text-muted-foreground leading-tight">
-            Carrega vários documentos e a IA classifica cada um e extrai
-            automaticamente os campos do proprietário.
-          </p>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full gap-1.5 flex-1 sm:flex-initial"
-              onClick={() => setAddOwnerOpen(true)}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              Adicionar proprietário
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full gap-1.5 flex-1 sm:flex-initial"
-              onClick={handleReExtract}
-              disabled={reExtracting}
-              title="Re-correr IA sobre os documentos já carregados"
-            >
-              {reExtracting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
-              Extrair com IA
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full gap-1.5 flex-1 sm:flex-initial"
-              onClick={() => setCmiSheetOpen(true)}
-              title={percent < 100 ? 'Pré-visualizar CMI (campos em falta aparecem vazios)' : 'Pré-visualizar CMI'}
-            >
-              <Eye className="h-3.5 w-3.5" />
-              Pré-visualizar CMI
-            </Button>
-            <Button
-              size="sm"
-              className="rounded-full gap-1.5 flex-1 sm:flex-initial"
-              disabled={bulkUploading}
-              onClick={() => bulkInputRef.current?.click()}
-            >
-              {bulkUploading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
-              Carregar em massa
-            </Button>
-          </div>
-        </div>
       </div>
 
       {/* Property section */}
@@ -622,6 +575,8 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
         required={readiness.propertyRequiredCount}
         items={readiness.property}
         onReviewClick={openReviewByItem}
+        onAddDocuments={() => triggerScopedUpload({ kind: 'property' })}
+        addBusy={bulkUploading}
         renderAction={(item) => (
           <PropertyItemAction
             propertyId={propertyId}
@@ -669,6 +624,14 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
                 rawOwner={rawOwner || null}
                 onRefresh={fetchAll}
                 onReviewClick={openReviewByItem}
+                addBusy={bulkUploading}
+                onAddDocuments={() =>
+                  triggerScopedUpload({
+                    kind: 'owner',
+                    ownerId: owner.ownerId,
+                    personType: owner.personType,
+                  })
+                }
                 onEditField={(ownerId, fieldKey, ownerRow) =>
                   setEditTarget({
                     kind: 'owner',
@@ -710,15 +673,17 @@ export function PropertyCmiReadiness({ propertyId, processId }: PropertyCmiReadi
         }}
       />
 
-      <OwnerSubmissionReviewSheet
-        open={reviewDoc !== null}
-        onOpenChange={(o) => {
-          if (!o) setReviewDoc(null)
-        }}
-        doc={reviewDoc as any}
-        processId={processId}
-        onUpdate={fetchAll}
-      />
+      {processId && (
+        <OwnerSubmissionReviewSheet
+          open={reviewDoc !== null}
+          onOpenChange={(o) => {
+            if (!o) setReviewDoc(null)
+          }}
+          doc={reviewDoc as any}
+          processId={processId}
+          onUpdate={fetchAll}
+        />
+      )}
 
       <OwnerFieldAuditReviewSheet
         open={reviewAudit !== null}
@@ -750,6 +715,10 @@ interface SectionCardProps {
   items: ComputedRequirement[]
   renderAction: (item: ComputedRequirement) => React.ReactNode
   onReviewClick?: (item: ComputedRequirement) => void
+  /** Quando fornecido, mostra um botão "+" no cabeçalho para carregar
+   *  documentos directamente para esta secção (imóvel ou proprietário). */
+  onAddDocuments?: () => void
+  addBusy?: boolean
 }
 
 function SectionCard({
@@ -761,6 +730,8 @@ function SectionCard({
   items,
   renderAction,
   onReviewClick,
+  onAddDocuments,
+  addBusy,
 }: SectionCardProps) {
   const [open, setOpen] = useState(true)
   const percent = required === 0 ? 100 : Math.round((satisfied / required) * 100)
@@ -770,10 +741,11 @@ function SectionCard({
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden">
+        <div className="flex items-center">
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
+            className="flex-1 min-w-0 flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
           >
             <div
               className={cn(
@@ -817,6 +789,22 @@ function SectionCard({
             </div>
           </button>
         </CollapsibleTrigger>
+        {onAddDocuments && (
+          <button
+            type="button"
+            onClick={onAddDocuments}
+            disabled={addBusy}
+            title="Carregar documentos para esta secção"
+            className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            {addBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+          </button>
+        )}
+        </div>
         <CollapsibleContent>
           <div className="border-t divide-y">
             {visibleItems.map((item) => (
@@ -930,6 +918,8 @@ function OwnerSection({
   onRefresh,
   onEditField,
   onReviewClick,
+  onAddDocuments,
+  addBusy,
 }: {
   propertyId: string
   owner: OwnerReadiness
@@ -937,6 +927,8 @@ function OwnerSection({
   onRefresh: () => Promise<void>
   onEditField: (ownerId: string, fieldKey: string, ownerRow: OwnerRow) => void
   onReviewClick?: (item: ComputedRequirement) => void
+  onAddDocuments?: () => void
+  addBusy?: boolean
 }) {
   return (
     <SectionCard
@@ -955,6 +947,8 @@ function OwnerSection({
       required={owner.requiredCount}
       items={owner.items}
       onReviewClick={onReviewClick}
+      onAddDocuments={onAddDocuments}
+      addBusy={addBusy}
       renderAction={(item) => (
         <OwnerItemAction
           propertyId={propertyId}

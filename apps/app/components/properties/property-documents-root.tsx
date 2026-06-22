@@ -8,12 +8,17 @@ import { PropertyDocumentsTab } from './property-documents-tab'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 type ViewMode = 'lista' | 'pastas'
+type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario' | 'cmi'
 
 interface PropertyDocumentsRootProps {
   propertyId: string
+  /** Separador inicial da vista Lista (default 'todos'). */
+  defaultTab?: DocTab
+  /** Esconde a barra de "Próximos Alertas" (ex.: na sheet do passo). */
+  hideAlerts?: boolean
 }
 
-export function PropertyDocumentsRoot({ propertyId }: PropertyDocumentsRootProps) {
+export function PropertyDocumentsRoot({ propertyId, defaultTab = 'todos', hideAlerts = false }: PropertyDocumentsRootProps) {
   const [view, setView] = useState<ViewMode>('lista')
 
   return (
@@ -38,7 +43,7 @@ export function PropertyDocumentsRoot({ propertyId }: PropertyDocumentsRootProps
       </div>
 
       {view === 'lista' ? (
-        <PropertyDocumentsTab propertyId={propertyId} />
+        <PropertyDocumentsTab propertyId={propertyId} defaultTab={defaultTab} hideAlerts={hideAlerts} />
       ) : (
         <PropertyDocumentsFoldersView propertyId={propertyId} />
       )}

@@ -23,6 +23,11 @@ interface DescriptionChatPaneProps {
 }
 
 const QUICK_PRESETS = [
+  {
+    label: 'Gerar do imóvel',
+    prompt:
+      'Escreve uma descrição comercial completa e apelativa do imóvel, em português de Portugal, a partir de todos os dados disponíveis (tipologia, áreas, localização, características e equipamento). Não inventes dados.',
+  },
   { label: 'Encurtar', prompt: 'Encurta a descrição mantendo o essencial.' },
   { label: 'Mais formal', prompt: 'Torna o tom mais formal e profissional.' },
   { label: 'Mais acolhedor', prompt: 'Torna o tom mais acolhedor e familiar.' },

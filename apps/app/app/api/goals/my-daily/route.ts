@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { calcFinancial, calcSellerFunnel, calcBuyerFunnel, calcRealityCheck, getGoalStatus } from '@/lib/goals/calculations'
+import { countByType } from '@/lib/goals/count-activities'
 import type { ConsultantGoal, GoalStatus } from '@/types/goal'
 
 /**
@@ -47,7 +48,7 @@ export async function GET() {
     // Get today's activities
     const { data: todayActs } = await supabase
       .from('temp_goal_activity_log')
-      .select('activity_type, origin, revenue_amount')
+      .select('activity_type, origin, revenue_amount, quantity')
       .eq('consultant_id', auth.user.id)
       .eq('activity_date', today)
 
@@ -73,11 +74,11 @@ export async function GET() {
     const dailyVisits = Math.ceil(sellerFunnel.daily.visits)
     const dailyFollowUps = Math.ceil((sellerFunnel.daily.leads + buyerFunnel.daily.leads) * 0.5)
 
-    // Today's done
-    const doneLeads = acts.filter(a => a.activity_type === 'lead_contact').length
-    const doneCalls = acts.filter(a => a.activity_type === 'call').length
-    const doneVisits = acts.filter(a => a.activity_type === 'visit').length
-    const doneFollowUps = acts.filter(a => a.activity_type === 'follow_up').length
+    // Today's done — sum quantity so a "20 calls" bulk row counts as 20.
+    const doneLeads = countByType(acts, 'lead_contact')
+    const doneCalls = countByType(acts, 'call')
+    const doneVisits = countByType(acts, 'visit')
+    const doneFollowUps = countByType(acts, 'follow_up')
 
     const actions: { key: string; label: string; target: number; done: number; status: GoalStatus }[] = [
       { key: 'leads', label: 'Leads a contactar', target: dailyLeads, done: doneLeads, status: getGoalStatus(doneLeads, dailyLeads) },

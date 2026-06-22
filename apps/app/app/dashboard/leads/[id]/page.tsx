@@ -75,7 +75,7 @@ import { LeadEditSheet } from '@/components/leads/lead-edit-sheet'
 import { WhatsAppIcon } from '@/components/shared/whatsapp-icon'
 import { TaskForm } from '@/components/tasks/task-form'
 import { QuickEventSheet } from '@/components/leads/quick-event-sheet'
-import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
+import { ContactOutcomeSheet } from '@/components/crm/contact-outcome-sheet'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { WhatsAppChatBubble } from '@/components/whatsapp/whatsapp-chat-bubble'
 import { EmailChatBubble } from '@/components/email/email-chat-bubble'
@@ -1281,12 +1281,13 @@ export default function LeadDetailPage() {
 
       {/* Call outcome dialog, WhatsApp + email bubbles (overlays, out of flow) */}
       {lead && (
-        <CallOutcomeDialog
+        <ContactOutcomeSheet
           open={callOutcomeOpen}
           onOpenChange={setCallOutcomeOpen}
           contactId={id}
           contactName={lead.nome || ''}
           phone={lead.telemovel || ''}
+          channel="phone"
           onCompleted={() => { loadLead(); loadActivities() }}
         />
       )}

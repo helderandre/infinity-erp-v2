@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Timeline,
   TimelineItem,
@@ -16,29 +16,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import {
-  RefreshCw, UserPlus, Flag, CalendarClock, Ban,
-  Upload, Mail, FileText, PlayCircle, CheckCircle2,
-  Eye, PenLine, MessageSquare, Activity,
-  MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, MailPlus, ShieldAlert, Clock,
-  RotateCcw, Bot, CalendarPlus, CalendarX,
-  Plus, Trash2, ListPlus, ListMinus, CircleCheck,
-  Sparkles, CheckSquare,
-} from 'lucide-react'
+import { Activity, Bot } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { TASK_ACTIVITY_TYPE_CONFIG, SYSTEM_EVENT_ACTIVITY_TYPES } from '@/lib/constants'
+import { ACTIVITY_ICON_MAP } from './activity-icon-map'
 import type { TaskActivity } from '@/types/process'
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  RefreshCw, UserPlus, Flag, CalendarClock, Ban,
-  Upload, Mail, FileText, PlayCircle, CheckCircle2,
-  Eye, PenLine, MessageSquare, Activity,
-  MailCheck, MailOpen, MousePointerClick, MailX, AlertCircle, MailPlus, ShieldAlert, Clock,
-  RotateCcw, CalendarPlus, CalendarX,
-  Plus, Trash2, ListPlus, ListMinus, CircleCheck,
-  Sparkles, CheckSquare,
-}
+const ICON_MAP = ACTIVITY_ICON_MAP
 
 interface TaskActivityTimelineProps {
   activities: TaskActivity[]

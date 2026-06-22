@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
-import { CallOutcomeModal } from '@/components/crm/call-outcome-modal'
+import { ContactOutcomeSheet } from '@/components/crm/contact-outcome-sheet'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { SourceBadge } from '@/components/leads/source-badge'
@@ -768,12 +768,12 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
         </>
       )}
       {entry?.contact?.id && (
-        <CallOutcomeModal
+        <ContactOutcomeSheet
           open={outcomeOpen}
           onOpenChange={setOutcomeOpen}
           contactId={entry.contact.id}
           contactName={entry.raw_name || entry.contact?.nome}
-          contactMethod={contactMethod}
+          channel={contactMethod}
         />
       )}
       {/* Refer this lead-entry to another consultor. Server-side flips

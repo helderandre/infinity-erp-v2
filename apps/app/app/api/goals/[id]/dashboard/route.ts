@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { calcFinancial, calcSellerFunnel, calcBuyerFunnel, calcRealityCheck, getGoalStatus } from '@/lib/goals/calculations'
+import { countByType } from '@/lib/goals/count-activities'
 import type { ConsultantGoal } from '@/types/goal'
 
 export async function GET(
@@ -35,7 +36,7 @@ export async function GET(
     // 2. Get activities for this year to compute "realizado"
     const { data: activities } = await supabase
       .from('temp_goal_activity_log')
-      .select('activity_type, origin, revenue_amount, activity_date')
+      .select('activity_type, origin, revenue_amount, activity_date, quantity')
       .eq('consultant_id', goal.consultant_id)
       .gte('activity_date', `${goal.year}-01-01`)
       .lte('activity_date', `${goal.year}-12-31`)
@@ -57,10 +58,10 @@ export async function GET(
     const today = new Date().toISOString().split('T')[0]
     const todayActs = acts.filter(a => a.activity_date === today)
 
-    const todayLeads = todayActs.filter(a => a.activity_type === 'lead_contact').length
-    const todayCalls = todayActs.filter(a => a.activity_type === 'call').length
-    const todayVisits = todayActs.filter(a => a.activity_type === 'visit').length
-    const todayFollowUps = todayActs.filter(a => a.activity_type === 'follow_up').length
+    const todayLeads = countByType(todayActs, 'lead_contact')
+    const todayCalls = countByType(todayActs, 'call')
+    const todayVisits = countByType(todayActs, 'visit')
+    const todayFollowUps = countByType(todayActs, 'follow_up')
 
     const dailySellerLeads = funnel_sellers.daily.leads
     const dailyBuyerLeads = funnel_buyers.daily.leads

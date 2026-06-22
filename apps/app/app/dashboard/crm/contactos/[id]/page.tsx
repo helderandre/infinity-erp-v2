@@ -34,7 +34,7 @@ import { ENTRY_SOURCE_LABELS, PIPELINE_TYPE_COLORS, PIPELINE_TYPE_LABELS } from 
 import { ActivityTimeline } from '@/components/crm/activity-timeline'
 import { ContactNegociosList } from '@/components/crm/contact-negocios-list'
 import { AddActivityDialog } from '@/components/crm/add-activity-dialog'
-import { CallOutcomeDialog } from '@/components/crm/call-outcome-dialog'
+import { ContactOutcomeSheet } from '@/components/crm/contact-outcome-sheet'
 import { ObservationsButton } from '@/components/crm/observations-dialog'
 import { ContactRelationships } from '@/components/crm/contact-relationships'
 import { TemperaturaSelector, type Temperatura } from '@/components/negocios/temperatura-selector'
@@ -535,12 +535,13 @@ export default function ContactDetailPage() {
 
       {/* Call outcome dialog */}
       {contact && (
-        <CallOutcomeDialog
+        <ContactOutcomeSheet
           open={callOutcomeOpen}
           onOpenChange={setCallOutcomeOpen}
           contactId={id}
           contactName={contact.full_name || contact.nome || ''}
           phone={contact.telemovel ?? contact.phone ?? ''}
+          channel="phone"
           onCompleted={() => {
             fetchContact()
           }}

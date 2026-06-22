@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { calcRealityCheck } from '@/lib/goals/calculations'
+import { sumQuantity } from '@/lib/goals/count-activities'
 import type { ConsultantGoal, GoalStatus } from '@/types/goal'
 
 /**
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
     // 2. Year activities for all consultants in one query
     const { data: activities } = await supabase
       .from('temp_goal_activity_log')
-      .select('consultant_id, activity_type, revenue_amount, activity_date')
+      .select('consultant_id, activity_type, revenue_amount, activity_date, quantity')
       .in('consultant_id', consultantIds)
       .gte('activity_date', `${year}-01-01`)
       .lte('activity_date', `${year}-12-31`)
@@ -159,7 +160,7 @@ export async function GET(request: Request) {
         pct_of_period_target: reality.pct_achieved,
         projected_annual: reality.projected_annual,
         status: reality.status,
-        weekly_activities: weekActs.length,
+        weekly_activities: sumQuantity(weekActs),
         last_report_status: report?.status || null,
         last_report_at: report?.at || null,
       }

@@ -21,18 +21,17 @@
 -- Aditiva e idempotente. Reversível (ver fundo do ficheiro).
 -- ════════════════════════════════════════════════════════════════════
 
--- ── 0. Colunas novas em owners (bloco de identificação do CMI) ────────
+-- ── 0. Colunas novas em owners — APENAS o cônjuge (2.º contratante) ───
+-- O resto da identificação JÁ EXISTE em owners (recolhido na fase de
+-- processo, pós-aprovação): id_doc_number (n.º C.C/B.I), postal_code, city
+-- (localidade), naturality, nationality, marital_status, marital_regime,
+-- address. O CMI reutiliza essas colunas — não duplicamos.
+-- Só o cônjuge não está modelado em lado nenhum.
 ALTER TABLE owners
-  ADD COLUMN IF NOT EXISTS cc_number        text,
-  ADD COLUMN IF NOT EXISTS postal_code      text,
-  ADD COLUMN IF NOT EXISTS locality         text,
   ADD COLUMN IF NOT EXISTS spouse_name      text,
   ADD COLUMN IF NOT EXISTS spouse_cc_number text,
   ADD COLUMN IF NOT EXISTS spouse_nif       text;
 
-COMMENT ON COLUMN owners.cc_number        IS 'N.º do Cartão de Cidadão / B.I. do proprietário (usado no CMI).';
-COMMENT ON COLUMN owners.postal_code      IS 'Código postal da morada do proprietário (AAAA-BBB).';
-COMMENT ON COLUMN owners.locality         IS 'Localidade da morada do proprietário.';
 COMMENT ON COLUMN owners.spouse_name      IS 'Nome do cônjuge (2.º contratante) — preenchido quando casado.';
 COMMENT ON COLUMN owners.spouse_cc_number IS 'N.º C.C/B.I. do cônjuge.';
 COMMENT ON COLUMN owners.spouse_nif       IS 'NIF do cônjuge.';
@@ -42,14 +41,15 @@ INSERT INTO tpl_variables (key, label, category, source_entity, source_table, so
 VALUES
   -- Consultor / angariador
   ('consultor_nif', 'NIF do consultor (angariador)', 'consultor', 'consultant', 'dev_consultant_private_data', 'nif', 'text', false, true, 20),
-  -- Proprietário (campos novos)
-  ('proprietario_cc', 'N.º C.C/B.I. do proprietário', 'proprietario', 'owner', 'owners', 'cc_number', 'text', false, true, 15),
+  -- Proprietário — reutilizam colunas JÁ EXISTENTES em owners
+  ('proprietario_cc', 'N.º C.C/B.I. do proprietário', 'proprietario', 'owner', 'owners', 'id_doc_number', 'text', false, true, 15),
   ('proprietario_codigo_postal', 'Código postal do proprietário', 'proprietario', 'owner', 'owners', 'postal_code', 'text', false, true, 16),
-  ('proprietario_localidade', 'Localidade do proprietário', 'proprietario', 'owner', 'owners', 'locality', 'text', false, true, 17),
+  ('proprietario_localidade', 'Localidade do proprietário', 'proprietario', 'owner', 'owners', 'city', 'text', false, true, 17),
   ('conjuge_nome', 'Nome do cônjuge', 'proprietario', 'owner', 'owners', 'spouse_name', 'text', false, true, 18),
   ('conjuge_cc', 'N.º C.C/B.I. do cônjuge', 'proprietario', 'owner', 'owners', 'spouse_cc_number', 'text', false, true, 19),
   ('conjuge_nif', 'NIF do cônjuge', 'proprietario', 'owner', 'owners', 'spouse_nif', 'text', false, true, 20),
-  -- Imóvel (campos que alimentam qualidade + checkboxes)
+  -- Imóvel (campos que alimentam qualidade + checkboxes + comissão)
+  ('imovel_comissao_valor', 'Comissão (valor numérico, sem €)', 'imovel', 'property', 'dev_property_internal', 'commission_agreed', 'text', false, true, 49),
   ('imovel_business_type', 'Tipo de negócio do imóvel (venda/arrend.)', 'imovel', 'property', 'dev_properties', 'business_type', 'text', false, true, 50),
   ('imovel_tem_hipoteca', 'Tem hipoteca/ónus (sim/não)', 'imovel', 'property', 'dev_property_internal', 'has_mortgage', 'text', false, true, 51),
   ('imovel_mortgage_owed', 'Valor em dívida (ónus)', 'imovel', 'property', 'dev_property_internal', 'mortgage_owed', 'currency', false, true, 52),
@@ -110,6 +110,12 @@ BEGIN
   UPDATE doc_pdf_field_mappings
      SET variable_key = 'imovel_contrato_prazo', transform = NULL
    WHERE template_id = tpl AND pdf_field_name = 'dias meses contados a partir da data da sua';
+
+  -- Comissão — percentagem (Cláusula 5, alínea %). commission_agreed guarda
+  -- o número (ex.: 5) quando commission_type='percentage'.
+  UPDATE doc_pdf_field_mappings
+     SET variable_key = 'imovel_comissao_valor', transform = NULL
+   WHERE template_id = tpl AND pdf_field_name = 'A quantia de';
 
   -- Comissão — valor fixo em € (Cláusula 5, alínea fixa)
   UPDATE doc_pdf_field_mappings
@@ -200,14 +206,13 @@ $cmi$;
 -- ════════════════════════════════════════════════════════════════════
 -- REVERT (manual):
 --   ALTER TABLE owners
---     DROP COLUMN IF EXISTS cc_number, DROP COLUMN IF EXISTS postal_code,
---     DROP COLUMN IF EXISTS locality, DROP COLUMN IF EXISTS spouse_name,
+--     DROP COLUMN IF EXISTS spouse_name,
 --     DROP COLUMN IF EXISTS spouse_cc_number, DROP COLUMN IF EXISTS spouse_nif;
 --   DELETE FROM tpl_variables WHERE key IN (
 --     'consultor_nif','proprietario_cc','proprietario_codigo_postal',
 --     'proprietario_localidade','conjuge_nome','conjuge_cc','conjuge_nif',
---     'imovel_business_type','imovel_tem_hipoteca','imovel_mortgage_owed',
---     'imovel_tipo_comissao');
+--     'imovel_comissao_valor','imovel_business_type','imovel_tem_hipoteca',
+--     'imovel_mortgage_owed','imovel_tipo_comissao');
 --   -- e repor os variable_key/transform anteriores em doc_pdf_field_mappings
 --   -- (ver git blame de 20260427_cmi_variables_and_mappings.sql).
 -- ════════════════════════════════════════════════════════════════════

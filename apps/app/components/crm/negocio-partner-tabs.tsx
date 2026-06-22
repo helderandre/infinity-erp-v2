@@ -208,6 +208,15 @@ const HISTORICO_META: Record<
   system: { icon: RefreshCw, label: 'Sistema', tone: 'text-slate-500', bg: 'bg-slate-500/10' },
 }
 
+// Coloured pill for a call outcome stored in metadata.outcome.
+const OUTCOME_PILL: Record<string, { label: string; className: string }> = {
+  success: { label: 'Atendeu', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' },
+  no_answer: { label: 'Sem resposta', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' },
+  busy: { label: 'Ocupado', className: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30' },
+  voicemail: { label: 'Voicemail', className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30' },
+  failed: { label: 'Cancelado', className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30' },
+}
+
 interface PartnerActivity {
   id: string
   activity_type: string
@@ -300,6 +309,26 @@ export function PartnerHistoricoTimeline({ activities }: { activities: PartnerAc
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
                       {meta.label}
                     </p>
+                    {(() => {
+                      const m = a.metadata as { outcome?: string; direction?: string } | null
+                      const pill = m?.outcome ? OUTCOME_PILL[m.outcome] : null
+                      const dir = m?.direction
+                      if (!pill && !dir) return null
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {pill && (
+                            <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium', pill.className)}>
+                              {pill.label}
+                            </span>
+                          )}
+                          {dir && (
+                            <span className="inline-flex items-center rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {dir === 'inbound' ? '↙ Recebida' : '↗ Enviada'}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                     {a.description && (
                       <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line line-clamp-4">
                         {a.description}

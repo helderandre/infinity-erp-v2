@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { calcFinancial, calcSellerFunnel, calcBuyerFunnel, getGoalStatus } from '@/lib/goals/calculations'
+import { countByType } from '@/lib/goals/count-activities'
 import type { ConsultantGoal, GoalCompareRow } from '@/types/goal'
 
 export async function GET(request: Request) {
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
     const consultantIds = goals.map(g => g.consultant_id)
     const { data: activities } = await supabase
       .from('temp_goal_activity_log')
-      .select('consultant_id, activity_type, origin, revenue_amount')
+      .select('consultant_id, activity_type, origin, revenue_amount, quantity')
       .in('consultant_id', consultantIds)
       .gte('activity_date', dateFrom)
       .lte('activity_date', dateTo)
@@ -79,17 +80,17 @@ export async function GET(request: Request) {
       const leadsTarget = period === 'weekly'
         ? sellerFunnel.weekly.leads + buyerFunnel.weekly.leads
         : sellerFunnel.monthly.leads + buyerFunnel.monthly.leads
-      const leadsDone = consultantActs.filter(a => a.activity_type === 'lead_contact').length
+      const leadsDone = countByType(consultantActs, 'lead_contact')
 
       const callsTarget = period === 'weekly'
         ? sellerFunnel.weekly.calls + buyerFunnel.weekly.calls
         : sellerFunnel.monthly.calls + buyerFunnel.monthly.calls
-      const callsDone = consultantActs.filter(a => a.activity_type === 'call').length
+      const callsDone = countByType(consultantActs, 'call')
 
       const visitsTarget = period === 'weekly'
         ? sellerFunnel.weekly.visits
         : sellerFunnel.monthly.visits
-      const visitsDone = consultantActs.filter(a => a.activity_type === 'visit').length
+      const visitsDone = countByType(consultantActs, 'visit')
 
       return {
         consultant_id: goal.consultant_id,

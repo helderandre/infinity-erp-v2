@@ -66,6 +66,15 @@ const ACTIVITY_TYPE_ICON_NAMES: Record<ActivityType, string> = {
   system: 'Cog',
 }
 
+// Coloured pill for the call outcome stored in metadata.outcome.
+const OUTCOME_PILL: Record<string, { label: string; className: string }> = {
+  success: { label: 'Atendeu', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' },
+  no_answer: { label: 'Sem resposta', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' },
+  busy: { label: 'Ocupado', className: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30' },
+  voicemail: { label: 'Voicemail', className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30' },
+  failed: { label: 'Cancelado', className: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30' },
+}
+
 const ACTIVITY_TYPE_BORDER: Record<ActivityType, string> = {
   call: 'border-l-green-500',
   email: 'border-l-blue-500',
@@ -251,6 +260,21 @@ function ActivityItem({ activity }: { activity: LeadsActivityWithAuthor }) {
                   {ACTIVITY_DIRECTION_LABELS[activity.direction]}
                 </Badge>
               )}
+
+              {(() => {
+                const outcome = (activity as { metadata?: { outcome?: string } | null }).metadata?.outcome
+                const pill = outcome ? OUTCOME_PILL[outcome] : null
+                return pill ? (
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                      pill.className,
+                    )}
+                  >
+                    {pill.label}
+                  </span>
+                ) : null
+              })()}
             </div>
 
             {activity.subject && (
