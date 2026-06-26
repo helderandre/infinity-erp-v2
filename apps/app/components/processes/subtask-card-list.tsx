@@ -33,6 +33,8 @@ import { SubtaskDocSheet } from './subtask-doc-sheet'
 import { SubtaskPdfSheet } from './subtask-pdf-sheet'
 import { SubtaskCardExternalForm } from './subtask-card-external-form'
 import { SubtaskCardAiCaption } from './subtask-card-ai-caption'
+import { SubtaskCardMoloniInvoice } from './subtask-card-moloni-invoice'
+import { SubtaskCardPayParties } from './subtask-card-pay-parties'
 import { SubtaskCardWhatsApp } from './subtask-card-whatsapp'
 import { SubtaskWhatsAppSheet } from './subtask-whatsapp-sheet'
 import { ExternalFormDialog } from './external-form-dialog'
@@ -396,6 +398,46 @@ export function SubtaskCardList({
               )
               onTaskUpdate?.()
             }}
+          />
+        )
+      case 'moloni_invoice':
+        return (
+          <SubtaskCardMoloniInvoice
+            key={subtask.id}
+            subtask={subtask}
+            dealId={deal?.id ?? null}
+            onCompleted={async () => {
+              await fetch(
+                `/api/processes/${processId}/tasks/${task.id}/subtasks/${subtask.id}`,
+                {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ is_completed: true }),
+                },
+              )
+              onTaskUpdate?.()
+            }}
+            onChanged={onTaskUpdate}
+          />
+        )
+      case 'pay_parties':
+        return (
+          <SubtaskCardPayParties
+            key={subtask.id}
+            subtask={subtask}
+            dealId={deal?.id ?? null}
+            onCompleted={async () => {
+              await fetch(
+                `/api/processes/${processId}/tasks/${task.id}/subtasks/${subtask.id}`,
+                {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ is_completed: true }),
+                },
+              )
+              onTaskUpdate?.()
+            }}
+            onChanged={onTaskUpdate}
           />
         )
       case 'whatsapp':

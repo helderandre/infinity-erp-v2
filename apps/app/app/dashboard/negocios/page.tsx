@@ -312,22 +312,12 @@ function NegociosPageContent() {
   }
 
   const openDetail = (d: Deal) => {
-    // Preferir a nova página unificada do negócio (6 tabs com Apresentação,
-    // Momentos, Processo, Financeiro embebido). Se o deal não tiver
-    // `negocio_id` (raro — drafts antigos), o fallback `/dashboard/
-    // financeiro/deals/{id}` está atrás do PermissionGuard `commissions`,
-    // que faz bounce de consultor para /dashboard. Para não-gestão, em vez
-    // de redireccionar e perder contexto, mostramos toast informativo.
+    // Abre SEMPRE a página unificada do negócio (vista rica de 8 tabs),
+    // dentro da secção Negócios. A página resolve quer um `negocio_id` quer
+    // um `deal_id` (drafts sem ligação a lead aparecem como deal-only),
+    // portanto nunca saímos da secção Negócios para o módulo Financeiro.
     const negocioId = (d as { negocio_id?: string | null }).negocio_id
-    if (negocioId) {
-      router.push(`/dashboard/negocios/${negocioId}`)
-      return
-    }
-    if (!isManagement) {
-      toast.info('Negócio em rascunho — ainda sem ligação a lead. Pede à gestão para regularizar.')
-      return
-    }
-    router.push(`/dashboard/financeiro/deals/${d.id}`)
+    router.push(`/dashboard/negocios/${negocioId ?? d.id}`)
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1

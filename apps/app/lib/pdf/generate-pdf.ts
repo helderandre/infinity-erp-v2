@@ -31,7 +31,7 @@ async function getBrowser(): Promise<Browser> {
   return cachedBrowser
 }
 
-export type PdfFormat = 'ficha' | 'presentation'
+export type PdfFormat = 'ficha' | 'presentation' | 'report'
 
 interface GeneratePdfOptions {
   url: string
@@ -118,11 +118,20 @@ export async function generatePdf({ url, format }: GeneratePdfOptions): Promise<
             printBackground: true,
             margin: { top: 0, right: 0, bottom: 0, left: 0 },
           }
-        : {
-            format: 'A4',
-            printBackground: true,
-            margin: { top: 0, right: 0, bottom: 0, left: 0 },
-          }
+        : format === 'report'
+          ? {
+              // Relatório multi-página: margens top/bottom por página dão folga
+              // no topo de cada página (sobretudo a 2.ª+). Laterais a 0 porque o
+              // documento já tem padding horizontal próprio (794px = largura A4).
+              format: 'A4',
+              printBackground: true,
+              margin: { top: '14mm', right: '0', bottom: '14mm', left: '0' },
+            }
+          : {
+              format: 'A4',
+              printBackground: true,
+              margin: { top: 0, right: 0, bottom: 0, left: 0 },
+            }
 
     const buffer = await page.pdf(pdfOptions)
     console.log(`[pdf] done format=${format} bytes=${buffer.length}`)

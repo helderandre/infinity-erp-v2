@@ -27,9 +27,11 @@ import { PropertyFichasTab } from '@/components/properties/property-fichas-tab'
 import { PropertyVisitasTab } from '@/components/properties/property-visitas-tab'
 import { PropertyApresentacaoTab } from '@/components/properties/property-apresentacao-tab'
 import { PropertyCampaignsTab } from '@/components/properties/property-campaigns-tab'
-import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
-import { AngariacaoProcessPanel, AngariacaoViewToggle } from '@/components/processes/angariacao-timeline/angariacao-process-panel'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PropertyOwnerReportTab } from '@/components/properties/property-owner-report-tab'
+import { AngariacaoProcessPanel } from '@/components/processes/angariacao-timeline/angariacao-process-panel'
+import { NegocioProcessPanel } from '@/components/processes/negocio-timeline/negocio-process-panel'
+import { NegocioInfoSheet } from '@/components/processes/negocio-timeline/negocio-info-sheet'
+import { DealFinanceiroPanel } from '@/components/financial/deal-financeiro-panel'
 import { VisitForm } from '@/components/visits/visit-form'
 import { DealDialog } from '@/components/deals/deal-dialog'
 import { DescriptionEditorCanvas } from '@/components/properties/description-editor/description-editor-canvas'
@@ -95,6 +97,8 @@ import {
   Hash,
   Video,
   BookOpen,
+  FileBarChart2,
+  Route,
 } from 'lucide-react'
 import {
   formatCurrency,
@@ -129,33 +133,32 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 // ─── Tab config ────────────────────────────────────────────────
 
-type TabKey = 'apresentacao' | 'resumo' | 'media' | 'interessados' | 'visitas' | 'documentos' | 'proprietarios' | 'processos'
+type TabKey = 'apresentacao' | 'resumo' | 'media' | 'interessados' | 'acompanhamento' | 'documentos' | 'processos'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'apresentacao', label: 'Apresentação', icon: Eye },
   { key: 'media', label: 'Media', icon: ImageIcon },
   { key: 'interessados', label: 'Interessados', icon: Users },
-  { key: 'visitas', label: 'Visitas', icon: Calendar },
+  { key: 'acompanhamento', label: 'Acompanhamento', icon: Route },
   { key: 'documentos', label: 'Documentos', icon: FileText },
-  { key: 'proprietarios', label: 'Proprietários', icon: User },
   { key: 'processos', label: 'Processos', icon: ClipboardList },
 ]
 
-type ProcessSubTab = 'angariacao' | 'venda' | 'impic'
+type ProcessSubTab = 'angariacao' | 'venda' | 'financeiro' | 'impic'
 
 const PROCESS_SUBTABS: { key: ProcessSubTab; label: string; icon: React.ElementType }[] = [
   { key: 'angariacao', label: 'Angariação', icon: FolderOpen },
   { key: 'venda', label: 'Venda', icon: FileText },
+  { key: 'financeiro', label: 'Financeiro', icon: Euro },
   { key: 'impic', label: 'IMPIC', icon: ShieldCheck },
 ]
 
-type InteressadosSubTab = 'pipeline' | 'site' | 'campanhas' | 'propostas'
+type InteressadosSubTab = 'pipeline' | 'campanhas' | 'site'
 
 const INTERESSADOS_SUBTABS: { key: InteressadosSubTab; label: string }[] = [
-  { key: 'pipeline', label: 'Leads Infinity' },
-  { key: 'site', label: 'Leads Gerados' },
+  { key: 'pipeline', label: 'Leads compatíveis em sistema' },
   { key: 'campanhas', label: 'Campanhas' },
-  { key: 'propostas', label: 'Propostas' },
+  { key: 'site', label: 'Leads gerados' },
 ]
 
 const INTERESSADO_STATUS: Record<string, { label: string; color: string }> = {
@@ -192,6 +195,7 @@ export default function ImovelDetalhePage() {
   const [showVisitDialog, setShowVisitDialog] = useState(false)
   const [visitPrefillLeadId, setVisitPrefillLeadId] = useState<string | undefined>(undefined)
   const [showFechoDialog, setShowFechoDialog] = useState(false)
+  const [negocioInfoOpen, setNegocioInfoOpen] = useState(false)
   const [resumeDealId, setResumeDealId] = useState<string | null>(null)
   const [selectedOwner, setSelectedOwner] = useState<any>(null)
   const isMobile = useIsMobile()
@@ -205,7 +209,7 @@ export default function ImovelDetalhePage() {
     const tabParam = searchParams.get('tab')
     if (tabParam !== 'interessados') return 'pipeline'
     const sub = searchParams.get('sub')
-    if (sub === 'pipeline' || sub === 'site' || sub === 'campanhas' || sub === 'propostas') return sub
+    if (sub === 'pipeline' || sub === 'site' || sub === 'campanhas') return sub
     return 'pipeline'
   })
   // Leads gerados: entradas em leads_entries que referenciam este imóvel
@@ -219,7 +223,17 @@ export default function ImovelDetalhePage() {
   const [colleagueFilter, setColleagueFilter] = useState<string | null>(null)
   const [resumoSection, setResumoSection] = useState<'info' | 'specs' | 'financeiro'>('info')
   const [mediaSection, setMediaSection] = useState<'fotos' | 'videos' | 'plantas' | 'descricao' | 'brochuras'>('fotos')
-  const initialTab = (searchParams.get('tab') as TabKey) || 'apresentacao'
+  // Sub-separador activo dentro de "Acompanhamento" (funde Visitas + Relatório).
+  const [acompSection, setAcompSection] = useState<'pedidos' | 'visitas' | 'fichas' | 'propostas'>('pedidos')
+  // Remap de separadores antigos (links/bookmarks anteriores à reorganização):
+  // visitas/relatorio → acompanhamento; proprietarios → documentos.
+  const REMOVED_TAB_REMAP: Record<string, TabKey> = {
+    visitas: 'acompanhamento',
+    relatorio: 'acompanhamento',
+    proprietarios: 'documentos',
+  }
+  const rawTabParam = searchParams.get('tab') || ''
+  const initialTab = (REMOVED_TAB_REMAP[rawTabParam] || (rawTabParam as TabKey) || 'apresentacao') as TabKey
   const initialProcessSubTab = (searchParams.get('sub') as ProcessSubTab) || 'angariacao'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
 
@@ -242,9 +256,9 @@ export default function ImovelDetalhePage() {
     }
   }, [property, canEditProperty, activeTab])
   const [processSubTab, setProcessSubTab] = useState<ProcessSubTab>(initialProcessSubTab)
-  const [processToolbarEl, setProcessToolbarEl] = useState<HTMLDivElement | null>(null)
-  const [angariacaoTab, setAngariacaoTab] = useState<'novo' | 'antigo'>('novo')
-  const [angariacaoView, setAngariacaoView] = useState<'passos' | 'atividade'>('passos')
+  // Slot (à direita dos sub-tabs) onde os painéis de processo renderizam a sua
+  // barra de acções (Pedido + Passos/Atividade) via portal — mesma linha.
+  const [processActionsEl, setProcessActionsEl] = useState<HTMLDivElement | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0)
@@ -1447,179 +1461,233 @@ export default function ImovelDetalhePage() {
             </div>
           )}
 
-          {/* ══ Propostas ══ */}
-          {interessadosSubTab === 'propostas' && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{propostasLoading ? '...' : `${propostas.length} proposta${propostas.length !== 1 ? 's' : ''}`}</p>
-                <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowPropostaDialog(true)}>
-                  <Plus className="h-3 w-3" /> Nova Proposta
-                </Button>
-              </div>
-              {propostasLoading ? (
-                <Skeleton className="h-32 w-full rounded-xl" />
-              ) : propostas.length > 0 ? (
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                  <div className="divide-y">
-                    {propostas.map((p) => {
-                      const PROPOSTA_STATUS: Record<string, { label: string; color: string }> = { rascunho: { label: 'Rascunho', color: 'bg-slate-500/15 text-slate-700' }, enviada: { label: 'Enviada', color: 'bg-blue-500/15 text-blue-700' }, aceite: { label: 'Aceite', color: 'bg-emerald-500/15 text-emerald-700' }, rejeitada: { label: 'Rejeitada', color: 'bg-red-500/15 text-red-700' }, expirada: { label: 'Expirada', color: 'bg-amber-500/15 text-amber-700' } }
-                      const st = PROPOSTA_STATUS[p.status] || { label: p.status, color: 'bg-muted text-muted-foreground' }
-                      const NATUREZAS: Record<string, string> = { propriedade_plena: 'Prop. Plena', arrendamento: 'Arrend.', cedencia_posicao: 'Ced. Posição', superficie: 'Superfície', outro: 'Outro' }
-                      return (
-                        <div key={p.id} className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 shrink-0"><Briefcase className="h-4 w-4 text-violet-600" /></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold">{formatCurrency(Number(p.preco))}</span>
-                              <span className={cn('text-[10px] font-medium rounded-full px-2 py-0.5', st.color)}>{st.label}</span>
-                              <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">{NATUREZAS[p.natureza] || p.natureza}</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              {p.proponente_nome && <span className="flex items-center gap-1"><User className="h-3 w-3" />{p.proponente_nome}</span>}
-                              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(p.created_at)}</span>
-                            </div>
-                          </div>
-                          {p.pdf_url && <a href={p.pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700" onClick={(e) => e.stopPropagation()}><ExternalLink className="h-3.5 w-3.5" /></a>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <EmptySection icon={Briefcase} message="Sem propostas geradas. Clique em 'Nova Proposta' para criar." />
-              )}
-            </div>
-          )}
+          {/* Propostas foi movido para o separador "Acompanhamento". */}
           </div>
         </div>
       )}
 
-      {/* ─── Visitas (Pedidos · Visitas · Fichas · Análise) ─── */}
-      {activeTab === 'visitas' && property && (
-        <div className="animate-in fade-in duration-300">
-          <PropertyVisitasTab
-            propertyId={property.id}
-            propertySlug={property.slug}
-            consultantId={property.consultant_id ?? null}
-            listingPrice={property.listing_price ? Number(property.listing_price) : null}
-            visits={visits}
-            visitsLoading={visitsLoading}
-            onNewVisitClick={() => setShowVisitDialog(true)}
-            onVisitsChange={() => { fetchVisits() }}
-          />
+      {/* ─── Acompanhamento (funde Visitas + Relatório) ─── */}
+      {activeTab === 'acompanhamento' && property && (
+        <div className="rounded-xl border bg-card shadow-sm animate-in fade-in duration-300 overflow-hidden">
+          {/* Sub-separadores: Pedidos de visita · Visitas · Fichas de visita · Propostas */}
+          <div className="flex items-center gap-1 p-1 m-4 mb-0 rounded-full bg-muted/50 border border-border/30 w-fit max-w-full overflow-x-auto">
+            {([
+              ['pedidos', 'Pedidos de visita'],
+              ['visitas', 'Visitas'],
+              ['fichas', 'Fichas de visita'],
+              ['propostas', 'Propostas'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setAcompSection(key)}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all shrink-0',
+                  acompSection === key
+                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-5 pt-4">
+            {/* Pedidos de visita / Visitas — reusa o PropertyVisitasTab sem a barra interna. */}
+            {(acompSection === 'pedidos' || acompSection === 'visitas') && (
+              <PropertyVisitasTab
+                propertyId={property.id}
+                propertySlug={property.slug}
+                consultantId={property.consultant_id ?? null}
+                listingPrice={property.listing_price ? Number(property.listing_price) : null}
+                visits={visits}
+                visitsLoading={visitsLoading}
+                onNewVisitClick={() => setShowVisitDialog(true)}
+                onVisitsChange={() => { fetchVisits() }}
+                forcedSubTab={acompSection}
+              />
+            )}
+
+            {/* Fichas de visita — inclui a lista de fichas, a análise (KPIs) e o
+                assistente de IA (PropertyFichasTab) + o relatório em PDF para o
+                proprietário (PropertyOwnerReportTab). */}
+            {acompSection === 'fichas' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <PropertyFichasTab
+                  propertyId={property.id}
+                  propertySlug={property.slug}
+                  listingPrice={property.listing_price ? Number(property.listing_price) : null}
+                />
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center gap-2">
+                    <FileBarChart2 className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">Relatório de visitas para o proprietário (PDF)</h3>
+                  </div>
+                  <PropertyOwnerReportTab propertyId={property.id} />
+                </div>
+              </div>
+            )}
+
+            {/* Propostas — movido do separador Interessados. */}
+            {acompSection === 'propostas' && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{propostasLoading ? '...' : `${propostas.length} proposta${propostas.length !== 1 ? 's' : ''}`}</p>
+                  <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowPropostaDialog(true)}>
+                    <Plus className="h-3 w-3" /> Nova Proposta
+                  </Button>
+                </div>
+                {propostasLoading ? (
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                ) : propostas.length > 0 ? (
+                  <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+                    <div className="divide-y">
+                      {propostas.map((p) => {
+                        const PROPOSTA_STATUS: Record<string, { label: string; color: string }> = { rascunho: { label: 'Rascunho', color: 'bg-slate-500/15 text-slate-700' }, enviada: { label: 'Enviada', color: 'bg-blue-500/15 text-blue-700' }, aceite: { label: 'Aceite', color: 'bg-emerald-500/15 text-emerald-700' }, rejeitada: { label: 'Rejeitada', color: 'bg-red-500/15 text-red-700' }, expirada: { label: 'Expirada', color: 'bg-amber-500/15 text-amber-700' } }
+                        const st = PROPOSTA_STATUS[p.status] || { label: p.status, color: 'bg-muted text-muted-foreground' }
+                        const NATUREZAS: Record<string, string> = { propriedade_plena: 'Prop. Plena', arrendamento: 'Arrend.', cedencia_posicao: 'Ced. Posição', superficie: 'Superfície', outro: 'Outro' }
+                        return (
+                          <div key={p.id} className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 shrink-0"><Briefcase className="h-4 w-4 text-violet-600" /></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold">{formatCurrency(Number(p.preco))}</span>
+                                <span className={cn('text-[10px] font-medium rounded-full px-2 py-0.5', st.color)}>{st.label}</span>
+                                <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">{NATUREZAS[p.natureza] || p.natureza}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                {p.proponente_nome && <span className="flex items-center gap-1"><User className="h-3 w-3" />{p.proponente_nome}</span>}
+                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(p.created_at)}</span>
+                              </div>
+                            </div>
+                            {p.pdf_url && <a href={p.pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700" onClick={(e) => e.stopPropagation()}><ExternalLink className="h-3.5 w-3.5" /></a>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <EmptySection icon={Briefcase} message="Sem propostas geradas. Clique em 'Nova Proposta' para criar." />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* ─── Documentos ─── */}
+      {/* ─── Documentos (o sub-separador "Proprietário" é o hub de proprietários:
+          pedido de info por link + lista + detalhe/edição + documentos) ─── */}
       {activeTab === 'documentos' && (
         <div className="animate-in fade-in duration-300">
-          <PropertyDocumentsRoot propertyId={property.id} />
-        </div>
-      )}
-
-      {/* ─── Proprietários ─── */}
-      {activeTab === 'proprietarios' && (
-        <div className="space-y-5 animate-in fade-in duration-300">
-          {/* Top — invite generator */}
-          <PropertyOwnerInvitesSection
+          <PropertyDocumentsRoot
             propertyId={property.id}
-            onSubmissionDetected={refetch}
-          />
-
-          {/* List (left half) + detail (right half on md+) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <SectionTitle icon={Users}>Proprietários</SectionTitle>
-                <PropertyOwnerAddDialog
+            proprietarioExtra={(
+              <div className="space-y-5">
+                {/* Pedido de info ao proprietário por link */}
+                <PropertyOwnerInvitesSection
                   propertyId={property.id}
-                  hasExistingOwners={(property.property_owners?.length ?? 0) > 0}
-                  onAdded={refetch}
+                  onSubmissionDetected={refetch}
                 />
-              </div>
-              {property.property_owners?.length ? (
-                <div className="space-y-2">
-                  {property.property_owners.map((po, i) => {
-                    const isSelected = selectedOwner?.owners?.id === po.owners?.id
-                    return (
-                      <div
-                        key={i}
-                        className={cn(
-                          'flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all',
-                          isSelected
-                            ? 'bg-primary/5 border-primary/40 shadow-sm'
-                            : 'bg-muted/40 border-border/30 hover:bg-muted/60 hover:shadow-sm'
-                        )}
-                        onClick={() => setSelectedOwner(isSelected ? null : po)}
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold text-sm truncate">{po.owners?.name || 'Proprietário'}</p>
-                            {po.is_main_contact && <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded-full px-2 py-0.5">Contacto Principal</span>}
-                            {po.owners?.person_type === 'coletiva' && <span className="text-[10px] font-medium bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">Empresa</span>}
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                            {po.owners?.nif && <span>NIF: {po.owners.nif}</span>}
-                            {po.owners?.email && <span className="truncate max-w-[180px]">{po.owners.email}</span>}
-                            {po.owners?.phone && <span>{po.owners.phone}</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-sm font-bold bg-muted rounded-full px-3 py-1">{po.ownership_percentage}%</span>
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                        </div>
+
+                {/* Lista (esquerda) + detalhe (direita em md+) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                  <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <SectionTitle icon={Users}>Proprietários</SectionTitle>
+                      <PropertyOwnerAddDialog
+                        propertyId={property.id}
+                        hasExistingOwners={(property.property_owners?.length ?? 0) > 0}
+                        onAdded={refetch}
+                      />
+                    </div>
+                    {property.property_owners?.length ? (
+                      <div className="space-y-2">
+                        {property.property_owners.map((po, i) => {
+                          const isSelected = selectedOwner?.owners?.id === po.owners?.id
+                          return (
+                            <div
+                              key={i}
+                              className={cn(
+                                'flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all',
+                                isSelected
+                                  ? 'bg-primary/5 border-primary/40 shadow-sm'
+                                  : 'bg-muted/40 border-border/30 hover:bg-muted/60 hover:shadow-sm'
+                              )}
+                              onClick={() => setSelectedOwner(isSelected ? null : po)}
+                            >
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold text-sm truncate">{po.owners?.name || 'Proprietário'}</p>
+                                  {po.is_main_contact && <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-medium rounded-full px-2 py-0.5">Contacto Principal</span>}
+                                  {po.owners?.person_type === 'coletiva' && <span className="text-[10px] font-medium bg-violet-100 text-violet-700 rounded-full px-2 py-0.5">Empresa</span>}
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                                  {po.owners?.nif && <span>NIF: {po.owners.nif}</span>}
+                                  {po.owners?.email && <span className="truncate max-w-[180px]">{po.owners.email}</span>}
+                                  {po.owners?.phone && <span>{po.owners.phone}</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-sm font-bold bg-muted rounded-full px-3 py-1">{po.ownership_percentage}%</span>
+                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-6">Nenhum proprietário associado a este imóvel.</p>
-              )}
-            </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-6">Nenhum proprietário associado a este imóvel.</p>
+                    )}
+                  </div>
 
-            {/* Inline detail (desktop only) */}
-            <div className="hidden md:block md:sticky md:top-4">
-              {selectedOwner?.owners ? (
-                <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-2 duration-300">
-                  <OwnerDetailContent
-                    selectedOwner={selectedOwner}
-                    propertyId={property.id}
-                    variant="inline"
-                    onClose={() => setSelectedOwner(null)}
-                  />
+                  {/* Inline detail (desktop only) */}
+                  <div className="hidden md:block md:sticky md:top-4">
+                    {selectedOwner?.owners ? (
+                      <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-2 duration-300">
+                        <OwnerDetailContent
+                          selectedOwner={selectedOwner}
+                          propertyId={property.id}
+                          variant="inline"
+                          onClose={() => setSelectedOwner(null)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed bg-muted/20 p-10 text-center">
+                        <User className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                        <p className="text-sm text-muted-foreground">
+                          {property.property_owners?.length
+                            ? 'Seleccione um proprietário para ver os detalhes'
+                            : 'Ainda não há proprietários associados'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <div className="rounded-xl border border-dashed bg-muted/20 p-10 text-center">
-                  <User className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    {property.property_owners?.length
-                      ? 'Seleccione um proprietário para ver os detalhes'
-                      : 'Ainda não há proprietários associados'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Owner detail sheet — mobile only */}
-          <Sheet open={!!selectedOwner && isMobile} onOpenChange={(o) => { if (!o) setSelectedOwner(null) }}>
-            <SheetContent className="sm:max-w-md overflow-y-auto p-0">
-              {selectedOwner?.owners && (
-                <OwnerDetailContent
-                  selectedOwner={selectedOwner}
-                  propertyId={property.id}
-                  variant="sheet"
-                />
-              )}
-            </SheetContent>
-          </Sheet>
+                {/* Owner detail sheet — mobile only */}
+                <Sheet open={!!selectedOwner && isMobile} onOpenChange={(o) => { if (!o) setSelectedOwner(null) }}>
+                  <SheetContent className="sm:max-w-md overflow-y-auto p-0">
+                    {selectedOwner?.owners && (
+                      <OwnerDetailContent
+                        selectedOwner={selectedOwner}
+                        propertyId={property.id}
+                        variant="sheet"
+                      />
+                    )}
+                  </SheetContent>
+                </Sheet>
+              </div>
+            )}
+          />
         </div>
       )}
+
+      {/* Proprietários — agora integrado em Documentos → sub-separador "Proprietário". */}
 
       {/* ─── Processos (unified tab with sub-tabs) ─── */}
       {activeTab === 'processos' && (
         <div className="rounded-xl border bg-card shadow-sm animate-in fade-in duration-300 overflow-hidden">
-          {/* Sub-tab selector row: chips on the left, panel toolbar slot on the right */}
+          {/* Sub-tab selector row */}
           <div className="flex items-center gap-3 m-4 mb-0 flex-wrap">
             <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/30 overflow-x-auto scrollbar-hide w-fit max-w-full">
               {PROCESS_SUBTABS.map((st) => {
@@ -1641,7 +1709,9 @@ export default function ImovelDetalhePage() {
                 )
               })}
             </div>
-            <div ref={setProcessToolbarEl} className="ml-auto flex items-center gap-2" />
+            {/* Acções do painel de processo (Pedido + Passos/Atividade) — mesma
+                linha que os sub-tabs em desktop; em mobile passa para baixo. */}
+            <div ref={setProcessActionsEl} className="ml-auto flex items-center gap-2" />
           </div>
 
           <div className="p-5 pt-4">
@@ -1658,35 +1728,13 @@ export default function ImovelDetalhePage() {
               )
             }
             return (
-              <Tabs
-                value={angariacaoTab}
-                onValueChange={(v) => setAngariacaoTab(v as 'novo' | 'antigo')}
-                className="animate-in fade-in duration-200"
-              >
-                <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <TabsList>
-                    <TabsTrigger value="novo">Novo</TabsTrigger>
-                    <TabsTrigger value="antigo">Antigo</TabsTrigger>
-                  </TabsList>
-                  {angariacaoTab === 'novo' && (
-                    <AngariacaoViewToggle
-                      view={angariacaoView}
-                      onViewChange={setAngariacaoView}
-                    />
-                  )}
-                </div>
-                <TabsContent value="novo">
-                  <AngariacaoProcessPanel
-                    propertyId={property?.id ?? null}
-                    processId={angariacao.id}
-                    view={angariacaoView}
-                    onViewChange={setAngariacaoView}
-                  />
-                </TabsContent>
-                <TabsContent value="antigo">
-                  <ProcessPipelinePanel processId={angariacao.id} onProcessChange={fetchProcesses} toolbarElement={processToolbarEl} />
-                </TabsContent>
-              </Tabs>
+              <div className="animate-in fade-in duration-200">
+                <AngariacaoProcessPanel
+                  propertyId={property?.id ?? null}
+                  processId={angariacao.id}
+                  actionsSlot={processActionsEl}
+                />
+              </div>
             )
           })()}
 
@@ -1812,6 +1860,9 @@ export default function ImovelDetalhePage() {
             const draftDeals = deals.filter((d) => d.status === 'draft')
             const ACTIVE_STATUSES = ['active', 'on_hold', 'pending_approval', 'returned']
             const currentProcess = negocioProcesses.find((p) => ACTIVE_STATUSES.includes(p.current_status))
+            const currentDeal = currentProcess
+              ? deals.find((d) => d.proc_instance_id === currentProcess.id) ?? null
+              : null
             const historicalProcesses = negocioProcesses.filter((p) => !currentProcess || p.id !== currentProcess.id)
             const isLoadingVenda = processesLoading || dealsLoading
             const hasAnything = !!currentProcess || historicalProcesses.length > 0 || draftDeals.length > 0
@@ -1826,14 +1877,32 @@ export default function ImovelDetalhePage() {
 
             return (
               <div className="space-y-6 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground">
                     {isLoadingVenda ? '...' : currentProcess ? 'Processo activo' : 'Sem processo activo'}
                   </p>
-                  <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowFechoDialog(true)}>
-                    <Plus className="h-3 w-3" /> Fecho de Negócio
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {currentDeal && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full gap-1.5 text-xs"
+                        onClick={() => setNegocioInfoOpen(true)}
+                      >
+                        <FileText className="h-3 w-3" /> Detalhes do negócio
+                      </Button>
+                    )}
+                    <Button size="sm" className="rounded-full gap-1.5 text-xs" onClick={() => setShowFechoDialog(true)}>
+                      <Plus className="h-3 w-3" /> Fecho de Negócio
+                    </Button>
+                  </div>
                 </div>
+
+                <NegocioInfoSheet
+                  deal={currentDeal}
+                  open={negocioInfoOpen}
+                  onClose={() => setNegocioInfoOpen(false)}
+                />
 
                 {isLoadingVenda ? (
                   <Skeleton className="h-64 w-full rounded-xl" />
@@ -1842,7 +1911,13 @@ export default function ImovelDetalhePage() {
                 ) : (
                   <>
                     {currentProcess && (
-                      <ProcessPipelinePanel processId={currentProcess.id} onProcessChange={fetchProcesses} toolbarElement={processToolbarEl} />
+                      <div className="space-y-4 animate-in fade-in duration-200">
+                        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                          <Briefcase className="h-3 w-3" />
+                          {formatDealType(currentDeal?.deal_type ?? currentProcess.deal_type)}
+                        </span>
+                        <NegocioProcessPanel processId={currentProcess.id} actionsSlot={processActionsEl} />
+                      </div>
                     )}
 
                     {(historicalProcesses.length > 0 || draftDeals.length > 0) && (
@@ -1865,7 +1940,7 @@ export default function ImovelDetalhePage() {
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <p className="text-xs font-semibold truncate">{proc.external_ref || 'Sem referência'}</p>
                                       <StatusBadge status={proc.current_status} type="process" />
-                                      <span className="text-[10px] text-muted-foreground">{formatDealType(proc.deal_type)}</span>
+                                      <span className="text-[10px] text-muted-foreground">{formatDealType(deals.find((d) => d.proc_instance_id === proc.id)?.deal_type ?? proc.deal_type)}</span>
                                     </div>
                                     <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
                                       {proc.started_at && (
@@ -1930,6 +2005,32 @@ export default function ImovelDetalhePage() {
                     )}
                   </>
                 )}
+              </div>
+            )
+          })()}
+
+          {/* ══ Sub-tab: Financeiro ══ */}
+          {processSubTab === 'financeiro' && (() => {
+            const negocioProcesses = processes.filter((p) => p.process_type === 'negocio')
+            const ACTIVE_STATUSES = ['active', 'on_hold', 'pending_approval', 'returned']
+            const currentProcess = negocioProcesses.find((p) => ACTIVE_STATUSES.includes(p.current_status))
+            const currentDeal = currentProcess
+              ? deals.find((d) => d.proc_instance_id === currentProcess.id) ?? null
+              : null
+            if (processesLoading || dealsLoading) {
+              return <Skeleton className="h-64 w-full rounded-xl" />
+            }
+            if (!currentDeal) {
+              return (
+                <EmptySection
+                  icon={Euro}
+                  message="Sem deal financeiro. O cronograma de pagamentos aparece quando o negócio é submetido para fecho."
+                />
+              )
+            }
+            return (
+              <div className="animate-in fade-in duration-200">
+                <DealFinanceiroPanel dealId={currentDeal.id} />
               </div>
             )
           })()}
@@ -2012,7 +2113,10 @@ export default function ImovelDetalhePage() {
           commission_agreed: property.dev_property_internal?.commission_agreed ? Number(property.dev_property_internal.commission_agreed) : null,
         } : undefined}
         onComplete={() => {
+          // Submeter um fecho cria/actualiza o deal E a proc_instance — refetch
+          // de ambos para a vista de Venda reflectir o novo processo em tempo real.
           fetchDeals()
+          fetchProcesses()
           setResumeDealId(null)
         }}
       />

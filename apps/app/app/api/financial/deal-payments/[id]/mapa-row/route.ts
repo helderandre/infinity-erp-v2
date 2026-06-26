@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
+import { buildMapaRowsFromPayment } from '@/lib/financial/build-mapa-rows'
 
 // Returns a single MapaGestaoRow (first split) for the given payment.
 // Used by the dashboard drilldown sheet to open the existing <MapaRowSheet>
@@ -23,12 +24,15 @@ export async function GET(
       .select(`
         id, payment_moment, payment_pct, amount,
         network_amount, agency_amount, partner_amount,
+        amount_override, network_amount_override, agency_amount_override, partner_amount_override,
+        amounts_locked, override_reason,
         is_signed, signed_date, date_type,
         is_received, received_date,
         is_reported, reported_date,
         agency_invoice_number, agency_invoice_date,
         agency_invoice_recipient, agency_invoice_recipient_nif,
         agency_invoice_amount_net, agency_invoice_amount_gross,
+        agency_invoice_vat_pct,
         network_invoice_number, network_invoice_date,
         moloni_document_id, moloni_document_type, moloni_status,
         moloni_pdf_url, moloni_pdf_r2_url, moloni_synced_at, moloni_error,
@@ -48,6 +52,7 @@ export async function GET(
         ),
         deal_payment_splits(
           id, agent_id, role, split_pct, amount,
+          amount_override, split_pct_override, is_manual, is_deleted, manual_label, override_reason,
           consultant_invoice_number, consultant_invoice_date, consultant_invoice_type,
           consultant_paid, consultant_paid_date,
           agent:dev_users!deal_payment_splits_agent_id_fkey(id, commercial_name)
@@ -68,89 +73,10 @@ export async function GET(
       return NextResponse.json({ error: 'Sem splits de comissão' }, { status: 404 })
     }
 
-    // Pick the "main" split if it exists, otherwise the first.
-    const split = splits.find((s: any) => s.role === 'main') || splits[0]
-    const dealSharePct = Number(deal.share_pct || 100)
-    const referrals = deal.deal_referrals || []
-
-    let sharePctDisplay: number
-    if (split.role === 'main') sharePctDisplay = deal.has_share ? dealSharePct : 100
-    else if (split.role === 'partner') sharePctDisplay = 100 - dealSharePct
-    else {
-      const ref = referrals.find((r: any) => r.consultant_id === split.agent_id)
-      sharePctDisplay = ref ? Number(ref.referral_pct) : Number(split.split_pct)
-    }
-
-    const splitNetworkAmount = Number(payment.network_amount || 0) * (sharePctDisplay / 100)
-    const splitAgencyAmount = Number(payment.agency_amount || 0) * (sharePctDisplay / 100)
-    const effectiveDate = payment.is_reported && payment.reported_date
-      ? payment.reported_date
-      : payment.signed_date || deal.deal_date
-
-    const row = {
-      deal_id: deal.id,
-      reference: deal.reference,
-      pv_number: deal.pv_number,
-      deal_type: deal.deal_type,
-      deal_value: Number(deal.deal_value),
-      deal_date: deal.deal_date,
-      effective_date: effectiveDate,
-      business_type: deal.business_type,
-      commission_pct: Number(deal.commission_pct),
-      has_share: deal.has_share,
-      property: deal.property,
-      proc_instance_id: deal.proc_instance_id,
-      deal_status: deal.status,
-      payment_id: payment.id,
-      payment_moment: payment.payment_moment,
-      payment_pct: Number(payment.payment_pct),
-      payment_amount: Number(payment.amount),
-      network_amount: splitNetworkAmount,
-      agency_amount: splitAgencyAmount,
-      partner_amount: payment.partner_amount ? Number(payment.partner_amount) * (sharePctDisplay / 100) : null,
-      is_signed: payment.is_signed ?? false,
-      signed_date: payment.signed_date,
-      date_type: payment.date_type || 'confirmed',
-      is_received: payment.is_received ?? false,
-      received_date: payment.received_date,
-      is_reported: payment.is_reported ?? false,
-      reported_date: payment.reported_date,
-      agency_invoice_number: payment.agency_invoice_number,
-      agency_invoice_date: payment.agency_invoice_date,
-      agency_invoice_recipient: payment.agency_invoice_recipient,
-      agency_invoice_recipient_nif: payment.agency_invoice_recipient_nif,
-      agency_invoice_amount_net: payment.agency_invoice_amount_net ? Number(payment.agency_invoice_amount_net) : null,
-      agency_invoice_amount_gross: payment.agency_invoice_amount_gross ? Number(payment.agency_invoice_amount_gross) : null,
-      network_invoice_number: payment.network_invoice_number,
-      network_invoice_date: payment.network_invoice_date,
-      moloni_document_id: payment.moloni_document_id ?? null,
-      moloni_document_type: payment.moloni_document_type ?? null,
-      moloni_status: payment.moloni_status ?? null,
-      moloni_pdf_url: payment.moloni_pdf_url ?? null,
-      moloni_pdf_r2_url: payment.moloni_pdf_r2_url ?? null,
-      moloni_synced_at: payment.moloni_synced_at ?? null,
-      moloni_error: payment.moloni_error ?? null,
-      moloni_creditnote_id: payment.moloni_creditnote_id ?? null,
-      moloni_creditnote_number: payment.moloni_creditnote_number ?? null,
-      moloni_creditnote_issued_at: payment.moloni_creditnote_issued_at ?? null,
-      moloni_receipt_id: payment.moloni_receipt_id ?? null,
-      moloni_receipt_issued_at: payment.moloni_receipt_issued_at ?? null,
-      moloni_email_sent_at: payment.moloni_email_sent_at ?? null,
-      moloni_email_sent_to: payment.moloni_email_sent_to ?? null,
-      split_id: split.id,
-      agent: split.agent,
-      split_role: split.role,
-      share_pct: sharePctDisplay,
-      tier_pct: Number(split.split_pct),
-      split_amount: Number(split.amount),
-      consultant_invoice_number: split.consultant_invoice_number,
-      consultant_invoice_date: split.consultant_invoice_date,
-      consultant_invoice_type: split.consultant_invoice_type,
-      consultant_paid: split.consultant_paid ?? false,
-      consultant_paid_date: split.consultant_paid_date,
-      partner_agency_name: deal.partner_agency_name ?? null,
-      payment_notes: payment.notes ?? null,
-    }
+    // Build one row per split via the canonical helper, then pick the "main"
+    // split (or the first) — same behaviour as before, no duplicated maths.
+    const rows = buildMapaRowsFromPayment({ ...payment, deal_payment_splits: splits }, deal)
+    const row = rows.find((r) => r.split_role === 'main') ?? rows[0]
 
     return NextResponse.json(row)
   } catch (error) {

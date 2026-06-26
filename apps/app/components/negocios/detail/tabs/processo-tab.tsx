@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ProcessPipelinePanel } from '@/components/processes/process-pipeline-panel'
+import { NegocioProcessPanel } from '@/components/processes/negocio-timeline/negocio-process-panel'
 import { Workflow, ExternalLink } from 'lucide-react'
 
 interface ProcessoTabProps {
@@ -49,7 +49,8 @@ export function ProcessoTab({ procInstanceId, procExternalRef, procStatus }: Pro
           </Link>
         </Button>
       </div>
-      <ProcessPipelinePanel processId={procInstanceId} />
+
+      <NegocioProcessPanel processId={procInstanceId} />
     </div>
   )
 }

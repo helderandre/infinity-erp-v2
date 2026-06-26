@@ -13,6 +13,11 @@ async function checkContactAccess(
   id: string,
   authUserId: string,
   isManagement: boolean,
+  // Read-only callers (GET) also grant access to the referrer of the contacto —
+  // they keep visibility after handing day-to-day management to the recipient.
+  // Mutating callers (PUT/DELETE) leave this false: only the owner/management
+  // may edit or delete.
+  allowReferrer = false,
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const { data, error } = await supabase
     .from('leads')
@@ -21,10 +26,20 @@ async function checkContactAccess(
     .maybeSingle()
   if (error) return { ok: false, status: 500, error: error.message }
   if (!data) return { ok: false, status: 404, error: 'Contacto não encontrado' }
-  if (!isManagement && data.agent_id !== authUserId) {
-    return { ok: false, status: 403, error: 'Sem permissão para este contacto' }
+  if (isManagement || data.agent_id === authUserId) return { ok: true }
+  if (allowReferrer) {
+    const { data: ref } = await supabase
+      .from('leads_referrals')
+      .select('id')
+      .eq('contact_id', id)
+      .eq('from_consultant_id', authUserId)
+      .eq('referral_type', 'internal')
+      .neq('status', 'cancelled')
+      .limit(1)
+      .maybeSingle()
+    if (ref) return { ok: true }
   }
-  return { ok: true }
+  return { ok: false, status: 403, error: 'Sem permissão para este contacto' }
 }
 
 export async function GET(
@@ -42,6 +57,7 @@ export async function GET(
       id,
       auth.user.id,
       isManagementRole(auth.roles),
+      true, // GET is read-only → referrer may view the contacto they referred out
     )
     if (!access.ok) {
       return NextResponse.json({ error: access.error }, { status: access.status })

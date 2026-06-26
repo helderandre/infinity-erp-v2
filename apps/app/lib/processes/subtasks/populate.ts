@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getRulesFor } from './registry'
 import { shiftToNextBusinessDay } from './business-days'
 import type {
+  ClientRef,
+  DealContext,
   OwnerRef,
   ProcessType,
   SubtaskContext,
@@ -144,6 +146,14 @@ export async function populateSubtasks(
 ): Promise<PopulateResult> {
   const rules = getRulesFor(processType)
   if (rules.length === 0) return { inserted: 0, skipped: 0, failed: 0 }
+
+  // PROC-NEG tem um modelo de contexto diferente (deal + deal_clients +
+  // cenário) — delega num branch dedicado que reusa os helpers partilhados
+  // (deleteSupersededLegacyRows / insertBatchWithDedup). A pista de
+  // angariação fica intocada.
+  if (processType === 'negocio') {
+    return populateNegocioSubtasks(supabase, processId, rules)
+  }
 
   const processCtx = await fetchProcessContext(supabase, processId)
   if (!processCtx) {
@@ -290,6 +300,351 @@ export async function populateSubtasks(
     skipped: rowsToInsert.length - inserted.inserted - inserted.failed,
     failed: failed + inserted.failed,
   }
+}
+
+// ───────────────────────────── PROC-NEG ─────────────────────────────
+
+interface NegocioContextLite {
+  property_id: string | null
+  consultant_id: string | null
+  deal: DealContext
+  clients: ClientRef[]
+  /** Mirror do bypass legacy: default true, permissivo na ausência de info. */
+  propertyHasMortgage: boolean
+  propertyHasCondominium: boolean
+}
+
+/**
+ * Contexto de um processo de fecho (PROC-NEG). Resolve o deal via
+ * `deals.proc_instance_id`, lê os `deal_clients` (compradores) e as flags
+ * do imóvel interno (hipoteca/condomínio) com a MESMA semântica permissiva
+ * do antigo `bypassNonApplicableNegTasks`. `property_id` pode ser null
+ * (cenário `angariacao_externa`, sem imóvel interno).
+ */
+async function fetchNegocioContext(
+  supabase: SupabaseClient,
+  processId: string
+): Promise<NegocioContextLite | null> {
+  const db = supabase as unknown as {
+    from: (t: string) => ReturnType<SupabaseClient['from']>
+  }
+
+  const { data: piRaw } = await db
+    .from('proc_instances')
+    .select('property_id')
+    .eq('id', processId)
+    .single()
+  const piPropertyId =
+    (piRaw as { property_id: string | null } | null)?.property_id ?? null
+
+  const { data: dealRaw, error: dealErr } = await db
+    .from('deals')
+    .select(
+      'id, deal_type, business_type, partner_agency_name, partner_agency_nif, consultant_id, property_id'
+    )
+    .eq('proc_instance_id', processId)
+    .maybeSingle()
+
+  if (dealErr || !dealRaw) {
+    console.error(
+      '[populate/negocio] deal não encontrado para proc_instance',
+      processId,
+      dealErr?.message ?? ''
+    )
+    return null
+  }
+
+  const deal = dealRaw as {
+    id: string
+    deal_type: string | null
+    business_type: string | null
+    partner_agency_name: string | null
+    partner_agency_nif: string | null
+    consultant_id: string | null
+    property_id: string | null
+  }
+
+  const propertyId = piPropertyId ?? deal.property_id ?? null
+
+  const { data: clientsRaw } = await db
+    .from('deal_clients')
+    .select('id, person_type, name, email, nif, is_main_contact, order_index')
+    .eq('deal_id', deal.id)
+    .order('order_index', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+
+  const clients: ClientRef[] = (
+    (clientsRaw ?? []) as Array<{
+      id: string
+      person_type: 'singular' | 'coletiva' | null
+      name: string
+      email: string | null
+      nif: string | null
+      is_main_contact: boolean | null
+      order_index: number | null
+    }>
+  ).map((c) => ({
+    client_id: c.id,
+    person_type: c.person_type ?? null,
+    name: c.name ?? '',
+    email: c.email ?? null,
+    nif: c.nif ?? null,
+    is_main_contact: Boolean(c.is_main_contact),
+    order_index: c.order_index ?? null,
+  }))
+
+  // Flags do imóvel interno — mesma lógica permissiva do bypass legacy.
+  let propertyHasMortgage = true
+  let propertyHasCondominium = true
+  if (propertyId) {
+    const { data: internal } = await db
+      .from('dev_property_internal')
+      .select('has_mortgage, condominium_fee')
+      .eq('property_id', propertyId)
+      .maybeSingle()
+    if (internal) {
+      const row = internal as {
+        has_mortgage: boolean | null
+        condominium_fee: number | null
+      }
+      propertyHasMortgage = row.has_mortgage !== false
+      propertyHasCondominium = Number(row.condominium_fee ?? 0) > 0
+    }
+  }
+
+  return {
+    property_id: propertyId,
+    consultant_id: deal.consultant_id ?? null,
+    deal: {
+      dealId: deal.id,
+      dealType: deal.deal_type ?? '',
+      businessType: deal.business_type ?? null,
+      partnerAgencyName: deal.partner_agency_name ?? null,
+      partnerAgencyNif: deal.partner_agency_nif ?? null,
+    },
+    clients,
+    propertyHasMortgage,
+    propertyHasCondominium,
+  }
+}
+
+/**
+ * Avalia `rule.appliesWhen` contra o contexto do negócio. AND lógico entre
+ * predicados declarados; predicados omitidos são ignorados. Espelha
+ * `bypassNonApplicableNegTasks` mas ao nível da subtarefa (gate de criação).
+ */
+function evaluateNegocioAppliesWhen(
+  when: NonNullable<SubtaskRule['appliesWhen']>,
+  ctx: NegocioContextLite
+): boolean {
+  const dt = ctx.deal.dealType
+  if (when.deal_type !== undefined && when.deal_type !== dt) return false
+
+  if (when.buyer_has_singular !== undefined) {
+    const has = ctx.clients.some((c) => c.person_type === 'singular')
+    if (when.buyer_has_singular !== has) return false
+  }
+  if (when.buyer_has_coletiva !== undefined) {
+    const has = ctx.clients.some((c) => c.person_type === 'coletiva')
+    if (when.buyer_has_coletiva !== has) return false
+  }
+  if (when.angariacao_interna !== undefined) {
+    const interna = dt !== 'angariacao_externa'
+    if (when.angariacao_interna !== interna) return false
+  }
+  if (
+    when.property_has_mortgage !== undefined &&
+    when.property_has_mortgage !== ctx.propertyHasMortgage
+  ) {
+    return false
+  }
+  if (
+    when.property_has_condominium !== undefined &&
+    when.property_has_condominium !== ctx.propertyHasCondominium
+  ) {
+    return false
+  }
+  return true
+}
+
+/**
+ * Populate de PROC-NEG. Expande `rules × proc_tasks × deal_clients?`:
+ *  - `appliesWhen` faz gate de criação por cenário (deal_type/buyers/imóvel).
+ *  - `repeatPerClient` cria uma row por comprador (filtrado por
+ *    `personTypeFilter`), gravando `config.client_id`/`config.client_name`
+ *    (NUNCA `owner_id`, cujo FK aponta para `owners`).
+ *  - Caso contrário, 1 row sem owner/client.
+ *
+ * Idempotente (reusa `proc_subtasks_dedup` + `insertBatchWithDedup`). NÃO
+ * marca `proc_tasks.is_bypassed` — isso continua a ser feito ao nível da
+ * task pelo `bypassNonApplicableNegTasks` (que tem o lookup de imóvel).
+ */
+async function populateNegocioSubtasks(
+  supabase: SupabaseClient,
+  processId: string,
+  rules: SubtaskRule[]
+): Promise<PopulateResult> {
+  const ctx = await fetchNegocioContext(supabase, processId)
+  if (!ctx) return { inserted: 0, skipped: 0, failed: 1 }
+
+  const tasks = await fetchProcessTasks(supabase, processId)
+  if (tasks.length === 0) return { inserted: 0, skipped: 0, failed: 0 }
+
+  // Remove as subtarefas legacy seedadas pela RPC populate_process_tasks
+  // (tpl_subtask_id != null) para estas tasks — o registry hardcoded é o dono
+  // ÚNICO das subtarefas de negócio. Torna o populate correcto e sem
+  // duplicação INDEPENDENTEMENTE da migration de handoff (que apaga os
+  // tpl_subtasks). Idempotente: as rows hardcoded têm tpl_subtask_id=null,
+  // logo não são apagadas em re-runs; subtarefas concluídas são preservadas.
+  const rpcSeededDeleted = await deleteRpcSeededSubtasks(
+    supabase,
+    tasks.map((t) => t.id)
+  )
+
+  const tasksByKind = new Map<string, ProcTaskLite[]>()
+  for (const t of tasks) {
+    const existing = tasksByKind.get(t.title) ?? []
+    existing.push(t)
+    tasksByKind.set(t.title, existing)
+  }
+
+  const supersededDeleted = await deleteSupersededLegacyRows(
+    supabase,
+    rules,
+    tasksByKind
+  )
+
+  const rowsToInsert: PopulateRow[] = []
+  let orderCursor = HARDCODED_ORDER_INDEX_BASE
+  let failed = 0
+
+  for (const rule of rules) {
+    const matchingTasks = tasksByKind.get(rule.taskKind) ?? []
+    if (matchingTasks.length === 0) continue
+
+    // Gate de cenário — se algum predicado declarado não bate, a rule não
+    // materializa subtarefa.
+    if (rule.appliesWhen && !evaluateNegocioAppliesWhen(rule.appliesWhen, ctx)) {
+      continue
+    }
+
+    // Expansão por cliente (comprador) quando repeatPerClient.
+    const personTypeFilter = rule.personTypeFilter ?? 'all'
+    let expansion: (ClientRef | null)[]
+    if (rule.repeatPerClient) {
+      const filtered =
+        personTypeFilter === 'all'
+          ? ctx.clients
+          : ctx.clients.filter((c) => c.person_type === personTypeFilter)
+      expansion = filtered.length > 0 ? filtered : []
+    } else {
+      expansion = [null]
+    }
+
+    for (const task of matchingTasks) {
+      for (const client of expansion) {
+        try {
+          const subCtx: SubtaskContext = {
+            supabase,
+            processId,
+            procTaskId: task.id,
+            propertyId: ctx.property_id,
+            consultantId: ctx.consultant_id,
+            owner: null,
+            client,
+            deal: ctx.deal,
+            businessDay: (d) => shiftToNextBusinessDay(d, supabase),
+          }
+
+          const title = rule.titleBuilder(subCtx)
+          const assignedTo = rule.assignedToResolver
+            ? await rule.assignedToResolver(subCtx)
+            : task.assigned_to
+
+          const userConfig = rule.configBuilder ? rule.configBuilder(subCtx) : {}
+          const config = {
+            ...userConfig,
+            ...(client
+              ? { client_id: client.client_id, client_name: client.name }
+              : {}),
+            ...(rule.hint ? { hint: rule.hint } : {}),
+            hardcoded: true,
+            process_type: 'negocio',
+            rule_key: rule.key,
+          }
+
+          rowsToInsert.push({
+            proc_task_id: task.id,
+            subtask_key: rule.key,
+            title,
+            is_mandatory: rule.isMandatory !== false,
+            is_completed: false,
+            // PROC-NEG usa config.client_id (não owner_id — FK→owners).
+            owner_id: null,
+            assigned_to: assignedTo ?? null,
+            order_index: orderCursor++,
+            priority: 'normal',
+            is_blocked: false,
+            config,
+            tpl_subtask_id: null,
+          })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error(
+            `[populate/negocio] erro ao expandir rule "${rule.key}" na task "${task.id}":`,
+            msg
+          )
+          failed++
+        }
+      }
+    }
+  }
+
+  if (rpcSeededDeleted > 0 || supersededDeleted > 0) {
+    console.info(
+      `[populate/negocio] removed ${rpcSeededDeleted} RPC-seeded + ${supersededDeleted} superseded legacy row(s)`
+    )
+  }
+
+  if (rowsToInsert.length === 0) {
+    return { inserted: 0, skipped: 0, failed }
+  }
+
+  const inserted = await insertBatchWithDedup(supabase, rowsToInsert)
+  return {
+    inserted: inserted.inserted,
+    skipped: rowsToInsert.length - inserted.inserted - inserted.failed,
+    failed: failed + inserted.failed,
+  }
+}
+
+/**
+ * Apaga as subtarefas que a RPC `populate_process_tasks` seedou a partir dos
+ * `tpl_subtasks` (identificadas por `tpl_subtask_id IS NOT NULL`) para as tasks
+ * indicadas. Usado SÓ no populate de negócio, onde o registry hardcoded é o
+ * dono único das subtarefas. Preserva subtarefas concluídas e as hardcoded
+ * (que têm `tpl_subtask_id = null`).
+ */
+async function deleteRpcSeededSubtasks(
+  supabase: SupabaseClient,
+  taskIds: string[]
+): Promise<number> {
+  if (taskIds.length === 0) return 0
+  const db = supabase as unknown as {
+    from: (t: string) => ReturnType<SupabaseClient['from']>
+  }
+  const { data, error } = await (db.from('proc_subtasks') as ReturnType<SupabaseClient['from']>)
+    .delete()
+    .in('proc_task_id', taskIds)
+    .not('tpl_subtask_id', 'is', null)
+    .eq('is_completed', false)
+    .select('id')
+
+  if (error) {
+    console.error('[populate/negocio] deleteRpcSeededSubtasks:', error.message)
+    return 0
+  }
+  return (data ?? []).length
 }
 
 /**

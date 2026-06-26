@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { TaskActivityTimeline } from '@/components/processes/task-activity-timeline'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import type { TaskActivity } from '@/types/process'
 import { cn } from '@/lib/utils'
 import {
@@ -11,6 +13,7 @@ import {
   ChevronRight,
   GitCommitHorizontal,
   Activity,
+  FileText,
 } from 'lucide-react'
 import {
   ProcessTimeline,
@@ -18,8 +21,11 @@ import {
   type StepStatus,
 } from './process-timeline'
 import { StepDetailSheet } from './step-detail-sheet'
+import { AngariacaoRequestSheet } from './angariacao-request-sheet'
 import { ProcessActivityTimeline } from './process-activity-timeline'
 import { ANGARIACAO_STEPS, type AngariacaoStep } from './steps'
+import { FloatingChat } from '@/components/processes/floating-chat'
+import { useUser } from '@/hooks/use-user'
 
 const PILL: Record<StepStatus, { label: string; cls: string }> = {
   done: {
@@ -54,6 +60,13 @@ interface AngariacaoProcessPanelProps {
    */
   view?: ProcessView
   onViewChange?: (v: ProcessView) => void
+  /**
+   * Quando fornecido, a barra de acções (botão "Pedido de angariação" + toggle
+   * Passos/Atividade) é renderizada via portal neste elemento em vez de inline
+   * — permite alinhar as acções na mesma linha que os sub-tabs (ex.: página de
+   * imóvel). Sem isto, a barra fica inline no topo do painel.
+   */
+  actionsSlot?: HTMLElement | null
 }
 
 /**
@@ -73,7 +86,9 @@ export function AngariacaoProcessPanel({
   processId,
   view: viewProp,
   onViewChange,
+  actionsSlot,
 }: AngariacaoProcessPanelProps) {
+  const { user } = useUser()
   const total = ANGARIACAO_STEPS.length
   // Em modo real (com processId) começa em 1 (nada concluído) até o overview
   // carregar — evita o "flash" de passos concluídos com o valor de preview.
@@ -89,6 +104,7 @@ export function AngariacaoProcessPanel({
   const view = viewProp ?? internalView
   const setView = onViewChange ?? setInternalView
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [requestOpen, setRequestOpen] = useState(false)
   const [activities, setActivities] = useState<TaskActivity[] | null>(null)
   const [activitiesLoading, setActivitiesLoading] = useState(Boolean(processId))
   // IDs reais para o pré-preenchimento do CMI (vêm do angariacao-overview).
@@ -147,13 +163,34 @@ export function AngariacaoProcessPanel({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {/* Toggle Passos/Atividade — só em modo não-controlado (ex.: preview).
-          Em modo controlado vive ao lado do selector Novo/Antigo. */}
-      {!controlled && (
-        <div className="flex justify-end">
-          <AngariacaoViewToggle view={view} onViewChange={setView} />
-        </div>
-      )}
+      {/* Barra de acções: botão "Pedido de angariação" (em modo real) + toggle
+          Passos/Atividade (só em modo não-controlado). Renderizada via portal
+          em `actionsSlot` quando fornecido (mesma linha que os sub-tabs),
+          senão inline no topo do painel. */}
+      {(processId || !controlled) &&
+        (() => {
+          const content = (
+            <>
+              {processId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 rounded-full"
+                  onClick={() => setRequestOpen(true)}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Pedido de angariação</span>
+                  <span className="sm:hidden">Pedido</span>
+                </Button>
+              )}
+              {!controlled && <AngariacaoViewToggle view={view} onViewChange={setView} />}
+            </>
+          )
+          return actionsSlot
+            ? createPortal(<div className="flex items-center gap-2">{content}</div>, actionsSlot)
+            : <div className="flex items-center justify-end gap-2">{content}</div>
+        })()}
 
       {/* STEPPER — círculos no topo, fora dos cards dos passos (overview).
           Clicar num passo abre o seu detalhe (qualquer passo, sempre). */}
@@ -218,6 +255,19 @@ export function AngariacaoProcessPanel({
         consultantId={cmiConsultantId}
         processId={processId}
       />
+
+      <AngariacaoRequestSheet
+        processId={processId ?? null}
+        open={requestOpen}
+        onClose={() => setRequestOpen(false)}
+      />
+
+      {user && processId && (
+        <FloatingChat
+          processId={processId}
+          currentUser={{ id: user.id, name: user.commercial_name || 'Utilizador' }}
+        />
+      )}
     </div>
   )
 }

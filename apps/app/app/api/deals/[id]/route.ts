@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
+import { recomputeDealPayments } from '@/lib/financial/recompute-deal-payments'
 
 // GET /api/deals/[id] — Get deal with clients
 export async function GET(
@@ -105,21 +106,51 @@ export async function PUT(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // Propaga alterações de base (valor, comissão, partilha, escalão, tranches) às
+    // linhas calculadas que o mapa de gestão lê — recálculo automático que preserva
+    // overrides manuais e nunca toca em faturado/recebido. No-op em rascunhos.
+    const FIN_FIELDS = ['deal_value', 'commission_pct', 'has_share', 'share_pct', 'share_type', 'business_type', 'deal_type', 'cpcv_pct', 'escritura_pct', 'payment_structure']
+    if (FIN_FIELDS.some((k) => k in dealData)) {
+      try {
+        await recomputeDealPayments(id, auth.user.id)
+      } catch (e) {
+        console.error('[deals PUT] recompute falhou:', e)
+      }
+    }
+
     // Update clients if provided
     if (clients !== undefined) {
       // Delete existing (table not in generated types yet)
       await (supabase as any).from('deal_clients').delete().eq('deal_id', id)
 
-      // Insert new
+      // Insert new — persiste o KYC rico que o DealForm step-2 recolhe
+      // (antes era descartado: só person_type/name/email/phone). `nif` e
+      // `is_main_contact` promovidos a colunas; o resto vai em `kyc` jsonb.
       if (clients.length > 0) {
-        const clientRows = clients.map((c: Record<string, unknown>, i: number) => ({
-          deal_id: id,
-          person_type: c.person_type || 'singular',
-          name: c.name,
-          email: c.email || null,
-          phone: c.phone || null,
-          order_index: i,
-        }))
+        const clientRows = clients.map((c: Record<string, unknown>, i: number) => {
+          const {
+            person_type,
+            name,
+            email,
+            phone,
+            nif,
+            is_main_contact,
+            id: _id,
+            order_index: _orderIndex,
+            ...kycRest
+          } = c
+          return {
+            deal_id: id,
+            person_type: person_type || 'singular',
+            name,
+            email: email || null,
+            phone: phone || null,
+            nif: (nif as string) || null,
+            is_main_contact: Boolean(is_main_contact),
+            kyc: Object.keys(kycRest).length > 0 ? kycRest : null,
+            order_index: i,
+          }
+        })
 
         const { error: clientsError } = await (supabase as any)
           .from('deal_clients')

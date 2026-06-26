@@ -13,6 +13,9 @@ export interface CreditInvoiceInput {
   customerId: number
   date: string // YYYY-MM-DD
   reason?: string
+  /** IVA (%) used to compute the total only on the fallback path (when Moloni
+   * doesn't return net_value). Defaults to 23. */
+  vatPct?: number
 }
 
 export interface CreditNoteResult {
@@ -38,9 +41,10 @@ export async function creditInvoice(input: CreditInvoiceInput): Promise<CreditNo
 
   // The associated value offsets the invoice in full → use the document TOTAL
   // (incl. IVA). Moloni's net_value IS that total (its gross_value is the base).
+  const vatMultiplier = 1 + (input.vatPct ?? 23) / 100
   const total = Number(
     original.net_value ??
-      original.products.reduce((s, p) => s + Number(p.price) * Number(p.qty) * 1.23, 0),
+      original.products.reduce((s, p) => s + Number(p.price) * Number(p.qty) * vatMultiplier, 0),
   )
 
   const doc = await moloniPost<{ document_id: number; number?: string; gross_value?: number }>(

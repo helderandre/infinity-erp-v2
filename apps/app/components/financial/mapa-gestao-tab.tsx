@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, ChevronRight, Banknote, MoreHorizontal, FileText, Eye,
-  Wallet, Network, Building, ListOrdered,
+  Wallet, Network, Building, ListOrdered, RotateCcw, Pencil, Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
@@ -12,6 +12,8 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -24,9 +26,15 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 import { PaymentStatusDot } from '@/components/financial/payment-status-dot'
-import { updatePaymentStatus } from '@/app/dashboard/financeiro/deals/actions'
+import {
+  updatePaymentStatus, setSplitAmountOverride, clearSplitOverride,
+} from '@/app/dashboard/financeiro/deals/actions'
+import { usePermissions } from '@/hooks/use-permissions'
 import type { MapaGestaoRow, MapaGestaoTotals } from '@/types/financial'
 import { MapaGestaoFunnel } from './mapa-gestao-funnel'
 import { MapaRowSheet } from './sheets/mapa-row-sheet'
@@ -53,6 +61,8 @@ interface Consultant { id: string; commercial_name: string }
 
 export function MapaGestaoTab() {
   const router = useRouter()
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission('financial')
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
@@ -119,7 +129,33 @@ export function MapaGestaoTab() {
     }
   }
 
+  // ── Edição inline "tipo Excel" do split (valor + escalão) ──────────────
+  const saveSplitOverride = useCallback(
+    async (splitId: string, data: { amount?: number | null; split_pct?: number | null }) => {
+      const result = await setSplitAmountOverride(splitId, data)
+      if (!result.success) {
+        toast.error(result.error || 'Erro ao guardar')
+        return false
+      }
+      toast.success('Guardado')
+      loadData()
+      return true
+    },
+    [loadData],
+  )
+
+  const clearSplit = useCallback(async (splitId: string) => {
+    const result = await clearSplitOverride(splitId)
+    if (!result.success) {
+      toast.error(result.error || 'Erro ao repor')
+      return
+    }
+    toast.success('Reposto automático')
+    loadData()
+  }, [loadData])
+
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="space-y-5">
       {/* ─── Sheet 1: Indicadores + filtros + tabela ─────────────────── */}
       <Card className="rounded-3xl border-0 ring-1 ring-border/50 bg-gradient-to-br from-background/80 to-muted/20 backdrop-blur-sm p-6 space-y-6 shadow-[0_2px_24px_-12px_rgb(0_0_0_/_0.12)]">
@@ -215,6 +251,9 @@ export function MapaGestaoTab() {
               <TableBody>
                 {rows.map((row, idx) => {
                   const momentLabel = PAYMENT_MOMENTS[row.payment_moment as PaymentMoment] ?? row.payment_moment
+                  // Parte já paga ao consultor bloqueia a edição de valor/escalão
+                  // (o server action setSplitAmountOverride recusa-os). Reflectimos isso na UI.
+                  const rowCanEdit = canEdit && !row.consultant_paid
 
                   return (
                     <TableRow
@@ -226,6 +265,14 @@ export function MapaGestaoTab() {
                       <TableCell className="text-sm font-medium">
                         <div className="flex items-center gap-1.5">
                           <span>{row.reference || row.pv_number || row.deal_id.slice(0, 8)}</span>
+                          {row.split_is_manual && (
+                            <Badge
+                              variant="outline"
+                              className="rounded-full text-[9px] font-medium px-1.5 py-0 h-4 border-amber-500/40 text-amber-600 bg-amber-500/5"
+                            >
+                              {row.manual_label?.trim() || 'Manual'}
+                            </Badge>
+                          )}
                           {row.split_role === 'referral' && (
                             <span className="text-[10px] text-orange-600">Ref.</span>
                           )}
@@ -293,7 +340,13 @@ export function MapaGestaoTab() {
                         <span className="text-sm tabular-nums">{row.commission_pct}%</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="text-sm tabular-nums">{(row as any).tier_pct}%</span>
+                        <EditableTierCell
+                          row={row}
+                          canEdit={rowCanEdit}
+                          paidLock={canEdit && row.consultant_paid}
+                          onSave={(split_pct) => saveSplitOverride(row.split_id, { split_pct })}
+                          onClear={() => clearSplit(row.split_id)}
+                        />
                       </TableCell>
                       <TableCell className="text-sm text-right tabular-nums text-muted-foreground">
                         {row.network_amount != null ? fmtCurrency(row.network_amount) : '-'}
@@ -301,7 +354,15 @@ export function MapaGestaoTab() {
                       <TableCell className="text-sm text-right tabular-nums text-muted-foreground">
                         {row.agency_amount != null ? fmtCurrency(Math.max(0, row.agency_amount - row.split_amount)) : '-'}
                       </TableCell>
-                      <TableCell className="text-sm font-semibold text-right tabular-nums">{fmtCurrency(row.split_amount)}</TableCell>
+                      <TableCell className="text-right">
+                        <EditableSplitAmountCell
+                          row={row}
+                          canEdit={rowCanEdit}
+                          paidLock={canEdit && row.consultant_paid}
+                          onSave={(amount) => saveSplitOverride(row.split_id, { amount })}
+                          onClear={() => clearSplit(row.split_id)}
+                        />
+                      </TableCell>
 
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -352,6 +413,226 @@ export function MapaGestaoTab() {
         onClose={() => setSelectedRow(null)}
         onChanged={loadData}
       />
+    </div>
+    </TooltipProvider>
+  )
+}
+
+// ─── Célula editável: Pag. Consultor (valor) ──────────────────────────────
+
+function EditableSplitAmountCell({
+  row, canEdit, paidLock, onSave, onClear,
+}: {
+  row: MapaGestaoRow
+  canEdit: boolean
+  paidLock?: boolean
+  onSave: (amount: number | null) => Promise<boolean>
+  onClear: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<number | null>(row.split_amount)
+  const [saving, setSaving] = useState(false)
+  const committedRef = useRef(false)
+
+  const startEdit = () => {
+    if (!canEdit || saving) return
+    setDraft(row.split_amount)
+    committedRef.current = false
+    setEditing(true)
+  }
+
+  const commit = async () => {
+    if (committedRef.current) return
+    committedRef.current = true
+    const next = draft
+    if (next === row.split_amount) { setEditing(false); return }
+    setSaving(true)
+    const ok = await onSave(next)
+    setSaving(false)
+    setEditing(false)
+    if (!ok) committedRef.current = false
+  }
+
+  const cancel = () => {
+    committedRef.current = true
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+        <CurrencyInput
+          autoFocus
+          value={draft}
+          onChange={setDraft}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { e.preventDefault(); cancel() }
+          }}
+          className="h-7 w-[110px] text-sm text-right tabular-nums"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        'group flex items-center justify-end gap-1.5',
+        canEdit && 'cursor-text rounded-md px-1 -mx-1 hover:bg-muted/50',
+      )}
+      onClick={(e) => { if (canEdit) { e.stopPropagation(); startEdit() } }}
+    >
+      {row.split_amount_is_override && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top">auto: {fmtCurrency(row.split_amount_auto)}</TooltipContent>
+        </Tooltip>
+      )}
+      <span className="text-sm font-semibold tabular-nums">{fmtCurrency(row.split_amount)}</span>
+      {paidLock && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Lock className="h-3 w-3 text-muted-foreground shrink-0" onClick={(e) => e.stopPropagation()} />
+          </TooltipTrigger>
+          <TooltipContent side="top">Parte já paga — desmarca o pagamento para editar</TooltipContent>
+        </Tooltip>
+      )}
+      {canEdit && row.split_amount_is_override && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 rounded-full text-muted-foreground"
+              onClick={(e) => { e.stopPropagation(); onClear() }}
+            >
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Repor automático</TooltipContent>
+        </Tooltip>
+      )}
+      {canEdit && !row.split_amount_is_override && (
+        <Pencil className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+      )}
+    </div>
+  )
+}
+
+// ─── Célula editável: Escalão (%) ─────────────────────────────────────────
+
+function EditableTierCell({
+  row, canEdit, paidLock, onSave, onClear,
+}: {
+  row: MapaGestaoRow
+  canEdit: boolean
+  paidLock?: boolean
+  onSave: (split_pct: number | null) => Promise<boolean>
+  onClear: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<string>(String(row.tier_pct))
+  const [saving, setSaving] = useState(false)
+  const committedRef = useRef(false)
+
+  const startEdit = () => {
+    if (!canEdit || saving) return
+    setDraft(String(row.tier_pct))
+    committedRef.current = false
+    setEditing(true)
+  }
+
+  const commit = async () => {
+    if (committedRef.current) return
+    committedRef.current = true
+    const parsed = draft.trim() === '' ? null : Number(draft.replace(',', '.'))
+    if (parsed != null && Number.isNaN(parsed)) { setEditing(false); return }
+    if (parsed === row.tier_pct) { setEditing(false); return }
+    setSaving(true)
+    const ok = await onSave(parsed)
+    setSaving(false)
+    setEditing(false)
+    if (!ok) committedRef.current = false
+  }
+
+  const cancel = () => {
+    committedRef.current = true
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+        <Input
+          autoFocus
+          type="number"
+          step="0.01"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { e.preventDefault(); cancel() }
+          }}
+          className="h-7 w-[72px] text-sm text-right tabular-nums"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        'group flex items-center justify-end gap-1.5',
+        canEdit && 'cursor-text rounded-md px-1 -mx-1 hover:bg-muted/50',
+      )}
+      onClick={(e) => { if (canEdit) { e.stopPropagation(); startEdit() } }}
+    >
+      {row.split_pct_is_override && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top">auto: {row.tier_pct_auto}%</TooltipContent>
+        </Tooltip>
+      )}
+      <span className="text-sm tabular-nums">{row.tier_pct}%</span>
+      {paidLock && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Lock className="h-3 w-3 text-muted-foreground shrink-0" onClick={(e) => e.stopPropagation()} />
+          </TooltipTrigger>
+          <TooltipContent side="top">Parte já paga — desmarca o pagamento para editar</TooltipContent>
+        </Tooltip>
+      )}
+      {canEdit && row.split_pct_is_override && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 rounded-full text-muted-foreground"
+              onClick={(e) => { e.stopPropagation(); onClear() }}
+            >
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Repor automático</TooltipContent>
+        </Tooltip>
+      )}
+      {canEdit && !row.split_pct_is_override && (
+        <Pencil className="h-3 w-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+      )}
     </div>
   )
 }

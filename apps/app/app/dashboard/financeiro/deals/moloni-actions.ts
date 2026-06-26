@@ -24,6 +24,7 @@ import { issueReceipt } from '@/lib/moloni/receipts'
 import { archiveInvoicePdf } from '@/lib/moloni/archive-pdf'
 import { sendInvoiceEmail } from '@/lib/moloni/send-invoice-email'
 import { withIdempotency, clearIdempotency } from '@/lib/moloni/idempotency'
+import { getAgencyInvoiceVatPct, DEFAULT_VAT_PCT } from '@/lib/financial/vat-settings'
 
 type ActionResult = {
   success: boolean
@@ -61,6 +62,7 @@ async function loadPaymentAndDeal(admin: any, paymentId: string) {
       `id, deal_id, payment_moment, amount, agency_amount,
        agency_invoice_recipient, agency_invoice_recipient_nif,
        agency_invoice_amount_net, agency_invoice_amount_gross,
+       agency_invoice_vat_pct,
        agency_invoice_number, agency_invoice_date,
        moloni_document_id, moloni_status, moloni_customer_id,
        moloni_pdf_r2_url, moloni_pdf_r2_path, moloni_reissue_count,
@@ -190,7 +192,12 @@ export async function issueMoloniDraft(
     if (!amountNet || amountNet <= 0) {
       return { success: false, error: 'Valor líquido da factura inválido.' }
     }
-    const taxRate = Number(overrides?.tax_rate ?? 23)
+    // IVA da fatura: override explícito → snapshot já existente neste pagamento →
+    // definição financeira corrente. Snapshotted abaixo para que alterações
+    // futuras à definição não afectem esta fatura.
+    const taxRate = Number(
+      overrides?.tax_rate ?? payment.agency_invoice_vat_pct ?? (await getAgencyInvoiceVatPct(admin)),
+    )
     const date = todayLisbon()
     const meta = buildInvoiceMeta(payment, recipientName)
 
@@ -231,6 +238,7 @@ export async function issueMoloniDraft(
         agency_invoice_recipient_nif: nif,
         agency_invoice_amount_net: result.netValue,
         agency_invoice_amount_gross: result.grossValue,
+        agency_invoice_vat_pct: taxRate,
         updated_at: new Date().toISOString(),
       })
       .eq('id', paymentId)
@@ -263,6 +271,8 @@ export async function finalizeMoloniInvoice(paymentId: string): Promise<ActionRe
     const recipientName = (payment.agency_invoice_recipient ?? '').trim()
     const nif = (payment.agency_invoice_recipient_nif ?? '').trim() || null
     const amountNet = Number(payment.agency_invoice_amount_net ?? payment.agency_amount ?? payment.amount ?? 0)
+    // Mesma taxa com que o rascunho foi emitido (snapshot); fallback à definição.
+    const taxRate = Number(payment.agency_invoice_vat_pct ?? (await getAgencyInvoiceVatPct(admin)))
     const date = todayLisbon()
     const meta = buildInvoiceMeta(payment, recipientName)
     const oldDraftId = payment.moloni_document_id
@@ -301,7 +311,7 @@ export async function finalizeMoloniInvoice(paymentId: string): Promise<ActionRe
             recipientName,
             nif,
             amountNet,
-            taxRate: 23,
+            taxRate,
             productName: PRODUCT_NAME,
             reference: meta.reference,
             description: meta.description,
@@ -351,6 +361,7 @@ export async function finalizeMoloniInvoice(paymentId: string): Promise<ActionRe
         // keep the values already persisted from the draft.
         agency_invoice_amount_net: result.netValue || payment.agency_invoice_amount_net,
         agency_invoice_amount_gross: result.grossValue || payment.agency_invoice_amount_gross,
+        agency_invoice_vat_pct: payment.agency_invoice_vat_pct ?? taxRate,
         updated_at: new Date().toISOString(),
       })
       .eq('id', paymentId)
@@ -476,7 +487,13 @@ export async function issueMoloniCreditNote(paymentId: string, reason?: string):
       `moloni:creditnote:${paymentId}`,
       'creditnote',
       { paymentId, invoiceDocId },
-      () => creditInvoice({ invoiceDocumentId: invoiceDocId, customerId, date, reason: reason || 'Anulação de comissão' }),
+      () => creditInvoice({
+        invoiceDocumentId: invoiceDocId,
+        customerId,
+        date,
+        reason: reason || 'Anulação de comissão',
+        vatPct: Number(payment.agency_invoice_vat_pct ?? DEFAULT_VAT_PCT),
+      }),
     )
 
     const { error: upErr } = await admin
@@ -580,9 +597,10 @@ export async function issueMoloniReceipt(paymentId: string): Promise<ActionResul
       return { success: false, error: 'Cliente Moloni em falta — re-emita a fatura.' }
     }
 
+    const vatPct = Number(payment.agency_invoice_vat_pct ?? (await getAgencyInvoiceVatPct(admin)))
     const amount =
       Number(payment.agency_invoice_amount_gross ?? 0) ||
-      Math.round(Number(payment.agency_invoice_amount_net ?? 0) * 1.23 * 100) / 100
+      Math.round(Number(payment.agency_invoice_amount_net ?? 0) * (1 + vatPct / 100) * 100) / 100
     if (!amount || amount <= 0) return { success: false, error: 'Valor do recibo inválido.' }
 
     const date = todayLisbon()
@@ -723,6 +741,8 @@ export async function reissueMoloniInvoice(paymentId: string): Promise<ActionRes
         agency_invoice_date: null,
         agency_invoice_amount_net: null,
         agency_invoice_amount_gross: null,
+        // Novo ciclo → re-snapshot a IVA corrente na próxima emissão.
+        agency_invoice_vat_pct: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', paymentId)

@@ -9,6 +9,7 @@ import {
   type ExistingVisit,
 } from '@/lib/booking/slot-generator'
 import { getDefaultAvailabilityRules } from '@/lib/booking/default-rules'
+import { isInternalBookingRequest } from '@/lib/booking/is-internal-booking-request'
 
 // Public endpoint — returns available slot start-times per date.
 // Query params: from=YYYY-MM-DD, to=YYYY-MM-DD (max 60 days range)
@@ -54,8 +55,12 @@ export async function GET(
       .eq('consultant_id', property.consultant_id)
       .maybeSingle()
 
-    // Opt-in: sem settings activas → sem slots (ver info/route.ts).
-    if (!settingsRow || !settingsRow.public_booking_enabled) {
+    // Opt-in público (ver info/route.ts): visitantes anónimos só vêem slots se o
+    // consultor activou o agendamento público. O fluxo interno "Solicitar visita"
+    // (autenticado) contorna o gate — cai na janela default (09:00–19:00) quando
+    // o colega ainda não configurou disponibilidade.
+    const isInternal = await isInternalBookingRequest()
+    if (!isInternal && (!settingsRow || !settingsRow.public_booking_enabled)) {
       return NextResponse.json({ slots: {} })
     }
 

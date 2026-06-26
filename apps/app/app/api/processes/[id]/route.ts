@@ -412,7 +412,12 @@ export async function GET(
     // Buscar deal vinculado ao processo
     const { data: deal } = await supabase
       .from('deals')
-      .select('*, deal_clients(*), deal_payments(*)')
+      .select(
+        `*, deal_clients(*), deal_payments(*),
+         colleague:dev_users!deals_internal_colleague_id_fkey(id, commercial_name),
+         consultant:dev_users!deals_consultant_id_fkey(id, commercial_name),
+         property:dev_properties!deals_property_id_fkey(id, title, external_ref, city)`
+      )
       .eq('proc_instance_id', id)
       .maybeSingle()
 

@@ -1,5 +1,6 @@
 import type { ProcessType, SubtaskRule } from './types'
 import { angariacaoRules } from './rules/angariacao'
+import { negocioRules } from './rules/negocio'
 
 /**
  * Registry central de subtask rules hardcoded.
@@ -18,7 +19,7 @@ import { angariacaoRules } from './rules/angariacao'
 
 const REGISTRY: Partial<Record<ProcessType, SubtaskRule[]>> = {
   angariacao: angariacaoRules,
-  // negocio: negocioRules, // change futura
+  negocio: negocioRules,
 }
 
 // Lookup map by key — construído lazy na primeira chamada.

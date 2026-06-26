@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/**
+ * Paleta MUBE (bege/tan warm).
+ * Se tiveres o hex oficial da marca, substitui estes valores.
+ */
+@theme {
+  --color-mube-50:  #F9F5ED;
+  --color-mube-100: #F1E7D1;
+  --color-mube-200: #E5D2A7;
+  --color-mube-300: #D4B883;
+  --color-mube-400: #C9A876;
+  --color-mube-500: #B8956A;
+  --color-mube-600: #A08456;
+  --color-mube-700: #7A6240;
+  --color-mube-800: #5C4A31;
+  --color-mube-900: #3E3221;
+}

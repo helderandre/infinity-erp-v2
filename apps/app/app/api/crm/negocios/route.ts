@@ -379,6 +379,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // A qualified contact must belong to whoever is working it, so it shows up in
+    // their "Meus Contactos" (filtered on leads.agent_id). Qualifying is the
+    // strongest ownership signal, so this OVERRIDES a stale owner (e.g. the
+    // gestora who originally distributed the contact). Commission to a referrer
+    // is unaffected — that lives on negocios.referrer_consultant_id.
+    if (input.lead_id && input.assigned_consultant_id) {
+      await supabase
+        .from('leads')
+        .update({ agent_id: input.assigned_consultant_id })
+        .eq('id', input.lead_id)
+    }
+
     if (input.lead_id) {
       await syncLeadEstado(supabase, input.lead_id)
     }

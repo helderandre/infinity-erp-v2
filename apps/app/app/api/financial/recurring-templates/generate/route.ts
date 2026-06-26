@@ -59,7 +59,9 @@ export async function POST(request: Request) {
       const vatAmount = Math.round(tpl.amount_net * (vatPct / 100) * 100) / 100
       const amountGross = Math.round((tpl.amount_net + vatAmount) * 100) / 100
 
-      const dayOfMonth = Math.min(tpl.day_of_month || 1, 28)
+      // Clamp ao último dia real do mês-alvo (ex.: dia 31 em Fevereiro → 28/29).
+      const lastDay = new Date(targetYear, targetMonth, 0).getDate()
+      const dayOfMonth = Math.min(tpl.day_of_month || 1, lastDay)
       const txDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`
 
       const { error: insertError } = await supabase

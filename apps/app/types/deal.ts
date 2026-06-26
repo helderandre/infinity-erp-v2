@@ -147,6 +147,14 @@ export interface DealPayment {
   notes: string | null
   created_at: string
   updated_at: string
+  // Override pattern ("calcular por defeito, editar como um Excel")
+  amount_override: number | null
+  network_amount_override: number | null
+  agency_amount_override: number | null
+  partner_amount_override: number | null
+  amounts_locked: boolean
+  override_reason: string | null
+  moloni_status?: number | null
   // Joined
   splits?: DealPaymentSplit[]
 }
@@ -156,7 +164,7 @@ export type SplitRole = 'main' | 'partner' | 'referral'
 export interface DealPaymentSplit {
   id: string
   deal_payment_id: string
-  agent_id: string
+  agent_id: string | null
   role: SplitRole
   split_pct: number
   amount: number
@@ -168,8 +176,15 @@ export interface DealPaymentSplit {
   notes: string | null
   created_at: string
   updated_at: string
+  // Override pattern
+  amount_override: number | null
+  split_pct_override: number | null
+  is_manual: boolean
+  is_deleted: boolean
+  manual_label: string | null
+  override_reason: string | null
   // Joined
-  agent?: { id: string; commercial_name: string }
+  agent?: { id: string; commercial_name: string } | null
 }
 
 export interface DealCommissionPreview {

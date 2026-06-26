@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  ExternalLink, Loader2, FileSignature, Banknote, FileCheck, Building2,
+  Loader2, FileSignature, Banknote, FileCheck, Building2,
   CheckCircle2, Receipt, Handshake, NotebookText, Save, Briefcase, ArrowRight,
-  Send, Download, Trash2, ShieldCheck, AlertTriangle,
-  Mail, FileMinus2, Coins, Ban, Eye, History,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -14,22 +12,18 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { FinanceiroSheet } from './financeiro-sheet'
-import { MoloniDocumentSheet } from './moloni-document-sheet'
+import { MoloniInvoicePanel } from './moloni-invoice-panel'
+import { PaymentPartiesEditor } from '@/components/financial/payment-parties-editor'
 import {
   updatePaymentStatus, updatePaymentInvoice,
   updateSplitInvoice, updateSplitPaid,
 } from '@/app/dashboard/financeiro/deals/actions'
-import {
-  issueMoloniDraft, finalizeMoloniInvoice, deleteMoloniDraft,
-  issueMoloniReceipt, issueMoloniCreditNote, cancelMoloniDocument, sendMoloniInvoiceEmail,
-  reissueMoloniInvoice,
-} from '@/app/dashboard/financeiro/deals/moloni-actions'
+import { usePermissions } from '@/hooks/use-permissions'
 import { PAYMENT_MOMENTS } from '@/types/deal'
 import type { MapaGestaoRow } from '@/types/financial'
 
@@ -276,6 +270,9 @@ function GestaoEditor({
   row: MapaGestaoRow
   onChanged?: () => void
 }) {
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission('financial')
+
   // Status form state
   const [signed, setSigned] = useState(row.is_signed)
   const [signedDate, setSignedDate] = useState(isoDate(row.signed_date))
@@ -286,229 +283,13 @@ function GestaoEditor({
   const [paid, setPaid] = useState(row.consultant_paid)
   const [paidDate, setPaidDate] = useState(isoDate(row.consultant_paid_date))
 
-  // Agency invoice state
-  const [agencyInvNum, setAgencyInvNum] = useState(row.agency_invoice_number ?? '')
-  const [agencyInvDate, setAgencyInvDate] = useState(isoDate(row.agency_invoice_date))
-  const [agencyInvRecipient, setAgencyInvRecipient] = useState(row.agency_invoice_recipient ?? '')
-  const [agencyInvNif, setAgencyInvNif] = useState(row.agency_invoice_recipient_nif ?? '')
-  const [agencyInvNet, setAgencyInvNet] = useState(row.agency_invoice_amount_net != null ? String(row.agency_invoice_amount_net) : '')
-  const [agencyInvGross, setAgencyInvGross] = useState(row.agency_invoice_amount_gross != null ? String(row.agency_invoice_amount_gross) : '')
-
   // Consultor invoice state
   const [consInvNum, setConsInvNum] = useState(row.consultant_invoice_number ?? '')
   const [consInvDate, setConsInvDate] = useState(isoDate(row.consultant_invoice_date))
   const [consInvType, setConsInvType] = useState(row.consultant_invoice_type ?? '')
 
   const [savingStatus, setSavingStatus] = useState(false)
-  const [savingAgency, setSavingAgency] = useState(false)
   const [savingConsultor, setSavingConsultor] = useState(false)
-
-  // Moloni (faturação) — local optimistic state, resynced when the row changes
-  const [moloniBusy, setMoloniBusy] = useState<
-    null | 'draft' | 'finalize' | 'delete' | 'receipt' | 'creditnote' | 'email' | 'cancel' | 'reissue'
-  >(null)
-  const [confirmFinalize, setConfirmFinalize] = useState(false)
-  const [confirmCredit, setConfirmCredit] = useState(false)
-  const [confirmCancel, setConfirmCancel] = useState(false)
-  const [emailOpen, setEmailOpen] = useState(false)
-  const [emailTo, setEmailTo] = useState(row.moloni_email_sent_to ?? '')
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewView, setPreviewView] = useState<'invoice' | 'creditnote'>('invoice')
-  const [previewDirectDoc, setPreviewDirectDoc] = useState<{ id: number; label: string } | null>(null)
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const [history, setHistory] = useState<any[] | null>(null)
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const [moloni, setMoloni] = useState<{
-    status: number | null
-    number: string | null
-    receiptId: number | null
-    creditnoteNumber: string | null
-    emailedTo: string | null
-  }>({
-    status: row.moloni_status ?? null,
-    number: row.agency_invoice_number ?? null,
-    receiptId: row.moloni_receipt_id ?? null,
-    creditnoteNumber: row.moloni_creditnote_number ?? null,
-    emailedTo: row.moloni_email_sent_to ?? null,
-  })
-  useEffect(() => {
-    setMoloni({
-      status: row.moloni_status ?? null,
-      number: row.agency_invoice_number ?? null,
-      receiptId: row.moloni_receipt_id ?? null,
-      creditnoteNumber: row.moloni_creditnote_number ?? null,
-      emailedTo: row.moloni_email_sent_to ?? null,
-    })
-    setConfirmFinalize(false)
-    setConfirmCredit(false)
-    setConfirmCancel(false)
-    setEmailOpen(false)
-    setEmailTo(row.moloni_email_sent_to ?? '')
-    setPreviewOpen(false)
-    setPreviewView('invoice')
-    setPreviewDirectDoc(null)
-    setHistoryOpen(false)
-    setHistory(null)
-  }, [row.payment_id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleIssueMoloniDraft = async () => {
-    setMoloniBusy('draft')
-    try {
-      const res = await issueMoloniDraft(row.payment_id, {
-        recipient: agencyInvRecipient || undefined,
-        recipient_nif: agencyInvNif || undefined,
-        amount_net: agencyInvNet ? Number(agencyInvNet) : undefined,
-      })
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni((m) => ({ ...m, status: res.status ?? 0, number: res.number ?? m.number }))
-      toast.success(res.number ? `Rascunho criado no Moloni (${res.number})` : 'Rascunho criado no Moloni')
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao emitir rascunho no Moloni')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleFinalizeMoloni = async () => {
-    setMoloniBusy('finalize')
-    try {
-      const res = await finalizeMoloniInvoice(row.payment_id)
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni((m) => ({ ...m, status: 1, number: res.number ?? m.number }))
-      setConfirmFinalize(false)
-      toast.success(`Factura emitida e reportada à AT${res.number ? ` (${res.number})` : ''}`)
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao finalizar a factura')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleDeleteMoloniDraft = async () => {
-    setMoloniBusy('delete')
-    try {
-      const res = await deleteMoloniDraft(row.payment_id)
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni({ status: null, number: null, receiptId: null, creditnoteNumber: null, emailedTo: null })
-      toast.success('Rascunho eliminado no Moloni')
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao eliminar o rascunho')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleIssueReceipt = async () => {
-    setMoloniBusy('receipt')
-    try {
-      const res = await issueMoloniReceipt(row.payment_id)
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni((m) => ({ ...m, receiptId: res.receipt_id ?? -1 }))
-      toast.success('Recibo emitido (fatura marcada como paga)')
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao emitir o recibo')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleIssueCreditNote = async () => {
-    setMoloniBusy('creditnote')
-    try {
-      const res = await issueMoloniCreditNote(row.payment_id)
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni((m) => ({ ...m, status: 2, creditnoteNumber: res.creditnote_number ?? m.creditnoteNumber }))
-      setConfirmCredit(false)
-      toast.success(`Nota de crédito emitida${res.creditnote_number ? ` (${res.creditnote_number})` : ''}`)
-      // Abre logo a pré-visualização da nota de crédito.
-      setPreviewDirectDoc(null)
-      setPreviewView('creditnote')
-      setPreviewOpen(true)
-      setHistory(null)
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao emitir a nota de crédito')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleCancelMoloni = async () => {
-    setMoloniBusy('cancel')
-    try {
-      const res = await cancelMoloniDocument(row.payment_id)
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni((m) => ({ ...m, status: 2 }))
-      setConfirmCancel(false)
-      toast.success('Documento anulado no Moloni')
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao anular o documento')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleSendEmail = async () => {
-    setMoloniBusy('email')
-    try {
-      const res = await sendMoloniInvoiceEmail(row.payment_id, { to: emailTo || undefined })
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni((m) => ({ ...m, emailedTo: res.emailed_to ?? emailTo }))
-      setEmailOpen(false)
-      toast.success(`Fatura enviada${res.emailed_to ? ` para ${res.emailed_to}` : ''}`)
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao enviar a fatura por email')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleReissue = async () => {
-    setMoloniBusy('reissue')
-    try {
-      const res = await reissueMoloniInvoice(row.payment_id)
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      setMoloni({ status: null, number: null, receiptId: null, creditnoteNumber: null, emailedTo: null })
-      setHistory(null) // força refetch do histórico
-      toast.success('Pronto para emitir uma nova fatura')
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao reabrir o ciclo de faturação')
-    } finally {
-      setMoloniBusy(null)
-    }
-  }
-
-  const handleToggleHistory = async () => {
-    const next = !historyOpen
-    setHistoryOpen(next)
-    if (next && history === null) {
-      setHistoryLoading(true)
-      try {
-        const r = await fetch(`/api/financial/moloni/deal-payments/${row.payment_id}/history`)
-        const j = await r.json()
-        setHistory(r.ok ? j.data ?? [] : [])
-      } catch {
-        setHistory([])
-      } finally {
-        setHistoryLoading(false)
-      }
-    }
-  }
-
-  const openHistoryDoc = (h: any) => {
-    const label =
-      (h.kind === 'creditnote' ? 'Nota de crédito' : h.kind === 'receipt' ? 'Recibo' : 'Fatura') +
-      (h.number ? ` ${h.number}` : '')
-    setPreviewDirectDoc({ id: h.moloni_document_id, label })
-    setPreviewOpen(true)
-  }
 
   const propertyTitle = row.property
     ? `${row.property.external_ref ?? ''} ${row.property.title}`.trim()
@@ -554,27 +335,6 @@ function GestaoEditor({
     }
   }
 
-  const handleSaveAgency = async () => {
-    setSavingAgency(true)
-    try {
-      const res = await updatePaymentInvoice(row.payment_id, {
-        agency_invoice_number: agencyInvNum || undefined,
-        agency_invoice_date: agencyInvDate || undefined,
-        agency_invoice_recipient: agencyInvRecipient || undefined,
-        agency_invoice_recipient_nif: agencyInvNif || undefined,
-        agency_invoice_amount_net: agencyInvNet ? Number(agencyInvNet) : undefined,
-        agency_invoice_amount_gross: agencyInvGross ? Number(agencyInvGross) : undefined,
-      })
-      if (!res.success) throw new Error(res.error ?? 'Erro')
-      toast.success('Factura da agência guardada')
-      onChanged?.()
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Erro ao guardar')
-    } finally {
-      setSavingAgency(false)
-    }
-  }
-
   const handleSaveConsultor = async () => {
     setSavingConsultor(true)
     try {
@@ -595,6 +355,9 @@ function GestaoEditor({
 
   return (
     <>
+      {/* Intervenientes do pagamento — quem recebe o quê neste momento (editável) */}
+      <PaymentPartiesEditor paymentId={row.payment_id} canEdit={canEdit} onChanged={onChanged} />
+
       {/* Card "Abrir negócio" */}
       <Link
         href={`/dashboard/financeiro/deals/${row.deal_id}`}
@@ -642,358 +405,25 @@ function GestaoEditor({
         />
       </Section>
 
-      {/* Factura da agência */}
-      <Section icon={Receipt} title="Factura da agência" onSave={handleSaveAgency} saving={savingAgency}>
-        <Field label="Número" value={agencyInvNum} onChange={setAgencyInvNum} placeholder="FT 2026/123" />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Data" type="date" value={agencyInvDate} onChange={setAgencyInvDate} />
-          <Field label="NIF cliente" value={agencyInvNif} onChange={setAgencyInvNif} placeholder="123456789" />
-        </div>
-        <Field label="Cliente" value={agencyInvRecipient} onChange={setAgencyInvRecipient} placeholder="Nome do cliente" />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Valor (líquido)" type="currency" value={agencyInvNet} onChange={setAgencyInvNet} />
-          <Field label="Valor (bruto)" type="currency" value={agencyInvGross} onChange={setAgencyInvGross} />
-        </div>
-      </Section>
-
-      {/* Moloni — emissão da factura fiscal */}
-      <div className="rounded-2xl ring-1 ring-border/40 bg-background/60 p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold tracking-tight flex items-center gap-1.5">
-            <Receipt className="h-3 w-3" />
-            Moloni
-          </p>
-          {moloni.status === 2 ? (
-            <Badge variant="outline" className="rounded-full text-[10px] text-rose-700 border-rose-500/30">
-              {moloni.creditnoteNumber ? 'Creditada' : 'Anulada'}
-            </Badge>
-          ) : moloni.status === 1 ? (
-            <Badge className="rounded-full text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-              Emitida · AT
-            </Badge>
-          ) : moloni.status === 0 ? (
-            <Badge variant="outline" className="rounded-full text-[10px] text-amber-700 border-amber-500/30">
-              Rascunho
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="rounded-full text-[10px] text-muted-foreground">
-              Por emitir
-            </Badge>
-          )}
-        </div>
-
-        {moloni.number && (
-          <p className="text-[11px] text-muted-foreground">Documento {moloni.number}</p>
-        )}
-
-        {row.moloni_error && moloni.status !== 1 && (
-          <p className="text-[11px] text-red-600 flex items-start gap-1.5">
-            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-            {row.moloni_error}
-          </p>
-        )}
-
-        {/* Por emitir → criar rascunho */}
-        {moloni.status === null && (
-          <>
-            <Button
-              size="sm"
-              onClick={handleIssueMoloniDraft}
-              disabled={moloniBusy !== null || !agencyInvRecipient.trim()}
-              className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-            >
-              {moloniBusy === 'draft' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-              Emitir rascunho no Moloni
-            </Button>
-            <p className="text-[10px] text-muted-foreground">
-              {agencyInvRecipient.trim()
-                ? 'Cria um rascunho eliminável no Moloni. Reportar à AT é um segundo passo, irreversível.'
-                : 'Preenche o cliente da factura acima antes de emitir.'}
-            </p>
-          </>
-        )}
-
-        {/* Rascunho → ver, finalizar ou eliminar */}
-        {moloni.status === 0 && (
-          <div className="space-y-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setPreviewDirectDoc(null); setPreviewView('invoice'); setPreviewOpen(true) }}
-              disabled={moloniBusy !== null}
-              className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-            >
-              <Eye className="h-3 w-3" />
-              Ver rascunho
-            </Button>
-            {confirmFinalize ? (
-              <div className="rounded-xl bg-amber-50 ring-1 ring-amber-500/30 p-3 space-y-2">
-                <p className="text-[11px] text-amber-800">
-                  Vai reportar a factura à Autoridade Tributária. Esta acção é{' '}
-                  <strong>irreversível</strong> (só pode ser revertida por nota de crédito).
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleFinalizeMoloni}
-                    disabled={moloniBusy !== null}
-                    className="rounded-full h-7 text-[11px] gap-1.5 bg-amber-600 hover:bg-amber-700"
-                  >
-                    {moloniBusy === 'finalize' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
-                    Confirmar e reportar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmFinalize(false)}
-                    disabled={moloniBusy !== null}
-                    className="rounded-full h-7 text-[11px]"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => setConfirmFinalize(true)}
-                disabled={moloniBusy !== null}
-                className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-              >
-                <ShieldCheck className="h-3 w-3" />
-                Finalizar e reportar à AT
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleDeleteMoloniDraft}
-              disabled={moloniBusy !== null}
-              className="rounded-full h-7 text-[11px] gap-1.5 w-full text-muted-foreground hover:text-red-600"
-            >
-              {moloniBusy === 'delete' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-              Eliminar rascunho
-            </Button>
-          </div>
-        )}
-
-        {/* Emitida (1) ou Creditada/Anulada (2) → ver + acções */}
-        {(moloni.status === 1 || moloni.status === 2) && (
-          <div className="space-y-2.5">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setPreviewDirectDoc(null); setPreviewView('invoice'); setPreviewOpen(true) }}
-              disabled={moloniBusy !== null}
-              className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-            >
-              <Eye className="h-3 w-3" />
-              Ver fatura
-            </Button>
-
-            {moloni.status === 2 && (
-              <>
-                <p className="text-[11px] text-rose-600 flex items-center gap-1.5">
-                  <Ban className="h-3 w-3 shrink-0" />
-                  {moloni.creditnoteNumber ? `Creditada — nota de crédito ${moloni.creditnoteNumber}` : 'Documento anulado'}
-                </p>
-                <Button
-                  size="sm"
-                  onClick={handleReissue}
-                  disabled={moloniBusy !== null}
-                  className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-                >
-                  {moloniBusy === 'reissue' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                  Emitir nova fatura
-                </Button>
-                <p className="text-[10px] text-muted-foreground">
-                  Abre um novo ciclo (rascunho → finalizar). A fatura e a nota de crédito anteriores ficam no histórico.
-                </p>
-              </>
-            )}
-
-            {/* Recibo (só para fatura emitida) */}
-            {moloni.status === 1 &&
-              (moloni.receiptId ? (
-                <p className="text-[11px] text-emerald-600 flex items-center gap-1.5">
-                  <Coins className="h-3 w-3 shrink-0" />
-                  Recibo emitido (paga)
-                </p>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleIssueReceipt}
-                  disabled={moloniBusy !== null}
-                  className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-                >
-                  {moloniBusy === 'receipt' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Coins className="h-3 w-3" />}
-                  Emitir recibo (marcar paga)
-                </Button>
-              ))}
-
-            {/* Enviar por email */}
-            <div className="space-y-1.5">
-              {moloni.emailedTo && (
-                <p className="text-[10px] text-muted-foreground">Enviada para {moloni.emailedTo}</p>
-              )}
-              {emailOpen ? (
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="email"
-                    value={emailTo}
-                    onChange={(e) => setEmailTo(e.target.value)}
-                    placeholder="email@cliente.pt"
-                    className="h-8 rounded-full text-xs flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleSendEmail}
-                    disabled={moloniBusy !== null || !emailTo.trim()}
-                    className="rounded-full h-8 text-[11px] gap-1.5"
-                  >
-                    {moloniBusy === 'email' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                    Enviar
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEmailOpen(true)}
-                  disabled={moloniBusy !== null}
-                  className="rounded-full h-8 text-[11px] gap-1.5 w-full"
-                >
-                  <Mail className="h-3 w-3" />
-                  {moloni.emailedTo ? 'Reenviar por email' : 'Enviar por email'}
-                </Button>
-              )}
-            </div>
-
-            {/* Reverter (só para fatura emitida não revertida) */}
-            {moloni.status === 1 && (
-              <div className="space-y-2 pt-1 border-t border-border/30">
-                {confirmCredit ? (
-                  <div className="rounded-xl bg-rose-50 ring-1 ring-rose-500/30 p-3 space-y-2">
-                    <p className="text-[11px] text-rose-800">
-                      Emitir nota de crédito reverte a fatura na AT (contabilisticamente correcto). Confirmar?
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleIssueCreditNote}
-                        disabled={moloniBusy !== null}
-                        className="rounded-full h-7 text-[11px] gap-1.5 bg-rose-600 hover:bg-rose-700"
-                      >
-                        {moloniBusy === 'creditnote' ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileMinus2 className="h-3 w-3" />}
-                        Confirmar nota de crédito
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmCredit(false)}
-                        disabled={moloniBusy !== null}
-                        className="rounded-full h-7 text-[11px]"
-                      >
-                        Cancelar
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmCredit(true)}
-                    disabled={moloniBusy !== null}
-                    className="rounded-full h-7 text-[11px] gap-1.5 w-full text-muted-foreground hover:text-rose-600"
-                  >
-                    <FileMinus2 className="h-3 w-3" />
-                    Emitir nota de crédito
-                  </Button>
-                )}
-
-                {confirmCancel ? (
-                  <div className="rounded-xl bg-rose-50 ring-1 ring-rose-500/30 p-3 space-y-2">
-                    <p className="text-[11px] text-rose-800">
-                      Anular mantém o documento no SAF-T marcado como anulado. Prefira a nota de crédito. Confirmar?
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleCancelMoloni}
-                        disabled={moloniBusy !== null}
-                        className="rounded-full h-7 text-[11px] gap-1.5 bg-rose-600 hover:bg-rose-700"
-                      >
-                        {moloniBusy === 'cancel' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ban className="h-3 w-3" />}
-                        Confirmar anulação
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmCancel(false)}
-                        disabled={moloniBusy !== null}
-                        className="rounded-full h-7 text-[11px]"
-                      >
-                        Cancelar
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmCancel(true)}
-                    disabled={moloniBusy !== null}
-                    className="rounded-full h-7 text-[10px] gap-1.5 w-full text-muted-foreground/70 hover:text-rose-600"
-                  >
-                    <Ban className="h-3 w-3" />
-                    Anular documento (sem nota de crédito)
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Histórico Moloni — todos os documentos emitidos para este pagamento */}
-        <div className="pt-1">
-          <button
-            onClick={handleToggleHistory}
-            className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
-          >
-            <History className="h-3 w-3" />
-            Histórico Moloni{!historyOpen && history ? ` (${history.length})` : ''}
-          </button>
-          {historyOpen && (
-            <div className="mt-2 space-y-1.5">
-              {historyLoading && (
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                  <Loader2 className="h-3 w-3 animate-spin" /> A carregar…
-                </p>
-              )}
-              {!historyLoading && history && history.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">Sem documentos emitidos.</p>
-              )}
-              {!historyLoading &&
-                history?.map((h: any) => (
-                  <div key={h.id} className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="min-w-0 truncate">
-                      <span className="font-medium">
-                        {h.kind === 'creditnote' ? 'Nota de crédito' : h.kind === 'receipt' ? 'Recibo' : 'Fatura'}
-                        {h.number ? ` ${h.number}` : ''}
-                      </span>
-                      <span className="text-muted-foreground"> · {fmtDate(h.created_at)}</span>
-                      {h.moloni_status === 2 && <span className="text-rose-600"> · anulada</span>}
-                    </span>
-                    <button onClick={() => openHistoryDoc(h)} className="text-primary hover:underline shrink-0">
-                      Ver
-                    </button>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Faturação Moloni (factura da agência) — painel partilhado com o fecho de negócio */}
+      <MoloniInvoicePanel
+        data={{
+          paymentId: row.payment_id,
+          agencyInvoiceNumber: row.agency_invoice_number,
+          agencyInvoiceDate: row.agency_invoice_date,
+          agencyInvoiceRecipient: row.agency_invoice_recipient,
+          agencyInvoiceRecipientNif: row.agency_invoice_recipient_nif,
+          agencyInvoiceAmountNet: row.agency_invoice_amount_net,
+          agencyInvoiceAmountGross: row.agency_invoice_amount_gross,
+          agencyInvoiceVatPct: row.agency_invoice_vat_pct ?? null,
+          moloniStatus: row.moloni_status ?? null,
+          moloniReceiptId: row.moloni_receipt_id ?? null,
+          moloniCreditnoteNumber: row.moloni_creditnote_number ?? null,
+          moloniEmailSentTo: row.moloni_email_sent_to ?? null,
+          moloniError: row.moloni_error ?? null,
+        }}
+        onChanged={onChanged}
+      />
 
       {/* Factura do consultor */}
       <Section icon={FileSignature} title="Factura do consultor" onSave={handleSaveConsultor} saving={savingConsultor}>
@@ -1004,15 +434,6 @@ function GestaoEditor({
         </div>
       </Section>
 
-      {/* Pré-visualização do documento Moloni (rascunho ou fatura) — em sheet */}
-      <MoloniDocumentSheet
-        paymentId={previewOpen ? row.payment_id : null}
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        initialView={previewView}
-        directDocId={previewDirectDoc?.id ?? null}
-        directLabel={previewDirectDoc?.label}
-      />
     </>
   )
 }

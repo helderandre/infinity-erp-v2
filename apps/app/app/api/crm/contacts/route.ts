@@ -19,8 +19,30 @@ export async function GET(request: Request) {
     // Gestão pode filtrar por qualquer consultor; restantes ficam scoped
     // ao próprio (vê só os contactos onde é o `agent_id`).
     const canSeeAll = isManagementRole(auth.roles)
-    const assignedConsultantId = canSeeAll ? assignedConsultantParam : auth.user.id
     const tagsParam = searchParams.get('tags')
+
+    // Contacts a non-management user is allowed to see = the ones they own
+    // (leads.agent_id) PLUS the ones they referred to someone else. A referral
+    // keeps the referrer linked to the contacto (visibility + future deals) even
+    // though day-to-day management belongs to the recipient. Single source of
+    // truth for "I referred this out": leads_referrals.from_consultant_id.
+    let referredIds: string[] = []
+    if (!canSeeAll) {
+      const { data: refs } = await supabase
+        .from('leads_referrals')
+        .select('contact_id')
+        .eq('from_consultant_id', auth.user.id)
+        .eq('referral_type', 'internal') // only consultant↔consultant hand-offs
+        .neq('status', 'cancelled')
+        .not('contact_id', 'is', null)
+      referredIds = [
+        ...new Set(
+          ((refs ?? []) as Array<{ contact_id: string | null }>)
+            .map((r) => r.contact_id)
+            .filter((v): v is string => Boolean(v)),
+        ),
+      ]
+    }
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
     const perPage = Math.min(100, Math.max(1, Number(searchParams.get('per_page')) || 25))
     const offset = (page - 1) * perPage
@@ -44,8 +66,14 @@ export async function GET(request: Request) {
       query = query.eq('lifecycle_stage_id', lifecycleStageId)
     }
 
-    if (assignedConsultantId) {
-      query = query.eq('agent_id', assignedConsultantId)
+    if (canSeeAll) {
+      // Management can scope to a specific consultor; otherwise sees everyone.
+      if (assignedConsultantParam) query = query.eq('agent_id', assignedConsultantParam)
+    } else if (referredIds.length > 0) {
+      // Own contacts + contacts referred out.
+      query = query.or(`agent_id.eq.${auth.user.id},id.in.(${referredIds.join(',')})`)
+    } else {
+      query = query.eq('agent_id', auth.user.id)
     }
 
     if (tagsParam) {
@@ -62,16 +90,22 @@ export async function GET(request: Request) {
     }
 
     const rows = data || []
-    const redactedRows = canSeeAll
+    const me = auth.user.id
+    const mapped = canSeeAll
       ? rows.map((row: Record<string, unknown>) =>
           shouldRedactLead(auth.roles, row.agent_id as string | null | undefined, auth.user.id)
             ? redactLead(row)
             : row,
         )
-      : rows
+      : rows.map((row: Record<string, unknown>) => ({
+          ...row,
+          // True when the contacto is shown because the viewer referred it out
+          // (not because they own it) — drives the "Referenciado" badge.
+          referred_out: row.agent_id !== me,
+        }))
 
     return NextResponse.json({
-      data: redactedRows,
+      data: mapped,
       total: count || 0,
       page,
       per_page: perPage,

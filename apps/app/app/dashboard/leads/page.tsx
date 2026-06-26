@@ -33,7 +33,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { ContactDialog } from '@/components/leads/contact-dialog'
 import {
   Users, Plus, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight,
-  Phone, Mail, Zap, LayoutGrid, List, Download, Upload,
+  Phone, Mail, Zap, LayoutGrid, List, Download, Upload, ArrowUpDown, Check,
 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
@@ -48,6 +48,13 @@ import { pt } from 'date-fns/locale'
 import type { LeadWithAgent } from '@/types/lead'
 
 const PAGE_SIZE = 20
+
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'date_desc', label: 'Mais recentes' },
+  { value: 'date_asc', label: 'Mais antigos' },
+  { value: 'name_asc', label: 'Nome (A → Z)' },
+  { value: 'name_desc', label: 'Nome (Z → A)' },
+]
 
 function LeadsPageInner() {
   return (
@@ -138,6 +145,7 @@ function LeadsPageContent() {
   const [agentId, setAgentId] = useState(searchParams.get('agent_id') || 'all')
   const [dateFrom, setDateFrom] = useState(searchParams.get('date_from') || '')
   const [dateTo, setDateTo] = useState(searchParams.get('date_to') || '')
+  const [sort, setSort] = useState(searchParams.get('sort') || 'date_desc')
   const [qualifTipos, setQualifTipos] = useState<string[]>(() => {
     const csv = searchParams.get('qualif_tipos') || ''
     return csv ? csv.split(',').filter(Boolean) : []
@@ -166,6 +174,7 @@ function LeadsPageContent() {
       if (dateFrom) params.set('date_from', dateFrom)
       if (dateTo) params.set('date_to', dateTo)
       if (qualifTipos.length > 0) params.set('qualif_tipos', qualifTipos.join(','))
+      if (sort && sort !== 'date_desc') params.set('sort', sort)
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String(page * PAGE_SIZE))
 
@@ -182,7 +191,7 @@ function LeadsPageContent() {
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, estado, temperatura, origem, agentId, dateFrom, dateTo, qualifTipos, qualifiedTab, page])
+  }, [debouncedSearch, estado, temperatura, origem, agentId, dateFrom, dateTo, qualifTipos, sort, qualifiedTab, page])
 
   const loadConsultants = useCallback(async () => {
     try {
@@ -203,7 +212,7 @@ function LeadsPageContent() {
     // o filtro fica escondido e a API força agent_id=self.
     if (isManagement) loadConsultants()
   }, [loadConsultants, isManagement])
-  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, dateFrom, dateTo, qualifTipos, qualifiedTab])
+  useEffect(() => { setPage(0) }, [debouncedSearch, estado, temperatura, origem, agentId, dateFrom, dateTo, qualifTipos, sort, qualifiedTab])
 
 
   const handleDelete = async () => {
@@ -343,6 +352,22 @@ function LeadsPageContent() {
             hasActiveFilters={hasActiveFilters}
           />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="rounded-full shrink-0 gap-1.5">
+              <ArrowUpDown className="h-4 w-4" />
+              <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Ordenar'}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {SORT_OPTIONS.map((o) => (
+              <DropdownMenuItem key={o.value} onClick={() => setSort(o.value)}>
+                <Check className={cn('mr-2 h-4 w-4', sort === o.value ? 'opacity-100' : 'opacity-0')} />
+                {o.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex items-center gap-1 rounded-full bg-muted/30 backdrop-blur-sm p-1 shrink-0">
           <button onClick={() => setViewMode('grid')} className={cn('p-1.5 rounded-full transition-colors', viewMode === 'grid' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
             <LayoutGrid className="h-4 w-4" />

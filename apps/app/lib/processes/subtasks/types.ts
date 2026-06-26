@@ -58,6 +58,36 @@ export interface OwnerRef {
 }
 
 /**
+ * Cliente (comprador) de um negócio expandido (lido de `deal_clients`).
+ * Análogo a `OwnerRef` mas para PROC-NEG. Usado pelo populate quando
+ * `rule.repeatPerClient === true`. O `client_id` é gravado em
+ * `config.client_id` (NÃO em `owner_id`, cujo FK aponta para `owners`).
+ */
+export interface ClientRef {
+  client_id: string
+  person_type: 'singular' | 'coletiva' | null
+  name: string
+  email: string | null
+  nif: string | null
+  is_main_contact: boolean
+  order_index: number | null
+}
+
+/**
+ * Contexto do negócio (deal) disponível às rules de PROC-NEG no momento
+ * do populate/complete. Resolvido via `deals.proc_instance_id`.
+ */
+export interface DealContext {
+  dealId: string
+  /** pleno | pleno_agencia | comprador_externo | angariacao_externa */
+  dealType: string
+  /** venda | arrendamento | trespasse | … */
+  businessType: string | null
+  partnerAgencyName: string | null
+  partnerAgencyNif: string | null
+}
+
+/**
  * Contexto genérico disponível às rules no momento do populate
  * (titleBuilder, assignedToResolver) e complete (handler).
  *
@@ -68,9 +98,17 @@ export interface SubtaskContext {
   supabase: SupabaseClient
   processId: string
   procTaskId: string
-  propertyId: string
+  /**
+   * `null` em PROC-NEG `angariacao_externa` (negócio sem imóvel interno).
+   * Em angariação é sempre uma string.
+   */
+  propertyId: string | null
   consultantId: string | null
   owner: OwnerRef | null
+  /** PROC-NEG: comprador quando a rule usa `repeatPerClient`. */
+  client?: ClientRef | null
+  /** PROC-NEG: contexto do negócio (deal_type, partner agency, …). */
+  deal?: DealContext | null
   businessDay: (date: Date) => Promise<Date>
 }
 

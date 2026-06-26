@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "MUBE — Casa Pronta Autofill",
+  "version": "0.2.0",
+  "description": "Preenche automaticamente o formulário de Direito Legal de Preferência do Casa Pronta a partir dos negócios do Infinity ERP. Para consultores imobiliários.",
+  "homepage_url": "https://mube.pt",
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "MUBE Casa Pronta",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background/serviceWorker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.casapronta.pt/CasaPronta/preferencias/*"],
+      "js": ["src/content/casapronta.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.casapronta.pt/CasaPronta/*",
+    "https://umlndumjfamfsswwjgoo.supabase.co/*"
+  ]
+}

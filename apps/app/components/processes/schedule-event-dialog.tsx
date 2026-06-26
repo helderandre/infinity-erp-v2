@@ -89,7 +89,15 @@ interface ScheduleEventDialogProps {
     all_day: boolean
     owner_ids?: string[]
     attendee_user_ids?: string[]
+    // PROC-NEG (Local & Notário) — vindos de deal_events
+    location_label?: string | null
+    location_address?: string | null
+    notary_name?: string | null
+    notary_phone?: string | null
+    notary_email?: string | null
   } | null
+  // Abrir a secção Local & Notário por defeito (passos PROC-NEG: CPCV/escritura)
+  defaultLocationOpen?: boolean
   // Owners do processo
   owners: Owner[]
   // Consultores disponíveis
@@ -125,11 +133,13 @@ export function ScheduleEventDialog({
   subtaskId,
   subtaskTitle,
   existingEvent,
+  defaultLocationOpen = false,
   owners,
   consultants,
   onSuccess,
 }: ScheduleEventDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [locationOpen, setLocationOpen] = useState(false)
   const [form, setForm] = useState<EventData>({
     title: '',
     description: '',
@@ -140,11 +150,24 @@ export function ScheduleEventDialog({
     end_time: '10:00',
     owner_ids: [],
     attendee_user_ids: [],
+    location_label: '',
+    location_address: '',
+    notary_name: '',
+    notary_phone: '',
+    notary_email: '',
   })
 
   // Inicializar com dados existentes ou subtask title
   useEffect(() => {
     if (!open) return
+
+    const loc = {
+      location_label: existingEvent?.location_label || '',
+      location_address: existingEvent?.location_address || '',
+      notary_name: existingEvent?.notary_name || '',
+      notary_phone: existingEvent?.notary_phone || '',
+      notary_email: existingEvent?.notary_email || '',
+    }
 
     if (existingEvent) {
       setForm({
@@ -159,11 +182,7 @@ export function ScheduleEventDialog({
           : '10:00',
         owner_ids: existingEvent.owner_ids || [],
         attendee_user_ids: existingEvent.attendee_user_ids || [],
-        location_label: '',
-        location_address: '',
-        notary_name: '',
-        notary_phone: '',
-        notary_email: '',
+        ...loc,
       })
     } else {
       setForm({
@@ -176,14 +195,13 @@ export function ScheduleEventDialog({
         end_time: '10:00',
         owner_ids: [],
         attendee_user_ids: [],
-        location_label: '',
-        location_address: '',
-        notary_name: '',
-        notary_phone: '',
-        notary_email: '',
+        ...loc,
       })
     }
-  }, [open, existingEvent, subtaskTitle])
+
+    // Abrir a secção Local & Notário se for PROC-NEG ou se já tiver dados.
+    setLocationOpen(defaultLocationOpen || Object.values(loc).some(Boolean))
+  }, [open, existingEvent, subtaskTitle, defaultLocationOpen])
 
   const update = (data: Partial<EventData>) => {
     setForm((prev) => ({ ...prev, ...data }))
@@ -388,7 +406,7 @@ export function ScheduleEventDialog({
 
           {/* Local & Notário (opcional, PROC-NEG) */}
           <Separator />
-          <Collapsible className="space-y-2">
+          <Collapsible open={locationOpen} onOpenChange={setLocationOpen} className="space-y-2">
             <CollapsibleTrigger className="flex items-center gap-2 text-sm w-full text-left hover:text-foreground text-muted-foreground transition-colors group">
               <MapPin className="h-4 w-4" />
               <span>Local & Notário (opcional)</span>

@@ -118,6 +118,8 @@ export async function PUT(
       subtaskType === 'form' ||
       subtaskType === 'field' ||
       subtaskType === 'ai_caption' ||
+      subtaskType === 'moloni_invoice' ||
+      subtaskType === 'pay_parties' ||
       checkType === 'manual'
 
     if (!isAllowedType) {

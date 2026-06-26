@@ -8,12 +8,14 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Heart, Plus, Trash2, Loader2, Search, ArrowUpRight } from 'lucide-react'
+import { Heart, Plus, Trash2, Loader2, Search, ArrowUpRight, UserPlus, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useUser } from '@/hooks/use-user'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
@@ -181,6 +183,8 @@ function AddRelationshipDialog({
   excludeIds: string[]
   onAdded: () => void | Promise<void>
 }) {
+  const { user } = useUser()
+  const [mode, setMode] = useState<'search' | 'create'>('search')
   const [search, setSearch] = useState('')
   const debounced = useDebounce(search, 250)
   const [hits, setHits] = useState<LeadHit[]>([])
@@ -188,14 +192,22 @@ function AddRelationshipDialog({
   const [picked, setPicked] = useState<LeadHit | null>(null)
   const [relType, setRelType] = useState('conjuge')
   const [saving, setSaving] = useState(false)
+  // Criar novo contacto inline (sem ter de sair deste contacto).
+  const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [saveToDb, setSaveToDb] = useState(true)
   const exclude = useMemo(() => new Set(excludeIds), [excludeIds])
 
   useEffect(() => {
-    if (!open) { setSearch(''); setHits([]); setPicked(null); setRelType('conjuge') }
+    if (!open) {
+      setMode('search'); setSearch(''); setHits([]); setPicked(null); setRelType('conjuge')
+      setNewName(''); setNewPhone(''); setNewEmail(''); setSaveToDb(true); setSaving(false)
+    }
   }, [open])
 
   useEffect(() => {
-    if (!open || picked) return
+    if (!open || picked || mode !== 'search') return
     let cancelled = false
     setSearching(true)
     const params = new URLSearchParams({ limit: '12' })
@@ -210,21 +222,26 @@ function AddRelationshipDialog({
       .catch(() => !cancelled && setHits([]))
       .finally(() => !cancelled && setSearching(false))
     return () => { cancelled = true }
-  }, [open, debounced, picked, exclude])
+  }, [open, debounced, picked, mode, exclude])
 
-  const submit = async () => {
+  // Cria a ligação a um contacto já existente (id real de `leads`).
+  const linkTo = async (relatedId: string) => {
+    const res = await fetch(`/api/crm/contacts/${contactId}/relationships`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ related_contact_id: relatedId, relationship_type: relType }),
+    })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      throw new Error(typeof j?.error === 'string' ? j.error : 'Falha ao adicionar relação')
+    }
+  }
+
+  const submitExisting = async () => {
     if (!picked) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/crm/contacts/${contactId}/relationships`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ related_contact_id: picked.id, relationship_type: relType }),
-      })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(typeof j?.error === 'string' ? j.error : 'Falha ao adicionar')
-      }
+      await linkTo(picked.id)
       toast.success('Relação adicionada')
       onOpenChange(false)
       await onAdded()
@@ -235,6 +252,53 @@ function AddRelationshipDialog({
     }
   }
 
+  const submitCreate = async () => {
+    if (!newName.trim() || !saveToDb) return
+    setSaving(true)
+    try {
+      // 1) Cria o contacto na base de dados (perfil próprio), atribuído a
+      //    quem o está a criar — fica visível na sua lista de contactos.
+      const createRes = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: newName.trim(),
+          telemovel: newPhone.trim() || undefined,
+          email: newEmail.trim() || undefined,
+          agent_id: user?.id,
+        }),
+      })
+      if (!createRes.ok) {
+        const j = await createRes.json().catch(() => ({}))
+        throw new Error(typeof j?.error === 'string' ? j.error : 'Falha ao criar contacto')
+      }
+      const { id: newId } = await createRes.json()
+      // 2) Liga os dois contactos.
+      await linkTo(newId)
+      toast.success('Contacto criado e relação adicionada')
+      onOpenChange(false)
+      await onAdded()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const relTypePicker = (
+    <div className="space-y-1">
+      <label className="text-[11px] text-muted-foreground">Tipo de relação</label>
+      <Select value={relType} onValueChange={setRelType}>
+        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {Object.entries(REL_LABELS).map(([v, l]) => (
+            <SelectItem key={v} value={v}>{l}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
@@ -243,7 +307,43 @@ function AddRelationshipDialog({
           <DialogDescription>Ligue este contacto a outro (cônjuge, parceiro, familiar…).</DialogDescription>
         </DialogHeader>
 
-        {!picked ? (
+        {mode === 'create' ? (
+          /* ─── Criar novo contacto inline ─── */
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setMode('search')}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Voltar à pesquisa
+            </button>
+            <div className="space-y-1">
+              <label className="text-[11px] text-muted-foreground">Nome *</label>
+              <Input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome do contacto" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">Telemóvel</label>
+                <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+351 …" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-muted-foreground">Email</label>
+                <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="email@…" />
+              </div>
+            </div>
+            {relTypePicker}
+            <label className="flex items-start gap-2 rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 cursor-pointer">
+              <Checkbox checked={saveToDb} onCheckedChange={(v) => setSaveToDb(v === true)} className="mt-0.5" />
+              <span className="text-xs leading-snug">
+                <span className="font-medium">Adicionar à base de dados</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  Cria um perfil próprio para este contacto. Necessário para o poder ligar.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : !picked ? (
+          /* ─── Pesquisa ─── */
           <div className="space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -252,7 +352,7 @@ function AddRelationshipDialog({
                 value={search} onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-border/50 divide-y divide-border/40">
+            <div className="max-h-56 overflow-y-auto rounded-xl border border-border/50 divide-y divide-border/40">
               {searching ? (
                 <div className="p-4 text-center text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline" /></div>
               ) : hits.length === 0 ? (
@@ -271,8 +371,18 @@ function AddRelationshipDialog({
                 ))
               )}
             </div>
+            {/* Criar inline — sem ter de sair deste contacto. */}
+            <button
+              type="button"
+              onClick={() => { setNewName(search.trim()); setMode('create') }}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              {search.trim() ? `Criar novo contacto "${search.trim()}"` : 'Criar novo contacto'}
+            </button>
           </div>
         ) : (
+          /* ─── Confirmar contacto existente ─── */
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 px-3 py-2">
               <div className="min-w-0">
@@ -283,26 +393,23 @@ function AddRelationshipDialog({
               </div>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPicked(null)}>Mudar</Button>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">Tipo de relação</label>
-              <Select value={relType} onValueChange={setRelType}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(REL_LABELS).map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {relTypePicker}
           </div>
         )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={submit} disabled={!picked || saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            Adicionar
-          </Button>
+          {mode === 'create' ? (
+            <Button onClick={submitCreate} disabled={!newName.trim() || !saveToDb || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Criar e ligar
+            </Button>
+          ) : (
+            <Button onClick={submitExisting} disabled={!picked || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Adicionar
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

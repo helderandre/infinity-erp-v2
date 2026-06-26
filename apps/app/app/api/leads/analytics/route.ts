@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * GET /api/leads/analytics?from=ISO&to=ISO[&agent_id=UUID]
@@ -73,12 +76,41 @@ export async function GET(request: Request) {
       return (data ?? []) as Array<Record<string, unknown>>
     }
 
-    const [entries, negocios, prevEntries, prevNegocios] = await Promise.all([
-      loadEntries(from, to),
-      loadNegocios(from, to),
-      loadEntries(prevFrom, prevTo),
-      loadNegocios(prevFrom, prevTo),
-    ])
+    // Visits — read with the admin client so the company-wide scope (management,
+    // no agent filter) isn't undercounted by per-user RLS. Scope is enforced
+    // in-query below; non-management callers are already pinned to their own id.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createAdminClient() as any
+    async function loadVisits(start: Date, end: Date) {
+      let q = admin
+        .from('visits')
+        .select('id, consultant_id, seller_consultant_id, status, visit_date')
+        // `visit_date` is a DATE — filter on the day portion of the window.
+        .gte('visit_date', start.toISOString().slice(0, 10))
+        .lte('visit_date', end.toISOString().slice(0, 10))
+      if (agent_id) {
+        if (UUID_RE.test(agent_id)) {
+          // A visit credits BOTH the conducting agent and the listing agent,
+          // so for a specific consultor we match either side.
+          q = q.or(`consultant_id.eq.${agent_id},seller_consultant_id.eq.${agent_id}`)
+        } else {
+          // Invalid id → return nothing rather than a broken/injected filter.
+          q = q.eq('id', '00000000-0000-0000-0000-000000000000')
+        }
+      }
+      const { data } = await q
+      return (data ?? []) as Array<Record<string, unknown>>
+    }
+
+    const [entries, negocios, prevEntries, prevNegocios, visitRows, prevVisitRows] =
+      await Promise.all([
+        loadEntries(from, to),
+        loadNegocios(from, to),
+        loadEntries(prevFrom, prevTo),
+        loadNegocios(prevFrom, prevTo),
+        loadVisits(from, to),
+        loadVisits(prevFrom, prevTo),
+      ])
 
     function aggregateLeads(rows: Array<Record<string, unknown>>) {
       const total = rows.length
@@ -210,10 +242,66 @@ export async function GET(request: Request) {
       }
     }
 
+    // Visitas — agendadas vs realizadas + taxa de realização.
+    // `scope='company'` conta um crédito por cada agente DISTINTO envolvido
+    // (visita entre agentes diferentes = 2; visita a imóvel próprio = 1).
+    // `scope='agent'` conta 1 por linha (as linhas já estão filtradas para
+    // envolverem esse consultor, em qualquer dos lados).
+    // A taxa usa só agendamentos JÁ VENCIDOS (exclui os ainda por realizar).
+    function aggregateVisits(
+      rows: Array<Record<string, unknown>>,
+      scope: 'company' | 'agent',
+    ) {
+      let completed = 0
+      let noShow = 0
+      let cancelled = 0
+      let pending = 0
+
+      for (const v of rows) {
+        let credits = 1
+        if (scope === 'company') {
+          const agents = new Set<string>()
+          if (v.consultant_id) agents.add(v.consultant_id as string)
+          if (v.seller_consultant_id) agents.add(v.seller_consultant_id as string)
+          credits = agents.size || 1
+        }
+        switch (v.status as string) {
+          case 'completed':
+            completed += credits
+            break
+          case 'no_show':
+            noShow += credits
+            break
+          case 'cancelled':
+            cancelled += credits
+            break
+          case 'scheduled':
+            pending += credits
+            break
+          // 'proposal' / 'rejected' nunca chegaram a agendamento real → ignorados.
+        }
+      }
+
+      const due = completed + noShow + cancelled
+      return {
+        scheduled: due + pending, // agendadas (todos os agendamentos reais)
+        completed, // realizadas
+        noShow,
+        cancelled,
+        pending, // ainda por realizar (data futura)
+        due, // agendamentos já vencidos
+        completionRate: due > 0 ? completed / due : 0,
+      }
+    }
+
+    const visitsScope: 'company' | 'agent' = agent_id ? 'agent' : 'company'
+
     const leads = aggregateLeads(entries)
     const neg = aggregateNegocios(negocios)
+    const visits = aggregateVisits(visitRows, visitsScope)
     const prevLeads = aggregateLeads(prevEntries)
     const prevNeg = aggregateNegocios(prevNegocios)
+    const prevVisits = aggregateVisits(prevVisitRows, visitsScope)
 
     return NextResponse.json({
       range: {
@@ -224,7 +312,8 @@ export async function GET(request: Request) {
       },
       leads,
       negocios: neg,
-      previous: { leads: prevLeads, negocios: prevNeg },
+      visits,
+      previous: { leads: prevLeads, negocios: prevNeg, visits: prevVisits },
     })
   } catch (error) {
     console.error('Erro a obter analytics de leads:', error)

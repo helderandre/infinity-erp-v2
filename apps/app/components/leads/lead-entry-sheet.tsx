@@ -35,6 +35,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import type { LeadEntry } from '@/types/lead-entry'
 import { ContactOutcomeSheet } from '@/components/crm/contact-outcome-sheet'
+import { ContactRelationships } from '@/components/crm/contact-relationships'
 import { ReferenciarDialog } from '@/components/crm/referenciar-dialog'
 import { LostReasonDialog } from '@/components/crm/lost-reason-dialog'
 import { SourceBadge } from '@/components/leads/source-badge'
@@ -523,6 +524,13 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
                   </div>
                 </div>
               </div>
+
+              {/* Relações do contacto (cônjuge / parceiro / familiar …) —
+                  mesma fonte de verdade que a Base de Dados. Permite ligar ou
+                  criar logo aqui sem sair do lead. */}
+              {entry.contact?.id && (
+                <ContactRelationships contactId={entry.contact.id} />
+              )}
 
               {/* Referral info table */}
               {entry.has_referral && (

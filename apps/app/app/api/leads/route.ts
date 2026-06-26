@@ -43,6 +43,17 @@ export async function GET(request: Request) {
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100)
     const offset = Number(searchParams.get('offset')) || 0
 
+    // Ordenação. Por defeito por data de chegada (mais recentes primeiro);
+    // também permite ordenação alfabética pelo nome. Valores fora do mapa
+    // caem no default.
+    const SORT_MAP: Record<string, { column: string; ascending: boolean }> = {
+      date_desc: { column: 'created_at', ascending: false },
+      date_asc: { column: 'created_at', ascending: true },
+      name_asc: { column: 'nome', ascending: true },
+      name_desc: { column: 'nome', ascending: false },
+    }
+    const sort = SORT_MAP[searchParams.get('sort') || ''] ?? SORT_MAP.date_desc
+
     // When qualified_only is true, use inner join to only return contacts with negocios
     // FK hint required: negocio_contacts makes leads↔negocios ambiguous, so the
     // direct FK (negocios_lead_id_fkey) must be named. `!inner` is a join modifier,
@@ -54,7 +65,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('leads')
       .select(`*, agent:dev_users!agent_id(id, commercial_name), ${negociosJoin}`, { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .order(sort.column, { ascending: sort.ascending })
       .range(offset, offset + limit - 1)
 
     // Esconde contactos soft-deleted pelo consultor (lista de contactos do ERP;

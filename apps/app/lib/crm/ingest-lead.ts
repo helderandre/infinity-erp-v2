@@ -290,6 +290,19 @@ export async function ingestLead(
     throw new Error(`Failed to create entry: ${entryError?.message}`)
   }
 
+  // 6b. Keep the contact owner (leads.agent_id) in sync with the assigned
+  //     consultant so the lead appears in the assignee's "Meus Contactos"
+  //     (that page filters on leads.agent_id). Only fill when empty: never steal
+  //     a contact someone already owns — the gestora's explicit reassign is the
+  //     path allowed to override an existing owner.
+  if (assignedAgentId) {
+    await supabase
+      .from('leads')
+      .update({ agent_id: assignedAgentId })
+      .eq('id', contactId)
+      .is('agent_id', null)
+  }
+
   // 7. Log system activity
   await supabase.from('leads_activities').insert({
     contact_id: contactId,

@@ -14,6 +14,7 @@
     "build:app": "npm run build -w @infinity/app",
     "build:parceiros": "npm run build -w @infinity/parceiros",
     "build:clientes": "npm run build -w @infinity/clientes",
+    "build:extension": "npm run build -w @infinity/casa-pronta-extension",
     "start:app": "npm run start -w @infinity/app",
     "start:parceiros": "npm run start -w @infinity/parceiros",
     "start:clientes": "npm run start -w @infinity/clientes",

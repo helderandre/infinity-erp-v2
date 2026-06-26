@@ -129,7 +129,7 @@ import {
   sendOneProperty,
   type PropertyToSend,
 } from '@/lib/negocios/send-properties-whatsapp'
-import { MessageSquare, CheckSquare, CalendarPlus, Landmark, History as HistoryIcon } from 'lucide-react'
+import { MessageSquare, CheckSquare, CalendarPlus, Landmark, Route, History as HistoryIcon } from 'lucide-react'
 import {
   PartnerPropostasList,
   PartnerFechoList,
@@ -169,7 +169,14 @@ interface NegocioDetailSheetProps {
   onChanged?: () => void
 }
 
-type TabKey = 'inicio' | 'imoveis' | 'visitas' | 'propostas' | 'fecho' | 'interessados' | 'angariacao' | 'historico'
+// Separadores de topo (iguais no fluxo normal e no portal de parceiros).
+// Visitas/Propostas/Fecho/Angariação vivem TODOS dentro de "acompanhamento"
+// como sub-separadores (ver AcompSection).
+type TabKey = 'inicio' | 'imoveis' | 'acompanhamento' | 'interessados' | 'historico'
+// Sub-separadores dentro de "Acompanhamento". O conjunto visível depende do
+// tipo (comprador: visitas/propostas/fecho; vendedor: +angariação à cabeça) e,
+// no portal de parceiros, do que o bundle expõe (vendedor parceiro só visitas).
+type AcompSection = 'angariacao' | 'visitas' | 'propostas' | 'fecho'
 
 const TEMP_COLORS: Record<string, string> = {
   Frio: '#3b82f6',
@@ -230,6 +237,9 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('inicio')
+  // Sub-separador activo dentro de "Acompanhamento". Mantido entre re-renders;
+  // um efeito mais abaixo garante que cai num valor válido para o tipo actual.
+  const [acompSection, setAcompSection] = useState<AcompSection>('visitas')
   // Bundle do endpoint de parceiros — { visits, proposals, deals, activities }.
   const [partnerBundle, setPartnerBundle] = useState<any | null>(null)
   // When the sheet is opened in read-only mode the tabs collapse to Início
@@ -425,51 +435,72 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
   const tipoColor = (tipo && TIPO_COLORS[tipo]) || '#64748b'
 
   const tabs = useMemo<{ key: TabKey; label: string; icon: React.ElementType }[]>(() => {
-    // Portal de parceiros: mesmas tabs informativas do sheet normal SEM
-    // Imóveis/Matching (e sem Interessados/Angariação no lado vendedor),
-    // mais a tab "Histórico" no fim com tudo o que o consultor fez.
+    // Portal de parceiros: mesmo agrupamento "Acompanhamento" do fluxo normal,
+    // mas sem Imóveis/Interessados. O conteúdo de Acompanhamento (sub-separadores)
+    // é curado em `acompTabs` — vendedor parceiro só expõe Visitas. "Histórico"
+    // no fim com tudo o que o consultor fez.
     if (partnerView) {
-      if (isSellerType && !isBuyerType) {
-        return [
-          { key: 'inicio', label: 'Início', icon: Info },
-          { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
-          { key: 'historico', label: 'Histórico', icon: HistoryIcon },
-        ]
-      }
       return [
-        { key: 'inicio', label: 'Início', icon: Info },
-        { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
-        { key: 'propostas', label: 'Propostas', icon: FileText },
-        { key: 'fecho', label: 'Fecho', icon: Briefcase },
+        { key: 'inicio', label: 'Info', icon: Info },
+        { key: 'acompanhamento', label: 'Acompanhamento', icon: Route },
         { key: 'historico', label: 'Histórico', icon: HistoryIcon },
       ]
     }
     // Read-only mode (referrer viewing a referenced négocio): collapse to
-    // just Início — the rest of the workflow tabs aren't relevant when you
+    // just Info — the rest of the workflow tabs aren't relevant when you
     // can't act on them anyway.
     if (readOnly) {
-      return [{ key: 'inicio', label: 'Início', icon: Info }]
+      return [{ key: 'inicio', label: 'Info', icon: Info }]
     }
-    // Angariação (puro vendedor / arrendador) — fluxo focado em interessados + processo
+    // Vendedor / Senhorio (angariação) — Info · Interessados · Acompanhamento
+    // (angariação + visitas + propostas + fecho lá dentro) · Histórico.
     if (isSellerType && !isBuyerType) {
       return [
-        { key: 'inicio', label: 'Início', icon: Info },
+        { key: 'inicio', label: 'Info', icon: Info },
         { key: 'interessados', label: 'Interessados', icon: Users },
-        { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
-        { key: 'angariacao', label: 'Angariação', icon: Briefcase },
+        { key: 'acompanhamento', label: 'Acompanhamento', icon: Route },
         { key: 'historico', label: 'Histórico', icon: HistoryIcon },
       ]
     }
-    // Compra / Arrendatário (e Compra-e-Venda — perspectiva de comprador)
+    // Comprador / Arrendatário (e Compra-e-Venda — perspectiva de comprador) —
+    // Info · Imóveis · Acompanhamento (visitas + propostas + fecho) · Histórico.
     return [
-      { key: 'inicio', label: 'Início', icon: Info },
+      { key: 'inicio', label: 'Info', icon: Info },
       { key: 'imoveis', label: 'Imóveis', icon: Home },
-      { key: 'visitas', label: 'Visitas', icon: CalendarIcon },
-      { key: 'propostas', label: 'Propostas', icon: FileText },
-      { key: 'fecho', label: 'Fecho', icon: Briefcase },
+      { key: 'acompanhamento', label: 'Acompanhamento', icon: Route },
       { key: 'historico', label: 'Histórico', icon: HistoryIcon },
     ]
   }, [isBuyerType, isSellerType, readOnly, partnerView])
+
+  // Sub-separadores de "Acompanhamento". Vendedor leva Angariação à cabeça;
+  // comprador começa logo em Visitas. No portal de parceiros não há Angariação
+  // e o vendedor parceiro só expõe Visitas (o bundle não traz propostas/fechos).
+  const acompTabs = useMemo<{ key: AcompSection; label: string; icon: React.ElementType }[]>(() => {
+    const visitas = { key: 'visitas' as const, label: 'Visitas', icon: CalendarIcon }
+    const propostas = { key: 'propostas' as const, label: 'Propostas', icon: FileText }
+    const fecho = { key: 'fecho' as const, label: 'Fecho', icon: Landmark }
+    const angariacao = { key: 'angariacao' as const, label: 'Angariação', icon: Briefcase }
+    if (partnerView) {
+      return isSellerType && !isBuyerType ? [visitas] : [visitas, propostas, fecho]
+    }
+    if (isSellerType && !isBuyerType) {
+      return [angariacao, visitas, propostas, fecho]
+    }
+    return [visitas, propostas, fecho]
+  }, [isBuyerType, isSellerType, partnerView])
+
+  // Se o tab activo desaparecer do conjunto (ex.: o tipo mudou), recua para o
+  // primeiro disponível em vez de deixar o corpo em branco.
+  useEffect(() => {
+    if (!tabs.some((t) => t.key === activeTab)) setActiveTab(tabs[0]?.key ?? 'inicio')
+  }, [tabs, activeTab])
+
+  // Ao mudar o conjunto de sub-separadores (i.e. o tipo da oportunidade),
+  // aterra no primeiro: vendedor → Angariação, comprador → Visitas. Cliques
+  // manuais persistem porque `acompTabs` só muda quando o tipo muda.
+  useEffect(() => {
+    setAcompSection(acompTabs[0].key)
+  }, [acompTabs])
 
   const leadId = negocio?.lead_id ?? null
   const linkedNegocios = useLinkedNegocios(negocio?.id, negocio?.deal_group_id)
@@ -653,28 +684,6 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   onPreviewProperty={setPreviewPropertyId}
                 />
               )}
-              {activeTab === 'visitas' && leadId && (
-                <VisitasTab
-                  leadId={leadId}
-                  userId={user?.id}
-                  readOnly={partnerView}
-                  visitsOverride={partnerView ? partnerBundle?.visits ?? [] : undefined}
-                />
-              )}
-              {activeTab === 'propostas' && negocio.id && (
-                partnerView ? (
-                  <PartnerPropostasList proposals={partnerBundle?.proposals ?? []} />
-                ) : (
-                  <PropostasTab negocioId={negocio.id} />
-                )
-              )}
-              {activeTab === 'fecho' && negocio.id && (
-                partnerView ? (
-                  <PartnerFechoList deals={partnerBundle?.deals ?? []} />
-                ) : (
-                  <FechoTab negocioId={negocio.id} negocio={negocio} />
-                )
-              )}
               {activeTab === 'historico' && (
                 partnerView ? (
                   <PartnerHistoricoTimeline activities={partnerBundle?.activities ?? []} />
@@ -691,8 +700,65 @@ export function NegocioDetailSheet({ negocioId, open, onOpenChange, readOnly = f
                   currentUserId={user?.id ?? null}
                 />
               )}
-              {activeTab === 'angariacao' && negocio.id && (
-                <AngariacaoTab negocioId={negocio.id} negocio={negocio} />
+              {activeTab === 'acompanhamento' && negocio.id && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Sub-separadores — Angariação (só vendedor) · Visitas · Propostas · Fecho */}
+                  <div className="flex items-center justify-center">
+                    <div className="flex items-center gap-1 p-1 rounded-full bg-muted/50 border border-border/40 w-fit max-w-full overflow-x-auto">
+                      {acompTabs.map((t) => {
+                        const Icon = t.icon
+                        const isActive = acompSection === t.key
+                        return (
+                          <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setAcompSection(t.key)}
+                            className={cn(
+                              'inline-flex items-center justify-center gap-1.5 h-8 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 shrink-0',
+                              // Mobile: ativo leva texto; inativos ficam quadrados só-ícone.
+                              // Desktop (sm+): todos mostram texto.
+                              isActive ? 'px-3.5' : 'w-8 sm:w-auto sm:px-3.5',
+                              isActive
+                                ? 'bg-foreground text-background shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-background',
+                            )}
+                            title={t.label}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            <span className={cn(isActive ? 'inline' : 'hidden sm:inline')}>{t.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Angariação nunca entra no portal de parceiros (não está em acompTabs). */}
+                  {acompSection === 'angariacao' && (
+                    <AngariacaoTab negocioId={negocio.id} negocio={negocio} />
+                  )}
+                  {acompSection === 'visitas' && leadId && (
+                    <VisitasTab
+                      leadId={leadId}
+                      userId={user?.id}
+                      readOnly={partnerView}
+                      visitsOverride={partnerView ? partnerBundle?.visits ?? [] : undefined}
+                    />
+                  )}
+                  {acompSection === 'propostas' && (
+                    partnerView ? (
+                      <PartnerPropostasList proposals={partnerBundle?.proposals ?? []} />
+                    ) : (
+                      <PropostasTab negocioId={negocio.id} />
+                    )
+                  )}
+                  {acompSection === 'fecho' && (
+                    partnerView ? (
+                      <PartnerFechoList deals={partnerBundle?.deals ?? []} />
+                    ) : (
+                      <FechoTab negocioId={negocio.id} negocio={negocio} />
+                    )
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -1,81 +1,38 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ExternalLink, FileDown } from 'lucide-react'
-import { GeneratePresentationDialog } from '@/components/apresentacao/generate-presentation-dialog'
-import { BookingLinkDialog } from '@/components/booking/booking-link-dialog'
+import { ExternalLink } from 'lucide-react'
 import { SharePropertyButton } from '@/components/properties/share-property-button'
-import { PresentationOverridesSheet } from '@/components/properties/presentation-overrides-sheet'
 import type { PropertyDetail } from '@/types/property'
 
 interface Props {
   property: PropertyDetail
   /**
-   * Quando `false`, BookingLinkDialog e GeneratePresentationDialog não são
-   * renderizados, e os toggles "Mostrar na apresentação" do
-   * SharePropertyButton ficam read-only. SharePropertyButton e Ver Online
-   * continuam funcionais para todos.
+   * Quando `false`, os toggles "Mostrar na apresentação" do SharePropertyButton
+   * ficam read-only. SharePropertyButton e Ver Online continuam funcionais para
+   * todos. (Gerar apresentação (PDF) e a gestão de disponibilidade não vivem
+   * nesta sheet — fazem-se na página completa do imóvel. A sheet é a vista que
+   * os colegas veem, não a do próprio dono.)
    */
   canShareAsOwner: boolean
 }
 
 export function PropertyApresentacaoActions({ property, canShareAsOwner }: Props) {
-  const [overridesOpen, setOverridesOpen] = useState(false)
-  const [overrides, setOverrides] = useState(
-    (property as any).presentation_overrides ?? null,
-  )
-
   return (
-    <>
-      <div className="flex items-center gap-2">
-        <SharePropertyButton
-          propertyId={property.id}
-          propertySlug={property.slug ?? null}
-          propertyTitle={property.title ?? ''}
-          propertyConsultantId={property.consultant_id ?? null}
-          showStaging={(property as any).presentation_show_staging !== false}
-          showAiPlantas={(property as any).presentation_show_ai_plantas !== false}
-          canEditFlags={canShareAsOwner}
-        />
-        <ViewOnlinePopover property={property} />
-        {canShareAsOwner && (
-          <BookingLinkDialog
-            propertyId={property.id}
-            propertySlug={property.slug ?? null}
-            consultantId={property.consultant_id ?? null}
-          />
-        )}
-        {canShareAsOwner && (
-          <GeneratePresentationDialog
-            propertyId={property.id}
-            onEditClick={() => setOverridesOpen(true)}
-            trigger={
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full"
-                title="Gerar apresentação (PDF)"
-              >
-                <FileDown className="h-4 w-4" />
-              </Button>
-            }
-          />
-        )}
-      </div>
-
-      {canShareAsOwner && (
-        <PresentationOverridesSheet
-          open={overridesOpen}
-          onOpenChange={setOverridesOpen}
-          propertyId={property.id}
-          media={property.dev_property_media || []}
-          initial={overrides}
-          onSaved={(next) => setOverrides(next)}
-        />
-      )}
-    </>
+    <div className="flex items-center gap-2">
+      <ViewOnlinePopover property={property} />
+      {/* Partilhar — sempre o botão mais à direita da sheet. */}
+      <SharePropertyButton
+        propertyId={property.id}
+        propertySlug={property.slug ?? null}
+        propertyTitle={property.title ?? ''}
+        propertyConsultantId={property.consultant_id ?? null}
+        showStaging={(property as any).presentation_show_staging !== false}
+        showAiPlantas={(property as any).presentation_show_ai_plantas !== false}
+        canEditFlags={canShareAsOwner}
+      />
+    </div>
   )
 }
 

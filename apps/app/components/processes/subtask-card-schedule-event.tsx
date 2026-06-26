@@ -24,6 +24,8 @@ import {
   Undo2,
   Trash2,
   Loader2,
+  MapPin,
+  Landmark,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -53,6 +55,16 @@ interface EventDetails {
   attendee_user_ids?: string[]
 }
 
+// Campos PROC-NEG (Local & Notário) vindos de deal_events — só populados quando
+// o parent task tem hook schedule_cpcv/schedule_escritura.
+interface ProcNegEvent {
+  location_label?: string | null
+  location_address?: string | null
+  notary_name?: string | null
+  notary_phone?: string | null
+  notary_email?: string | null
+}
+
 interface SubtaskCardScheduleEventProps {
   subtask: ProcSubtask
   processId: string
@@ -75,6 +87,8 @@ export function SubtaskCardScheduleEvent({
   const [loadingEvent, setLoadingEvent] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [isProcNeg, setIsProcNeg] = useState(false)
+  const [procNegEvent, setProcNegEvent] = useState<ProcNegEvent | null>(null)
 
   const calendarEventId = subtask.config?.calendar_event_id as string | undefined
   const isScheduled = subtask.is_completed && !!calendarEventId
@@ -106,12 +120,31 @@ export function SubtaskCardScheduleEvent({
     }
   }, [calendarEventId])
 
+  // Carregar Local & Notário (PROC-NEG) a partir de deal_events — independente
+  // do calendar_event (mesmo antes de agendar, sabemos se é um passo PROC-NEG).
+  const loadProcNeg = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/processes/${processId}/tasks/${taskId}/subtasks/${subtask.id}/schedule-event`
+      )
+      if (res.ok) {
+        const { data } = await res.json()
+        setIsProcNeg(!!data?.is_proc_neg)
+        setProcNegEvent((data?.event as ProcNegEvent | null) ?? null)
+      }
+    } catch {
+      // silenciar
+    }
+  }, [processId, taskId, subtask.id])
+
   useEffect(() => {
     loadEventDetails()
-  }, [loadEventDetails])
+    loadProcNeg()
+  }, [loadEventDetails, loadProcNeg])
 
   const handleSuccess = () => {
     loadEventDetails()
+    loadProcNeg()
     onRefresh?.()
   }
 
@@ -196,6 +229,37 @@ export function SubtaskCardScheduleEvent({
                 </div>
               )}
 
+              {/* Local (PROC-NEG) */}
+              {procNegEvent?.location_label && (
+                <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
+                  <div className="min-w-0">
+                    <div className="font-medium text-foreground">{procNegEvent.location_label}</div>
+                    {procNegEvent.location_address && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(procNegEvent.location_address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block truncate text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        {procNegEvent.location_address}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Notário (PROC-NEG) */}
+              {procNegEvent?.notary_name && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Landmark className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {procNegEvent.notary_name}
+                    {procNegEvent.notary_phone ? ` · ${procNegEvent.notary_phone}` : ''}
+                  </span>
+                </div>
+              )}
+
               {/* Descrição */}
               {eventDetails.description && (
                 <p className="text-xs text-muted-foreground pl-5.5 line-clamp-2">
@@ -252,7 +316,10 @@ export function SubtaskCardScheduleEvent({
         taskId={taskId}
         subtaskId={subtask.id}
         subtaskTitle={subtask.title}
-        existingEvent={eventDetails}
+        existingEvent={
+          eventDetails ? { ...eventDetails, ...(procNegEvent ?? {}) } : null
+        }
+        defaultLocationOpen={isProcNeg}
         owners={owners}
         consultants={consultants}
         onSuccess={handleSuccess}

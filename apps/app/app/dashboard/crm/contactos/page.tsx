@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ContactRound, Search, ChevronLeft, ChevronRight, Plus, Phone, Mail, X, Upload, Download } from 'lucide-react'
+import { ContactRound, Search, ChevronLeft, ChevronRight, Plus, Phone, Mail, X, Upload, Download, Share2 } from 'lucide-react'
 import { CsvExportDialog } from '@/components/shared/csv-export-dialog'
 import { BulkImportDialog } from '@/components/leads/bulk-import-dialog'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -279,6 +279,7 @@ function ContactosPageContent() {
               const phone = c.telemovel ?? c.phone
               const consultant = c.consultant?.commercial_name ?? (c as any).dev_users?.commercial_name
               const stage = c.lifecycle_stage ?? (c as any).leads_contact_stages
+              const referredOut = Boolean((c as any).referred_out)
               return (
                 <div
                   key={c.id}
@@ -295,7 +296,9 @@ function ContactosPageContent() {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm truncate">{name}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {consultant || 'Sem consultor'}
+                        {referredOut
+                          ? `Gerido por ${consultant || '—'}`
+                          : consultant || 'Sem consultor'}
                       </p>
                     </div>
                     {stage && (
@@ -318,6 +321,11 @@ function ContactosPageContent() {
 
                   {/* Contact info pills */}
                   <div className="flex flex-wrap gap-1.5 mb-3">
+                    {referredOut && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                        <Share2 className="h-2.5 w-2.5" /> Referenciado
+                      </span>
+                    )}
                     {phone && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-muted/60 px-2 py-0.5 rounded-full">
                         <Phone className="h-2.5 w-2.5" />{phone}

@@ -7,6 +7,79 @@ import { recalculateProgress } from '@/lib/process-engine'
 import { logTaskActivity } from '@/lib/processes/activity-logger'
 
 // ---------------------------------------------------------------------------
+// GET — Detalhes PROC-NEG do evento (Local & Notário a partir de deal_events)
+// O calendar_events não guarda location/notário — vivem em deal_events. Este
+// GET resolve, pelo hook do parent task (schedule_cpcv/schedule_escritura), a
+// row de deal_events correspondente e devolve os campos de Local/Notário para
+// a UI mostrar e pré-preencher na edição. Para tasks sem hook → is_proc_neg=false.
+// ---------------------------------------------------------------------------
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; taskId: string; subtaskId: string }> }
+) {
+  try {
+    const auth = await requirePermission('processes')
+    if (!auth.authorized) return auth.response
+
+    const { id: processId, taskId } = await params
+    const admin = createAdminClient()
+    const adminDb = admin as unknown as {
+      from: Awaited<ReturnType<typeof createClient>>['from']
+    }
+
+    const { data: parentTaskRow } = await adminDb
+      .from('proc_tasks')
+      .select('config')
+      .eq('id', taskId)
+      .maybeSingle()
+
+    const hookName = (parentTaskRow as { config?: Record<string, unknown> } | null)?.config
+      ?.hook as string | undefined
+    const isProcNeg = hookName === 'schedule_cpcv' || hookName === 'schedule_escritura'
+
+    if (!isProcNeg) {
+      return NextResponse.json({ data: { is_proc_neg: false, event: null } })
+    }
+
+    const { data: dealRow } = await adminDb
+      .from('deals')
+      .select('id, business_type')
+      .eq('proc_instance_id', processId)
+      .maybeSingle()
+
+    if (!dealRow) {
+      return NextResponse.json({ data: { is_proc_neg: true, event: null } })
+    }
+
+    const deal = dealRow as { id: string; business_type: string | null }
+    const eventType =
+      hookName === 'schedule_cpcv'
+        ? 'cpcv'
+        : (deal.business_type === 'arrendamento' ? 'contrato_arrendamento' : 'escritura')
+
+    const { data: ev } = await adminDb
+      .from('deal_events')
+      .select(
+        'scheduled_at, location_label, location_address, latitude, longitude, notary_name, notary_phone, notary_email, status, reschedule_count'
+      )
+      .eq('deal_id', deal.id)
+      .eq('event_type', eventType)
+      .not('status', 'in', '("done","cancelled")')
+      .order('scheduled_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    return NextResponse.json({
+      data: { is_proc_neg: true, event_type: eventType, event: ev ?? null },
+    })
+  } catch (err) {
+    console.error('[schedule-event GET]', err)
+    return NextResponse.json({ error: 'Erro interno ao carregar evento.' }, { status: 500 })
+  }
+}
+
+// ---------------------------------------------------------------------------
 // POST — Criar ou actualizar evento de calendário a partir de subtarefa
 // ---------------------------------------------------------------------------
 export async function POST(
@@ -225,6 +298,29 @@ export async function POST(
               created_by: user.id,
               ...dealEventPayload,
             })
+          }
+
+          // ── Propagar a data agendada para o deal (mapa de gestão) ──
+          // O calendar_events/deal_events guardam o evento de agenda, mas o mapa
+          // de gestão lê `deal_payments.signed_date` + `date_type`. Ao registar a
+          // data concreta da CPCV/escritura, o momento deixa de ser uma previsão:
+          // fixamos a data no(s) pagamento(s) do momento (date_type='confirmed')
+          // e denormalizamos para o deal — assim o mapa passa de "(prev.)" para a
+          // data dada e a vista de detalhe do negócio fica em sincronia.
+          const scheduledDate = (start_date || '').slice(0, 10)
+          if (scheduledDate) {
+            const paymentMoments = hookName === 'schedule_cpcv' ? ['cpcv'] : ['escritura', 'single']
+            await adminDb
+              .from('deal_payments')
+              .update({ signed_date: scheduledDate, date_type: 'confirmed' })
+              .eq('deal_id', deal.id)
+              .in('payment_moment', paymentMoments)
+
+            const dealDateColumn = hookName === 'schedule_cpcv' ? 'cpcv_actual_date' : 'escritura_actual_date'
+            await adminDb
+              .from('deals')
+              .update({ [dealDateColumn]: scheduledDate })
+              .eq('id', deal.id)
           }
         }
       }

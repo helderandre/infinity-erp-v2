@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>MUBE — Demo Casa Pronta (fictício)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      background: #f3f4f6;
+      color: #111827;
+      font-size: 14px;
+    }
+    .demo-banner {
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      color: white;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .demo-banner h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .demo-banner p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .demo-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .demo-controls label {
+      font-size: 12px;
+    }
+    .demo-controls select, .demo-controls button {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.15);
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .demo-controls option { color: #111; }
+    .demo-controls button {
+      background: white;
+      color: #4f46e5;
+      font-weight: 600;
+    }
+    .demo-controls button:hover { background: #f3f4f6; }
+    .page-title {
+      background: white;
+      padding: 20px 32px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .page-title h2 {
+      margin: 0;
+      font-size: 20px;
+      color: #1f2937;
+    }
+    .page-title p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    form {
+      max-width: 900px;
+      margin: 24px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 24px 32px;
+    }
+    h3 {
+      margin: 24px 0 12px;
+      font-size: 15px;
+      color: #1f2937;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 6px;
+    }
+    h3:first-child { margin-top: 0; }
+    .corpo_coluna {
+      display: inline-block;
+      margin: 0 16px 14px 0;
+      vertical-align: top;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: #374151;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .obrigatorio { color: #dc2626; margin-left: 2px; }
+    input[type="text"], select, textarea {
+      padding: 7px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
+      background: white;
+      min-width: 200px;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 2px rgba(79,70,229,0.15);
+    }
+    textarea { min-width: 500px; resize: vertical; }
+    .radio { margin-right: 6px; }
+    .parte { padding: 10px 12px; margin: 8px 0; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; }
+    .parte strong { font-size: 12px; color: #4b5563; display: block; margin-bottom: 6px; }
+    .break { display: block; }
+    .exemplo { font-size: 11px; color: #6b7280; margin-top: 4px; font-style: italic; max-width: 400px; }
+    .botoes { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: right; }
+    .botoes button {
+      padding: 8px 18px;
+      margin-left: 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .botoes button.primary {
+      background: #4f46e5;
+      color: white;
+      border-color: #4f46e5;
+    }
+    .fill-highlight {
+      animation: flash 0.8s ease-out;
+    }
+    @keyframes flash {
+      0%   { background: #fef3c7; }
+      100% { background: white; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="demo-banner">
+  <div>
+    <h1>⚡ MUBE — Demo Casa Pronta</h1>
+    <p>Réplica local com campos reais do Casa Pronta, preenchida com dados <strong>fictícios</strong>. Não submete nada.</p>
+  </div>
+  <div class="demo-controls">
+    <label for="mockDealSelector">Negócio:</label>
+    <select id="mockDealSelector">
+      <option value="mock-deal-1">DEAL-2026-0007 — 385.000 €</option>
+      <option value="mock-deal-2">DEAL-2026-0011 — 720.000 €</option>
+      <option value="mock-deal-3">DEAL-2026-0014 — 245.000 €</option>
+    </select>
+    <button type="button" id="fillBtn">⚡ Preencher com MUBE</button>
+  </div>
+</div>
+
+<div class="page-title">
+  <h2>Novo Anúncio — Direito Legal de Preferência</h2>
+  <p>Passo 1 de 3 — Dados do anúncio</p>
+</div>
+
+<form name="init" action="javascript:void(0);" autocomplete="off">
+  <input type="hidden" name="formtype" value="1" />
+  <input type="hidden" name="countvendedores" id="countvendedores" value="1" />
+  <input type="hidden" name="countcompradores" id="countcompradores" value="1" />
+
+  <h3>Dados do Requerente</h3>
+  <div class="corpo_coluna">
+    <label for="requerente">Nome/Firma ou Denominação<span class="obrigatorio">*</span></label>
+    <input id="requerente" name="requerente" type="text" size="45" maxlength="160" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="nif">NIF/NIPC<span class="obrigatorio">*</span></label>
+    <input name="nif" id="nif" type="text" maxlength="9" />
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna">
+    <label for="email">Email<span class="obrigatorio">*</span></label>
+    <input id="email" name="email" type="text" size="45" maxlength="50" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="telefone">Telefone<span class="obrigatorio">*</span></label>
+    <input name="telefone" id="telefone" type="text" maxlength="15" />
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna" style="display:block;">
+    <label for="morada_requerente">Endereço<span class="obrigatorio">*</span></label>
+    <input name="morada_requerente" id="morada_requerente" size="71" type="text" maxlength="240" style="min-width:560px;" />
+  </div>
+
+  <h3>Vendedor</h3>
+  <div id="vendedoresContainer">
+    <div class="parte" data-vendedor="1">
+      <strong>Vendedor 1</strong>
+      <div class="corpo_coluna">
+        <label for="nome_firma1V">Nome/Firma ou Denominação<span class="obrigatorio">*</span></label>
+        <input id="nome_firma1V" name="nome_firma1V" type="text" size="45" maxlength="160" />
+      </div>
+      <div class="corpo_coluna">
+        <label for="nif1V">NIF/NIPC<span class="obrigatorio">*</span></label>
+        <input name="nif1V" id="nif1V" type="text" maxlength="9" />
+      </div>
+    </div>
+    <div class="parte" data-vendedor="2" style="display:none;">
+      <strong>Vendedor 2</strong>
+      <div class="corpo_coluna">
+        <label for="nome_firma2V">Nome/Firma ou Denominação</label>
+        <input id="nome_firma2V" name="nome_firma2V" type="text" size="45" maxlength="160" />
+      </div>
+      <div class="corpo_coluna">
+        <label for="nif2V">NIF/NIPC</label>
+        <input name="nif2V" id="nif2V" type="text" maxlength="9" />
+      </div>
+    </div>
+  </div>
+
+  <h3>Comprador</h3>
+  <div id="compradoresContainer">
+    <div class="parte" data-comprador="1">
+      <strong>Comprador 1</strong>
+      <div class="corpo_coluna">
+        <label for="nome_firma1C">Nome/Firma ou Denominação<span class="obrigatorio">*</span></label>
+        <input id="nome_firma1C" name="nome_firma1C" type="text" size="45" maxlength="160" />
+      </div>
+      <div class="corpo_coluna">
+        <label for="nif1C">NIF/NIPC<span class="obrigatorio">*</span></label>
+        <input name="nif1C" id="nif1C" type="text" maxlength="9" />
+      </div>
+    </div>
+    <div class="parte" data-comprador="2" style="display:none;">
+      <strong>Comprador 2</strong>
+      <div class="corpo_coluna">
+        <label for="nome_firma2C">Nome/Firma ou Denominação</label>
+        <input id="nome_firma2C" name="nome_firma2C" type="text" size="45" maxlength="160" />
+      </div>
+      <div class="corpo_coluna">
+        <label for="nif2C">NIF/NIPC</label>
+        <input name="nif2C" id="nif2C" type="text" maxlength="9" />
+      </div>
+    </div>
+  </div>
+
+  <h3>Identificação do Imóvel</h3>
+  <div class="corpo_coluna">
+    <label for="ficha">Descrição em Ficha<span class="obrigatorio">*</span></label>
+    <input name="ficha" id="ficha" type="text" maxlength="15" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="artigo">Artigo Matricial<span class="obrigatorio">*</span></label>
+    <input name="artigo" id="artigo" type="text" maxlength="10" />
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna">
+    <label for="quota_parte">Quota Parte</label>
+    <input name="quota_parte" id="quota_parte" type="text" maxlength="12" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="fraccao">Fracção Autónoma</label>
+    <input name="fraccao" id="fraccao" type="text" maxlength="50" />
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna">
+    <label for="imo_area2">Área Bruta Privativa<span class="obrigatorio">*</span></label>
+    <input name="imo_area2" id="imo_area2" type="text" maxlength="8" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="imo_areamedida2">Unid. Medida<span class="obrigatorio">*</span></label>
+    <select name="imo_areamedida2" id="imo_areamedida2">
+      <option value="">— escolher —</option>
+      <option value="1">Metros²</option>
+      <option value="2">Hectares</option>
+    </select>
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna">
+    <label for="imo_area1">Área Total</label>
+    <input name="imo_area1" id="imo_area1" type="text" maxlength="8" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="imo_areamedida1">Unid. Medida Total</label>
+    <select name="imo_areamedida1" id="imo_areamedida1">
+      <option value="">— escolher —</option>
+      <option value="1">Metros²</option>
+      <option value="2">Hectares</option>
+    </select>
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna">
+    <label>Arrendado<span class="obrigatorio">*</span></label>
+    <label style="display:inline;font-weight:normal;">
+      <input class="radio" name="arrendado" type="radio" value="Y" id="sim1" /> Sim
+    </label>
+    <label style="display:inline;font-weight:normal;margin-left:14px;">
+      <input class="radio" name="arrendado" type="radio" value="N" id="nao1" /> Não
+    </label>
+  </div>
+  <div class="corpo_coluna">
+    <label for="destino">Destino<span class="obrigatorio">*</span></label>
+    <select name="destino" id="destino">
+      <option value="">— escolher —</option>
+      <option value="1">Habitação</option>
+      <option value="2">Comércio</option>
+      <option value="3">Indústria</option>
+      <option value="4">Outro</option>
+    </select>
+    <input type="hidden" id="destino_descricao" name="destino_descricao" value="" />
+  </div>
+
+  <h3>Localização do Imóvel</h3>
+  <div class="corpo_coluna" style="display:block;">
+    <label for="morada">Endereço<span class="obrigatorio">*</span></label>
+    <input name="morada" id="morada" size="71" type="text" maxlength="240" style="min-width:560px;" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="distrito">Distrito<span class="obrigatorio">*</span></label>
+    <select name="distrito" id="distrito">
+      <option value="">— escolher —</option>
+      <option value="11">Lisboa</option>
+      <option value="13">Porto</option>
+      <option value="15">Setúbal</option>
+    </select>
+    <input type="hidden" id="distrito_descricao" name="distrito_descricao" value="" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="concelho">Concelho<span class="obrigatorio">*</span></label>
+    <select name="concelho" id="concelho">
+      <option value="">— escolher —</option>
+      <option value="1105" data-distrito="11">Cascais</option>
+      <option value="1106" data-distrito="11">Lisboa</option>
+      <option value="1111" data-distrito="11">Sintra</option>
+      <option value="1301" data-distrito="13">Porto</option>
+    </select>
+    <input type="hidden" id="concelho_descricao" name="concelho_descricao" value="" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="freguesia">Freguesia<span class="obrigatorio">*</span></label>
+    <select name="freguesia" id="freguesia">
+      <option value="">— escolher —</option>
+      <option value="110501" data-concelho="1105">Cascais e Estoril</option>
+      <option value="110601" data-concelho="1106">Santo António</option>
+      <option value="110602" data-concelho="1106">Avenidas Novas</option>
+      <option value="111101" data-concelho="1111">Sintra (Sta. Maria e S. Miguel, S. Martinho e S. Pedro de Penaferrim)</option>
+    </select>
+    <input type="hidden" id="freguesia_descricao" name="freguesia_descricao" value="" />
+    <div class="exemplo">A freguesia a seleccionar é a que consta da descrição do imóvel na conservatória do registo predial.</div>
+  </div>
+
+  <h3>Dados da Transmissão</h3>
+  <div class="corpo_coluna">
+    <label for="tipo_negocio">Tipo de Negócio<span class="obrigatorio">*</span></label>
+    <select name="tipo_negocio" id="tipo_negocio">
+      <option value="">— escolher —</option>
+      <option value="1">Compra e venda</option>
+      <option value="2">Dação em Pagamento</option>
+    </select>
+    <input type="hidden" id="tipo_negocio_descricao" name="tipo_negocio_descricao" value="" />
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna">
+    <label for="valor">Preço<span class="obrigatorio">*</span></label>
+    <input name="valor" id="valor" type="text" maxlength="15" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="moeda">Moeda<span class="obrigatorio">*</span></label>
+    <select name="moeda" id="moeda">
+      <option value="1">Euros</option>
+      <option value="2">Dólar</option>
+    </select>
+    <input type="hidden" id="moeda_descricao" name="moeda_descricao" value="Euros" />
+  </div>
+  <div class="corpo_coluna">
+    <label for="data_previsivel">Data previsível do negócio<span class="obrigatorio">*</span></label>
+    <input id="data_previsivel" name="data_previsivel" type="text" placeholder="DD-MM-AAAA" />
+  </div>
+  <br class="break"/>
+  <div class="corpo_coluna" style="display:block;">
+    <label for="observacoes">Observações</label>
+    <textarea name="observacoes" id="observacoes" maxlength="100" rows="3"></textarea>
+  </div>
+
+  <div class="botoes">
+    <button type="button">Cancelar</button>
+    <button type="button" class="primary" onclick="alert('DEMO — submissão desactivada');">Continuar</button>
+  </div>
+</form>
+
+<script>
+// ============================================================
+// MUBE — Demo Filler
+// Dados fictícios. Mesma forma que o payload CasaProntaPayload
+// (ver src/shared/types.ts na extensão).
+// ============================================================
+
+const MOCK_PAYLOADS = {
+  "mock-deal-1": {
+    requerente: {
+      nome: "Duarte Costa",
+      nif: "253489012",
+      email: "duarte@mube.pt",
+      telefone: "912345678",
+      endereco: "Rua da Inovação, 10, 1000-001 Lisboa"
+    },
+    vendedores: [{ nome: "Maria Silva Costa", nif: "198765432" }],
+    compradores: [{ nome: "João Pedro Almeida", nif: "234567891" }],
+    imovel: {
+      descricao_ficha: "12345",
+      artigo_matricial: "4567",
+      fracao_autonoma: "C",
+      area_bruta_privativa: 95,
+      unidade_medida: "m2",
+      area_total: 110,
+      unidade_medida_total: "m2",
+      arrendado: false,
+      destino: "habitacao",
+      endereco: "Rua das Flores, 15, 2º Dto",
+      distrito: "Lisboa",
+      concelho: "Cascais",
+      freguesia: "Cascais e Estoril"
+    },
+    transmissao: {
+      tipo_negocio: "compra_venda",
+      preco: 385000,
+      moeda: "EUR",
+      data_prevista: "2026-05-15",
+      observacoes: "Escritura prevista para meados de Maio."
+    }
+  },
+  "mock-deal-2": {
+    requerente: {
+      nome: "Duarte Costa",
+      nif: "253489012",
+      email: "duarte@mube.pt",
+      telefone: "912345678",
+      endereco: "Rua da Inovação, 10, 1000-001 Lisboa"
+    },
+    vendedores: [{ nome: "Construtora Lusa, Lda.", nif: "509876543" }],
+    compradores: [{ nome: "Ana Rita Fernandes", nif: "212345678" }],
+    imovel: {
+      descricao_ficha: "98765",
+      artigo_matricial: "8891",
+      fracao_autonoma: "E",
+      area_bruta_privativa: 140,
+      unidade_medida: "m2",
+      arrendado: false,
+      destino: "habitacao",
+      endereco: "Av. da Liberdade, 200, 5º",
+      distrito: "Lisboa",
+      concelho: "Lisboa",
+      freguesia: "Santo António"
+    },
+    transmissao: {
+      tipo_negocio: "compra_venda",
+      preco: 720000,
+      moeda: "EUR",
+      data_prevista: "2026-06-10"
+    }
+  },
+  "mock-deal-3": {
+    requerente: {
+      nome: "Duarte Costa",
+      nif: "253489012",
+      email: "duarte@mube.pt",
+      telefone: "912345678",
+      endereco: "Rua da Inovação, 10, 1000-001 Lisboa"
+    },
+    vendedores: [
+      { nome: "António Marques Pereira", nif: "187654321" },
+      { nome: "Teresa Pereira Lopes", nif: "187654322" }
+    ],
+    compradores: [{ nome: "Sofia Lopes Machado", nif: "298765432" }],
+    imovel: {
+      descricao_ficha: "55443",
+      artigo_matricial: "2214",
+      area_bruta_privativa: 78,
+      unidade_medida: "m2",
+      area_total: 78,
+      unidade_medida_total: "m2",
+      arrendado: false,
+      destino: "habitacao",
+      endereco: "Rua do Sol, 47, R/C",
+      distrito: "Lisboa",
+      concelho: "Sintra",
+      freguesia: "Sintra (Sta. Maria e S. Miguel, S. Martinho e S. Pedro de Penaferrim)"
+    },
+    transmissao: {
+      tipo_negocio: "compra_venda",
+      preco: 245000,
+      moeda: "EUR",
+      data_prevista: "2026-04-28"
+    }
+  }
+};
+
+// Maps text → option value (adaptado aos selects do demo)
+const DESTINO_MAP  = { habitacao: "1", comercio: "2", industria: "3", outro: "4" };
+const TIPONEG_MAP  = { compra_venda: "1", dacao: "2" };
+const UNIDADE_MAP  = { m2: "1", hectares: "2" };
+const MOEDA_MAP    = { EUR: "1", USD: "2" };
+
+function setInput(id, value, highlight = true) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = value ?? "";
+  if (highlight) {
+    el.classList.remove("fill-highlight");
+    void el.offsetWidth;
+    el.classList.add("fill-highlight");
+  }
+}
+
+function setSelectByValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = value;
+  const desc = document.getElementById(id + "_descricao");
+  if (desc) {
+    const opt = el.options[el.selectedIndex];
+    desc.value = opt ? opt.textContent.trim() : "";
+  }
+  el.classList.add("fill-highlight");
+}
+
+function setSelectByText(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  for (const opt of el.options) {
+    if (opt.textContent.trim().toLowerCase() === text.toLowerCase()) {
+      el.value = opt.value;
+      const desc = document.getElementById(id + "_descricao");
+      if (desc) desc.value = opt.textContent.trim();
+      el.classList.add("fill-highlight");
+      return;
+    }
+  }
+}
+
+function setRadio(name, value) {
+  const els = document.getElementsByName(name);
+  for (const el of els) {
+    if (el.value === value) el.checked = true;
+  }
+}
+
+function isoToDDMMYYYY(iso) {
+  const [y, m, d] = iso.split("-");
+  return `${d}-${m}-${y}`;
+}
+
+function ensureVendedorRow(index) {
+  const row = document.querySelector(`[data-vendedor="${index}"]`);
+  if (row) row.style.display = "";
+}
+function ensureCompradorRow(index) {
+  const row = document.querySelector(`[data-comprador="${index}"]`);
+  if (row) row.style.display = "";
+}
+
+function clearAll() {
+  document.querySelectorAll('input[type="text"], textarea').forEach(el => el.value = "");
+  document.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+  document.querySelectorAll('input[type="radio"]').forEach(el => el.checked = false);
+  document.querySelectorAll('[data-vendedor]').forEach((row, i) => { if (i > 0) row.style.display = "none"; });
+  document.querySelectorAll('[data-comprador]').forEach((row, i) => { if (i > 0) row.style.display = "none"; });
+}
+
+function fillForm(dealId) {
+  clearAll();
+  const p = MOCK_PAYLOADS[dealId];
+  if (!p) return;
+
+  // Requerente
+  setInput("requerente",        p.requerente.nome);
+  setInput("nif",               p.requerente.nif);
+  setInput("email",             p.requerente.email);
+  setInput("telefone",          p.requerente.telefone);
+  setInput("morada_requerente", p.requerente.endereco);
+
+  // Vendedores
+  p.vendedores.forEach((v, i) => {
+    const idx = i + 1;
+    ensureVendedorRow(idx);
+    setInput(`nome_firma${idx}V`, v.nome);
+    setInput(`nif${idx}V`,        v.nif);
+  });
+  const cvEl = document.getElementById("countvendedores");
+  if (cvEl) cvEl.value = String(p.vendedores.length);
+
+  // Compradores
+  p.compradores.forEach((c, i) => {
+    const idx = i + 1;
+    ensureCompradorRow(idx);
+    setInput(`nome_firma${idx}C`, c.nome);
+    setInput(`nif${idx}C`,        c.nif);
+  });
+  const ccEl = document.getElementById("countcompradores");
+  if (ccEl) ccEl.value = String(p.compradores.length);
+
+  // Imóvel
+  setInput("ficha",        p.imovel.descricao_ficha);
+  setInput("artigo",       p.imovel.artigo_matricial);
+  setInput("quota_parte",  p.imovel.quota_parte || "");
+  setInput("fraccao",      p.imovel.fracao_autonoma || "");
+  setInput("imo_area2",    String(p.imovel.area_bruta_privativa));
+  setSelectByValue("imo_areamedida2", UNIDADE_MAP[p.imovel.unidade_medida] || "1");
+  if (p.imovel.area_total) {
+    setInput("imo_area1", String(p.imovel.area_total));
+    setSelectByValue("imo_areamedida1", UNIDADE_MAP[p.imovel.unidade_medida_total || p.imovel.unidade_medida] || "1");
+  }
+  setRadio("arrendado", p.imovel.arrendado ? "Y" : "N");
+  setSelectByValue("destino", DESTINO_MAP[p.imovel.destino] || "1");
+
+  // Localização
+  setInput("morada", p.imovel.endereco);
+  setSelectByText("distrito",  p.imovel.distrito);
+  setSelectByText("concelho",  p.imovel.concelho);
+  setSelectByText("freguesia", p.imovel.freguesia);
+
+  // Transmissão
+  setSelectByValue("tipo_negocio", TIPONEG_MAP[p.transmissao.tipo_negocio] || "1");
+  setInput("valor", String(p.transmissao.preco));
+  setSelectByValue("moeda", MOEDA_MAP[p.transmissao.moeda] || "1");
+  setInput("data_previsivel", isoToDDMMYYYY(p.transmissao.data_prevista));
+  if (p.transmissao.observacoes) setInput("observacoes", p.transmissao.observacoes);
+}
+
+document.getElementById("fillBtn").addEventListener("click", () => {
+  const id = document.getElementById("mockDealSelector").value;
+  fillForm(id);
+});
+
+document.getElementById("mockDealSelector").addEventListener("change", (e) => {
+  fillForm(e.target.value);
+});
+
+// Auto-preenche ao carregar
+fillForm("mock-deal-1");
+</script>
+
+</body>
+</html>

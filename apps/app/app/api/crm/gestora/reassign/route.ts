@@ -60,6 +60,18 @@ export async function POST(req: NextRequest) {
         .select("id, contact_id")
         .in("id", entry_ids)
 
+      // Keep the contact owner in sync with the entry assignment so the lead
+      // shows up in the new owner's "Meus Contactos" (which filters on
+      // leads.agent_id). Without this, reassigning only the entry leaves the
+      // contact invisible to whoever is now working it. This is an explicit
+      // human action, so it overrides any previous contact owner.
+      if (entries?.length) {
+        const contactIds = [
+          ...new Set(entries.map((e: { contact_id: string }) => e.contact_id)),
+        ]
+        await db.from("leads").update({ agent_id: target_agent_id }).in("id", contactIds)
+      }
+
       if (entries) {
         const activities = entries.map((e: { id: string; contact_id: string }) => ({
           contact_id: e.contact_id,
@@ -152,6 +164,18 @@ export async function POST(req: NextRequest) {
         .in("id", entryIds)
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      // Mirror the new owner (or pool/null) onto the contact so "Meus Contactos"
+      // stays consistent with the entry assignment.
+      {
+        const contactIds = [
+          ...new Set(overdueEntries.map((e: { contact_id: string }) => e.contact_id)),
+        ]
+        await db
+          .from("leads")
+          .update({ agent_id: target_agent_id ?? null })
+          .in("id", contactIds)
+      }
 
       // Log activities
       const activities = overdueEntries.map((e: { id: string; contact_id: string }) => ({

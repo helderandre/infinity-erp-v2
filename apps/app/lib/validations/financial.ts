@@ -47,7 +47,8 @@ export const recurringTemplateSchema = z.object({
   amount_net: z.number().positive('Valor deve ser positivo'),
   vat_pct: z.number().min(0).max(100).optional(),
   frequency: z.enum(['monthly', 'quarterly', 'annual']),
-  day_of_month: z.number().int().min(1).max(28).optional(),
+  // 1–31; a geração faz clamp ao último dia do mês (ex.: 31 em Fevereiro → 28/29).
+  day_of_month: z.number().int().min(1).max(31).optional(),
   is_active: z.boolean().optional(),
 })
 

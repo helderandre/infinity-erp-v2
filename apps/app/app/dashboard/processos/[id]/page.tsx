@@ -5,7 +5,6 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -13,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   Dialog,
   DialogContent,
@@ -42,13 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   ArrowLeft,
-  LayoutGrid,
-  Target,
-  List,
   Ban,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
   MoreHorizontal,
   Pause,
   Play,
@@ -57,11 +49,9 @@ import {
   XCircle,
   Building2,
   Users,
-  Activity,
   ClipboardList,
   FileText,
   Kanban,
-  UserPlus,
   Plus,
   Handshake,
   ShoppingCart,
@@ -69,16 +59,13 @@ import {
 } from 'lucide-react'
 import { Spinner } from '@/components/kibo-ui/spinner'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { MobileFilterSheet } from '@/components/shared/mobile-filter-sheet'
 import { PageSidebar } from '@/components/shared/page-sidebar'
 import type { PageSidebarItem } from '@/components/shared/page-sidebar'
 import { ProcessReviewBento } from '@/components/processes/process-review-bento'
 import { ProcessApprovalCard } from '@/components/processes/process-approval-card'
-import { ProcessKanbanView } from '@/components/processes/process-kanban-view'
-import { ProcessStageMobileView } from '@/components/processes/process-stage-mobile-view'
-import { ProcessFocusView } from '@/components/processes/process-focus-view'
+import { AngariacaoProcessPanel } from '@/components/processes/angariacao-timeline/angariacao-process-panel'
+import { NegocioProcessPanel } from '@/components/processes/negocio-timeline/negocio-process-panel'
 import { StageCompleteDialog } from '@/components/processes/stage-complete-dialog'
-import { ProcessListView } from '@/components/processes/process-list-view'
 import { ProcessTaskAssignDialog } from '@/components/processes/process-task-assign-dialog'
 import { TaskDetailSheet } from '@/components/processes/task-detail-sheet'
 import { FloatingChat } from '@/components/processes/floating-chat'
@@ -97,16 +84,11 @@ import { useUser } from '@/hooks/use-user'
 import { Copyable } from '@/components/shared/copyable'
 import { usePermissions } from '@/hooks/use-permissions'
 import { cn, formatDate, formatCurrency } from '@/lib/utils'
-import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, getRoleBadgeColors } from '@/lib/constants'
 import { ADHOC_TASK_ROLES, isManagementRole } from '@/lib/auth/roles'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useSmartBack } from '@/hooks/use-previous-pathname'
-import { ProcessTimelineView } from '@/components/processes/process-timeline-view'
-import { useProcessActivities } from '@/hooks/use-process-activities'
 import type { ProcessTask, ProcessStageWithTasks } from '@/types/process'
-
-type ViewMode = 'foco' | 'kanban' | 'timeline'
 
 type SidebarSection = string // 'detalhes' | 'imovel' | 'pipeline' | 'proprietarios' | 'proprietarios:<id>' | 'documentos'
 
@@ -122,26 +104,7 @@ export default function ProcessoDetailPage() {
   const [process, setProcess] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('foco')
   const [activeSection, setActiveSection] = useState<SidebarSection>('detalhes')
-
-  // Process-level activities (for timeline view)
-  const { activities: processActivities, isLoading: isLoadingActivities } = useProcessActivities(
-    viewMode === 'timeline' && activeSection === 'pipeline' ? (params.id as string) : null
-  )
-
-  // Filters
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [filterPriority, setFilterPriority] = useState<string>('all')
-  const [filterAssignee, setFilterAssignee] = useState<string>('all')
-  const [filterRole, setFilterRole] = useState<string>('all')
-
-  // Foco view selection (mirror of ProcessPipelinePanel)
-  const [focusStageId, setFocusStageId] = useState<string | null>(null)
-  const [focusTaskId, setFocusTaskId] = useState<string | null>(null)
-  const handleFocusTaskChange = useCallback((taskId: string) => {
-    setFocusTaskId(taskId)
-  }, [])
 
   // Bypass dialog
   const [bypassDialogOpen, setBypassDialogOpen] = useState(false)
@@ -231,31 +194,6 @@ export default function ProcessoDetailPage() {
     }
   }
 
-  const handleTaskAction = useCallback(async (taskId: string, action: string) => {
-    setIsProcessing(true)
-    try {
-      const response = await fetch(`/api/processes/${params.id}/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Erro ao actualizar tarefa')
-      }
-
-      toast.success('Tarefa actualizada com sucesso!')
-      loadProcess(true)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao actualizar tarefa'
-      toast.error(message)
-    } finally {
-      setIsProcessing(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id])
-
   const handleDeleteAdhocTask = useCallback(async () => {
     if (!deleteTaskTarget) return
     setIsDeletingTask(true)
@@ -280,13 +218,6 @@ export default function ProcessoDetailPage() {
 
   const canDeleteAdhoc = !!user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any)
 
-  const handleStageCompleteOpen = useCallback((stageId: string) => {
-    const stage = process?.stages?.find((s: any) => s.id === stageId)
-    if (stage) {
-      setStageCompleteTarget({ id: stageId, name: stage.name })
-    }
-  }, [process])
-
   const handleStageComplete = useCallback(async () => {
     if (!stageCompleteTarget) return
     setIsCompletingStage(true)
@@ -309,12 +240,6 @@ export default function ProcessoDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageCompleteTarget, params.id])
-
-  const handleBypassOpen = useCallback((task: ProcessTask) => {
-    setBypassTask(task)
-    setBypassReason('')
-    setBypassDialogOpen(true)
-  }, [])
 
   const handleBypassSubmit = async () => {
     if (!bypassTask || bypassReason.length < 10) return
@@ -467,15 +392,6 @@ export default function ProcessoDetailPage() {
     }
   }
 
-  const handleAssignOpen = useCallback((task: ProcessTask) => {
-    setAssignTask(task)
-    setAssignDialogOpen(true)
-  }, [])
-
-  const handleTaskClick = useCallback((task: ProcessTask) => {
-    setSelectedTask(task)
-  }, [])
-
   const handleEntityClick = useCallback((entityType: string, entityId: string) => {
     if (!process?.stages) return
     const allTasks: ProcessTask[] = process.stages.flatMap(
@@ -531,103 +447,33 @@ export default function ProcessoDetailPage() {
     }
   }, [searchParams, process?.stages])
 
-  // Compute stats and filtered stages
-  const { filteredStages, totalTasks, completedTasks, completedWeight, overdueTasks, assignees, roles } = useMemo(() => {
+  // Progresso (ponderado pela conclusão de subtarefas) — alimenta a barra do header.
+  const { totalTasks, completedWeight } = useMemo(() => {
     if (!process?.stages) {
-      return { filteredStages: [], totalTasks: 0, completedTasks: 0, completedWeight: 0, overdueTasks: 0, assignees: [] as { id: string; name: string }[], roles: [] as string[] }
+      return { totalTasks: 0, completedWeight: 0 }
     }
 
     const allTasks: ProcessTask[] = process.stages.flatMap((s: ProcessStageWithTasks) => s.tasks)
 
     let total = 0
     let completedWeight = 0
-    let completedFull = 0
-    let overdue = 0
-    const assigneeMap = new Map<string, string>()
-    const roleSet = new Set<string>()
 
     for (const t of allTasks) {
       total++
       const isComplete = t.status === 'completed' || t.status === 'skipped'
       if (isComplete) {
         completedWeight++
-        completedFull++
       } else if (t.subtasks && t.subtasks.length > 0) {
         // Contribuição proporcional das subtarefas
         const done = t.subtasks.filter((s) => s.is_completed).length
         completedWeight += done / t.subtasks.length
       }
-      if (t.due_date && new Date(t.due_date) < new Date() && !isComplete) {
-        overdue++
-      }
-      if (t.assigned_to_user) {
-        assigneeMap.set(t.assigned_to_user.id, t.assigned_to_user.commercial_name)
-      }
-      if (t.assigned_role) {
-        roleSet.add(t.assigned_role)
-      }
     }
-    const completed = completedFull
 
-    const assigneeList = Array.from(assigneeMap.entries()).map(([id, name]) => ({ id, name }))
-    const roleList = Array.from(roleSet).sort()
-
-    const filtered: ProcessStageWithTasks[] = process.stages.map((stage: ProcessStageWithTasks) => {
-      const tasks = stage.tasks.filter((t: ProcessTask) => {
-        if (filterStatus !== 'all' && t.status !== filterStatus) return false
-        if (filterPriority !== 'all' && (t.priority ?? 'normal') !== filterPriority) return false
-        if (filterAssignee !== 'all' && t.assigned_to_user?.id !== filterAssignee) return false
-        if (filterRole !== 'all' && t.assigned_role !== filterRole) return false
-        return true
-      })
-
-      return {
-        ...stage,
-        tasks,
-        tasks_total: stage.tasks_total,
-        tasks_completed: stage.tasks_completed,
-      }
-    }).filter((s: ProcessStageWithTasks) => s.tasks.length > 0)
-
-    return { filteredStages: filtered, totalTasks: total, completedTasks: completed, completedWeight: completedWeight, overdueTasks: overdue, assignees: assigneeList, roles: roleList }
-  }, [process?.stages, filterStatus, filterPriority, filterAssignee, filterRole])
+    return { totalTasks: total, completedWeight }
+  }, [process?.stages])
 
   const progressPercent = totalTasks > 0 ? Math.round((completedWeight / totalTasks) * 100) : 0
-
-  // ── Foco view derivations: pick a stage + active task within that stage.
-  const sortedFocoStages = useMemo(
-    () => [...filteredStages].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
-    [filteredStages],
-  )
-  const focusStage = useMemo(() => {
-    if (focusStageId) {
-      const found = sortedFocoStages.find((s) => s.id === focusStageId)
-      if (found) return found
-    }
-    return (
-      sortedFocoStages.find((s) =>
-        s.tasks.some((t) => t.status !== 'completed' && t.status !== 'skipped'),
-      ) ?? sortedFocoStages[0] ?? null
-    )
-  }, [sortedFocoStages, focusStageId])
-  const sortedFocoTasks = useMemo(() => {
-    if (!focusStage) return [] as ProcessTask[]
-    return [...focusStage.tasks].sort(
-      (a, b) => ((a as unknown as { order_index?: number }).order_index ?? 0) -
-        ((b as unknown as { order_index?: number }).order_index ?? 0),
-    )
-  }, [focusStage])
-  const focusTask = useMemo(() => {
-    if (sortedFocoTasks.length === 0) return null
-    if (focusTaskId) {
-      const found = sortedFocoTasks.find((t) => t.id === focusTaskId)
-      if (found) return found
-    }
-    return (
-      sortedFocoTasks.find((t) => t.status !== 'completed' && t.status !== 'skipped') ??
-      sortedFocoTasks[0] ?? null
-    )
-  }, [sortedFocoTasks, focusTaskId])
 
   // Determine if process is pending (locks sidebar to 'detalhes' only)
   const isPending = process?.instance
@@ -1045,220 +891,14 @@ export default function ProcessoDetailPage() {
           {activeSection === 'pipeline' && (
             <div className="space-y-4">
               {isActive && stages && stages.length > 0 ? (
-                <>
-                  {/* Mobile/tablet view: stage pill selector + accordion of pendentes/concluídos */}
-                  <div className="lg:hidden">
-                    <ProcessStageMobileView
-                      stages={filteredStages}
-                      instance={instance}
-                      property={instance.property}
-                      owners={owners}
-                      documents={documents}
-                      deal={deal}
-                      isProcessing={isProcessing}
-                      canDeleteAdhoc={canDeleteAdhoc}
-                      onTaskAction={handleTaskAction}
-                      onTaskBypass={handleBypassOpen}
-                      onTaskAssign={handleAssignOpen}
-                      onTaskDelete={(task) => setDeleteTaskTarget(task)}
-                      onStageComplete={handleStageCompleteOpen}
-                      onTaskUpdate={silentRefresh}
-                    />
-                  </div>
-
-                  {/* Desktop: filters + view toggle */}
-                  <div className="hidden lg:flex items-center gap-2">
-                    <MobileFilterSheet activeCount={
-                      (filterStatus !== 'all' ? 1 : 0) +
-                      (filterPriority !== 'all' ? 1 : 0) +
-                      (filterAssignee !== 'all' ? 1 : 0) +
-                      (filterRole !== 'all' ? 1 : 0)
-                    }>
-                      <Select value={filterStatus} onValueChange={setFilterStatus}>
-                        <SelectTrigger className="w-[150px] h-8 rounded-full text-xs">
-                          <SelectValue placeholder="Estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os estados</SelectItem>
-                          {Object.entries(TASK_STATUS_LABELS).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select value={filterPriority} onValueChange={setFilterPriority}>
-                        <SelectTrigger className="w-[150px] h-8 rounded-full text-xs">
-                          <SelectValue placeholder="Prioridade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas as prioridades</SelectItem>
-                          {Object.entries(TASK_PRIORITY_LABELS).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                        <SelectTrigger className="w-[170px] h-8 rounded-full text-xs">
-                          <SelectValue placeholder="Responsável" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {assignees.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {roles.length > 0 && (
-                        <Select value={filterRole} onValueChange={setFilterRole}>
-                          <SelectTrigger className="w-[180px] h-8 rounded-full text-xs">
-                            <SelectValue placeholder="Papel" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todos os papéis</SelectItem>
-                            {roles.map((role) => {
-                              const rc = getRoleBadgeColors(role)
-                              return (
-                                <SelectItem key={role} value={role}>
-                                  <span className="flex items-center gap-2">
-                                    <span className={cn('h-2 w-2 rounded-full shrink-0', rc.bg, rc.border, 'border')} />
-                                    {role}
-                                  </span>
-                                </SelectItem>
-                              )
-                            })}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </MobileFilterSheet>
-
-                    <div className="ml-auto flex items-center gap-2">
-                      {user?.role?.name && ADHOC_TASK_ROLES.includes(user.role.name as any) && ['active', 'on_hold'].includes(instance.current_status) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setAdhocPreselectedStage(undefined)
-                            setAdhocTaskSheetOpen(true)
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Nova Tarefa
-                        </Button>
-                      )}
-                      <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)} variant="outline" size="sm">
-                        <ToggleGroupItem value="foco" aria-label="Vista Foco">
-                          <Target className="h-4 w-4" />
-                          Foco
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="kanban" aria-label="Vista Kanban">
-                          <LayoutGrid className="h-4 w-4" />
-                          Kanban
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="timeline" aria-label="Vista Timeline">
-                          <Activity className="h-4 w-4" />
-                          Timeline
-                        </ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
-                  </div>
-
-                  {/* Views — desktop only (mobile uses ProcessStageMobileView above) */}
-                  <div className="hidden lg:block space-y-4">
-                    {viewMode === 'foco' ? (
-                      <>
-                        {/* Stage picker for Foco view */}
-                        {sortedFocoStages.length > 1 && focusStage && (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                              Fase
-                            </span>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-muted transition-colors"
-                                >
-                                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-primary-foreground px-1.5 text-[10px] font-bold">
-                                    {String(sortedFocoStages.findIndex((s) => s.id === focusStage.id) + 1).padStart(2, '0')}
-                                  </span>
-                                  <span className="truncate max-w-[260px]">{focusStage.name}</span>
-                                  <span className="text-[10px] text-muted-foreground tabular-nums">
-                                    {focusStage.tasks_completed}/{focusStage.tasks_total}
-                                  </span>
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-[320px]">
-                                {sortedFocoStages.map((s, i) => {
-                                  const isDone = s.tasks_total > 0 && s.tasks_completed === s.tasks_total
-                                  const isCur = s.is_current && !isDone
-                                  return (
-                                    <DropdownMenuItem
-                                      key={s.id}
-                                      onClick={() => {
-                                        setFocusStageId(s.id)
-                                        setFocusTaskId(null)
-                                      }}
-                                      className={cn('flex items-start gap-2 py-2', s.id === focusStage.id && 'bg-accent')}
-                                    >
-                                      <span
-                                        className={cn(
-                                          'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
-                                          isDone && 'bg-emerald-500/15 text-emerald-700',
-                                          !isDone && isCur && 'bg-primary text-primary-foreground',
-                                          !isDone && !isCur && 'bg-muted text-muted-foreground',
-                                        )}
-                                      >
-                                        {String(i + 1).padStart(2, '0')}
-                                      </span>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-medium truncate">{s.name}</div>
-                                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                                          {isDone ? 'Concluída' : isCur ? 'Em curso' : 'Por iniciar'}
-                                          {s.tasks_total > 0 && ` · ${s.tasks_completed}/${s.tasks_total}`}
-                                        </div>
-                                      </div>
-                                    </DropdownMenuItem>
-                                  )
-                                })}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        )}
-                        <ProcessFocusView
-                          stage={focusStage}
-                          tasks={sortedFocoTasks}
-                          activeTaskId={focusTask?.id ?? null}
-                          onTaskChange={handleFocusTaskChange}
-                          instance={instance}
-                          property={instance.property}
-                          owners={owners}
-                          documents={documents}
-                          deal={deal}
-                          onTaskUpdate={silentRefresh}
-                        />
-                      </>
-                    ) : viewMode === 'kanban' ? (
-                      <ProcessKanbanView
-                        stages={filteredStages}
-                        isProcessing={isProcessing}
-                        canDeleteAdhoc={canDeleteAdhoc}
-                        onTaskAction={handleTaskAction}
-                        onTaskBypass={handleBypassOpen}
-                        onTaskAssign={handleAssignOpen}
-                        onTaskClick={handleTaskClick}
-                        onTaskDelete={(task) => setDeleteTaskTarget(task)}
-                        onStageComplete={handleStageCompleteOpen}
-                      />
-                    ) : (
-                      <ProcessTimelineView
-                        activities={processActivities}
-                        isLoading={isLoadingActivities}
-                      />
-                    )}
-                  </div>
-                </>
+                isNegocio ? (
+                  <NegocioProcessPanel processId={instance.id} />
+                ) : (
+                  <AngariacaoProcessPanel
+                    propertyId={instance.property_id ?? instance.property?.id ?? null}
+                    processId={instance.id}
+                  />
+                )
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">

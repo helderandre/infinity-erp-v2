@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/permissions'
 import { bypassNonApplicableNegTasks } from '@/lib/processes/neg/bypass-non-applicable-tasks'
-import { repeatTasksPerClient } from '@/lib/processes/neg/repeat-tasks-per-client'
+import { computeDealFinancials } from '@/lib/processes/neg/compute-deal-financials'
+import { populateSubtasks } from '@/lib/processes/subtasks/populate'
 import { notificationService } from '@/lib/notifications/service'
 import { APPROVER_NOTIFICATION_ROLES } from '@/lib/auth/roles'
 
@@ -146,22 +147,31 @@ export async function POST(
     }
 
     // ── 4. Calculate commission breakdown ──
+    // Fórmula partilhada com o recálculo automático (override pattern) —
+    // ver lib/processes/neg/compute-deal-financials.ts.
     const dealValue = Number(deal.deal_value)
     const commissionPct = Number(deal.commission_pct) / 100
-    const commissionTotal = dealValue * commissionPct
 
     const isInternalShare = deal.share_type === 'internal_agency'
     const sharePctVal = Number(deal.share_pct || 50)
-    const shareAmount = deal.has_share ? commissionTotal * (sharePctVal / 100) : commissionTotal
-    const partnerAmount = commissionTotal - shareAmount
-
-    const networkAmount = shareAmount * networkPct
-    const agencyMargin = shareAmount - networkAmount
-
     const businessType = deal.business_type || 'venda'
     const mainTierRate = getTierRate(dealValue, businessType) / 100
-    const consultantAmount = agencyMargin * mainTierRate
-    const agencyNet = agencyMargin - consultantAmount
+
+    const fin = computeDealFinancials({
+      dealValue,
+      commissionPctFraction: commissionPct,
+      hasShare: !!deal.has_share,
+      sharePctValue: sharePctVal,
+      networkPctFraction: networkPct,
+      mainTierRateFraction: mainTierRate,
+    })
+    const commissionTotal = fin.commission_total
+    const shareAmount = fin.share_amount
+    const partnerAmount = fin.partner_amount
+    const networkAmount = fin.network_amount
+    const agencyMargin = fin.agency_margin
+    const consultantAmount = fin.consultant_amount
+    const agencyNet = fin.agency_net
 
     // ── 5. Determine payment moments ──
     const cpcvPct = Number(deal.cpcv_pct || 0)
@@ -423,23 +433,19 @@ export async function POST(
       console.error('[ProcNegBypass] Erro:', bypassErr)
     }
 
-    // ── 11. PROC-NEG per-client task multiplication ──
-    // Para tasks com config.repeat_per_client=true (ex.: "Documentos do
-    // Comprador (Singular)"), filtra deal_clients por person_type_filter
-    // e clona a task uma vez por cliente adicional (annotando título +
-    // config.client_id/client_name). Erros não revertem o submit.
-    let tasksRepeated = 0
-    let totalClones = 0
+    // ── 11. PROC-NEG hardcoded subtasks ──
+    // Popula as subtarefas hardcoded do registry 'negocio' (lib/processes/
+    // subtasks). Substitui o antigo repeatTasksPerClient — o repeat por
+    // comprador é agora ao nível da subtarefa (config.client_id) dentro do
+    // populate, e o appliesWhen faz gate por cenário. Idempotente
+    // (proc_subtasks_dedup). Requer a migration 20260623_neg_template_
+    // hardcoded_handoff (apaga os tpl_subtasks legacy). Erros não revertem.
+    let subtasksPopulated = 0
     try {
-      const repeatResult = await repeatTasksPerClient(
-        supabase,
-        procInstance.id,
-        id
-      )
-      tasksRepeated = repeatResult.tasks_repeated
-      totalClones = repeatResult.total_clones
-    } catch (repeatErr) {
-      console.error('[ProcNegRepeat] Erro:', repeatErr)
+      const popResult = await populateSubtasks(supabase, procInstance.id, 'negocio')
+      subtasksPopulated = popResult.inserted
+    } catch (popErr) {
+      console.error('[ProcNegPopulate] Erro:', popErr)
     }
 
     // Notify management — submissão de negócio para análise/aprovação.
@@ -473,8 +479,7 @@ export async function POST(
       payments_created: createdPayments.length,
       splits_created: splitRows.length,
       tasks_bypassed: bypassedCount,
-      tasks_repeated: tasksRepeated,
-      task_clones_created: totalClones,
+      subtasks_populated: subtasksPopulated,
     })
   } catch (err: any) {
     console.error('Erro ao submeter negócio:', err)

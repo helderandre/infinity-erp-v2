@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isInternalBookingRequest } from '@/lib/booking/is-internal-booking-request'
 
 // Public endpoint — returns minimal data needed to render the booking page.
 // No auth. Only exposes safe fields (no internal notes, no exact address, no owner info).
@@ -71,11 +72,16 @@ export async function GET(
       .eq('consultant_id', property.consultant_id)
       .maybeSingle()
 
-    // Opt-in: o agendamento público só está disponível quando o consultor o
-    // activou explicitamente (consultant_booking_settings.public_booking_enabled).
-    // Sem linha de settings → considera-se desactivado (coerente com o DEFAULT
-    // false da migration; evita que imóveis por configurar fiquem reserváveis).
-    if (!settings || !settings.public_booking_enabled) {
+    // Opt-in público: o agendamento só está disponível a visitantes anónimos
+    // quando o consultor o activou (consultant_booking_settings.public_booking_enabled).
+    // Sem linha de settings → desactivado para o público (DEFAULT false da
+    // migration; evita que imóveis por configurar fiquem reserváveis fora).
+    // EXCEPÇÃO: o fluxo interno "Solicitar visita" (RequestVisitDialog) reutiliza
+    // este endpoint autenticado — um consultor logado pode sempre pedir visita
+    // a um colega, mesmo que o agendamento público não esteja activo. Por isso
+    // o gate só se aplica a quem NÃO tem sessão.
+    const isInternal = await isInternalBookingRequest()
+    if (!isInternal && (!settings || !settings.public_booking_enabled)) {
       return NextResponse.json(
         { error: 'Agendamento público não está disponível para este imóvel' },
         { status: 404 }

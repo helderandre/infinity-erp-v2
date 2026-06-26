@@ -47,6 +47,9 @@ interface EditNegocioSheetProps {
   negocioId: string
   initial: EditNegocioInitialValues
   onSaved: () => void
+  /** Quando a oportunidade tem fecho, permite editar valor + comissão aqui. */
+  dealId?: string | null
+  dealInitial?: { deal_value: number | null; commission_pct: number | null }
 }
 
 /**
@@ -62,6 +65,8 @@ export function EditNegocioSheet({
   negocioId,
   initial,
   onSaved,
+  dealId,
+  dealInitial,
 }: EditNegocioSheetProps) {
   const isMobile = useIsMobile()
   const { user } = useUser()
@@ -79,6 +84,12 @@ export function EditNegocioSheet({
   )
   const [temperatura, setTemperatura] = useState<string>(initial.temperatura ?? '_none')
   const [observacoes, setObservacoes] = useState<string>(initial.observacoes ?? '')
+  const [dealValue, setDealValue] = useState<string>(
+    dealInitial?.deal_value != null ? String(dealInitial.deal_value) : '',
+  )
+  const [commissionPct, setCommissionPct] = useState<string>(
+    dealInitial?.commission_pct != null ? String(dealInitial.commission_pct) : '',
+  )
   const [isSaving, setIsSaving] = useState(false)
 
   // Reset quando o sheet abre com um négocio diferente — evita arrastar
@@ -91,6 +102,14 @@ export function EditNegocioSheet({
     setTemperatura(initial.temperatura ?? '_none')
     setObservacoes(initial.observacoes ?? '')
   }, [open, initial])
+
+  // Reset dos campos do fecho — keyed nos primitivos para evitar churn do objecto.
+  useEffect(() => {
+    if (!open) return
+    setDealValue(dealInitial?.deal_value != null ? String(dealInitial.deal_value) : '')
+    setCommissionPct(dealInitial?.commission_pct != null ? String(dealInitial.commission_pct) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, dealInitial?.deal_value, dealInitial?.commission_pct])
 
   // Lista de consultores apenas relevante para gestão (só eles podem
   // reatribuir). Lazy fetch quando o sheet abre.
@@ -139,22 +158,56 @@ export function EditNegocioSheet({
         body.observacoes = nextObs
       }
 
-      if (Object.keys(body).length === 0) {
+      // ── Fecho (deals) — valor + comissão. Disparam o recálculo do mapa. ──
+      const dealBody: Record<string, unknown> = {}
+      if (dealId) {
+        const nextDealValue = dealValue.trim() === '' ? null : Number(dealValue)
+        if (nextDealValue != null && Number.isNaN(nextDealValue)) {
+          toast.error('Valor do negócio inválido'); setIsSaving(false); return
+        }
+        if (nextDealValue != null && nextDealValue !== (dealInitial?.deal_value ?? null)) {
+          dealBody.deal_value = nextDealValue
+        }
+        const nextPct = commissionPct.trim() === '' ? null : Number(commissionPct)
+        if (nextPct != null && Number.isNaN(nextPct)) {
+          toast.error('% de comissão inválida'); setIsSaving(false); return
+        }
+        if (nextPct != null && nextPct !== (dealInitial?.commission_pct ?? null)) {
+          dealBody.commission_pct = nextPct
+        }
+      }
+
+      if (Object.keys(body).length === 0 && Object.keys(dealBody).length === 0) {
         toast.info('Nada para guardar')
         setIsSaving(false)
         return
       }
 
-      const res = await fetch(`/api/negocios/${negocioId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error || 'Erro ao guardar')
+      if (Object.keys(body).length > 0) {
+        const res = await fetch(`/api/negocios/${negocioId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || 'Erro ao guardar oportunidade')
+        }
       }
-      toast.success('Oportunidade actualizada')
+
+      if (dealId && Object.keys(dealBody).length > 0) {
+        const res = await fetch(`/api/deals/${dealId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dealBody),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || 'Erro ao guardar fecho')
+        }
+      }
+
+      toast.success('Guardado')
       onSaved()
       onOpenChange(false)
     } catch (err) {
@@ -289,6 +342,49 @@ export function EditNegocioSheet({
               disabled={isSaving}
             />
           </div>
+
+          {dealId && (
+            <div className="space-y-3 rounded-2xl ring-1 ring-border/40 bg-background/40 p-4">
+              <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+                Fecho (financeiro)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="deal_value" className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+                    Valor do negócio (€)
+                  </Label>
+                  <Input
+                    id="deal_value"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    value={dealValue}
+                    onChange={(e) => setDealValue(e.target.value)}
+                    placeholder="0,00"
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commission_pct" className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-wider">
+                    Comissão (%)
+                  </Label>
+                  <Input
+                    id="commission_pct"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    value={commissionPct}
+                    onChange={(e) => setCommissionPct(e.target.value)}
+                    placeholder="5"
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Alterar o valor ou a comissão recalcula automaticamente o mapa de gestão, preservando os ajustes manuais e o que já foi faturado ou recebido.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="shrink-0 border-t border-border/40 bg-background/60 px-6 sm:px-8 py-4 flex items-center justify-end gap-2">

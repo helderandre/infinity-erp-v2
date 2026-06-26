@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Sparkles, Check, TrendingUp, Briefcase, Timer,
   Trophy, Euro, AlertOctagon, BarChart3, Globe, ArrowDownRight, ArrowUpRight,
-  CalendarIcon,
+  CalendarIcon, CalendarDays, CalendarCheck, Percent,
 } from 'lucide-react'
 import { format, isValid, parseISO, startOfDay, startOfYear, subDays } from 'date-fns'
 import { pt } from 'date-fns/locale'
@@ -62,6 +62,15 @@ interface Aggregates {
     byPortal: Record<string, number>
     statusFunnel: { aberto: number; ganho: number; perdido: number }
     lostReasons: Record<string, number>
+  }
+  visits: {
+    scheduled: number // agendadas (todos os agendamentos reais do período)
+    completed: number // realizadas
+    noShow: number
+    cancelled: number
+    pending: number // ainda por realizar (data futura)
+    due: number // agendamentos já vencidos
+    completionRate: number // realizadas ÷ vencidas
   }
 }
 
@@ -522,6 +531,31 @@ export function AnaliseTab() {
                 useDate: 'processed_at',
                 valueKey: 'count',
               })}
+            />
+          </div>
+
+          {/* KPI row — Visitas (agendadas vs realizadas) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <KpiCard
+              Icon={CalendarDays}
+              label="Visitas agendadas"
+              value={data.visits.scheduled}
+              delta={pctDelta(data.visits.scheduled, data.previous.visits.scheduled)}
+              hint={data.visits.pending > 0 ? `${data.visits.pending} por realizar` : 'Agendamentos no período'}
+            />
+            <KpiCard
+              Icon={CalendarCheck}
+              label="Visitas realizadas"
+              value={data.visits.completed}
+              delta={pctDelta(data.visits.completed, data.previous.visits.completed)}
+              hint={`de ${data.visits.due} já vencidas`}
+            />
+            <KpiCard
+              Icon={Percent}
+              label="Taxa de realização"
+              value={data.visits.due > 0 ? `${(data.visits.completionRate * 100).toFixed(0)}%` : '—'}
+              delta={pctDelta(data.visits.completionRate, data.previous.visits.completionRate)}
+              hint={`${data.visits.noShow} faltou · ${data.visits.cancelled} cancel.`}
             />
           </div>
 

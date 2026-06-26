@@ -40,7 +40,7 @@ export async function GET(
         *,
         pipeline_stage:leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, pipeline_type),
         lead:leads!negocios_lead_id_fkey(id, nome, full_name, telefone, telemovel, email, empresa, nipc, morada, codigo_postal, localidade, agent_id),
-        property:dev_properties!negocios_property_id_fkey(id, address_street, city, zone, address_parish, listing_price, property_type),
+        property:dev_properties!negocios_property_id_fkey(id, title, external_ref, address_street, city, zone, address_parish, listing_price, property_type),
         consultant:dev_users!negocios_assigned_consultant_id_fkey(
           id, commercial_name, professional_email,
           dev_consultant_profiles(profile_photo_url, phone_commercial)
@@ -72,6 +72,7 @@ export async function GET(
         commission_pct, commission_total, commission_type, payment_structure,
         contract_signing_date, max_deadline, proc_instance_id, negocio_id, property_id,
         external_property_link, external_property_zone, external_property_typology,
+        external_property_type, external_property_construction_year, external_property_extra,
         external_consultant_name,
         deal_payments (
           id, payment_moment, payment_pct, amount,

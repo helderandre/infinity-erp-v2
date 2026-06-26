@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/auth/permissions'
 import { recurringTemplateSchema } from '@/lib/validations/financial'
@@ -43,17 +44,25 @@ export async function DELETE(
     if (!auth.authorized) return auth.response
 
     const { id } = await params
-    const supabase = await createClient()
+    // Hard delete. A FK em company_transactions.recurring_template_id é NO ACTION,
+    // por isso soltamos primeiro o backlink nas despesas já geradas (que se mantêm)
+    // e só depois apagamos o template. Usa admin client (já gated por permissão).
+    const admin = createAdminClient() as any
 
-    const { error } = await supabase
-      .from('company_recurring_templates' as any)
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+    await admin
+      .from('company_transactions')
+      .update({ recurring_template_id: null })
+      .eq('recurring_template_id', id)
+
+    const { error } = await admin
+      .from('company_recurring_templates')
+      .delete()
       .eq('id', id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Erro ao desactivar template:', error)
+    console.error('Erro ao eliminar template:', error)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }

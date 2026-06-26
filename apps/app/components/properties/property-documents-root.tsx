@@ -1,14 +1,14 @@
 'use client'
 
 import { FolderOpen, List } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import { PropertyDocumentsFoldersView } from './property-documents-folders-view'
 import { PropertyDocumentsTab } from './property-documents-tab'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 type ViewMode = 'lista' | 'pastas'
-type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario' | 'cmi'
+type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario' | 'cmi' | 'cpcv'
 
 interface PropertyDocumentsRootProps {
   propertyId: string
@@ -16,9 +16,12 @@ interface PropertyDocumentsRootProps {
   defaultTab?: DocTab
   /** Esconde a barra de "Próximos Alertas" (ex.: na sheet do passo). */
   hideAlerts?: boolean
+  /** Conteúdo injectado no topo do sub-separador "Proprietário" da vista Lista
+   *  (hub de proprietários: pedido de info por link + lista + detalhe). */
+  proprietarioExtra?: ReactNode
 }
 
-export function PropertyDocumentsRoot({ propertyId, defaultTab = 'todos', hideAlerts = false }: PropertyDocumentsRootProps) {
+export function PropertyDocumentsRoot({ propertyId, defaultTab = 'todos', hideAlerts = false, proprietarioExtra }: PropertyDocumentsRootProps) {
   const [view, setView] = useState<ViewMode>('lista')
 
   return (
@@ -43,7 +46,7 @@ export function PropertyDocumentsRoot({ propertyId, defaultTab = 'todos', hideAl
       </div>
 
       {view === 'lista' ? (
-        <PropertyDocumentsTab propertyId={propertyId} defaultTab={defaultTab} hideAlerts={hideAlerts} />
+        <PropertyDocumentsTab propertyId={propertyId} defaultTab={defaultTab} hideAlerts={hideAlerts} proprietarioExtra={proprietarioExtra} />
       ) : (
         <PropertyDocumentsFoldersView propertyId={propertyId} />
       )}

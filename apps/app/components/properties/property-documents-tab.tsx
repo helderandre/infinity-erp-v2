@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -63,6 +63,9 @@ interface PropertyDocumentsTabProps {
   defaultTab?: DocTab
   /** Esconde a barra lateral de "Próximos Alertas" (ex.: na sheet do passo). */
   hideAlerts?: boolean
+  /** Conteúdo injectado no topo do sub-separador "Proprietário" (hub de
+   *  proprietários: pedido de info por link + lista + detalhe + edição). */
+  proprietarioExtra?: ReactNode
 }
 
 type ExpiryStatus = 'expired' | 'critical' | 'soon' | 'ok' | 'none'
@@ -89,7 +92,7 @@ const STATUS_STYLES: Record<ExpiryStatus, { dot: string; text: string; bg: strin
 }
 
 // ─── Tab definitions ─────────────────────────────────────────────
-type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario' | 'cmi'
+type DocTab = 'todos' | 'imovel' | 'contratual' | 'proprietario' | 'cmi' | 'cpcv'
 
 const TABS: { key: DocTab; label: string }[] = [
   { key: 'todos', label: 'Todos' },
@@ -97,17 +100,20 @@ const TABS: { key: DocTab; label: string }[] = [
   { key: 'contratual', label: 'Contratual' },
   { key: 'proprietario', label: 'Proprietário' },
   { key: 'cmi', label: 'CMI' },
+  { key: 'cpcv', label: 'CPCV' },
 ]
 
 function tabFor(category: string | null | undefined): DocTab {
   const c = (category || '').toLowerCase()
+  // CPCV antes de "contratual" — um CPCV é contratual mas tem separador próprio.
+  if (c.includes('cpcv')) return 'cpcv'
   if (c.startsWith('proprietário') || c.startsWith('proprietario')) return 'proprietario'
   if (c.startsWith('contratual')) return 'contratual'
   // Imóvel + Jurídico + Jurídico Especial all go under "imovel"
   return 'imovel'
 }
 
-export function PropertyDocumentsTab({ propertyId, defaultTab = 'todos', hideAlerts = false }: PropertyDocumentsTabProps) {
+export function PropertyDocumentsTab({ propertyId, defaultTab = 'todos', hideAlerts = false, proprietarioExtra }: PropertyDocumentsTabProps) {
   const [propertyDocs, setPropertyDocs] = useState<PropertyDoc[]>([])
   const [ownerDocs, setOwnerDocs] = useState<PropertyDoc[]>([])
   const [loading, setLoading] = useState(true)
@@ -166,7 +172,7 @@ export function PropertyDocumentsTab({ propertyId, defaultTab = 'todos', hideAle
 
   // Counts per tab
   const tabCounts = useMemo(() => {
-    const counts: Record<DocTab, number> = { todos: allDocs.length, imovel: 0, contratual: 0, proprietario: 0, cmi: 0 }
+    const counts: Record<DocTab, number> = { todos: allDocs.length, imovel: 0, contratual: 0, proprietario: 0, cmi: 0, cpcv: 0 }
     for (const doc of allDocs) {
       const t = tabFor(doc.doc_type?.category)
       counts[t]++
@@ -659,6 +665,28 @@ export function PropertyDocumentsTab({ propertyId, defaultTab = 'todos', hideAle
 
       {/* ─── CMI readiness panel ─── */}
       {activeTab === 'cmi' && <PropertyCmiReadiness propertyId={propertyId} />}
+
+      {/* ─── Hub de Proprietários (injectado pela página: pedido de info por link
+          + lista + detalhe/edição). Aparece por cima dos documentos do proprietário. ─── */}
+      {activeTab === 'proprietario' && proprietarioExtra && (
+        <div className="animate-in fade-in duration-200">{proprietarioExtra}</div>
+      )}
+
+      {/* ─── CPCV: espaço reservado para o PDF do CPCV (quando existir), acima da
+          lista de documentos CPCV carregados. ─── */}
+      {activeTab === 'cpcv' && (
+        <div className="rounded-2xl border border-dashed bg-muted/20 p-5 flex items-start gap-3 animate-in fade-in duration-200">
+          <div className="h-9 w-9 rounded-full bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+            <FileText className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Documento CPCV (PDF)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Quando o CPCV estiver disponível, o PDF aparece aqui. Em baixo ficam os documentos de CPCV carregados.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ─── Two-column layout: alerts sidebar + docs list ─── */}
       {activeTab !== 'cmi' && (

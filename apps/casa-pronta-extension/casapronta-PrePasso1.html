@@ -1,0 +1,1113 @@
+
+
+
+
+
+
+
+
+
+                
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="pt" lang="pt">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Casa Pronta</title>
+<link href="../includes/styles.css" rel="stylesheet" type="text/css" />
+<link href="../includes/jquery-ui-theme-1.12.1.css" rel="stylesheet" type="text/css"/>
+<script src="../includes/utils.js" type="text/javascript"></script>
+<script src="../includes/jquery-1.10.2.min.js" type="text/javascript"></script>
+	<script src="../includes/jquery-1.12.4.js" type="text/javascript"></script>
+	<script src="../includes/jquery-ui-1.12.1.js" type="text/javascript"></script>
+<script src="../includes/ajax.js" type="text/javascript"></script>
+<script src="../includes/resizer.js" type="text/javascript"></script>
+<script src="../includes/popup.js" type="text/javascript"></script>
+<script src="../includes/areas.js" type="text/javascript"></script>
+<script src="../includes/CPV001.js" type="text/javascript"></script>
+<script src="../includes/pagination.plugin.js" type="text/javascript"></script>
+<script type="text/javascript">
+history.forward();
+function Logout(){
+	if(!confirm("Para aceder à Página Principal deverá efetuar Logout?\n(canto superior direito)\nPretende efetuar o Logout agora?"))
+    	return void(0);
+    
+    window.location.href="logout.jsp";
+}
+</script>
+</head>
+<body>
+<div class="mainwrapper" id="wrapper">
+	<div class="top" id="top">
+		<div class="image_banner">
+			<a class="posabs" name="Apoio" href="#Menu" accesskey="1"><img src="../includes/images/spacer.gif" width="1" height="1" alt="-" /></a>
+			<ul class="menuajuda">
+			
+				<li class="first"><a href="https://irn.justica.gov.pt/Casa-Pronta-Perguntas-Frequentes" title="Perguntas Frequentes" alt="Perguntas Frequentes">Perguntas Frequentes</a></li>
+				<li><a href="../conteudos/contactos.jsp" title="Contactos" alt="Contactos">Contactos</a></li>
+				<!-- <li><a href="../mapasite.html">Mapa do Portal</a></li>
+				<li><a href="../help.html">Ajuda</a></li> -->
+			
+			</ul>
+			<h1 class="banner">
+				
+					<a href="../homepage.jsp"><img src="../includes/images/logo_casapronta.gif" alt="Casa Pronta" title="Casa Pronta" class="img_banner00" /></a><br/>
+				
+			</h1>
+			<a class="posabs" name="Menu" href="#Corpo" accesskey="2"><img src="../includes/images/spacer.gif" width="1" height="1" alt="-" /></a>				
+			<ul class="menu1">
+				
+					<li><a href="../preferencias/ServicosOnline.jsp"><img src="../includes/images/dossier_sel.gif" alt="Serviços Online" title="Serviços Online"/></a></li>
+					<li><a href="../preferencias/MudancaCasa.jsp"><img src="../includes/images/btn_mudanca_casa.gif" alt="Mudança de Casa passo a passo" title="Mudança de Casa passo a passo"/></a></li>
+				
+				 <li></li>
+			</ul>
+		</div>
+	</div>
+
+            	 
+
+<script type="text/javascript">
+    function validateAllValues(init){
+        var j;
+        var i;
+        var e;
+        var personType; 
+
+        if (!FormCheckGeneric(init,'requerente','Requerente','requerente'))
+            return void(0);
+
+        if (!FormCheckGeneric(init,'nif','NIF','nif'))
+            return void(0);
+
+        if(!ValidateTaxNumber(init,'nif','Requerente',''))
+            return void(0);
+        
+        if(GetControlValue(init, 'email') == ''){
+            alert('O campo: E-mail é um campo de preenchimento obrigatório');
+            return void(0);
+        }
+
+        if(GetControlValue(init,'email')!=''){
+            if(!VerifyEmailAddress(init,'email','email'))
+                return void(0);
+        }
+
+        if(GetControlValue(init,'telefone')!=''){
+            if(!ValidateInput('integer',init,'telefone','Telefone',9,15,0,false))
+                return void(0);
+        }
+
+        if(GetControlValue(init,'telefone')=='' && GetControlValue(init,'email')=='' && GetControlValue(init,'morada_requerente')==''){
+            alert("Pelo menos um dos campos: E-mail, Telefone ou Endereço deverá estar preenchido!");
+            return void(0);
+        }
+
+        for(j=1;j<=Vendedores;j++){
+            if (!FormCheckGeneric(init,'nome_firma' + j + 'V','Nome/Firma Vendedor '+j,'nome_firma' + j + 'V'))
+                return void(0);
+			
+            if (!FormCheckGeneric(init,'nif' + j + 'V','NIF/NIPC Vendedor '+j,'nif' + j + 'V'))
+                return void(0);
+
+            if(!ValidateTaxNumber(init,'nif'+j+'V','Vendedor '+j,''))
+                return void(0);
+
+            for(i=j-1;i>0;i--){
+                if(GetControlValue(init,'nif'+j+'V')==GetControlValue(init,'nif'+i+'V')){
+                    alert("O número de contribuinte do Vendedor "+j+" não pode ser igual ao do Vendedor "+i);
+                    return void(0);
+                }
+            }
+        }
+
+        for(j=1;j<=Compradores;j++){
+            if (!FormCheckGeneric(init,'nome_firma' + j + 'C','Nome/Firma Comprador '+j,'nome_firma' + j + 'C'))
+                return void(0);
+			
+            if (!FormCheckGeneric(init,'nif' + j + 'C','NIF/NIPC Comprador '+j,'nif' + j + 'C'))
+                return void(0);
+		
+            if(!ValidateTaxNumber(init,'nif'+j+'C','Comprador '+j,''))
+                return void(0);
+
+            for(i=j-1;i>0;i--){
+                if(GetControlValue(init,'nif'+j+'C')==GetControlValue(init,'nif'+i+'C')){
+                    alert("O número de contribuinte do Comprador "+j+" não pode ser igual ao do Comprador "+i);
+                    return void(0);
+                }
+            }
+        }
+
+        for(j=1;j<=Vendedores;j++){
+            for(i=1;i<=Compradores;i++){
+                if(GetControlValue(init,'nif'+i+'C')==GetControlValue(init,'nif'+j+'V')){
+                    alert("O número de contribuinte do Comprador "+i+" não pode ser igual ao do Vendedor "+j);
+                    return void(0);
+                }
+            }
+        }
+
+        if(GetControlValue(init,'artigo') == "" && GetControlValue(init,'ficha') == ""){
+            alert("Pelo menos um dos campos: Descrição em Ficha ou Artigo Matricial deverá estar preenchido!");	
+            return void(0);
+        }
+        
+        if(GetControlValue(init,'ficha') != ""){
+            if(!ValidateInput('integer',init,'ficha','Descrição em Ficha',0,10,0,false))
+                return void(0);
+        }
+        if(GetControlValue(init,'artigo') != ""){
+            if(!validateifNotNullPositiveNumber(init, 'artigo', 'Artigo Matricial')){
+                return void(0);
+            }
+            //if(!ValidateInput('integer',init,'artigo','Artigo Matricial',0,10,0,false))
+        }
+    
+
+        //Validação do preenchimento da área bruta
+        if (!FormCheckGeneric(init,'imo_area2','Área Bruta','imo_area2'))
+            return void(0);
+        
+        if (!ValidateInput('decimal',init,'imo_area2','Área Bruta',0,15,2,false))
+            return void(0);
+    
+        //Validação do preenchimento da unidade de medida da área bruta    
+        if (!FormCheckGeneric(init,'imo_areamedida2','Unidade de medida da Área Bruta','imo_areamedida2'))
+            return void(0);
+    
+        fieldvalue = GetControlValue(init, "imo_area1");
+        if(fieldvalue.length > 0){
+        	if (!ValidateInput('decimal',init,'imo_area1','Área Total',0,15,2,false))
+                return void(0);
+        	
+        	if (!FormCheckGeneric(init,'imo_areamedida1','Unidade de medida da Área Total','imo_areamedida1'))
+                return void(0);
+        }
+	
+        if(GetControlValue(init,'quota_parte') != ""){
+            if(!VerifyQuotaParte(init,'quota_parte','Quota Parte'))
+                return void(0);
+        }
+
+        if(!(init.arrendado[0].checked) && !(init.arrendado[1].checked)){
+            alert("Tem de selecionar a opção Arrendado: Sim/Não");
+            return void(0);
+        }
+    
+        if (!FormCheckGeneric(init,'destino','Destino','destino'))
+            return void(0);
+
+        if (!FormCheckGeneric(init,'morada','Morada','morada'))
+            return void(0);
+
+        if (!FormCheckGeneric(init,'distrito','Distrito','distrito'))
+            return void(0);
+			
+        if (!FormCheckGeneric(init,'distrito','Distrito','distrito'))
+            return void(0);
+
+        if (!FormCheckGeneric(init,'concelho','Concelho','concelho'))
+            return void(0);
+
+        if (!FormCheckGeneric(init,'freguesia','Freguesia','freguesia'))
+            return void(0);
+
+        if (!FormCheckGeneric(init,'tipo_negocio','Tipo de Negócio','tipo_negocio'))
+            return void(0);
+		
+        if (!FormCheckGeneric(init,'valor','Preço','valor'))
+            return void(0);
+		
+        if (!ValidateInput('decimal',init,'valor','Preço',0,15,2,false))
+            return void(0);
+
+        if(!verifyDatePrevious(init,'data_previsivel','Data previsível do negócio'))
+            return void(0);
+
+        document.forms['init'].countvendedores.value = Vendedores;
+        document.forms['init'].countcompradores.value = Compradores;
+        document.forms.init.action="PrePasso2.jsp";
+        document.forms.init.submit();
+        return true;
+    }
+
+    function changeComboValue(form,selectname, hiddenname){
+        var e;
+        var ed;
+        var estado;  
+
+        e = document.getElementById(selectname);
+        ed = document.getElementById(hiddenname);    
+        if(ed != null)
+        {        
+            estado = (e.value=="")?"":e[e.selectedIndex].text;
+            ed.value = estado;
+        }
+    }
+    function changeDestino(){
+        changeComboValue('init','destino','destino_descricao');
+        if(GetControlValue(document.forms['init'],'destino_descricao')=='Outro'){
+            showLayer('outro');
+        }else{
+            document.forms['init'].outro.value="";
+            hideLayer('outro');
+        }
+    }
+
+    var Compradores=1;
+    function addComprador(maxInterv)
+    {
+        var nextComprador=Compradores + 1;
+        showLayer('comprador' + nextComprador);	
+        showLayer('removeComprador' + nextComprador );
+        if(Compradores>1)
+            hideLayer('removeComprador' + Compradores);
+        Compradores=Compradores + 1; 
+        if(Compradores==maxInterv)
+            hideLayer('addComprador');
+    }
+    function removeComprador(maxInterv)
+    {
+        hideLayer('removeComprador' + Compradores);
+        hideLayer('comprador' + Compradores);
+        Compradores=Compradores - 1; 
+        if(Compradores>1)
+            showLayer('removeComprador' + Compradores);
+        if(Compradores<maxInterv)
+            showLayer('addComprador');
+    }
+
+    var Vendedores=1;
+    function addVendedor(maxInterv)
+    {
+        var nextVendedor=Vendedores + 1;
+        showLayer('vendedor' + nextVendedor);	
+        showLayer('removeVendedor' + nextVendedor );
+        if(Vendedores>1)
+            hideLayer('removeVendedor' + Vendedores);
+        Vendedores=Vendedores + 1; 
+        if(Vendedores==maxInterv)
+            hideLayer('addVendedor');
+    }
+    function removeVendedor(maxInterv)
+    {
+        hideLayer('removeVendedor' + Vendedores);
+        hideLayer('vendedor' + Vendedores);
+        Vendedores=Vendedores - 1; 
+        if(Vendedores>1)
+            showLayer('removeVendedor' + Vendedores);
+        if(Vendedores<maxInterv)
+            showLayer('addVendedor');
+    }
+
+    $(function () {
+        $("#data_previsivel").datepicker({
+            dateFormat: 'dd-mm-yy',
+            minDate: new Date()
+        });
+    });
+
+</script>
+<script> 
+var maxAmount = 100;
+function textCounter(textField, showCountField) {
+    if (textField.value.length > maxAmount) {
+        textField.value = textField.value.substring(0, maxAmount);
+	} else { 
+        showCountField.value = maxAmount - textField.value.length;
+	}
+}
+</script>
+
+<noscript>
+ <div style="padding:10px; border:1px solid gray; margin:10px; background-color:#d2e8c6">
+            <div class="obrigatorio">
+                <strong>Aviso:</strong>
+                <br />
+                O Casa Pronta requer que o Javascript esteja ativo. Por favor ative nas definições do seu browser.
+                <br />
+                <br />
+                Agradecemos a sua compreens&atilde;o.
+            </div>
+        </div>
+</noscript>
+
+
+<div class="corpo">
+    <form action="PrePasso2.jsp" method="post" name="init" onsubmit="javascript:return validateAllValues(document.forms.init);">
+        <input type="hidden" name="formtype" value="1" />
+        <input type="hidden" name="logInValue" value="" />
+        <input type="hidden" name="countvendedores" value="1" />
+        <input type="hidden" name="countcompradores" value="1" />
+        <div class="middle_2col">
+            <a class="posabs" name="Corpo" href="#Dta" accesskey="4">&nbsp;</a>
+            <div class="path">
+		voltar para: 
+                    <a href="../homepage.jsp" title="página principal" alt="página principal">página principal</a> &raquo; <a href="ServicosOnline.jsp">servi&ccedil;os online</a> &raquo; novo anúncio 
+                
+            </div>
+            <img src="../includes/images/spacer.gif" width="369px" height="1px" alt="-" />
+            <h1>Novo Anúncio</h1>
+            <p><span class="obrigatorio">*</span> campos de preenchimento obrigat&oacute;rio</p>
+            <p><span class="obrigatorio2">**</span> pelo menos um dos campos &eacute; de preenchimento obrigat&oacute;rio </p>
+            <p>&nbsp;</p>
+            <h2>1- Dados do Requerente, Compradores, Vendedores, Dados do Imóvel, e Valor da Transmissão</h2>
+            <div class="break"><img src="../includes/images/spacer.gif" width="1" height="1" alt="-" /></div>
+            
+            <h3>Dados do Requerente</h3>
+            <div class="corpo_coluna">
+                <label for="requerente">Nome/Firma ou Denominação<span class="obrigatorio">*</span></label>
+                <br/><input id="requerente" name="requerente" type="text" value="" size="45" maxlength="160" /> 
+            </div>
+            <div class="corpo_coluna">
+                <label for="nif">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                <input onkeypress="javascript:ValidateInput('integer',init,'nif','NIF/NIPC',0,9,0,true);" name="nif" id="nif" type="text" value="" maxlength="9" />
+            </div>
+            <br class="break"/><br/>
+            <div class="corpo_coluna">
+                <label for="email">Email<span class="obrigatorio">*</span></label>
+                <br/><input id="email" name="email" type="text" value="" size="45" maxlength="50" /> 
+            </div>
+            <div class="corpo_coluna">
+                <label for="telefone">Telefone<span class="obrigatorio2">**</span></label><br/>
+                <input onkeypress="javascript:ValidateInput('integer',init,'telefone','Telefone',9,15,0,true);" name="telefone" id="telefone" type="text" value="" maxlength="15" />
+            </div>
+            <br class="break"/><br/>
+            <div class="corpo_coluna">
+                <label for="morada_requerente">Endereço<span class="obrigatorio2">**</span></label><br/>
+                <input name="morada_requerente" id="morada_requerente" size="71" type="text" value="" maxlength="240" />
+                <div class="exemplo">Rua, Av., Lugar/N.º da porta de Lote/Andar, piso e lado</div>
+            </div>
+            <br class="break"/><br/>
+            <div class="break"></div>
+           
+            <h3>Vendedor</h3>
+            
+                
+                        <h4>Vendedor 1</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma1V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma1V" name="nome_firma1V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif1V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif1V','NIF/NIPC',0,9,0,true);" name="nif1V" id="nif1V" type="text" value="" maxlength="9" />
+                        </div>
+                
+            
+                
+                <div class="hide" id="vendedor2"><br/>
+                
+                        <h4>Vendedor 2</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma2V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma2V" name="nome_firma2V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif2V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif2V','NIF/NIPC',0,9,0,true);" name="nif2V" id="nif2V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor2">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor3"><br/>
+                
+                        <h4>Vendedor 3</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma3V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma3V" name="nome_firma3V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif3V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif3V','NIF/NIPC',0,9,0,true);" name="nif3V" id="nif3V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor3">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor4"><br/>
+                
+                        <h4>Vendedor 4</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma4V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma4V" name="nome_firma4V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif4V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif4V','NIF/NIPC',0,9,0,true);" name="nif4V" id="nif4V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor4">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor5"><br/>
+                
+                        <h4>Vendedor 5</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma5V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma5V" name="nome_firma5V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif5V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif5V','NIF/NIPC',0,9,0,true);" name="nif5V" id="nif5V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor5">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor6"><br/>
+                
+                        <h4>Vendedor 6</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma6V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma6V" name="nome_firma6V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif6V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif6V','NIF/NIPC',0,9,0,true);" name="nif6V" id="nif6V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor6">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor7"><br/>
+                
+                        <h4>Vendedor 7</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma7V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma7V" name="nome_firma7V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif7V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif7V','NIF/NIPC',0,9,0,true);" name="nif7V" id="nif7V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor7">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor8"><br/>
+                
+                        <h4>Vendedor 8</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma8V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma8V" name="nome_firma8V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif8V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif8V','NIF/NIPC',0,9,0,true);" name="nif8V" id="nif8V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor8">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor9"><br/>
+                
+                        <h4>Vendedor 9</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma9V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma9V" name="nome_firma9V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif9V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif9V','NIF/NIPC',0,9,0,true);" name="nif9V" id="nif9V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor9">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor10"><br/>
+                
+                        <h4>Vendedor 10</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma10V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma10V" name="nome_firma10V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif10V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif10V','NIF/NIPC',0,9,0,true);" name="nif10V" id="nif10V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor10">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+                
+                <div class="hide" id="vendedor11"><br/>
+                
+                        <h4>Vendedor 11</h4>
+                        <br/>
+                        <div class="corpo_coluna">
+                            <label for="nome_firma11V">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                            <input id="nome_firma11V" name="nome_firma11V" type="text" value="" size="45" maxlength="160" />
+                        </div>
+                        <div class="corpo_coluna">
+                            <label for="nif11V">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                            <input onkeypress="javascript:ValidateInput('integer',init,'nif11V','NIF/NIPC',0,9,0,true);" name="nif11V" id="nif11V" type="text" value="" maxlength="9" />
+                        </div>
+                
+                        <div class="corpo_coluna"><br/>	
+                            <div id="removeVendedor11">
+                                <span class="plainlink" onclick="removeVendedor('11'); return false" onkeypress="removeVendedor('11'); return false" title="Remover Vendedor">
+                                    <img src="../includes/images/remove.gif" alt="Remover Vendedor" title="Remover Vendedor"/>
+                                </span>
+                            </div>		
+                        </div>
+                    </div>
+                
+            
+            <br class="break"/><br/>
+            <div class="go" id="addVendedor"><span onclick="addVendedor('11'); return false" onkeypress="addVendedor('11'); return false" title="Adicionar Vendedor" alt="Adicionar Vendedor"><img src="../includes/images/add.gif" alt="Adicionar Vendedor"  /> Adicionar Vendedor </span></div>
+            <div class="break"></div>
+            <h3>Comprador</h3>
+            
+                
+                <h4>Comprador 1</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma1C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma1C" name="nome_firma1C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif1C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif1C','NIF/NIPC',0,9,0,true);" name="nif1C" id="nif1C" type="text" value="" maxlength="9" />
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador2"><br/>
+                
+                <h4>Comprador 2</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma2C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma2C" name="nome_firma2C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif2C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif2C','NIF/NIPC',0,9,0,true);" name="nif2C" id="nif2C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador2">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador3"><br/>
+                
+                <h4>Comprador 3</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma3C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma3C" name="nome_firma3C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif3C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif3C','NIF/NIPC',0,9,0,true);" name="nif3C" id="nif3C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador3">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador4"><br/>
+                
+                <h4>Comprador 4</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma4C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma4C" name="nome_firma4C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif4C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif4C','NIF/NIPC',0,9,0,true);" name="nif4C" id="nif4C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador4">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador5"><br/>
+                
+                <h4>Comprador 5</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma5C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma5C" name="nome_firma5C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif5C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif5C','NIF/NIPC',0,9,0,true);" name="nif5C" id="nif5C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador5">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador6"><br/>
+                
+                <h4>Comprador 6</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma6C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma6C" name="nome_firma6C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif6C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif6C','NIF/NIPC',0,9,0,true);" name="nif6C" id="nif6C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador6">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador7"><br/>
+                
+                <h4>Comprador 7</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma7C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma7C" name="nome_firma7C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif7C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif7C','NIF/NIPC',0,9,0,true);" name="nif7C" id="nif7C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador7">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador8"><br/>
+                
+                <h4>Comprador 8</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma8C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma8C" name="nome_firma8C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif8C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif8C','NIF/NIPC',0,9,0,true);" name="nif8C" id="nif8C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador8">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador9"><br/>
+                
+                <h4>Comprador 9</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma9C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma9C" name="nome_firma9C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif9C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif9C','NIF/NIPC',0,9,0,true);" name="nif9C" id="nif9C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador9">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador10"><br/>
+                
+                <h4>Comprador 10</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma10C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma10C" name="nome_firma10C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif10C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif10C','NIF/NIPC',0,9,0,true);" name="nif10C" id="nif10C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador10">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+                
+                <div class="hide" id="comprador11"><br/>
+                
+                <h4>Comprador 11</h4>
+                <br/>
+                <div class="corpo_coluna">
+                    <label for="nome_firma11C">Nome/Firma ou Denominação</label><span class="obrigatorio">*</span><br/>
+                    <input id="nome_firma11C" name="nome_firma11C" type="text" value="" size="45" maxlength="160" />
+                </div>
+                <div class="corpo_coluna">
+                    <label for="nif11C">NIF/NIPC<span class="obrigatorio">*</span></label><br/>
+                    <input onkeypress="javascript:ValidateInput('integer',init,'nif11C','NIF/NIPC',0,9,0,true);" name="nif11C" id="nif11C" type="text" value="" maxlength="9" />
+                </div>
+                
+                    <div class="corpo_coluna"><br/>	
+                        <div id="removeComprador11">
+                            <span class="plainlink" onclick="removeComprador('11'); return false" onkeypress="removeComprador('11'); return false" title="Remover Comprador">
+                                <img src="../includes/images/remove.gif" alt="Remover Comprador" title="Remover Comprador"/>
+                            </span>
+                        </div>		
+                    </div>
+                </div>
+                
+            
+            <div class="go" id="addComprador"><br class="break"/><br/><span onclick="addComprador('11'); return false" onkeypress="addComprador('11'); return false" title="Adicionar Comprador" alt="Adicionar Comprador"><img src="../includes/images/add.gif" alt="Adicionar Comprador" title="Adicionar Comprador"/> Adicionar Comprador</span></div>
+            <div class="break"></div>
+            <h3>Identificação do Im&oacute;vel </h3>
+            
+            <div class="corpo_coluna">
+                <label for="ficha">Descrição em Ficha<span class="obrigatorio2">**</span></label><br/>
+                <input onkeypress="javascript:ValidateInput('integer',init,'ficha','Descrição em Ficha',0,10,0,true);" name="ficha" id="ficha" type="text" value="" maxlength="10" />
+            </div>
+            <div class="corpo_coluna">
+                <label for="artigo">Artigo Matricial<span class="obrigatorio2">**</span><br/></label>
+                <input onkeypress="javascript:ValidateInput('integer',init,'artigo','Artigo Matricial',0,10,0,true);" name="artigo" id="artigo" type="text" value="" maxlength="10" />
+            </div>
+            <br class="break"/><br/>
+            <div class="corpo_coluna">
+                <label for="quota_parte">Quota Parte</label><br/>
+                <input name="quota_parte" id="quota_parte" type="text" value="" maxlength="12" />
+                <div class="exemplo">Ex: 1/2, 1/3, 1/5 e 2/64</div>
+            </div>
+            <div class="corpo_coluna">
+                <label for="fraccao">Fração Autónoma</label><br/>
+                <input name="fraccao" id="fraccao" type="text" value="" maxlength="50" />
+                <div class="exemplo">Preenchimento obrigatório se o imóvel se encontrar em propriedade horizontal</div>
+            </div>	
+            <br class="break"/><br/>
+
+            
+            <div class="corpo_coluna">
+                <label for="imo_area2">Área Bruta Privativa<span class="obrigatorio">*</span></label><br/>
+                <input onkeypress="javascript:ValidateInput('decimal',init,'imo_area2','Area',0,8,2,true);" name="imo_area2" id="imo_area2" type="text" value="" maxlength="8" />
+                <div class="exemplo">(área prevista no artigo 40º do CIMI)</div>
+            </div>
+            <div class="corpo_coluna">
+                <label for="imo_areamedida2">Unid. Medida<span class="obrigatorio">*</span></label>
+                <br/>
+                <select name="imo_areamedida2" id="imo_areamedida2" onchange="javascript:changeComboValue('frm','imo_areamedida2','');">
+                    <option selected value="">--escolha--</option>
+                    <option  value="0">Metros^2</option>
+                    <option  value="1">Hectares</option>
+                </select>                
+            </div>        
+            <br class="break"/><br/>
+
+            
+            <div class="corpo_coluna">
+                <label for="imo_area1">Área Total</label><br/>
+                <input onkeypress="javascript:ValidateInput('decimal',init,'imo_area1','Area',0,8,2,true);" name="imo_area1" id="imo_area1" type="text" value="" maxlength="8" />
+            </div>
+            <div class="corpo_coluna">
+                <label for="imo_areamedida1">Unid. Medida</label>
+                <br/>
+                <select name="imo_areamedida1" id="imo_areamedida1" onchange="javascript:changeComboValue('frm','imo_areamedida1','')";>
+                    <option selected value="">--escolha--</option>
+                    <option  value="0">Metros^2</option>
+                    <option  value="1">Hectares</option>
+                </select>                 
+            </div>
+            <br class="break"/><br/>        
+
+            <div>
+                <label>Arrendado<span class="obrigatorio">*</span></label>
+                <br/>
+                <fieldset class="noborder">
+                    <legend></legend>
+                    <input class="radio" name="arrendado" type="radio" value="Y" id="sim1"  />
+                    <label for="sim1">sim</label>
+                    <input class="radio" name="arrendado" type="radio" value="N" id="nao1"  />
+                    <label for="nao1">não</label>
+                </fieldset>		
+            </div>
+            <br/>
+            <div class="corpo_coluna">
+                <label for="destino">Destino<span class="obrigatorio">*</span></label><br/>
+                <select name="destino" id="destino" onchange="javascript:changeDestino();">
+                    <option>-- Escolha --</option><option value='202'>Comércio</option><option value='201'>Habitação</option><option value='203'>Indústria</option><option value='204'>Outro</option>
+                </select>
+                <input type="hidden" id="destino_descricao" name="destino_descricao" value="" />
+            </div> 
+                 <div class="corpo_coluna" style="display:none"id="outro"><br/>
+                <label for="outroinput">&nbsp;</label>
+                <input id="outroinput" name="outro" type="text" value="" />            
+            </div>
+            <br class="break"/><br/>
+            <h4>Localização do Imóvel</h4>
+            <div class="corpo_coluna">
+                <label for="morada">Endere&ccedil;o<span class="obrigatorio">*</span></label><br/>
+                <input name="morada" id="morada" size="71" type="text" value="" maxlength="240" />
+                <div class="exemplo">Rua, Av., Lugar/N.º da porta de Lote/Andar, piso e lado</div>
+            </div>
+            <br class="break"/><br/>
+            <div class="corpo_coluna">
+                <label for="distrito">Distrito<span class="obrigatorio">*</span></label><br/>
+                <select name="distrito" id="distrito" onchange="javascript:changeDistrito();">
+                </select>
+                <input type="hidden" id="distrito_descricao" name="distrito_descricao" value="" />
+            </div>
+            <div class="corpo_coluna">
+                <label for="concelho">Concelho<span class="obrigatorio">*</span></label><br/>
+                <select name="concelho" id="concelho" onchange="javascript:changeConcelho();">	   
+                </select>
+                <input type="hidden" id="concelho_descricao" name="concelho_descricao" value="" />
+            </div>
+            <div class="corpo_coluna">
+                <label for="freguesia">Freguesia<span class="obrigatorio">*</span></label><br/>
+                <select name="freguesia" id="freguesia" onchange="javascript:changeFreguesia('init');">
+                </select>
+                <input type="hidden" id="freguesia_descricao" name="freguesia_descricao" value="" />
+                <div class="exemplo">A freguesia a selecionar é a que consta da descrição do imóvel na conservatória do registo predial. A freguesia fiscal poderá ser mencionada em observações.</div>
+            </div>
+            <br class="break"/><br/>
+            <div class="break"></div>
+            <h3>Dados da Transmissão </h3>
+            <div class="corpo_coluna">
+                <label for="tipo_negocio">Tipo de Negócio<span class="obrigatorio">*</span></label><br/>
+                <select name="tipo_negocio" id="tipo_negocio" onchange="javascript:changeComboValue('init','tipo_negocio','tipo_negocio_descricao');">
+                    <option value='9000'>Compra e venda</option><option value='9001'>Dação em Pagamento</option>
+                </select>
+                <input type="hidden" id="tipo_negocio_descricao" name="tipo_negocio_descricao" value="Compra e Venda" />
+            </div>
+            <br class="break"/><br/>
+            <div class="corpo_coluna">
+                <label for="valor">Preço<span class="obrigatorio">*</span></label><br/>
+                <input onkeypress="javascript:ValidateInput('decimal',init,'valor','Preço',0,15,2,true);" name="valor" id="valor" type="text" value="" maxlength="15" />
+            </div>
+            <div class="corpo_coluna">
+                <label for="moeda">Moeda<span class="obrigatorio">*</span></label><br/>
+                <select name="moeda" id="moeda" onchange="javascript:changeComboValue('init','moeda','moeda_descricao');">
+                    <option value='461'>Bolivar</option><option value='454'>Dolar</option><option value='451'>Escudos</option><option value='453' selected >Euros</option><option value='458'>Francos Franceses</option><option value='459'>Francos Luxemburgueses</option><option value='456'>Francos Suíços</option><option value='457'>Iene</option><option value='455'>Libras Esterlinas</option><option value='460'>Marco Alemão</option><option value='452'>Pataca</option><option value='450'>Real</option>
+                </select>
+                <input type="hidden" id="moeda_descricao" name="moeda_descricao" value="Euros" />
+            </div>
+            
+            <br class="break"/>
+            <br/>
+            <div class="corpo_coluna">
+                <label for="moeda">Data previsível do negócio<span class="obrigatorio">*</span></label><br/>
+                <input id="data_previsivel" name="data_previsivel" type="text" value="" />
+                <div class="exemplo">DD-MM-AAAA</div>
+            </div>
+                
+            <br class="break"/>
+            <br/>
+            <div class="corpo_coluna">
+                <label for="observacoes">Observações</label><br/>
+                <textarea name="observacoes" id="observacoes" size="71" type="text" value="" maxlength="100" 
+                onKeyDown="textCounter(observacoes, countDisplay);" 
+                onKeyUp="textCounter(observacoes, countDisplay);"/></textarea> </br>
+                <input readonly type="text" name="countDisplay" size="2" maxlength="3" value="100"> 
+                <label> caracteres restantes</label>
+                
+                
+            </div>
+
+            <br class="break"/>
+            <div class="break"></div>
+            <div class="text_right">
+                <span class="go">
+                    <a href="ServicosOnline.jsp" alt="Cancelar" title="Cancelar">
+                        <img src="../includes/images/remove.gif" alt="Cancelar" title="Cancelar" />Cancelar
+                    </a>
+                </span>
+                <span class="go">
+                    <span onclick="javascript:validateAllValues(document.forms.init);" onkeypress="javascript:validateAllValues(document.forms.init);" title="Continuar" alt="Continuar">Continuar <img src="../includes/images/go.gif" alt="Continuar" title="Continuar"/></span>
+                </span>
+            </div>
+        </div>
+        <div class="right">
+            <a class="posabs" name="Dta" href="#Apoio" accesskey="5"><img src="../includes/images/spacer.gif" width="1" height="1" alt="-" /></a>
+            <br/>
+            <div class="Heading_caixa2">
+                <h2>Passos </h2>
+            </div>
+            <div class="corpo_caixa">
+                <ul class="etapas">
+                    <li class="etapa"><span>1</span> Dados do Requerente, Compradores, Vendedores, Dados do Im&oacute;vel, e Valor da Transmissão</li>
+                    <li><span>2</span>Confirmação</li>
+                    <li><span>3</span>Comprovativo e dados de pagamento</li>
+                </ul>
+            </div>
+        </div>
+    </form>
+</div>
+<script type="text/javascript">
+    loadDistrito();
+
+    var j;
+    j = parseInt(document.forms['init'].countcompradores.value);
+    for(i=2;i<=j;i++)
+	addComprador('11');
+
+    j = parseInt(document.forms['init'].countvendedores.value);
+    for(i=2;i<=j;i++)
+	addVendedor('11');
+
+</script>
+	  <div class="footer">
+		
+		  	<ul>
+				<li><a href="#" title="Sobre o Portal" alt="Sobre o Portal">Sobre o Portal</a></li>
+				<li><a href="#" title="Avisos Legais" alt="Avisos Legais">Avisos Legais</a></li>
+				<li><a href="#" title="Privacidade e seguran&ccedil;a" alt="Privacidade e seguran&ccedil;a">Privacidade e seguran&ccedil;a</a></li>
+				<li class="last"><img class="logoacess" src="../includes/images/acessibilidade.gif" alt="Simbolo da Acessibilidade na Web" title="Simbolo da Acessibilidade na Web"/>  [<a href="../conteudos/acessibilidade.jsp">D</a>]</li>
+			</ul>
+		
+		<ul class="logos_apoios">
+			<li><a href="http://www.portugal.gov.pt/pt/ministerios/mj.aspx" target="_blank"><img src="../includes/images/minjustica.gif" alt="Minist&eacute;rio da Justi&ccedil;a" title="Minist&eacute;rio da Justi&ccedil;a"/></a></li>
+			<li><img src="../includes/images/justicainiciativa.gif" alt="JustiÃ§a com Iniciativa" title="JustiÃ§a com Iniciativa"/></li>
+			<li><a href="http://www.ucma.gov.pt/simplex" target="_blank"><img src="../includes/images/simplex07.gif" alt="Simplex'07" title="Simplex'07"/></a></li>
+			<li><a href="http://www.igfej.mj.pt" target="_blank"><img src="../includes/images/igfej.gif" alt="Instituto da Gest&atilde;o Financeira e Equipamentos da Justi&ccedil;a I.P." title="Instituto da Gest&atilde;o Financeira e Equipamentos da Justi&ccedil;a I.P."/></a></li>
+			<li><a href="https://irn.justica.gov.pt" target="_blank"><img src="../includes/images/irn.gif" style="width:120px;height:40px" alt="Instituto dos registos e do notariado" title="Instituto dos registos e do notariado"/></a></li>
+		</ul>
+		
+	  </div>
+	</div>
+</body>
+</html>

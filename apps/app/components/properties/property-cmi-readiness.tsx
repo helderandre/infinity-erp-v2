@@ -721,7 +721,7 @@ interface SectionCardProps {
   addBusy?: boolean
 }
 
-function SectionCard({
+export function SectionCard({
   icon,
   title,
   subtitle,

@@ -12,7 +12,9 @@ export function SplashScreen() {
   // snapshots the PDF within ~1s of network idle, so a 2.4s splash overlay
   // would otherwise cover every page.
   const skip =
-    pathname?.startsWith('/apresentacao') || pathname?.startsWith('/fichas')
+    pathname?.startsWith('/apresentacao') ||
+    pathname?.startsWith('/fichas') ||
+    pathname?.startsWith('/relatorio-proprietario')
 
   useEffect(() => {
     if (skip) {

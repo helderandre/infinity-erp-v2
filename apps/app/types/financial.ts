@@ -476,6 +476,7 @@ export interface MapaGestaoRow {
   agency_invoice_recipient_nif: string | null
   agency_invoice_amount_net: number | null
   agency_invoice_amount_gross: number | null
+  agency_invoice_vat_pct: number | null
   network_invoice_number: string | null
   network_invoice_date: string | null
   // Moloni (faturação) — agency invoice linkage
@@ -508,6 +509,36 @@ export interface MapaGestaoRow {
   // Partner agency + payment notes
   partner_agency_name: string | null
   payment_notes: string | null
+  // ── Override / automação ("calcular por defeito, editar como um Excel") ──
+  // Os campos acima (payment_amount/network_amount/agency_amount/partner_amount/
+  // split_amount/tier_pct) já são EFECTIVOS (override ?? automático). Estes
+  // expõem o valor automático (p/ mostrar esbatido) + flags de override.
+  amounts_locked: boolean
+  override_reason: string | null
+  split_is_manual: boolean
+  manual_label: string | null
+  payment_amount_auto: number
+  network_amount_auto: number | null
+  agency_amount_auto: number | null
+  partner_amount_auto: number | null
+  split_amount_auto: number
+  tier_pct_auto: number
+  payment_amount_is_override: boolean
+  network_amount_is_override: boolean
+  agency_amount_is_override: boolean
+  partner_amount_is_override: boolean
+  split_amount_is_override: boolean
+  split_pct_is_override: boolean
+  // Bases ao nível do pagamento (NÃO escaladas pela partilha) — para editar os
+  // totais do momento (Convictus/rede, margem da agência, parceiro) a partir do
+  // sheet. Diferente de network_amount/agency_amount/partner_amount, que são a
+  // fatia escalada deste split.
+  payment_agency_amount: number
+  payment_network_amount: number
+  payment_partner_amount: number | null
+  payment_agency_amount_auto: number
+  payment_network_amount_auto: number
+  payment_partner_amount_auto: number | null
 }
 
 export interface MapaGestaoTotals {
@@ -549,6 +580,63 @@ export interface FinancialDashboardData {
     potential_revenue: number
   }
   monthly_evolution: { month: string; report: number; margin: number }[]
+}
+
+// ─── Annual Overview (Resumo / Visão geral da empresa) ─────────────────────
+// Vista executiva anual da secção Financeiro → tab "Resumo".
+// Receita = comissões da agência (deal_payments, agency_amount).
+// Despesa = company_transactions (type='expense').
+
+export interface AnnualCategorySlice {
+  category: string
+  /** Token de cor de company_categories (emerald|blue|amber|…) ou hex. */
+  color: string | null
+  /** Nome de ícone Lucide de company_categories. */
+  icon: string | null
+  amount: number
+  pct: number
+}
+
+export interface AnnualMovement {
+  id: string
+  kind: 'income' | 'expense'
+  title: string
+  subtitle: string | null
+  date: string | null
+  /** Sempre positivo — o sinal deriva de `kind`. */
+  amount: number
+}
+
+export interface FinancialAnnualOverview {
+  year: number
+  /** Comissão da agência efectivamente recebida no ano. */
+  recebido: number
+  /** Comissão da agência contratada (assinada) no ano. */
+  faturado: number
+  /** Comissão assinada no ano e ainda por receber. */
+  a_receber: number
+  /** Despesas operacionais do ano (bruto). */
+  despesas: number
+  /** recebido − despesas. */
+  resultado: number
+  /** resultado / recebido. */
+  margem_pct: number
+  iva_liquidado: number
+  iva_dedutivel: number
+  /** max(0, iva_liquidado − iva_dedutivel). */
+  iva_a_pagar: number
+  /** Subscrições/recorrências activas da empresa. */
+  subscricoes_ativas: number
+  /** Ano anterior, para deltas YoY. */
+  prev: { recebido: number; despesas: number; resultado: number }
+  /** Indicadores de tesouraria (cumulativos). */
+  pipeline: { por_reportar: number; a_pagar_consultores: number }
+  /** Carteira activa de imóveis. */
+  carteira: { volume: number; potencial: number }
+  por_categoria: AnnualCategorySlice[]
+  maior_despesa: AnnualCategorySlice | null
+  faturacao_mensal: { month: number; recebido: number; despesas: number }[]
+  movimentos_recentes: AnnualMovement[]
 }
 
 // ─── Company Financial Constants ───────────────────────────────────────────

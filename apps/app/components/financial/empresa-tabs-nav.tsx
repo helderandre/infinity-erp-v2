@@ -14,13 +14,18 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { key: 'resumo', label: 'Resumo', href: '/dashboard/financeiro/dashboard' },
   { key: 'mapa', label: 'Mapa de Gestão', href: '/dashboard/financeiro/mapa-gestao' },
+  { key: 'despesas', label: 'Despesas', href: '/dashboard/financeiro/gestao-empresa' },
 ] as const
 
 export type EmpresaTabKey = (typeof TABS)[number]['key']
 
 interface EmpresaTabsNavProps {
-  /** Optional: override active key. By default it derives from pathname. */
-  active?: EmpresaTabKey
+  /**
+   * Optional: override active key. By default it derives from pathname.
+   * Aceita `string` para tolerar páginas com secções ainda fora desta barra
+   * (ex.: comissões, por-consultor) sem partir o type-check.
+   */
+  active?: EmpresaTabKey | (string & {})
   /** Hide the hero band when embedding in a page that already has one. */
   showHero?: boolean
 }

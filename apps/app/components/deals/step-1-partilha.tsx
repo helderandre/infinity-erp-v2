@@ -41,9 +41,11 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
   const proposalUrl = form.watch('proposal_file_url')
   const proposalName = form.watch('proposal_file_name')
   const propertyId = form.watch('property_id')
+  const internalColleagueId = form.watch('internal_colleague_id') as string | undefined
   const [uploading, setUploading] = useState(false)
   const [properties, setProperties] = useState<{ value: string; label: string }[]>([])
   const [consultants, setConsultants] = useState<{ value: string; label: string }[]>([])
+  const [colleagueProperties, setColleagueProperties] = useState<{ value: string; label: string }[]>([])
 
   useEffect(() => {
     // Only load properties list if not from property context
@@ -75,6 +77,60 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
       })
       .catch(() => {})
   }, [fromProperty])
+
+  // Pleno de Agência: carregar SÓ os imóveis do colega seleccionado.
+  useEffect(() => {
+    if (scenario !== 'pleno_agencia' || fromProperty || !internalColleagueId) {
+      setColleagueProperties([])
+      return
+    }
+    let cancelled = false
+    fetch(`/api/properties?consultant_id=${internalColleagueId}&status=active&per_page=100`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled) return
+        const list = Array.isArray(res) ? res : res.data
+        if (Array.isArray(list)) {
+          setColleagueProperties(list.map((p: { id: string; title: string; external_ref?: string }) => ({
+            value: p.id,
+            label: p.external_ref ? `${p.external_ref} - ${p.title}` : p.title,
+          })))
+        }
+      })
+      .catch(() => { if (!cancelled) setColleagueProperties([]) })
+    return () => { cancelled = true }
+  }, [internalColleagueId, scenario, fromProperty])
+
+  // Pré-preencher as condições do negócio (tipo, valor, comissão, tranche CPCV)
+  // a partir do imóvel escolhido. Best-effort — não bloqueia se faltar algo.
+  const prefillFromProperty = async (selectedId: string) => {
+    if (!selectedId) return
+    try {
+      const res = await fetch(`/api/properties/${selectedId}`)
+      if (!res.ok) return
+      const p = await res.json()
+      if (p?.business_type) form.setValue('business_type', p.business_type)
+      if (p?.listing_price != null && p.listing_price !== '') {
+        form.setValue('deal_value', Number(p.listing_price))
+      }
+      const internal = Array.isArray(p?.dev_property_internal)
+        ? p.dev_property_internal[0]
+        : p?.dev_property_internal
+      if (internal) {
+        if (internal.commission_type) form.setValue('commission_type', internal.commission_type)
+        if (internal.commission_agreed != null && internal.commission_agreed !== '') {
+          form.setValue('commission_pct', Number(internal.commission_agreed))
+        }
+        if (internal.cpcv_percentage != null && internal.cpcv_percentage !== '') {
+          const c = Math.max(0, Math.min(100, Number(internal.cpcv_percentage)))
+          form.setValue('cpcv_pct', c)
+          form.setValue('escritura_pct', 100 - c)
+        }
+      }
+    } catch {
+      // pré-preenchimento é best-effort
+    }
+  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -226,7 +282,12 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
           <AcqSelectField
             label="Colega com a Angariação"
             value={form.watch('internal_colleague_id')}
-            onChange={(v) => form.setValue('internal_colleague_id', v)}
+            onChange={(v) => {
+              form.setValue('internal_colleague_id', v)
+              // Trocar de colega → limpar o imóvel anterior (pode não ser dele).
+              form.setValue('colleague_property_id', '')
+              form.setValue('property_id', '')
+            }}
             options={consultants}
             placeholder="Seleccionar colega..."
             required
@@ -240,9 +301,11 @@ export function StepPartilha({ form, errors, dealId, fromProperty, onProposalUpl
               onChange={(v) => {
                 form.setValue('colleague_property_id', v)
                 form.setValue('property_id', v)
+                // Pré-preencher as condições do negócio a partir do imóvel.
+                prefillFromProperty(v)
               }}
-              options={properties}
-              placeholder="Seleccionar imóvel..."
+              options={colleagueProperties}
+              placeholder={internalColleagueId ? 'Seleccionar imóvel...' : 'Escolhe primeiro o colega'}
               required
               error={errors.colleague_property_id}
               isMissing={isEmpty('colleague_property_id')}

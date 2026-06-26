@@ -30,6 +30,13 @@ interface PropertyVisitasTabProps {
   visitsLoading: boolean
   onNewVisitClick: () => void
   onVisitsChange: () => void
+  /**
+   * Quando definido, esconde a barra de sub-separadores interna e renderiza
+   * apenas essa secção. Usado pelo separador "Acompanhamento" da página do
+   * imóvel, que fornece a sua própria barra (Pedidos · Visitas · Fichas ·
+   * Propostas) e só quer o conteúdo de Pedidos/Visitas daqui.
+   */
+  forcedSubTab?: 'pedidos' | 'visitas'
 }
 
 type SubTab = 'pedidos' | 'visitas' | 'fichas' | 'analise' | 'recomendacoes'
@@ -55,9 +62,11 @@ function formatDate(dateISO: string | null) {
 
 export function PropertyVisitasTab({
   propertyId, propertySlug, consultantId, listingPrice,
-  visits, visitsLoading, onNewVisitClick, onVisitsChange,
+  visits, visitsLoading, onNewVisitClick, onVisitsChange, forcedSubTab,
 }: PropertyVisitasTabProps) {
   const [subTab, setSubTab] = useState<SubTab>('pedidos')
+  // Em modo "forçado" (dentro de Acompanhamento) o sub-separador vem de fora.
+  const effectiveSubTab: SubTab = forcedSubTab ?? subTab
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
   const [rejectVisitId, setRejectVisitId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -127,33 +136,36 @@ export function PropertyVisitasTab({
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
-      {/* Sub-tabs + Availability action */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
-          {tabs.map((t) => {
-            const Icon = t.icon
-            return (
-              <button
-                key={t.key}
-                onClick={() => setSubTab(t.key)}
-                className={cn(
-                  'px-4 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5',
-                  subTab === t.key
-                    ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {t.label}
-                {t.badge != null && t.badge > 0 && (
-                  <Badge variant="secondary" className="text-[9px] rounded-full px-1.5 ml-0.5">
-                    {t.badge}
-                  </Badge>
-                )}
-              </button>
-            )
-          })}
-        </div>
+      {/* Sub-tabs + Availability action. Em modo forçado (Acompanhamento) a
+          barra interna some — só fica o atalho de disponibilidade à direita. */}
+      <div className={cn('flex items-center gap-2 flex-wrap', forcedSubTab ? 'justify-end' : 'justify-between')}>
+        {!forcedSubTab && (
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/30 backdrop-blur-sm">
+            {tabs.map((t) => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setSubTab(t.key)}
+                  className={cn(
+                    'px-4 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5',
+                    subTab === t.key
+                      ? 'bg-neutral-900 text-white shadow-sm dark:bg-white dark:text-neutral-900'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t.label}
+                  {t.badge != null && t.badge > 0 && (
+                    <Badge variant="secondary" className="text-[9px] rounded-full px-1.5 ml-0.5">
+                      {t.badge}
+                    </Badge>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <BookingLinkDialog
           propertyId={propertyId}
@@ -169,7 +181,7 @@ export function PropertyVisitasTab({
       </div>
 
       {/* ═══ Pedidos ═══ */}
-      {subTab === 'pedidos' && (
+      {effectiveSubTab === 'pedidos' && (
         <div className="space-y-3 animate-in fade-in duration-200">
           {visitsLoading ? (
             <Skeleton className="h-32 w-full rounded-xl" />
@@ -257,7 +269,7 @@ export function PropertyVisitasTab({
       )}
 
       {/* ═══ Visitas ═══ */}
-      {subTab === 'visitas' && (
+      {effectiveSubTab === 'visitas' && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
@@ -320,7 +332,7 @@ export function PropertyVisitasTab({
       )}
 
       {/* ═══ Fichas ═══ */}
-      {subTab === 'fichas' && (
+      {effectiveSubTab === 'fichas' && (
         <div className="animate-in fade-in duration-200">
           <PropertyFichasTab
             propertyId={propertyId}
@@ -332,7 +344,7 @@ export function PropertyVisitasTab({
       )}
 
       {/* ═══ Análise ═══ */}
-      {subTab === 'analise' && (
+      {effectiveSubTab === 'analise' && (
         <div className="space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center justify-end">
             <Button
@@ -357,7 +369,7 @@ export function PropertyVisitasTab({
       )}
 
       {/* ═══ Recomendações IA ═══ */}
-      {subTab === 'recomendacoes' && (
+      {effectiveSubTab === 'recomendacoes' && (
         <div className="animate-in fade-in duration-200">
           <PropertyFichasTab
             propertyId={propertyId}

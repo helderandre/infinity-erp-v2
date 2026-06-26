@@ -67,7 +67,7 @@ interface SettingConfig {
 
 const SETTING_CONFIGS: SettingConfig[] = [
   { key: 'margin_rate', label: 'Taxa de Margem', description: 'Percentagem aplicada à facturação para cálculo de margem.', type: 'percent' },
-  { key: 'vat_rate', label: 'Taxa de IVA', description: 'Taxa de IVA aplicada às comissões.', type: 'percent' },
+  { key: 'vat_rate_services', label: 'Taxa de IVA (fatura ao cliente)', description: 'IVA aplicado à fatura de comissão ao cliente. Aplica-se a faturas futuras — as já emitidas mantêm a taxa com que foram emitidas.', type: 'percent' },
   { key: 'default_commission_sale', label: 'Comissão Venda Defeito', description: 'Percentagem de comissão padrão para vendas.', type: 'percent' },
   { key: 'default_commission_rent', label: 'Comissão Arrendamento Defeito', description: 'Valor de comissão padrão para arrendamentos.', type: 'number' },
   { key: 'fiscal_year_start', label: 'Início Ano Fiscal', description: 'Mês de início do ano fiscal para cálculos.', type: 'month' },
@@ -79,7 +79,6 @@ const NETWORK_CONFIGS: SettingConfig[] = [
   { key: 'default_cpcv_pct', label: '% CPCV Padrão', description: 'Percentagem padrão paga no momento do CPCV.', type: 'percent' },
   { key: 'default_escritura_pct', label: '% Escritura Padrão', description: 'Percentagem padrão paga no momento da Escritura.', type: 'percent' },
   { key: 'default_rent_commission', label: 'Comissão Arrendamento', description: 'Número de rendas de comissão no arrendamento.', type: 'number' },
-  { key: 'vat_rate_services', label: 'Taxa IVA Mediação', description: 'Taxa de IVA para serviços de mediação imobiliária.', type: 'percent' },
 ]
 
 const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v)

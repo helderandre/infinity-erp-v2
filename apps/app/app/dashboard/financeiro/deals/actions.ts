@@ -4,7 +4,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { isManagementRole } from '@/lib/auth/roles'
+import { requirePermission } from '@/lib/auth/permissions'
 import { normalizeTranchePcts } from '@/lib/financial/normalize-tranche-pcts'
+import { recomputeDealPayments } from '@/lib/financial/recompute-deal-payments'
 import type { Deal, DealPayment } from '@/types/deal'
 
 // ─── Helper: resolve roles do utilizador autenticado para gate de visibilidade
@@ -111,7 +113,7 @@ export async function getDeals(filters?: {
       }
       paymentsByDeal[p.deal_id].push({
         ...p,
-        splits: p.deal_payment_splits || [],
+        splits: (p.deal_payment_splits || []).filter((s: any) => !s.is_deleted),
         deal_payment_splits: undefined,
       })
     }
@@ -166,7 +168,7 @@ export async function getDeal(id: string): Promise<{ deal: Deal | null; error: s
 
     const mappedPayments = (payments ?? []).map((p: any) => ({
       ...p,
-      splits: p.deal_payment_splits || [],
+      splits: (p.deal_payment_splits || []).filter((s: any) => !s.is_deleted),
       deal_payment_splits: undefined,
     }))
 
@@ -489,6 +491,14 @@ export async function updateDeal(
       return { deal: null, error: error.message }
     }
 
+    // Propaga alterações de base ao mapa de gestão (recálculo automático que
+    // preserva overrides manuais e nunca toca em faturado/recebido). Idempotente
+    // e seguro em rascunhos (sem pagamentos → no-op).
+    const FIN_FIELDS = ['deal_value', 'commission_pct', 'has_share', 'share_pct', 'share_type', 'business_type', 'cpcv_pct', 'escritura_pct', 'payment_structure']
+    if (Object.keys(data).some((k) => FIN_FIELDS.includes(k))) {
+      try { await recomputeDealPayments(id, null) } catch (e) { console.error('[updateDeal] recompute falhou:', e) }
+    }
+
     return getDeal(deal.id)
   } catch (err: any) {
     return { deal: null, error: err.message ?? 'Erro ao actualizar negócio' }
@@ -801,4 +811,366 @@ export async function getPropertiesForSelect(search?: string): Promise<{
   } catch (err: any) {
     return { properties: [], error: err.message ?? 'Erro ao carregar imóveis' }
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// OVERRIDE PATTERN — "calcular por defeito, editar como um Excel"
+// Ver /overridable-computed-values-portable-spec.md. Todas as acções abaixo são
+// gated a `financial`, auditadas em `deal_payment_overrides`, e protegem dinheiro
+// já liquidado (faturado/recebido/pago).
+// ════════════════════════════════════════════════════════════════════════════
+
+const PAYMENT_MONEY_FIELDS = ['amount', 'network_amount', 'agency_amount', 'partner_amount'] as const
+type PaymentMoneyField = (typeof PAYMENT_MONEY_FIELDS)[number]
+
+async function requireFinancialActor(): Promise<
+  { ok: true; userId: string } | { ok: false; error: string }
+> {
+  const auth = await requirePermission('financial')
+  if (!auth.authorized) return { ok: false, error: 'Sem permissão financeira' }
+  return { ok: true, userId: auth.user.id }
+}
+
+async function logOverride(admin: any, entry: Record<string, any>): Promise<void> {
+  try {
+    await admin.from('deal_payment_overrides').insert(entry)
+  } catch (e) {
+    console.error('[override] falha a registar auditoria:', e)
+  }
+}
+
+/** Bloqueia alteração de montantes num pagamento já liquidado. Null = ok. */
+function paymentMoneyGuard(p: { is_received?: boolean | null; moloni_status?: number | null }): string | null {
+  if (p.moloni_status === 1) return 'Fatura já emitida e reportada à AT — usa nota de crédito / re-emissão antes de alterar o valor.'
+  if (p.moloni_status === 2) return 'Documento creditado/anulado no Moloni — re-emite antes de alterar o valor.'
+  if (p.is_received) return 'Pagamento já recebido (comissão lançada na contabilidade) — desmarca "Recebido" antes de alterar o valor.'
+  return null
+}
+
+// ─── O1. Override de um montante do pagamento (amount/network/agency/partner) ─
+
+export async function setPaymentAmountOverride(
+  paymentId: string,
+  field: PaymentMoneyField,
+  value: number | null,
+  reason?: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error }
+  if (!PAYMENT_MONEY_FIELDS.includes(field)) return { success: false, error: 'Campo inválido' }
+
+  try {
+    const admin = createAdminClient() as any
+    const col = `${field}_override`
+    const { data: payment, error: fErr } = await admin
+      .from('deal_payments')
+      .select('id, deal_id, is_received, moloni_status, amount_override, network_amount_override, agency_amount_override, partner_amount_override')
+      .eq('id', paymentId)
+      .single()
+    if (fErr || !payment) return { success: false, error: 'Pagamento não encontrado' }
+
+    const guard = paymentMoneyGuard(payment)
+    if (guard) return { success: false, error: guard }
+
+    const oldVal = payment[col]
+    const next = value == null || Number.isNaN(Number(value)) ? null : Number(value)
+
+    // Lock = qualquer override não-nulo após esta alteração.
+    const overridesAfter = {
+      amount_override: payment.amount_override,
+      network_amount_override: payment.network_amount_override,
+      agency_amount_override: payment.agency_amount_override,
+      partner_amount_override: payment.partner_amount_override,
+      [col]: next,
+    }
+    const locked = Object.values(overridesAfter).some((v) => v != null)
+
+    const nowIso = new Date().toISOString()
+    const { error } = await admin
+      .from('deal_payments')
+      .update({
+        [col]: next,
+        amounts_locked: locked,
+        override_reason: reason ?? null,
+        override_by: actor.userId,
+        override_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq('id', paymentId)
+    if (error) return { success: false, error: error.message }
+
+    await logOverride(admin, {
+      deal_id: payment.deal_id,
+      payment_id: paymentId,
+      split_id: null,
+      entity: 'payment',
+      action: next == null ? 'clear' : 'edit',
+      field,
+      old_value: oldVal != null ? Number(oldVal) : null,
+      new_value: next,
+      reason: reason ?? null,
+      actor_id: actor.userId,
+    })
+    return { success: true, error: null }
+  } catch (e: any) {
+    return { success: false, error: e.message ?? 'Erro ao guardar override' }
+  }
+}
+
+// ─── O2. Repor automático: limpa TODOS os overrides do pagamento ─────────────
+
+export async function clearPaymentOverrides(
+  paymentId: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error }
+  try {
+    const admin = createAdminClient() as any
+    const { data: payment, error: fErr } = await admin
+      .from('deal_payments')
+      .select('id, deal_id')
+      .eq('id', paymentId)
+      .single()
+    if (fErr || !payment) return { success: false, error: 'Pagamento não encontrado' }
+
+    const nowIso = new Date().toISOString()
+    const { error } = await admin
+      .from('deal_payments')
+      .update({
+        amount_override: null,
+        network_amount_override: null,
+        agency_amount_override: null,
+        partner_amount_override: null,
+        amounts_locked: false,
+        override_reason: null,
+        override_by: actor.userId,
+        override_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq('id', paymentId)
+    if (error) return { success: false, error: error.message }
+
+    await logOverride(admin, {
+      deal_id: payment.deal_id, payment_id: paymentId, split_id: null,
+      entity: 'payment', action: 'clear', field: null,
+      old_value: null, new_value: null, reason: 'Repor automático', actor_id: actor.userId,
+    })
+    return { success: true, error: null }
+  } catch (e: any) {
+    return { success: false, error: e.message ?? 'Erro ao repor automático' }
+  }
+}
+
+// ─── O3. Override do valor / escalão de uma parte (split) ─────────────────────
+
+export async function setSplitAmountOverride(
+  splitId: string,
+  data: { amount?: number | null; split_pct?: number | null; reason?: string },
+): Promise<{ success: boolean; error: string | null }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error }
+  try {
+    const admin = createAdminClient() as any
+    const { data: split, error: fErr } = await admin
+      .from('deal_payment_splits')
+      .select('id, deal_payment_id, consultant_paid, amount_override, split_pct_override, deal_payments:deal_payment_id(deal_id, is_received, moloni_status)')
+      .eq('id', splitId)
+      .single()
+    if (fErr || !split) return { success: false, error: 'Parte não encontrada' }
+    if (split.consultant_paid) {
+      return { success: false, error: 'Parte já paga ao consultor — desmarca o pagamento antes de editar o valor.' }
+    }
+
+    const patch: Record<string, any> = {
+      override_by: actor.userId,
+      override_at: new Date().toISOString(),
+      override_reason: data.reason ?? null,
+      updated_at: new Date().toISOString(),
+    }
+    const fields: string[] = []
+    if (data.amount !== undefined) {
+      patch.amount_override = data.amount == null || Number.isNaN(Number(data.amount)) ? null : Number(data.amount)
+      fields.push('amount')
+    }
+    if (data.split_pct !== undefined) {
+      patch.split_pct_override = data.split_pct == null || Number.isNaN(Number(data.split_pct)) ? null : Number(data.split_pct)
+      fields.push('split_pct')
+    }
+    if (fields.length === 0) return { success: false, error: 'Nada para actualizar' }
+
+    const { error } = await admin.from('deal_payment_splits').update(patch).eq('id', splitId)
+    if (error) return { success: false, error: error.message }
+
+    const dealId = (split.deal_payments as any)?.deal_id ?? null
+    await logOverride(admin, {
+      deal_id: dealId, payment_id: split.deal_payment_id, split_id: splitId,
+      entity: 'split',
+      action: (patch.amount_override === null && patch.split_pct_override === null) ? 'clear' : 'edit',
+      field: fields.join('+'),
+      old_value: { amount: split.amount_override, split_pct: split.split_pct_override },
+      new_value: { amount: patch.amount_override, split_pct: patch.split_pct_override },
+      reason: data.reason ?? null, actor_id: actor.userId,
+    })
+    return { success: true, error: null }
+  } catch (e: any) {
+    return { success: false, error: e.message ?? 'Erro ao guardar override da parte' }
+  }
+}
+
+// ─── O4. Repor automático numa parte (limpa overrides do split) ──────────────
+
+export async function clearSplitOverride(
+  splitId: string,
+): Promise<{ success: boolean; error: string | null }> {
+  return setSplitAmountOverride(splitId, { amount: null, split_pct: null, reason: 'Repor automático' })
+}
+
+// ─── O5. Criar uma parte manual (interveniente adicional) ────────────────────
+
+export async function createManualSplit(
+  paymentId: string,
+  data: {
+    agent_id?: string | null
+    manual_label?: string | null
+    role?: 'main' | 'partner' | 'referral'
+    amount: number
+    split_pct?: number | null
+    reason?: string
+  },
+): Promise<{ success: boolean; error: string | null; splitId?: string }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error }
+  try {
+    if (!data.agent_id && !data.manual_label?.trim()) {
+      return { success: false, error: 'Indica um consultor ou um nome para a parte.' }
+    }
+    if (data.amount == null || Number.isNaN(Number(data.amount))) {
+      return { success: false, error: 'Valor inválido.' }
+    }
+    const admin = createAdminClient() as any
+    const { data: payment, error: fErr } = await admin
+      .from('deal_payments')
+      .select('id, deal_id')
+      .eq('id', paymentId)
+      .single()
+    if (fErr || !payment) return { success: false, error: 'Pagamento não encontrado' }
+
+    const { data: created, error } = await admin
+      .from('deal_payment_splits')
+      .insert({
+        deal_payment_id: paymentId,
+        agent_id: data.agent_id ?? null,
+        manual_label: data.agent_id ? null : (data.manual_label?.trim() ?? null),
+        role: data.role ?? 'referral',
+        split_pct: data.split_pct ?? 0,
+        amount: Number(data.amount),
+        is_manual: true,
+        override_by: actor.userId,
+        override_at: new Date().toISOString(),
+        override_reason: data.reason ?? null,
+      })
+      .select('id')
+      .single()
+    if (error || !created) return { success: false, error: error?.message ?? 'Erro ao criar parte' }
+
+    await logOverride(admin, {
+      deal_id: payment.deal_id, payment_id: paymentId, split_id: created.id,
+      entity: 'split', action: 'create', field: null,
+      old_value: null,
+      new_value: { agent_id: data.agent_id ?? null, manual_label: data.manual_label ?? null, role: data.role ?? 'referral', amount: Number(data.amount) },
+      reason: data.reason ?? null, actor_id: actor.userId,
+    })
+    return { success: true, error: null, splitId: created.id }
+  } catch (e: any) {
+    return { success: false, error: e.message ?? 'Erro ao criar parte' }
+  }
+}
+
+// ─── O6. Eliminar uma parte (soft-delete) ────────────────────────────────────
+
+export async function deleteSplit(
+  splitId: string,
+  reason?: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error }
+  try {
+    const admin = createAdminClient() as any
+    const { data: split, error: fErr } = await admin
+      .from('deal_payment_splits')
+      .select('id, deal_payment_id, consultant_paid, deal_payments:deal_payment_id(deal_id)')
+      .eq('id', splitId)
+      .single()
+    if (fErr || !split) return { success: false, error: 'Parte não encontrada' }
+    if (split.consultant_paid) {
+      return { success: false, error: 'Parte já paga ao consultor — não pode ser eliminada. Desmarca o pagamento primeiro.' }
+    }
+
+    const { error } = await admin
+      .from('deal_payment_splits')
+      .update({
+        is_deleted: true,
+        override_by: actor.userId,
+        override_at: new Date().toISOString(),
+        override_reason: reason ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', splitId)
+    if (error) return { success: false, error: error.message }
+
+    await logOverride(admin, {
+      deal_id: (split.deal_payments as any)?.deal_id ?? null,
+      payment_id: split.deal_payment_id, split_id: splitId,
+      entity: 'split', action: 'delete', field: null,
+      old_value: null, new_value: null, reason: reason ?? null, actor_id: actor.userId,
+    })
+    return { success: true, error: null }
+  } catch (e: any) {
+    return { success: false, error: e.message ?? 'Erro ao eliminar parte' }
+  }
+}
+
+// ─── O7. Restaurar uma parte eliminada ───────────────────────────────────────
+
+export async function restoreSplit(
+  splitId: string,
+): Promise<{ success: boolean; error: string | null }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error }
+  try {
+    const admin = createAdminClient() as any
+    const { data: split } = await admin
+      .from('deal_payment_splits')
+      .select('id, deal_payment_id, deal_payments:deal_payment_id(deal_id)')
+      .eq('id', splitId)
+      .single()
+    const { error } = await admin
+      .from('deal_payment_splits')
+      .update({ is_deleted: false, updated_at: new Date().toISOString() })
+      .eq('id', splitId)
+    if (error) return { success: false, error: error.message }
+    await logOverride(admin, {
+      deal_id: (split?.deal_payments as any)?.deal_id ?? null,
+      payment_id: split?.deal_payment_id ?? null, split_id: splitId,
+      entity: 'split', action: 'restore', field: null,
+      old_value: null, new_value: null, reason: null, actor_id: actor.userId,
+    })
+    return { success: true, error: null }
+  } catch (e: any) {
+    return { success: false, error: e.message ?? 'Erro ao restaurar parte' }
+  }
+}
+
+// ─── O8. Recalcular automaticamente (preserva edições manuais; avisa) ────────
+// Acção pública gated a `financial`. A lógica vive em
+// lib/financial/recompute-deal-payments.ts e é partilhada com a propagação
+// automática disparada ao editar o negócio (updateDeal + PUT /api/deals/[id]).
+
+export async function recalcDealPayments(
+  dealId: string,
+): Promise<{ success: boolean; error: string | null; updated: number; skipped: { moment: string; reason: string }[] }> {
+  const actor = await requireFinancialActor()
+  if (!actor.ok) return { success: false, error: actor.error, updated: 0, skipped: [] }
+  const r = await recomputeDealPayments(dealId, actor.userId)
+  return { success: r.ok, error: r.error ?? null, updated: r.updated, skipped: r.skipped }
 }
