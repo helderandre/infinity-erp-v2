@@ -205,6 +205,19 @@ export function RecurringExpensesManager({
     setFormOpen(true)
   }
 
+  // Preset aplicado DENTRO do sheet já aberto — faz merge, não apaga o que já
+  // foi digitalizado/escrito (categoria/IVA/frequência apenas).
+  const applyPreset = (p: Preset) => {
+    const matched = expenseCategories.find((c) => normCat(c.name) === normCat(p.category))
+    setForm((prev) => ({
+      ...prev,
+      category: matched?.name ?? prev.category,
+      vat_pct: String(p.vat),
+      frequency: p.frequency,
+    }))
+    setPresetPlaceholder(p.placeholder)
+  }
+
   const openEdit = (tpl: CompanyRecurringTemplate) => {
     setForm({
       id: tpl.id,
@@ -530,14 +543,14 @@ export function RecurringExpensesManager({
               </div>
             )}
 
-            {/* Presets (só na criação) */}
+            {/* Presets (só na criação) — merge, não apaga dados já preenchidos */}
             {!form.id && (
               <div className="flex flex-wrap gap-1.5">
                 {PRESETS.map((p) => (
                   <button
                     key={p.label}
                     type="button"
-                    onClick={() => openCreate(p)}
+                    onClick={() => applyPreset(p)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/30 hover:bg-muted px-2.5 py-1 text-[11px] font-medium transition-colors"
                   >
                     <p.icon className="h-3 w-3 text-muted-foreground" />

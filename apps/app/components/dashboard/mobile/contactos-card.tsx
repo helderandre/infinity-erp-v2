@@ -7,10 +7,11 @@ import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, Inbox, Users, Mail, Phone, Cake } from 'lucide-react'
+import { ArrowRight, Inbox, Users, Mail, Phone, Cake, Briefcase } from 'lucide-react'
 import type { LeadEntry } from '@/types/lead-entry'
 import { cn } from '@/lib/utils'
 import { LeadEntrySheet } from '@/components/leads/lead-entry-sheet'
+import { NegocioDetailSheet } from '@/components/crm/negocio-detail-sheet'
 import {
   BirthdaysSheet,
   useUpcomingBirthdays,
@@ -32,14 +33,36 @@ interface LeadRow {
   temperatura: string | null
 }
 
+interface NegocioRow {
+  id: string
+  tipo: string | null
+  temperatura: string | null
+  expected_value: number | null
+  orcamento: number | null
+  orcamento_max: number | null
+  preco_venda: number | null
+  lead: { nome: string | null; full_name: string | null } | null
+  leads_pipeline_stages: { name: string | null; color: string | null } | null
+}
+
+const formatEUR = (value: number) =>
+  new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+  }).format(value)
+
 export function ContactosCard({ userId, fillViewport, className }: ContactosCardProps) {
   const router = useRouter()
   const [entries, setEntries] = useState<LeadEntry[]>([])
   const [leads, setLeads] = useState<LeadRow[]>([])
+  const [oportunidades, setOportunidades] = useState<NegocioRow[]>([])
   const [entriesTotal, setEntriesTotal] = useState(0)
   const [leadsTotal, setLeadsTotal] = useState(0)
+  const [oportunidadesTotal, setOportunidadesTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [openEntryId, setOpenEntryId] = useState<string | null>(null)
+  const [openNegocioId, setOpenNegocioId] = useState<string | null>(null)
   const [birthdaysOpen, setBirthdaysOpen] = useState(false)
 
   // Preload birthdays so the card preview has data without waiting for user tap
@@ -48,9 +71,10 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
 
   const load = useCallback(async () => {
     try {
-      const [entriesRes, leadsRes] = await Promise.all([
+      const [entriesRes, leadsRes, negociosRes] = await Promise.all([
         fetch(`/api/lead-entries?status=new&consultant_id=${userId}&limit=20`),
         fetch(`/api/leads?agent_id=${userId}&limit=20`),
+        fetch(`/api/crm/negocios?assigned_consultant_id=${userId}&per_page=20`),
       ])
       const entriesJson = entriesRes.ok
         ? await entriesRes.json()
@@ -58,10 +82,15 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
       const leadsJson = leadsRes.ok
         ? await leadsRes.json()
         : { data: [], total: 0 }
+      const negociosJson = negociosRes.ok
+        ? await negociosRes.json()
+        : { data: [], total: 0 }
       setEntries(entriesJson.data || [])
       setEntriesTotal(entriesJson.total || 0)
       setLeads(leadsJson.data || [])
       setLeadsTotal(leadsJson.total || 0)
+      setOportunidades(negociosJson.data || [])
+      setOportunidadesTotal(negociosJson.total || 0)
     } catch {
       // ignore, empty state will render
     }
@@ -97,7 +126,7 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
       )}
     >
       <Tabs defaultValue="entries" className="flex flex-col flex-1 min-h-0">
-        <TabsList className="bg-transparent p-0 h-auto justify-start gap-1.5 rounded-none">
+        <TabsList className="bg-transparent p-0 h-auto justify-start gap-1.5 rounded-none flex-wrap">
           <TabsTrigger
             value="entries"
             className={cn(
@@ -108,10 +137,27 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
             )}
           >
             <Inbox className="h-3.5 w-3.5" />
-            Por qualificar
+            Por contactar
             {entriesTotal > 0 && (
               <span className="count ml-1 tabular-nums text-[10px] rounded-full px-1.5 py-0.5 bg-muted/60 text-muted-foreground">
                 {entriesTotal}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="oportunidades"
+            className={cn(
+              'gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+              'bg-background/60 text-foreground/80 border-border/40 hover:bg-muted/60',
+              'data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:border-foreground data-[state=active]:shadow-none',
+              '[&[data-state=active]_.count]:bg-white/20 [&[data-state=active]_.count]:text-white',
+            )}
+          >
+            <Briefcase className="h-3.5 w-3.5" />
+            Oportunidades
+            {oportunidadesTotal > 0 && (
+              <span className="count ml-1 tabular-nums text-[10px] rounded-full px-1.5 py-0.5 bg-muted/60 text-muted-foreground">
+                {oportunidadesTotal}
               </span>
             )}
           </TabsTrigger>
@@ -125,7 +171,7 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
             )}
           >
             <Users className="h-3.5 w-3.5" />
-            Contactos
+            Base de dados
             {leadsTotal > 0 && (
               <span className="count ml-1 tabular-nums text-[10px] rounded-full px-1.5 py-0.5 bg-muted/60 text-muted-foreground">
                 {leadsTotal}
@@ -143,7 +189,7 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
           ) : entries.length === 0 ? (
             <EmptyState
               icon={Inbox}
-              message="Sem leads por qualificar"
+              message="Sem leads por contactar"
               href="/dashboard/leads"
               cta="Abrir inbox de leads"
             />
@@ -157,6 +203,38 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
               <FooterLink
                 href="/dashboard/leads"
                 label={`Ver todos (${entriesTotal})`}
+              />
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent
+          value="oportunidades"
+          className="mt-3 flex-1 min-h-0 flex flex-col"
+        >
+          {loading ? (
+            <ListSkeleton />
+          ) : oportunidades.length === 0 ? (
+            <EmptyState
+              icon={Briefcase}
+              message="Sem oportunidades"
+              href="/dashboard/crm"
+              cta="Abrir pipeline"
+            />
+          ) : (
+            <>
+              <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 divide-y divide-border/40">
+                {oportunidades.map((n) => (
+                  <NegocioRowItem
+                    key={n.id}
+                    negocio={n}
+                    onOpen={setOpenNegocioId}
+                  />
+                ))}
+              </div>
+              <FooterLink
+                href="/dashboard/crm"
+                label={`Ver todas (${oportunidadesTotal})`}
               />
             </>
           )}
@@ -207,7 +285,68 @@ export function ContactosCard({ userId, fillViewport, className }: ContactosCard
         open={birthdaysOpen}
         onOpenChange={setBirthdaysOpen}
       />
+      <NegocioDetailSheet
+        negocioId={openNegocioId}
+        open={openNegocioId !== null}
+        onOpenChange={(o) => !o && setOpenNegocioId(null)}
+        onChanged={() => void load()}
+      />
     </Card>
+  )
+}
+
+function NegocioRowItem({
+  negocio,
+  onOpen,
+}: {
+  negocio: NegocioRow
+  onOpen: (id: string) => void
+}) {
+  const name =
+    negocio.lead?.full_name || negocio.lead?.nome || 'Negócio sem contacto'
+  const stage = negocio.leads_pipeline_stages
+  const stageColor = stage?.color || '#64748b'
+  const tipo = negocio.tipo
+  const isBuyer = tipo === 'Comprador' || tipo === 'Arrendatário'
+  const value = isBuyer
+    ? negocio.orcamento_max ?? negocio.orcamento ?? negocio.expected_value
+    : negocio.expected_value ?? negocio.preco_venda
+  const subtitle = [tipo, value != null ? formatEUR(value) : null]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(negocio.id)}
+      className="w-full text-left flex items-center gap-3 rounded-lg p-2.5 hover:bg-muted/40 transition-colors"
+    >
+      <div className="h-8 w-8 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
+        <Briefcase className="h-3.5 w-3.5 text-amber-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{name}</p>
+        {subtitle && (
+          <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
+        )}
+      </div>
+      {stage?.name && (
+        <span
+          className="inline-flex items-center gap-1 text-[10px] h-5 px-1.5 rounded-full shrink-0 ring-1 ring-inset font-medium"
+          style={{
+            backgroundColor: `${stageColor}1f`,
+            color: stageColor,
+            boxShadow: `inset 0 0 0 1px ${stageColor}33`,
+          }}
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full shrink-0"
+            style={{ backgroundColor: stageColor }}
+          />
+          <span className="truncate max-w-[80px]">{stage.name}</span>
+        </span>
+      )}
+    </button>
   )
 }
 

@@ -40,6 +40,7 @@ interface FormState {
   invoice_number: string
   due_date: string
   partner_id: string
+  notes: string
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
@@ -47,7 +48,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 function emptyForm(): FormState {
   return {
     date: todayIso(), type: 'expense', category: '', entity_name: '', entity_nif: '',
-    description: '', amount_net: '', vat_pct: '23', invoice_number: '', due_date: '', partner_id: '',
+    description: '', amount_net: '', vat_pct: '23', invoice_number: '', due_date: '', partner_id: '', notes: '',
   }
 }
 
@@ -101,6 +102,14 @@ export function CompanyExpenseSheet({ open, onOpenChange, categories, partners, 
       })
       setPreview(dataUrl)
       setReceiptBase64(dataUrl)
+
+      // A IA de visão só lê imagens (JPEG/PNG/WebP). PDF/HEIC ficam guardados,
+      // mas o preenchimento é manual — evita uma chamada que falharia.
+      const scannable = /^image\/(jpe?g|png|webp)$/i.test(toScan.type)
+      if (!scannable) {
+        toast.message('Ficheiro anexado — preenche os campos manualmente.')
+        return
+      }
 
       const res = await fetch('/api/financial/scan-receipt', {
         method: 'POST',
@@ -157,16 +166,23 @@ export function CompanyExpenseSheet({ open, onOpenChange, categories, partners, 
     setSaving(true)
     try {
       const vatPct = parseFloat(form.vat_pct) || 0
-      const vatAmount = Math.round(amountNet * (vatPct / 100) * 100) / 100
-      const amountGross = Math.round((amountNet + vatAmount) * 100) / 100
+      // Mantém os valores do documento quando o líquido/IVA não foram alterados
+      // (evita divergências de arredondamento / IVA misto face à fatura digitalizada).
+      const keepScanned = scan != null && scan.amount_gross != null
+        && Number(scan.amount_net) === amountNet
+        && Number(scan.vat_pct ?? 0) === vatPct
+      const vatAmount = keepScanned && scan?.vat_amount != null
+        ? Number(scan.vat_amount)
+        : Math.round(amountNet * (vatPct / 100) * 100) / 100
+      const amountGross = keepScanned && scan?.amount_gross != null
+        ? Number(scan.amount_gross)
+        : Math.round((amountNet + vatAmount) * 100) / 100
 
       // Aviso de possível duplicado (não bloqueia) quando há fatura + NIF.
       if (form.invoice_number && form.entity_nif) {
-        const d = new Date(form.date)
-        const m = d.getMonth() + 1
-        const y = d.getFullYear()
+        const [y, m] = form.date.split('-')
         try {
-          const checkRes = await fetch(`/api/financial/company-transactions?month=${m}&year=${y}`)
+          const checkRes = await fetch(`/api/financial/company-transactions?month=${Number(m)}&year=${y}`)
           if (checkRes.ok) {
             const existing = await checkRes.json()
             const dup = (existing.data || []).find((tx: any) =>
@@ -181,22 +197,27 @@ export function CompanyExpenseSheet({ open, onOpenChange, categories, partners, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date: form.date,
+          // invoice_date alimenta a coluna da data da fatura na lista de despesas.
+          invoice_date: form.date || undefined,
           type: form.type,
           category: form.category,
-          entity_name: form.entity_name || null,
-          entity_nif: form.entity_nif || null,
+          // Campos opcionais: enviar `undefined` (não `null`) — o schema Zod usa
+          // `.optional()` sem `.nullable()`, logo `null` seria rejeitado (400).
+          entity_name: form.entity_name || undefined,
+          entity_nif: form.entity_nif || undefined,
           description: form.description,
           amount_net: amountNet,
           amount_gross: amountGross,
           vat_amount: vatAmount,
           vat_pct: vatPct,
-          invoice_number: form.invoice_number || null,
-          due_date: form.due_date || null,
+          invoice_number: form.invoice_number || undefined,
+          due_date: form.due_date || undefined,
           partner_id: form.partner_id || null,
-          receipt_url: receiptBase64,
+          notes: form.notes || undefined,
+          receipt_url: receiptBase64 || undefined,
           ai_extracted: !!scan,
-          ai_confidence: scan?.confidence ?? null,
-          field_confidences: scan?.field_confidences ?? null,
+          ai_confidence: scan?.confidence ?? undefined,
+          field_confidences: scan?.field_confidences ?? undefined,
           // Despesa digitalizada entra como rascunho (revisão); manual confirmada.
           status: scan ? 'draft' : 'confirmed',
         }),
@@ -216,6 +237,9 @@ export function CompanyExpenseSheet({ open, onOpenChange, categories, partners, 
   }
 
   const isPdf = receiptBase64?.startsWith('data:application/pdf')
+  // O browser não decodifica HEIC — mostra um placeholder em vez de um <img> partido.
+  const isHeic = /^data:image\/hei[cf]/i.test(receiptBase64 ?? '')
+  const showFileTile = isPdf || isHeic
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -279,7 +303,7 @@ export function CompanyExpenseSheet({ open, onOpenChange, categories, partners, 
             </button>
           ) : (
             <div className="flex items-center gap-3 rounded-2xl bg-card/60 border border-border/50 p-3">
-              {isPdf ? (
+              {showFileTile ? (
                 <div className="shrink-0 h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center ring-1 ring-border">
                   <FileText className="h-5 w-5 text-muted-foreground" />
                 </div>
@@ -389,6 +413,11 @@ export function CompanyExpenseSheet({ open, onOpenChange, categories, partners, 
 
             <Field label="Vencimento">
               <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} className="h-9 text-sm" />
+            </Field>
+
+            <Field label="Notas">
+              <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                className="text-sm" placeholder="Opcional" />
             </Field>
           </div>
         </div>
