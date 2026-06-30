@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Internal/app-only routes that should not be indexed
+Disallow: /property/add
+
+Sitemap: https://infinitygroup.pt/sitemap.xml

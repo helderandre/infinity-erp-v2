@@ -1,7 +1,7 @@
 # Infinity Apps — Monorepo
 
-npm-workspace monorepo holding three Next.js apps that share one Supabase backend
-and a set of shared packages. One repo, one `node_modules` (hoisted), three
+npm-workspace monorepo holding four Next.js apps that share one Supabase backend
+and a set of shared packages. One repo, one `node_modules` (hoisted), four
 independently deployable apps.
 
 ## Structure
@@ -12,7 +12,8 @@ infinity-apps/
 ├── apps/
 │   ├── app/        @infinity/app        → app.infinitygroup.pt        (the main ERP, moved as-is)
 │   ├── parceiros/  @infinity/parceiros  → parceiros.infinitygroup.pt  (referrals, payments, pipelines)
-│   └── clientes/   @infinity/clientes   → clientes.infinitygroup.pt   (client portal)
+│   ├── clientes/   @infinity/clientes   → clientes.infinitygroup.pt   (client portal)
+│   └── website/    @infinity/website    → infinitygroup.pt            (public marketing/property site)
 └── packages/
     ├── config/  @infinity/config  # shared tsconfig bases
     ├── lib/     @infinity/lib     # shared Supabase clients + role helpers
@@ -26,9 +27,10 @@ npm install              # once, at the root — links workspaces, hoists deps
 npm run dev:app          # main ERP        → http://localhost:3000
 npm run dev:parceiros    # partners        → http://localhost:3001
 npm run dev:clientes     # clients         → http://localhost:3003
+npm run dev:website      # public website  → http://localhost:3004
 ```
 
-> Port **3002 is avoided** — it is bugged on the dev machine. Clients uses 3003.
+> Port **3002 is avoided** — it is bugged on the dev machine. Clients uses 3003, website 3004.
 
 ## Build
 
@@ -37,7 +39,18 @@ npm run build            # build every workspace that has a build script (-ws --
 npm run build:app        # single app
 npm run build:parceiros
 npm run build:clientes
+npm run build:website
 ```
+
+> **`apps/website`** is a faithful Next.js (App Router) rewrite of a Figma-exported
+> Vite/React SPA. It self-mirrors the original SPA shell: file-based routes under
+> `app/` wrap the ported page components in `src/app/pages/`, with the shared
+> Header/Footer chrome in `app/site-chrome.tsx`. The Cloudflare `_worker.js`
+> endpoints were reimplemented as Next route handlers (`app/api/lead`,
+> `app/api/contact`) + `app/sitemap.ts`; client data fetching uses the same shared
+> Supabase project (anon) as the ERP. React Router → `next/link` + `next/navigation`;
+> `import.meta.env.VITE_*` → `process.env.NEXT_PUBLIC_*`. Build gate is relaxed
+> (`typescript.ignoreBuildErrors`) for the upstream's type debt.
 
 ## Shared packages
 
@@ -69,6 +82,7 @@ In Coolify, create three services, all pointing at this repo:
 | infinity-app| `/`            | `Dockerfile` (repo root)   | app.infinitygroup.pt       | 3000 |
 | parceiros   | `/`            | `apps/parceiros/Dockerfile`| parceiros.infinitygroup.pt | 3001 |
 | clientes    | `/`            | `apps/clientes/Dockerfile` | clientes.infinitygroup.pt  | 3003 |
+| website     | `/`            | `apps/website/Dockerfile`  | infinitygroup.pt           | 3004 |
 
 Each needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 (+ `SUPABASE_SERVICE_ROLE_KEY` and the app's other secrets) as build args / env.

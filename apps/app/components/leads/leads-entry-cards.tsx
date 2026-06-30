@@ -162,6 +162,13 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
       {/* Active entries — compact cards */}
       {activeEntries.map((entry) => {
         const statusInfo = STATUS_STYLES[entry.status] || STATUS_STYLES.new
+        // Referenciação: a lead que chegou por referência "deve" uma fatia da
+        // comissão ao consultor que a entregou (dono original).
+        const referrerName: string | null =
+          entry.referral_consultant?.commercial_name ?? null
+        const referrerFirstName = referrerName
+          ? referrerName.trim().split(/\s+/)[0]
+          : null
         return (
           <div
             key={entry.id}
@@ -184,9 +191,20 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
                 {entry.campaign?.name && <span>· {entry.campaign.name}</span>}
                 <span>· {format(new Date(entry.created_at), "d MMM yyyy HH:mm", { locale: pt })}</span>
                 {entry.has_referral && (
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 rounded-full gap-0.5">
-                    <Sparkles className="h-2.5 w-2.5" />
-                    Ref.{entry.referral_pct ? ` ${entry.referral_pct}%` : ''}
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] h-4 px-1.5 rounded-full gap-0.5 max-w-[170px]"
+                    title={
+                      referrerName
+                        ? `Deve referenciação a ${referrerName}${entry.referral_pct ? ` (${entry.referral_pct}%)` : ''}`
+                        : 'Deve referenciação'
+                    }
+                  >
+                    <Sparkles className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">
+                      {entry.referral_pct ? `Deve ${entry.referral_pct}%` : 'Deve'}
+                      {referrerFirstName ? ` a ${referrerFirstName}` : ''}
+                    </span>
                   </Badge>
                 )}
               </div>
@@ -349,7 +367,7 @@ export function LeadsEntryCards({ entries, loading, contactId, onQualified }: Le
                         )}
                         {selectedEntry.referral_consultant?.commercial_name && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Consultor</span>
+                            <span className="text-muted-foreground">Deve referenciação a</span>
                             <span className="font-medium">{selectedEntry.referral_consultant.commercial_name}</span>
                           </div>
                         )}

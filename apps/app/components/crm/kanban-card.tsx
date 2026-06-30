@@ -157,6 +157,13 @@ export function KanbanCard({
   const tempEmoji = temperaturaEmoji(temperatura)
   const tempColor = temperaturaColor(temperatura)
   const tipoImovel = negocio.tipo_imovel as string | null
+  // Referência externa do imóvel ligado ao negócio (id do portal). Mostrada
+  // sobretudo nos negócios de vendedor/senhorio (têm imóvel); compradores
+  // raramente têm um property_id, pelo que o chip simplesmente não aparece.
+  const propertyExternalRef =
+    (negocio.property?.external_ref as string | null) ||
+    (negocio.property?.slug as string | null) ||
+    null
   const quartosMin = negocio.quartos_min as number | null
   // Localização: campo legacy de texto livre, com fallback para a primeira
   // zona estruturada — negócios criados só com `zonas` (ex.: "Novo Contacto")
@@ -180,6 +187,9 @@ export function KanbanCard({
       ? parseFloat(referralPctRaw)
       : null
   const isInternalReferral = !!referrerConsultantId
+  // First name keeps the "owes referral to X" badge compact on the card; the
+  // full name stays in the tooltip.
+  const referrerFirstName = referrerName ? referrerName.trim().split(/\s+/)[0] : null
 
   // Compute the slice in € so the badge can show actual money. Mirrors the
   // formula used by /api/crm/kanban totals: gross × commission_factor × pct.
@@ -475,23 +485,40 @@ export function KanbanCard({
         {/* Tipologia + referências na mesma linha. Tipo de imóvel/morada/
             contacto ficam de fora (reduz o ruído); os badges de referência
             mostram só ícone + percentagem. */}
-        {(tipologia || isInternalReferral || hasReferral) && (
+        {(tipologia || propertyExternalRef || isInternalReferral || hasReferral) && (
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             {tipologia && (
               <span className="text-base font-semibold text-muted-foreground leading-none tabular-nums">
                 {tipologia}
               </span>
             )}
+            {propertyExternalRef && (
+              <Badge
+                variant="secondary"
+                className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 font-mono max-w-[130px]"
+                title={`Imóvel ${propertyExternalRef}`}
+              >
+                <Home className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{propertyExternalRef}</span>
+              </Badge>
+            )}
             {isInternalReferral && (
               <Badge
                 variant="secondary"
-                className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15"
-                title={referrerName ? `Referenciado por ${referrerName}` : 'Referenciado'}
+                className="text-[9px] h-4 px-1.5 py-0 rounded-full gap-0.5 bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15 max-w-[150px]"
+                title={
+                  referrerName
+                    ? `Deve referenciação a ${referrerName}${referralPct !== null && Number.isFinite(referralPct) ? ` (${referralPct}%)` : ''}`
+                    : 'Deve referenciação'
+                }
               >
                 <Send className="h-2.5 w-2.5 shrink-0" />
-                {referralPct !== null && Number.isFinite(referralPct) ? (
-                  <span className="shrink-0 tabular-nums">{referralPct}%</span>
-                ) : null}
+                <span className="truncate">
+                  {referralPct !== null && Number.isFinite(referralPct)
+                    ? `Deve ${referralPct}%`
+                    : 'Deve'}
+                  {referrerFirstName ? ` a ${referrerFirstName}` : ''}
+                </span>
               </Badge>
             )}
             {hasReferral && (

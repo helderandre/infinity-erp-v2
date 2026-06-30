@@ -17,6 +17,46 @@ async function resolveDefaultPct(
   return Number.isFinite(v) ? v : DEFAULT_REFERRAL_PCT
 }
 
+/**
+ * The referrer (who keeps the commission slice) is the CURRENT owner of the
+ * entity being referred — NEVER the caller. A management user may run the
+ * hand-off on the owner's behalf, and the slice must stay with the consultor
+ * who actually owns the lead, not whoever clicked "Referenciar".
+ *
+ * Resolution order: the most specific owner wins (entry/négocio), falling
+ * back to the contacto owner. Returns null only for a truly orphan lead.
+ */
+async function resolveReferrerOwner(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  input: { entry_id?: string | null; negocio_id?: string | null; contact_id: string },
+): Promise<string | null> {
+  if (input.entry_id) {
+    const { data } = await supabase
+      .from('leads_entries')
+      .select('assigned_consultant_id')
+      .eq('id', input.entry_id)
+      .maybeSingle()
+    if (data?.assigned_consultant_id) return data.assigned_consultant_id as string
+  } else if (input.negocio_id) {
+    const { data } = await supabase
+      .from('negocios')
+      .select('assigned_consultant_id')
+      .eq('id', input.negocio_id)
+      .maybeSingle()
+    if (data?.assigned_consultant_id) return data.assigned_consultant_id as string
+  }
+  if (input.contact_id) {
+    const { data } = await supabase
+      .from('leads')
+      .select('agent_id')
+      .eq('id', input.contact_id)
+      .maybeSingle()
+    if (data?.agent_id) return data.agent_id as string
+  }
+  return null
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -93,17 +133,26 @@ export async function POST(request: Request) {
     const input = parsed.data
     const supabase = createCrmAdminClient()
 
+    // Resolve the effective referrer: the entity's current owner, not the
+    // caller. The body's from_consultant_id is only a fallback for orphan
+    // leads (no owner anywhere). partner_inbound keeps its body value.
+    let effectiveReferrerId: string | null = input.from_consultant_id ?? null
+    if (input.referral_type === 'internal') {
+      effectiveReferrerId =
+        (await resolveReferrerOwner(supabase, input)) ?? input.from_consultant_id ?? null
+    }
+
     // Self-referral guard — internal referrals must have two distinct
-    // consultores. The dialog already filters the current user from the
-    // recipient list; this is the API-side enforcement.
+    // consultores. With the owner-derived referrer this also blocks referring
+    // a lead to the consultor who already owns it.
     if (
       input.referral_type === 'internal' &&
-      input.from_consultant_id &&
+      effectiveReferrerId &&
       input.to_consultant_id &&
-      input.from_consultant_id === input.to_consultant_id
+      effectiveReferrerId === input.to_consultant_id
     ) {
       return NextResponse.json(
-        { error: 'Não podes referenciar a ti próprio' },
+        { error: 'O destinatário já é o responsável por esta lead' },
         { status: 400 },
       )
     }
@@ -134,11 +183,13 @@ export async function POST(request: Request) {
         .in('status', ['pending', 'accepted'])
     }
 
-    // Insert audit row first.
+    // Insert audit row first. from_consultant_id is forced to the resolved
+    // owner so the slice never lands on a management caller.
     const { data: audit, error: insertError } = await supabase
       .from('leads_referrals')
       .insert({
         ...input,
+        from_consultant_id: effectiveReferrerId,
         referral_pct: effectivePct,
       })
       .select()
@@ -177,7 +228,7 @@ export async function POST(request: Request) {
               // surface in the unassigned pool. Same person, two columns.
               assigned_agent_id: input.to_consultant_id,
               has_referral: true,
-              referral_consultant_id: input.from_consultant_id,
+              referral_consultant_id: effectiveReferrerId,
               referral_pct: effectivePct,
             })
             .eq('id', input.entry_id)
@@ -199,7 +250,7 @@ export async function POST(request: Request) {
             .from('negocios')
             .update({
               assigned_consultant_id: input.to_consultant_id,
-              referrer_consultant_id: input.from_consultant_id,
+              referrer_consultant_id: effectiveReferrerId,
               referral_pct: effectivePct,
             })
             .eq('id', input.negocio_id)

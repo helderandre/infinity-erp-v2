@@ -11,6 +11,7 @@ COPY package.json package-lock.json ./
 COPY apps/app/package.json apps/app/
 COPY apps/parceiros/package.json apps/parceiros/
 COPY apps/clientes/package.json apps/clientes/
+COPY apps/website/package.json apps/website/
 COPY packages/config/package.json packages/config/
 COPY packages/lib/package.json packages/lib/
 COPY packages/ui/package.json packages/ui/

@@ -1,0 +1,13 @@
+/* Google Fonts — must precede other rules */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tailwind v4: scan the ported SPA source for utility classes */
+@source "../src";
+
+/* Design system carried over verbatim from the Vite build */
+@import "../src/styles/fonts.css";
+@import "../src/styles/theme.css";
+@import "../src/styles/dark-mode.css";

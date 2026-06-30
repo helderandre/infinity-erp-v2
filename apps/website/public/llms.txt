@@ -1,0 +1,33 @@
+# Infinity Group
+
+> Agência imobiliária em Portugal especializada na compra, venda e arrendamento de imóveis. Operada pela Lecoqimmo - Mediação Imobiliária, Unipessoal Lda, ao abrigo da Licença AMI n.º 4719 (Convictus Mediação Imobiliária, Lda).
+
+Infinity Group is a real-estate agency based in Lisbon, Portugal. The website presents the agency's property portfolio (sale and rental), services, team of consultants, and contact channels. The primary user action is submitting a contact/lead request about a property or service. The site does not sell goods online and has no cart, checkout, or payment process.
+
+## Pages
+
+- [Início](https://infinitygroup.pt/): Homepage — featured properties, search, and agency overview.
+- [Imóveis](https://infinitygroup.pt/property): Property listings for sale and rental across Portugal, with search and filters.
+- [Mapa de Imóveis](https://infinitygroup.pt/property/map): Map-based view of available properties.
+- [Serviços](https://infinitygroup.pt/services): Buying, selling, renting, and property valuation services.
+- [Sobre Nós](https://infinitygroup.pt/about): About the agency, its values and experience.
+- [Equipa](https://infinitygroup.pt/agents): The agency's real-estate consultants.
+- [Contactos](https://infinitygroup.pt/contact): Contact details and lead/contact form.
+
+## Legal
+
+- [Política de Privacidade](https://infinitygroup.pt/privacy): RGPD-compliant privacy policy.
+- [Política de Cookies](https://infinitygroup.pt/cookies): Only strictly-necessary/functional storage is used; no tracking, analytics, or advertising cookies.
+- [Termos e Condições](https://infinitygroup.pt/terms): Terms of use of the website.
+- [Aviso Legal](https://infinitygroup.pt/legal): Company information, AMI licence, and dispute resolution (Livro de Reclamações, RAL).
+
+## Optional
+
+- [Sitemap](https://infinitygroup.pt/sitemap.xml): Full list of indexable pages, including every public property listing.
+
+## Contact
+
+- Entity: Lecoqimmo - Mediação Imobiliária, Unipessoal Lda (NIPC 514828528)
+- Address: Avenida da Liberdade, Nº 129 B, 1250-140 Lisboa, Portugal
+- Phone: +351 910 523 200
+- Licence: AMI 4719 (Convictus Mediação Imobiliária, Lda)

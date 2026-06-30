@@ -1,0 +1,383 @@
+/* Dark Mode Styles with Platinum Accents */
+
+.dark-mode {
+  /* Main backgrounds - Modern dark grays */
+  --dm-bg-primary: #0f0f0f;
+  --dm-bg-secondary: #1a1a1a;
+  --dm-bg-tertiary: #2a2a2a;
+  --dm-bg-elevated: #1f1f1f;
+  
+  /* Text colors */
+  --dm-text-primary: #ffffff;
+  --dm-text-secondary: #b8b8b8;
+  --dm-text-tertiary: #808080;
+  
+  /* Platinum accents - metallic gray tones */
+  --dm-platinum: #9ca3af;
+  --dm-platinum-light: #d1d5db;
+  --dm-platinum-dark: #6b7280;
+  
+  /* Borders */
+  --dm-border: rgba(255, 255, 255, 0.1);
+  --dm-border-hover: rgba(255, 255, 255, 0.2);
+}
+
+/* Background colors */
+.dark-mode {
+  background-color: var(--dm-bg-primary);
+  color: var(--dm-text-primary);
+}
+
+.dark-mode .bg-white {
+  background-color: var(--dm-bg-secondary);
+  color: var(--dm-text-primary);
+}
+
+.dark-mode .bg-gray-50 {
+  background-color: var(--dm-bg-elevated);
+  color: var(--dm-text-primary);
+}
+
+.dark-mode .bg-gray-100 {
+  background-color: var(--dm-bg-tertiary);
+  color: var(--dm-text-primary);
+}
+
+.dark-mode .bg-gray-200 {
+  background-color: #333333;
+  color: var(--dm-text-primary);
+}
+
+.dark-mode .bg-gray-300 {
+  background-color: #3a3a3a;
+  color: var(--dm-text-primary);
+}
+
+/* Text colors - enforce white on dark backgrounds */
+.dark-mode .text-black {
+  color: #ffffff !important;
+}
+
+.dark-mode .text-gray-600 {
+  color: #ffffff;
+}
+
+.dark-mode .text-gray-700 {
+  color: #ffffff;
+}
+
+.dark-mode .text-gray-500 {
+  color: #cccccc;
+}
+
+.dark-mode .text-gray-800,
+.dark-mode .text-gray-900 {
+  color: #ffffff;
+}
+
+/* Borders */
+.dark-mode .border-gray-100,
+.dark-mode .border-gray-200 {
+  border-color: var(--dm-border);
+}
+
+/* Black buttons stay black with white text and border in dark mode */
+.dark-mode .bg-black {
+  background-color: #000000;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark-mode .bg-black:hover,
+.dark-mode .hover\:bg-gray-800:hover {
+  background-color: #1a1a1a;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Header & Footer */
+.dark-mode header {
+  background-color: rgba(15, 15, 15, 0.95);
+  border-bottom-color: var(--dm-border);
+}
+
+.dark-mode footer {
+  background-color: #0a0a0a;
+  border-top-color: var(--dm-border);
+}
+
+/* Cards & Components */
+.dark-mode .shadow-lg,
+.dark-mode .shadow-xl,
+.dark-mode .shadow-2xl {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Card borders - subtle outline for all cards */
+.dark-mode .bg-white,
+.dark-mode .bg-gray-50,
+.dark-mode .bg-gray-100 {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .bg-white:hover,
+.dark-mode .bg-gray-50:hover,
+.dark-mode .bg-gray-100:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Rounded cards get subtle borders */
+.dark-mode .rounded-xl,
+.dark-mode .rounded-2xl,
+.dark-mode .rounded-3xl,
+.dark-mode .rounded-lg {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Hover effects */
+.dark-mode .hover\:bg-gray-100:hover {
+  background-color: var(--dm-bg-tertiary);
+}
+
+.dark-mode .hover\:bg-gray-200:hover {
+  background-color: #333333;
+}
+
+.dark-mode .hover\:text-black:hover {
+  color: var(--dm-platinum);
+}
+
+/* Stars and ratings - keep platinum */
+.dark-mode .text-yellow-400,
+.dark-mode .fill-yellow-400 {
+  color: var(--dm-platinum);
+  fill: var(--dm-platinum);
+}
+
+/* Input fields */
+.dark-mode input,
+.dark-mode textarea {
+  background-color: var(--dm-bg-tertiary);
+  border-color: var(--dm-border);
+  color: var(--dm-text-primary);
+}
+
+.dark-mode input:focus,
+.dark-mode textarea:focus {
+  border-color: var(--dm-platinum);
+}
+
+.dark-mode input::placeholder,
+.dark-mode textarea::placeholder {
+  color: var(--dm-text-tertiary);
+}
+
+/* Backdrop blur overlays */
+.dark-mode .backdrop-blur-sm {
+  backdrop-filter: blur(12px);
+}
+
+.dark-mode .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.75);
+}
+
+.dark-mode .bg-black\/30 {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Modals */
+.dark-mode [class*="rounded-t-3xl"],
+.dark-mode [class*="rounded-2xl"],
+.dark-mode [class*="rounded-xl"] {
+  background-color: var(--dm-bg-secondary);
+}
+
+/* Logo - add platinum accent to infinity symbol */
+.dark-mode a[href="/"] .text-2xl,
+.dark-mode a[href="/"] .text-3xl {
+  color: var(--dm-platinum);
+}
+
+/* Property cards - platinum on hover */
+.dark-mode .group:hover h3 {
+  color: var(--dm-platinum);
+}
+
+/* Missão card title should be white in dark mode */
+.dark-mode .bg-black h3 {
+  color: #ffffff !important;
+}
+
+/* Scrollbar (if visible) */
+.dark-mode ::-webkit-scrollbar-track {
+  background-color: var(--dm-bg-primary);
+}
+
+.dark-mode ::-webkit-scrollbar-thumb {
+  background-color: var(--dm-bg-tertiary);
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--dm-platinum);
+}
+
+/* Map iframe filters */
+.dark-mode iframe[src*="google.com/maps"] {
+  filter: invert(90%) hue-rotate(180deg);
+}
+
+/* Stat numbers - add platinum accent */
+.dark-mode .text-2xl:not(.md\:text-3xl),
+.dark-mode .text-3xl:not(.md\:text-4xl),
+.dark-mode .text-4xl:not(.md\:text-5xl) {
+  color: var(--dm-platinum-light);
+}
+
+/* Infinity logo specific styling */
+.dark-mode .flex.items-center.gap-1\.5 > div:first-child {
+  color: var(--dm-platinum);
+  text-shadow: 0 0 20px rgba(156, 163, 175, 0.3);
+}
+
+/* Ensure all normally black text becomes white */
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3,
+.dark-mode h4,
+.dark-mode h5,
+.dark-mode h6,
+.dark-mode p,
+.dark-mode span,
+.dark-mode div {
+  color: inherit;
+}
+
+/* Specific text overrides */
+.dark-mode .text-white {
+  color: #ffffff;
+}
+
+.dark-mode label {
+  color: var(--dm-text-primary);
+}
+
+/* White text elements should remain white */
+.dark-mode .text-white,
+.dark-mode .bg-black .text-white {
+  color: #ffffff;
+}
+
+/* Navigation links */
+.dark-mode nav a {
+  color: var(--dm-text-secondary);
+}
+
+.dark-mode nav a:hover,
+.dark-mode nav a.active {
+  color: var(--dm-text-primary);
+}
+
+/* Ensure headings are white */
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3 {
+  color: var(--dm-text-primary);
+}
+
+/* Price text and important info */
+.dark-mode .text-2xl,
+.dark-mode .text-3xl,
+.dark-mode .text-4xl,
+.dark-mode .text-5xl {
+  color: var(--dm-text-primary);
+}
+
+/* Agent names and property titles */
+.dark-mode h3,
+.dark-mode h4 {
+  color: var(--dm-text-primary);
+}
+
+/* Ensure proper contrast for links */
+.dark-mode a:not([class*="bg-"]) {
+  color: var(--dm-platinum-light);
+}
+
+.dark-mode a:not([class*="bg-"]):hover {
+  color: var(--dm-platinum);
+}
+
+/* Hero section and large text */
+.dark-mode .text-5xl,
+.dark-mode .text-6xl {
+  color: var(--dm-text-primary);
+}
+
+/* Placeholder images and icons */
+.dark-mode .text-gray-400 {
+  color: #666666;
+}
+
+/* Stat cards and feature text */
+.dark-mode .bg-white h3,
+.dark-mode .bg-white p {
+  color: var(--dm-text-primary);
+}
+
+/* Footer text */
+.dark-mode footer p,
+.dark-mode footer span {
+  color: #999999;
+}
+
+.dark-mode footer h3,
+.dark-mode footer h4 {
+  color: #cccccc;
+}
+
+/* Footer links - keep gray, not platinum */
+.dark-mode footer a:not([class*="bg-"]) {
+  color: #999999;
+}
+
+.dark-mode footer a:not([class*="bg-"]):hover {
+  color: #cccccc;
+}
+
+/* Footer buttons */
+.dark-mode footer button {
+  color: #999999;
+}
+
+.dark-mode footer button:hover {
+  color: #cccccc;
+}
+
+/* All card backgrounds with content */
+.dark-mode .bg-white * {
+  color: var(--dm-text-primary);
+}
+
+/* Property cards and agent cards */
+.dark-mode .bg-white .text-gray-600,
+.dark-mode .bg-white .text-gray-700,
+.dark-mode .bg-white .text-gray-500 {
+  color: #cccccc;
+}
+
+/* Ensure all content on dark backgrounds is white */
+.dark-mode .bg-gray-50 *,
+.dark-mode .bg-gray-100 *,
+.dark-mode .bg-gray-200 *,
+.dark-mode .bg-white * {
+  color: inherit;
+}
+
+/* Property details and descriptions */
+.dark-mode p {
+  color: #e0e0e0;
+}
+
+/* List items */
+.dark-mode li {
+  color: #e0e0e0;
+}

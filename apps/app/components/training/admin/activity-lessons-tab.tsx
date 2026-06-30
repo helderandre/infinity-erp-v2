@@ -20,7 +20,7 @@ function formatSeconds(s: number): string {
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  auto_watch: 'Auto (≥90%)',
+  auto_watch: 'Auto (≥95%)',
   manual: 'Manual',
   admin_override: 'Override',
   quiz_pass: 'Quiz',
@@ -70,7 +70,13 @@ export function ActivityLessonsTab({ lessons }: Props) {
                       {Object.entries(l.completion_by_source)
                         .filter(([, v]) => v > 0)
                         .map(([k, v]) => (
-                          <Badge key={k} variant="outline" className="text-[10px] px-1.5 py-0">
+                          <Badge
+                            key={k}
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0 ${
+                              k === 'admin_override' ? 'border-amber-300 bg-amber-100 text-amber-800' : ''
+                            }`}
+                          >
                             {SOURCE_LABELS[k] ?? k}: {v}
                           </Badge>
                         ))}

@@ -165,10 +165,10 @@ export function ReferenciarDialog({
 
   const description =
     subject.kind === 'negocio'
-      ? 'O negócio passa para o consultor escolhido. Tu manténs a tua percentagem da comissão neste negócio e em qualquer outro que ele venha a fazer com este contacto.'
+      ? 'O negócio passa para o consultor escolhido. O dono atual mantém a sua percentagem da comissão neste negócio e em qualquer outro que o novo consultor venha a fazer com este contacto.'
       : subject.kind === 'lead_entry'
-        ? 'A lead aparece na caixa de entrada do consultor. Qualquer negócio que ele faça com este contacto te paga a tua percentagem da comissão.'
-        : 'Fica registado um acordo de referência. Qualquer negócio que o consultor venha a fazer com este contacto te paga a tua percentagem da comissão.'
+        ? 'A lead aparece na caixa de entrada do consultor. Qualquer negócio que ele faça com este contacto paga a percentagem da comissão ao dono atual da lead.'
+        : 'Fica registado um acordo de referência. Qualquer negócio que o consultor venha a fazer com este contacto paga a percentagem da comissão ao dono atual da lead.'
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -237,9 +237,9 @@ export function ReferenciarDialog({
                 disabled={submitting}
               />
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Predefinido em 25% (mínimo 1%). Tanto tu como o consultor podem
-                cancelar este acordo a qualquer altura — o cancelamento só afecta
-                negócios futuros, os já registados continuam a pagar a tua percentagem.
+                Predefinido em 25% (mínimo 1%). Tanto o dono como o consultor que
+                recebe podem cancelar este acordo a qualquer altura — o cancelamento
+                só afecta negócios futuros, os já registados continuam a pagar a percentagem.
               </p>
             </div>
 

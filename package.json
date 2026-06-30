@@ -10,14 +10,17 @@
     "dev:app": "npm run dev -w @infinity/app",
     "dev:parceiros": "npm run dev -w @infinity/parceiros",
     "dev:clientes": "npm run dev -w @infinity/clientes",
+    "dev:website": "npm run dev -w @infinity/website",
     "build": "npm run build --workspaces --if-present",
     "build:app": "npm run build -w @infinity/app",
     "build:parceiros": "npm run build -w @infinity/parceiros",
     "build:clientes": "npm run build -w @infinity/clientes",
+    "build:website": "npm run build -w @infinity/website",
     "build:extension": "npm run build -w @infinity/casa-pronta-extension",
     "start:app": "npm run start -w @infinity/app",
     "start:parceiros": "npm run start -w @infinity/parceiros",
     "start:clientes": "npm run start -w @infinity/clientes",
+    "start:website": "npm run start -w @infinity/website",
     "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {

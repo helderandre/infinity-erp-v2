@@ -28,7 +28,12 @@ export async function PUT(
     }
 
     const input = validation.data
-    const hasTrainingPermission = Boolean(auth.permissions?.training)
+    // Override de conclusão (concluir um vídeo ABAIXO do gate de visionamento) é
+    // uma acção de GESTÃO. NÃO pode depender de `training` — essa é a permissão de
+    // *acesso* ao módulo que os próprios consultores têm para frequentar cursos;
+    // se dependesse dela, um consultor auto-aprovava-se sem ver o vídeo. Exige uma
+    // permissão de gestão (`users`), que os consultores não têm.
+    const canOverrideGate = Boolean(auth.permissions?.users)
 
     // Load lesson metadata — needed for content_type (determines gate behaviour)
     const { data: lesson, error: lessonError } = await supabase
@@ -88,7 +93,7 @@ export async function PUT(
       if (isVideo) {
         // Gate applies to video lessons only
         if (incomingPercent < WATCH_GATE_PERCENT) {
-          if (!hasTrainingPermission) {
+          if (!canOverrideGate) {
             return NextResponse.json(
               {
                 error: `Assista a pelo menos ${WATCH_GATE_PERCENT}% do vídeo para concluir`,

@@ -460,6 +460,21 @@ export default function LeadDetailPage() {
     </>
   )
 
+  // Referenciação devida: esta lead chegou por referência de outro consultor
+  // (o dono original), pelo que "deve" uma fatia da comissão. Derivado das
+  // entradas já carregadas — a entrada com has_referral guarda o consultor a
+  // quem é devida + a percentagem.
+  const owedReferral = (() => {
+    const e = entries.find(
+      (en) => en?.has_referral && en?.referral_consultant?.commercial_name,
+    )
+    if (!e) return null
+    return {
+      name: e.referral_consultant.commercial_name as string,
+      pct: typeof e.referral_pct === 'number' ? (e.referral_pct as number) : null,
+    }
+  })()
+
   return (
     <>
     <Tabs
@@ -540,6 +555,19 @@ export default function LeadDetailPage() {
               {contextActionsCluster}
             </div>
           </div>
+
+          {/* Referenciação devida — esta lead deve uma fatia da comissão ao
+              consultor que a referenciou (o dono original). */}
+          {owedReferral && (
+            <div className="mb-2 lg:mb-3 flex items-start gap-2 rounded-2xl border border-amber-300/60 bg-amber-50/70 dark:border-amber-800/60 dark:bg-amber-950/25 px-3.5 py-2.5 text-[12px] text-amber-800 dark:text-amber-300 shadow-sm">
+              <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
+              <span className="leading-snug">
+                Esta lead deve{' '}
+                <strong>{owedReferral.pct !== null ? `${owedReferral.pct}% ` : ''}</strong>
+                de referenciação a <strong>{owedReferral.name}</strong>.
+              </span>
+            </div>
+          )}
 
           {/* ─── Card 1: identidade + estado/temperatura ──────────────
               Mobile: frosted glass card (translúcido + backdrop-blur)

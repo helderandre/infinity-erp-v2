@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, Phone, PhoneOff, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, CalendarDays, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Phone, PhoneOff, Mail, Clock, Gift, Check, Send, X, Undo2, ArrowRight, Search, SlidersHorizontal, CalendarDays, Kanban as KanbanIcon, List, Plus, Briefcase, Sparkles, MoveRight, MoreVertical, Pencil, Trash2, Home } from 'lucide-react'
 import { formatDistanceToNow, format, startOfDay, endOfDay, subDays } from 'date-fns'
 import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -123,6 +123,9 @@ interface LeadEntry {
   lost_reason?: string | null
   contact?: { id: string; nome: string | null; telemovel: string | null; email: string | null } | null
   campaign?: { id: string; name: string | null } | null
+  /** Imóvel que originou a lead (join de leads_entries.property_id). O
+   *  external_ref é o id externo / do portal mostrado no card. */
+  property?: { id: string; title: string | null; slug: string | null; external_ref: string | null } | null
   /** The opportunity generated when this entry was qualified (reverse embed
    *  of negocios.entry_id). Present only on converted entries. */
   deal?: { id: string; pipeline_stage_id: string | null }[] | null
@@ -1419,6 +1422,13 @@ function LeadCard({
           <Clock className="h-3 w-3 shrink-0 opacity-70" />
           <span className="truncate">{formatDistanceToNow(new Date(entry.created_at), { locale: pt, addSuffix: true })}</span>
         </div>
+        {/* Imóvel que trouxe a lead — referência externa (id do portal). */}
+        {(entry.property?.external_ref || entry.property?.slug) && (
+          <div className="text-muted-foreground mt-1 flex items-center gap-1.5 text-[11px]">
+            <Home className="h-3 w-3 shrink-0 opacity-70" />
+            <span className="truncate font-mono">{entry.property.external_ref || entry.property.slug}</span>
+          </div>
+        )}
         {/* Motivo da perda — chip vermelho quando a lead foi descartada. */}
         {entry.lost_reason && (
           <span className="mt-2 inline-flex max-w-full items-center gap-0.5 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300">

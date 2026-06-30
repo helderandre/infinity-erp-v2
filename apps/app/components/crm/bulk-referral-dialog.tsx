@@ -181,8 +181,8 @@ export function BulkReferralDialog({ open, onOpenChange, ids, kind = 'negocio', 
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             {ids.length} {ids.length === 1 ? noun.sing : noun.plur} · passam para o
-            consultor escolhido e tu manténs a tua percentagem da comissão em cada um (e em negócios
-            futuros que ele faça com esses contactos).
+            consultor escolhido e o dono atual de cada um mantém a percentagem da comissão (e em negócios
+            futuros que o novo consultor faça com esses contactos).
           </DialogDescription>
         </DialogHeader>
 

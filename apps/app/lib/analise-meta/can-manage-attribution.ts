@@ -4,7 +4,9 @@ type SupabaseClient = import('@supabase/supabase-js').SupabaseClient<any, any, a
 
 /**
  * Quem pode gerir a atribuição de campanhas/anúncios Meta a consultores:
- * gestão (MANAGEMENT_ROLES / admin) OU quem tem a permissão `marketing`/`users`.
+ * gestão (MANAGEMENT_ROLES / admin), quem tem `leads_management` (gestão de
+ * leads — fonte única de verdade para atribuir leads, robusta a variações de
+ * grafia do nome do role), OU quem tem a permissão `marketing`/`users`.
  * Decisão do stakeholder: "Managers/Marketing only".
  */
 export async function canManageAttribution(
@@ -26,7 +28,11 @@ export async function canManageAttribution(
     if (!role) continue
     if (allowedRoles.has(norm(role.name))) return true
     const perms = role.permissions
-    if (perms && (perms.marketing === true || perms.users === true)) return true
+    if (
+      perms &&
+      (perms.leads_management === true || perms.marketing === true || perms.users === true)
+    )
+      return true
   }
   return false
 }

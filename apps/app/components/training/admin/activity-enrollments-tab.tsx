@@ -48,10 +48,19 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const SOURCE_LABEL: Record<string, string> = {
-  auto_watch: 'Auto ≥90%',
+  auto_watch: 'Auto ≥95%',
   manual: 'Manual',
   admin_override: 'Override',
   quiz_pass: 'Quiz',
+}
+
+// Cor do badge de conclusão. "Override" = concluído por gestão SEM cumprir o gate
+// de visionamento (vídeo visto só parcialmente) → sinalizar a laranja/âmbar.
+// Tudo o resto (visto até ao fim, quiz, etc.) fica verde.
+function completedBadgeClass(source?: string | null): string {
+  return source === 'admin_override'
+    ? 'bg-amber-100 text-amber-800'
+    : 'bg-emerald-100 text-emerald-700'
 }
 
 export function ActivityEnrollmentsTab({ courseId }: Props) {
@@ -241,8 +250,11 @@ export function ActivityEnrollmentsTab({ courseId }: Props) {
                       <div className="text-right text-xs text-muted-foreground shrink-0">
                         <div className="flex items-center gap-1.5 justify-end">
                           {l.status === 'completed' ? (
-                            <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-0 text-[10px] px-1.5 py-0">
+                            <Badge variant="outline" className={`${completedBadgeClass(l.completion_source)} border-0 text-[10px] px-1.5 py-0`}>
                               Concluído{l.completion_source ? ` · ${SOURCE_LABEL[l.completion_source] ?? l.completion_source}` : ''}
+                              {l.completion_source === 'admin_override' && typeof l.video_watch_percent === 'number'
+                                ? ` · ${l.video_watch_percent}%`
+                                : ''}
                             </Badge>
                           ) : l.status === 'in_progress' ? (
                             <Badge variant="outline" className="bg-blue-100 text-blue-700 border-0 text-[10px] px-1.5 py-0">

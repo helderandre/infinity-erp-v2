@@ -1,0 +1,18 @@
+/* Inter is imported at the top of app/globals.css (must precede all rules). */
+
+/* SF Pro Display Font */
+@font-face {
+  font-family: 'SF Pro Display';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://fonts.cdnfonts.com/s/59881/SFPRODISPLAYREGULAR.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'SF Pro Text';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://fonts.cdnfonts.com/s/59881/SFPROTEXTREGULAR.woff') format('woff');
+}

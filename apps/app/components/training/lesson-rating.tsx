@@ -43,10 +43,12 @@ export function LessonRating({
   commentSlot,
 }: LessonRatingProps) {
   const { hasPermission } = usePermissions()
-  const isTrainingAdmin = hasPermission('training')
+  // Só a gestão (`users`) pode saltar o gate de visionamento. Ter `training`
+  // (acesso ao módulo, que os consultores têm) NÃO chega.
+  const canOverrideGate = hasPermission('users')
 
   const isVideoLesson = contentType === 'video'
-  const gateApplies = isVideoLesson && !isTrainingAdmin
+  const gateApplies = isVideoLesson && !canOverrideGate
   const belowGate = gateApplies && watchPercent < WATCH_GATE_PERCENT
   const completeButtonDisabled = Boolean(isSaving) || belowGate
   const [userRating, setUserRating] = useState<number | null>(null)

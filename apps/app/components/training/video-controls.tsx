@@ -164,12 +164,12 @@ export function VideoControls({
           </div>
         </div>
 
-        {/* Time display */}
-        <span className="text-xs text-white/80 ml-2 tabular-nums">
+        <div className="flex-1" />
+
+        {/* Time display — canto inferior direito (decorrido / total) */}
+        <span className="mr-1.5 text-xs font-medium text-white/85 tabular-nums">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
-
-        <div className="flex-1" />
 
         {/* Playback rate */}
         <DropdownMenu>

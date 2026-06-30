@@ -1,28 +1,31 @@
 /**
  * POST /api/crm/referrals/bulk
  *
- * Bulk version of the internal "Referenciar" hand-off. Lets a consultor
- * select several rows in a kanban and refer them all to one colleague in a
- * single action, while keeping themselves as the referrer (commission slice).
- * Mirrors the per-row behaviour of POST /api/crm/referrals (referral_type
- * 'internal'), for the two surfaces that have multi-select:
+ * Bulk version of the internal "Referenciar" hand-off. Lets a consultor (or a
+ * management user acting on their behalf) select several rows in a kanban and
+ * refer them all to one colleague in a single action. Mirrors the per-row
+ * behaviour of POST /api/crm/referrals (referral_type 'internal'), for the two
+ * surfaces that have multi-select:
  *
  *   • negocio_ids → Oportunidades board. Per deal: supersede prior agreement,
- *     INSERT leads_referrals (from=me, to=recipient, %), and UPDATE negocios
- *     SET assigned_consultant_id=recipient, referrer_consultant_id=me,
- *     referral_pct=%. The deal moves to the recipient and shows in my
+ *     INSERT leads_referrals (from=owner, to=recipient, %), and UPDATE negocios
+ *     SET assigned_consultant_id=recipient, referrer_consultant_id=owner,
+ *     referral_pct=%. The deal moves to the recipient and shows in the owner's
  *     Referências kanban.
  *   • entry_ids → Leads pipeline board. Per entry: supersede, INSERT
- *     leads_referrals (entry_id, from=me, to=recipient, %), and UPDATE
- *     leads_entries SET assigned_consultant_id=recipient. The lead lands in
- *     the recipient's inbox and shows in my Referências "por qualificar"
- *     sheet; any future négocio the recipient makes with that contacto
- *     inherits my slice (resolveInheritedReferralForNegocio).
+ *     leads_referrals (entry_id, from=owner, to=recipient, %), and UPDATE
+ *     leads_entries SET assigned_consultant_id=recipient + denormalised
+ *     referral flags. The lead lands in the recipient's inbox and shows in the
+ *     owner's Referências "por qualificar" sheet; any future négocio the
+ *     recipient makes with that contacto inherits the slice
+ *     (resolveInheritedReferralForNegocio).
  *
- * `from_consultant_id` is always the authenticated caller — never trusted
- * from the body. A consultor may only refer rows they own; management roles
- * may refer any. Each id reports its own ok/error so a partial failure never
- * blocks the rest.
+ * The commission slice (`from_consultant_id` / `referrer_consultant_id`) is the
+ * row's CURRENT owner — never the caller. So when management runs the hand-off
+ * the slice stays with the consultor who owns the lead. The caller (actorId) is
+ * used only for authorization: a consultor may only refer rows they own;
+ * management roles may refer any. Each id reports its own ok/error so a partial
+ * failure never blocks the rest.
  *
  * Body:  { to_consultant_id, referral_pct?, notes?, (negocio_ids | entry_ids) }
  * Returns: { results: [{ id, ok, error? }] }
@@ -72,7 +75,9 @@ export async function POST(request: Request) {
   try {
     const auth = await requireAuth()
     if (!auth.authorized) return auth.response
-    const fromConsultantId = auth.user.id
+    // actorId = who is performing the action (used only for authorization).
+    // The commission slice is the row owner, resolved per-row below.
+    const actorId = auth.user.id
     const canReferAny = isManagementRole(auth.roles)
 
     const body = await request.json().catch(() => null)
@@ -87,13 +92,6 @@ export async function POST(request: Request) {
     const { to_consultant_id, notes } = parsed.data
     const noteValue = notes?.trim() || null
 
-    if (to_consultant_id === fromConsultantId) {
-      return NextResponse.json(
-        { error: 'Não podes referenciar a ti próprio' },
-        { status: 400 },
-      )
-    }
-
     const supabase = createCrmAdminClient()
     const effectivePct = parsed.data.referral_pct ?? (await resolveDefaultPct(supabase))
 
@@ -101,12 +99,20 @@ export async function POST(request: Request) {
     // (contacto, recipient) pair, insert the audit row, then mutate the
     // underlying entity. Rolls the audit row back if the mutation fails so we
     // never leave an agreement pointing at an un-transferred row.
+    //
+    // `referrerId` is the row's current owner (the commission slice), NOT the
+    // caller — when management runs the hand-off the owner keeps the slice.
     async function referOne(
       id: string,
       contactId: string,
+      referrerId: string,
       auditExtra: Record<string, unknown>,
       applyHandoff: () => Promise<{ error: { message: string } | null }>,
     ): Promise<Result> {
+      if (referrerId === to_consultant_id) {
+        return { id, ok: false, error: 'O destinatário já é o responsável' }
+      }
+
       await supabase
         .from('leads_referrals')
         .update({ status: 'cancelled' })
@@ -119,7 +125,7 @@ export async function POST(request: Request) {
         .insert({
           contact_id: contactId,
           referral_type: 'internal',
-          from_consultant_id: fromConsultantId,
+          from_consultant_id: referrerId,
           to_consultant_id,
           referral_pct: effectivePct,
           notes: noteValue,
@@ -157,16 +163,19 @@ export async function POST(request: Request) {
           | undefined
         if (!neg) { results.push({ id, ok: false, error: 'Negócio não encontrado' }); continue }
         if (!neg.lead_id) { results.push({ id, ok: false, error: 'Negócio sem contacto associado' }); continue }
-        if (!canReferAny && neg.assigned_consultant_id !== fromConsultantId) {
+        if (!canReferAny && neg.assigned_consultant_id !== actorId) {
           results.push({ id, ok: false, error: 'Não és o responsável por este negócio' }); continue
         }
+        // The slice stays with the deal's current owner (fallback: actor for
+        // an unowned deal). The recipient becomes the new owner below.
+        const referrerId = neg.assigned_consultant_id ?? actorId
         results.push(
-          await referOne(id, neg.lead_id, { negocio_id: id }, async () => {
+          await referOne(id, neg.lead_id, referrerId, { negocio_id: id }, async () => {
             const { error: e } = await supabase
               .from('negocios')
               .update({
                 assigned_consultant_id: to_consultant_id,
-                referrer_consultant_id: fromConsultantId,
+                referrer_consultant_id: referrerId,
                 referral_pct: effectivePct,
               })
               .eq('id', id)
@@ -193,16 +202,33 @@ export async function POST(request: Request) {
         | undefined
       if (!entry) { results.push({ id, ok: false, error: 'Lead não encontrada' }); continue }
       if (!entry.contact_id) { results.push({ id, ok: false, error: 'Lead sem contacto associado' }); continue }
-      if (!canReferAny && entry.assigned_consultant_id !== fromConsultantId) {
+      if (!canReferAny && entry.assigned_consultant_id !== actorId) {
         results.push({ id, ok: false, error: 'Não és o responsável por esta lead' }); continue
       }
+      // The slice stays with the lead's current owner (fallback: actor).
+      const referrerId = entry.assigned_consultant_id ?? actorId
+      const contactId = entry.contact_id
       results.push(
-        await referOne(id, entry.contact_id, { entry_id: id }, async () => {
+        await referOne(id, contactId, referrerId, { entry_id: id }, async () => {
+          // Mirror the single-referral hand-off: flip ownership (both
+          // columns), denormalise the referral flags so the recipient's inbox
+          // shows the badge, and reassign the underlying contacto.
           const { error: e } = await supabase
             .from('leads_entries')
-            .update({ assigned_consultant_id: to_consultant_id })
+            .update({
+              assigned_consultant_id: to_consultant_id,
+              assigned_agent_id: to_consultant_id,
+              has_referral: true,
+              referral_consultant_id: referrerId,
+              referral_pct: effectivePct,
+            })
             .eq('id', id)
-          return { error: e }
+          if (e) return { error: e }
+          const { error: contactErr } = await supabase
+            .from('leads')
+            .update({ agent_id: to_consultant_id })
+            .eq('id', contactId)
+          return { error: contactErr }
         }),
       )
     }

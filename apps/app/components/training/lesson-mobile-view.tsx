@@ -72,10 +72,12 @@ export function LessonMobileView({
   const [curriculumOpen, setCurriculumOpen] = useState(false)
 
   const { hasPermission } = usePermissions()
-  const isTrainingAdmin = hasPermission('training')
+  // Só a gestão (`users`) pode saltar o gate de visionamento; `training` (acesso
+  // ao módulo, que os consultores têm) NÃO chega.
+  const canOverrideGate = hasPermission('users')
   const isVideoLesson = lesson.content_type === 'video'
   const belowGate =
-    isVideoLesson && !isTrainingAdmin && watchPercent < WATCH_GATE_PERCENT
+    isVideoLesson && !canOverrideGate && watchPercent < WATCH_GATE_PERCENT
   const completeDisabled = Boolean(isSaving) || belowGate
 
   const metaLine = [

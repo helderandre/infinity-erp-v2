@@ -89,10 +89,11 @@ export async function GET(
          preco_venda, renda_pretendida, renda_max_mensal,
          quartos_min, localizacao, zonas, has_referral, referral_pct, referral_type, referral_side,
          referrer_consultant_id, assigned_consultant_id, deal_group_id, depends_on_negocio_id,
-         temperatura, observacoes, origem,
+         temperatura, observacoes, origem, property_id,
          leads${useInnerLeadJoin ? '!lead_id!inner' : '!lead_id'}(id, nome, telemovel, email, tags),
          dev_users!assigned_consultant_id(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
          referrer:dev_users!negocios_referrer_consultant_id_fkey(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
+         property:dev_properties!negocios_property_id_fkey(id, external_ref, slug),
          leads_pipeline_stages!pipeline_stage_id(id, name, color, order_index, is_terminal, terminal_type, sla_days)`
       )
 
