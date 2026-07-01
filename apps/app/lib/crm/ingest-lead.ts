@@ -9,6 +9,7 @@
 type SupabaseClient = import('@supabase/supabase-js').SupabaseClient<any, any, any>
 import { assignLeadEntry, findMatchingRule } from './assignment-engine'
 import { calculateSlaDeadline } from './sla-engine'
+import { isPartner } from '@/lib/auth/roles'
 import type { EntrySource, LeadSector, EntryPriority } from '@/types/leads-crm'
 
 export interface IngestLeadInput {
@@ -301,6 +302,58 @@ export async function ingestLead(
       .update({ agent_id: assignedAgentId })
       .eq('id', contactId)
       .is('agent_id', null)
+  }
+
+  // 6c. Materializa o acordo de referência para a app Parceiros — SÓ quando o
+  //     beneficiário é um PARCEIRO externo (role 'Parceiro').
+  //     A atribuição da campanha/anúncio marca um beneficiário em
+  //     leads_entries.referral_consultant_id, mas o portal de Parceiros (leads:
+  //     leads_referrals.from_consultant_id; oportunidades: negocios.
+  //     referrer_consultant_id via resolveInheritedReferralForNegocio) lê de
+  //     leads_referrals, não do campo no entry. Criamos o acordo (from =
+  //     parceiro, to = consultor atribuído) para a lead aparecer na app Parceiros
+  //     e para o negócio herdar referrer_consultant_id.
+  //     Beneficiários INTERNOS (consultores/utilizadores) NÃO geram este acordo —
+  //     ficam só com a marca no entry e não aparecem na app Parceiros.
+  //     Idempotente por entry_id; best-effort (não bloqueia a ingestão).
+  if (
+    entryHasReferral &&
+    entryReferralConsultantId &&
+    assignedAgentId &&
+    entryReferralConsultantId !== assignedAgentId
+  ) {
+    try {
+      const { data: beneficiaryRoles } = await supabase
+        .from('user_roles')
+        .select('roles(name)')
+        .eq('user_id', entryReferralConsultantId)
+      const roleNames = (beneficiaryRoles ?? []).map(
+        (r: { roles?: { name?: string | null } | null }) => r.roles?.name ?? null,
+      )
+
+      if (isPartner(roleNames)) {
+        const { data: existingReferral } = await supabase
+          .from('leads_referrals')
+          .select('id')
+          .eq('entry_id', entry.id)
+          .limit(1)
+          .maybeSingle()
+        if (!existingReferral) {
+          await supabase.from('leads_referrals').insert({
+            contact_id: contactId!,
+            entry_id: entry.id,
+            referral_type: 'internal',
+            from_consultant_id: entryReferralConsultantId,
+            to_consultant_id: assignedAgentId,
+            referral_pct: entryReferralPct,
+            status: 'accepted',
+            notes: 'Referência automática (atribuição de campanha/anúncio Meta a parceiro).',
+          })
+        }
+      }
+    } catch (referralErr) {
+      console.error('[ingest-lead] auto leads_referrals falhou', referralErr)
+    }
   }
 
   // 7. Log system activity
