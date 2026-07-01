@@ -16,13 +16,12 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, RefreshCw } from 'lucide-react'
 
 import { CampaignRequestsBoard } from '@/components/analise-meta/campaign-requests-board'
+import { MetaFederatedSyncButton } from '@/components/analise-meta/meta-federated-sync-button'
 import { MetaLeadsInboxView } from '@/components/analise-meta/meta-leads-inbox-view'
 import { MetaPeriodSelect } from '@/components/analise-meta/meta-period-select'
 import { MetaCampaignsView } from '@/components/leads/pipeline/meta-campaigns-view'
-import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -30,8 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useMetaSyncJob } from '@/hooks/use-meta-sync-job'
-import { usePermissions } from '@/hooks/use-permissions'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
 import { presetToRange, type MetaDatePreset } from '@/lib/meta/date-range'
@@ -54,14 +51,7 @@ interface ConsultantOption {
 
 export function MetaSectionTabs() {
   const [subTab, setSubTab] = useState<SubTab>('pedidos')
-  const { hasPermission } = usePermissions()
   const { user } = useUser()
-  const { trigger, running } = useMetaSyncJob()
-  // Sincroniza campanhas + anúncios + leads + desempenho (gasto) numa só acção,
-  // como o botão "Sincronizar leads" do Meta Ads. Método diferente (job em
-  // background via mube), mas UX igual: um clique, corre em segundo plano, e a
-  // página refresca quando termina. Só gestão (settings) — a route enforça também.
-  const canSync = hasPermission('settings')
   const isManagement = isManagementRole(user?.role_names ?? [])
 
   // Shared filters for Campanhas + Leads. `period` is a preset or 'custom';
@@ -119,21 +109,9 @@ export function MetaSectionTabs() {
           ))}
         </nav>
 
-        {canSync && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => trigger(['campaigns', 'ads', 'leads', 'insights'], null)}
-            disabled={running}
-            className={cn(
-              'rounded-full gap-2',
-              !running && 'border-[#1877F2]/30 text-[#1877F2] hover:bg-[#1877F2]/5 hover:text-[#1877F2]',
-            )}
-          >
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            <span>{running ? 'A sincronizar…' : 'Sincronizar'}</span>
-          </Button>
-        )}
+        {/* Sincronizar (federado, meta-api Mube) — substitui o antigo botão do
+            método directo. Só gestão; o endpoint também o enforça. */}
+        {isManagement && <MetaFederatedSyncButton />}
       </div>
 
       {/* Shared filters (Campanhas + Leads) */}

@@ -22,7 +22,8 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { signMubeRequest } from '@/lib/mube/signature'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth/permissions'
+import { isManagementRole } from '@/lib/auth/roles'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,14 +38,13 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  // 1. Auth
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
-  }
+  // 1. Auth — a gestão (isManagementRole) pode disparar sem API key; qualquer
+  // outro caller autenticado continua a precisar da key (retro-compatível com o
+  // card de Integrações → Meta).
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+  const user = auth.user
+  const isMgmt = isManagementRole(auth.roles)
 
   // 2. Body
   let body: { since_days?: unknown; api_key?: unknown }
@@ -83,13 +83,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'server_misconfigured' }, { status: 500 })
   }
 
-  // 3b. Gate por API key (== signing secret). Sem fuga de timing.
-  const providedKey = typeof body.api_key === 'string' ? body.api_key : ''
-  if (!providedKey || !safeEqual(providedKey, signingSecret)) {
-    return NextResponse.json(
-      { error: 'invalid_api_key', message: 'API key inválida.' },
-      { status: 401 },
-    )
+  // 3b. Gate por API key (== signing secret) — só exigido a callers não-gestão.
+  // A gestão já está autenticada + autorizada, dispensa a key (sem fuga de timing).
+  if (!isMgmt) {
+    const providedKey = typeof body.api_key === 'string' ? body.api_key : ''
+    if (!providedKey || !safeEqual(providedKey, signingSecret)) {
+      return NextResponse.json(
+        { error: 'invalid_api_key', message: 'API key inválida.' },
+        { status: 401 },
+      )
+    }
   }
 
   // 4. Body upstream + assinatura

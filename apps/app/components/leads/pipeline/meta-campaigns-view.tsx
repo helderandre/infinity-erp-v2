@@ -872,9 +872,9 @@ function CampaignDetailInline({
   return (
     <OpenAdContext.Provider value={setOpenAdId}>
     <div className="space-y-4">
-      {/* Header — back + title on one line (left); period selector + attribution
-          card stacked top-right */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* Header — back + title on one line (left); period selector top-right.
+          The attribution card sits on the tab-selector row below. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" className="-ml-3 shrink-0" onClick={onBack}>
             <ArrowLeft className="mr-1 h-4 w-4" />
@@ -908,21 +908,13 @@ function CampaignDetailInline({
             </Button>
           )}
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="shrink-0">
           <MetaPeriodSelect
             period={period}
             customRange={customRange}
             onPeriodChange={setPeriod}
             onCustomRangeChange={setCustomRange}
           />
-          {detail && (
-            <AttributionPanel
-              scope="campaign"
-              targetId={detail.campaign.campaign_id}
-              targetName={detail.campaign.name}
-              compact
-            />
-          )}
         </div>
       </div>
 
@@ -934,24 +926,34 @@ function CampaignDetailInline({
         <div className="text-destructive text-sm">Erro a carregar a campanha.</div>
       ) : (
         <Tabs defaultValue="desempenho" className="space-y-4">
-          <TabsList className="inline-flex h-auto w-fit items-center gap-1 self-start rounded-full border border-border/30 bg-muted/40 p-1 shadow-sm backdrop-blur-sm">
-            <TabsTrigger value="desempenho" className={TAB_TRIGGER}>
-              <Gauge className="h-3.5 w-3.5" />
-              Desempenho
-            </TabsTrigger>
-            <TabsTrigger value="estrutura" className={TAB_TRIGGER}>
-              <Layers className="h-3.5 w-3.5" />
-              Conjuntos de anúncios
-            </TabsTrigger>
-            <TabsTrigger value="leads" className={TAB_TRIGGER}>
-              <Users className="h-3.5 w-3.5" />
-              Leads
-            </TabsTrigger>
-            <TabsTrigger value="reachout" className={TAB_TRIGGER}>
-              <Clock className="h-3.5 w-3.5" />
-              Reach-out
-            </TabsTrigger>
-          </TabsList>
+          {/* Tab selector on the left, attribution card on the right — same row. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList className="inline-flex h-auto w-fit items-center gap-1 rounded-full border border-border/30 bg-muted/40 p-1 shadow-sm backdrop-blur-sm">
+              <TabsTrigger value="desempenho" className={TAB_TRIGGER}>
+                <Gauge className="h-3.5 w-3.5" />
+                Desempenho
+              </TabsTrigger>
+              <TabsTrigger value="estrutura" className={TAB_TRIGGER}>
+                <Layers className="h-3.5 w-3.5" />
+                Conjuntos de anúncios
+              </TabsTrigger>
+              <TabsTrigger value="leads" className={TAB_TRIGGER}>
+                <Users className="h-3.5 w-3.5" />
+                Leads
+              </TabsTrigger>
+              <TabsTrigger value="reachout" className={TAB_TRIGGER}>
+                <Clock className="h-3.5 w-3.5" />
+                Reach-out
+              </TabsTrigger>
+            </TabsList>
+
+            <AttributionPanel
+              scope="campaign"
+              targetId={detail.campaign.campaign_id}
+              targetName={detail.campaign.name}
+              compact
+            />
+          </div>
 
           {/* Desempenho — metric grid + funnel + attribution */}
           <TabsContent value="desempenho" className="space-y-5">
