@@ -2,13 +2,16 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { webhookLeadSchema } from '@/lib/validations/leads-crm'
 import { NextResponse } from 'next/server'
 
-// Map webhook pipeline_type string to the `tipo` column value in the negocios table
+// Map webhook pipeline_type string to the `tipo` column value in negocios.
+// Valores de perspectiva pós-refactor (Comprador/Vendedor/Arrendatário/Senhorio)
+// — os legados (Compra/Venda/Arrendador) não correspondem a nenhum pipeline e
+// deixavam o negócio órfão no kanban.
 function pipelineTypeToTipo(pipelineType: string): string {
   switch (pipelineType) {
-    case 'comprador': return 'Compra'
-    case 'vendedor': return 'Venda'
+    case 'comprador': return 'Comprador'
+    case 'vendedor': return 'Vendedor'
     case 'arrendatario': return 'Arrendatário'
-    case 'arrendador': return 'Arrendador'
+    case 'arrendador': return 'Senhorio'
     default: return pipelineType
   }
 }

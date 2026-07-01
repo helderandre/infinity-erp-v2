@@ -12,6 +12,7 @@ import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
 import { qualifyNegocioPayload } from '@/lib/negocios/assert-qualified'
 import { notifyReferrerQualified } from '@/lib/crm/notify-referrer'
+import { resolveConsistentStageId } from '@/lib/crm/resolve-pipeline-stage'
 import { carryEntryNotesToContact } from '@/lib/crm/carry-entry-notes'
 
 export async function GET(request: Request) {
@@ -172,6 +173,13 @@ export async function POST(request: Request) {
     if (stageError || !stage) {
       return NextResponse.json({ error: 'Fase de pipeline não encontrada' }, { status: 404 })
     }
+
+    // Guarda de integridade: a fase escolhida (a qualify-entry-dialog escolhe-a
+    // no cliente) tem de pertencer ao pipeline do `tipo`. Sem isto, um Vendedor
+    // podia ficar numa fase de comprador e não aparecer em nenhum kanban.
+    qInput.pipeline_stage_id =
+      (await resolveConsistentStageId(supabase, qInput.tipo, qInput.pipeline_stage_id)) ??
+      qInput.pipeline_stage_id
 
     // If created from a lead entry, copy referral data + carry the property
     // the lead manifested interest in (Meta Ads / portal attribution) so the

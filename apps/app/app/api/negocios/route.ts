@@ -7,6 +7,7 @@ import { redactNestedLead, shouldRedactLead } from '@/lib/auth/redact-lead'
 import { syncLeadEstado } from '@/lib/crm/sync-lead-estado'
 import { deriveExpectedValue } from '@/lib/crm/derive-expected-value'
 import { qualifyNegocioPayload } from '@/lib/negocios/assert-qualified'
+import { resolveConsistentStageId } from '@/lib/crm/resolve-pipeline-stage'
 
 export async function GET(request: Request) {
   try {
@@ -146,29 +147,15 @@ export async function POST(request: Request) {
     // {lead_id, tipo}), look up the first non-terminal stage of the matching
     // pipeline. Without this, the negócio lands with stage=null and the
     // kanban silently filters it out — looking like "lead disappeared".
-    if (!insertPayload.pipeline_stage_id) {
-      const TIPO_TO_PIPELINE: Record<string, string> = {
-        // New perspective values
-        'Comprador':    'comprador',
-        'Vendedor':     'vendedor',
-        'Arrendatário': 'arrendatario',
-        'Senhorio':     'arrendador',
-      }
-      const pipelineType = TIPO_TO_PIPELINE[String(insertPayload.tipo ?? '')]
-      if (pipelineType) {
-        const { data: firstStage } = await supabase
-          .from('leads_pipeline_stages')
-          .select('id')
-          .eq('pipeline_type', pipelineType)
-          .eq('is_terminal', false)
-          .order('order_index', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-        if (firstStage?.id) {
-          insertPayload.pipeline_stage_id = firstStage.id
-        }
-      }
-    }
+    // Garante que a fase pertence ao pipeline do `tipo`. Cobre o caso "sem fase"
+    // (call sites que só enviam {lead_id, tipo}) E o caso de uma fase de OUTRO
+    // pipeline (cliente que envia um stage_id errado) — sem isto o negócio fica
+    // órfão e não aparece em nenhum kanban. Ver lib/crm/resolve-pipeline-stage.ts.
+    insertPayload.pipeline_stage_id = await resolveConsistentStageId(
+      supabase,
+      insertPayload.tipo as string | null | undefined,
+      insertPayload.pipeline_stage_id as string | null | undefined,
+    )
 
     // Denormaliza zonas → distrito/concelho/freguesia/localizacao text.
     // O bloco "Vendedor" do negocio-data-card lê dos campos texto (não das
