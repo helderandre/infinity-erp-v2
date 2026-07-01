@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         campaign:leads_campaigns(id, name, platform),
         property:dev_properties!leads_entries_property_id_fkey(id, title, slug, external_ref),
         deal:negocios!negocios_entry_id_fkey(id, pipeline_stage_id),
-        assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name),
+        assigned_consultant:dev_users!leads_entries_assigned_consultant_id_fkey(id, commercial_name, profile:dev_consultant_profiles(profile_photo_url)),
         referrals:leads_referrals!entry_id(
           id, status, notes, from_consultant_id, to_consultant_id, referral_pct, created_at,
           referrer:dev_users!leads_referrals_from_consultant_id_fkey(id, commercial_name)

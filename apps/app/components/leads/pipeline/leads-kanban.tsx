@@ -25,6 +25,7 @@ import { pt } from 'date-fns/locale'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -47,6 +48,29 @@ import { SourceBadge } from '@/components/leads/source-badge'
 import { PhaseTabs, type PhaseTab } from '@/components/leads/phase-tabs'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
+
+// Avatar helpers (mirrored from the oportunidades kanban card) — deterministic
+// palette per name so a consultor keeps the same colour across cards.
+function initialsFromName(name: string | null | undefined): string {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+const AVATAR_PALETTE = [
+  { bg: 'bg-rose-100 dark:bg-rose-500/20', text: 'text-rose-700 dark:text-rose-200' },
+  { bg: 'bg-amber-100 dark:bg-amber-500/20', text: 'text-amber-700 dark:text-amber-200' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-500/20', text: 'text-emerald-700 dark:text-emerald-200' },
+  { bg: 'bg-sky-100 dark:bg-sky-500/20', text: 'text-sky-700 dark:text-sky-200' },
+  { bg: 'bg-violet-100 dark:bg-violet-500/20', text: 'text-violet-700 dark:text-violet-200' },
+  { bg: 'bg-fuchsia-100 dark:bg-fuchsia-500/20', text: 'text-fuchsia-700 dark:text-fuchsia-200' },
+]
+function paletteFor(seed: string): { bg: string; text: string } {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length]
+}
 
 type PeriodPreset = 'all' | 'today' | '7d' | '30d' | 'custom'
 
@@ -129,7 +153,11 @@ interface LeadEntry {
   /** The opportunity generated when this entry was qualified (reverse embed
    *  of negocios.entry_id). Present only on converted entries. */
   deal?: { id: string; pipeline_stage_id: string | null }[] | null
-  assigned_consultant?: { id: string; commercial_name: string | null } | null
+  assigned_consultant?: {
+    id: string
+    commercial_name: string | null
+    profile?: { profile_photo_url: string | null } | null
+  } | null
   referrals?: ReferralLite[] | null
 }
 
@@ -917,6 +945,7 @@ export function LeadsKanban({
                             entry={e}
                             stageColor={col.color}
                             view="minhas"
+                            showConsultant={showConsultant}
                             draggable={!col.qualify}
                             selected={selectedIds.has(e.id)}
                             selectionActive={selectedIds.size > 0}
@@ -1287,11 +1316,15 @@ function LeadCard({
   onOpenDeal,
   onEdit,
   onDelete,
+  showConsultant = false,
 }: {
   entry: LeadEntry
   stageColor: string
   view: View
   draggable: boolean
+  /** Gestão (ou app Parceiros): mostra o avatar + nome do consultor dono da
+   *  lead, como nos cards de oportunidades. */
+  showConsultant?: boolean
   selected?: boolean
   /** Some card in the board is selected — show the checkbox so taps can
    *  toggle selection (mobile multi-select affordance). */
@@ -1427,6 +1460,31 @@ function LeadCard({
           <div className="text-muted-foreground mt-1 flex items-center gap-1.5 text-[11px]">
             <Home className="h-3 w-3 shrink-0 opacity-70" />
             <span className="truncate font-mono">{entry.property.external_ref || entry.property.slug}</span>
+          </div>
+        )}
+        {/* Consultor dono da lead — só gestão/parceiros veem (como nas oportunidades). */}
+        {showConsultant && entry.assigned_consultant?.commercial_name && (
+          <div className="mt-2 flex items-center gap-1.5">
+            <Avatar className="h-5 w-5">
+              {entry.assigned_consultant.profile?.profile_photo_url && (
+                <AvatarImage
+                  src={entry.assigned_consultant.profile.profile_photo_url}
+                  alt={entry.assigned_consultant.commercial_name}
+                />
+              )}
+              <AvatarFallback
+                className={cn(
+                  'text-[9px] font-semibold',
+                  paletteFor(entry.assigned_consultant.commercial_name).bg,
+                  paletteFor(entry.assigned_consultant.commercial_name).text,
+                )}
+              >
+                {initialsFromName(entry.assigned_consultant.commercial_name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-muted-foreground truncate text-[11px]">
+              {entry.assigned_consultant.commercial_name}
+            </span>
           </div>
         )}
         {/* Motivo da perda — chip vermelho quando a lead foi descartada. */}
