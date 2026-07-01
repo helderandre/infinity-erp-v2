@@ -22,13 +22,19 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { signMubeRequest } from '@/lib/mube/signature'
+import { refreshInsightsMirror } from '@/lib/mube/insights-client'
 import { requireAuth } from '@/lib/auth/permissions'
 import { isManagementRole } from '@/lib/auth/roles'
+import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const REPLAY_PATH = '/api/integrations/meta/replay'
+
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
 
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a, 'utf8')
@@ -159,7 +165,34 @@ export async function POST(req: NextRequest) {
       connections: responseBody?.connections,
     })
 
-    return NextResponse.json(responseBody, { status: 202 })
+    // As métricas de campanha (gasto, impressões, cliques, CPL, alcance) NÃO vêm
+    // no fan-out do replay — este só emite form/campaign/ad/lead. Vivem no mirror
+    // de insights, que puxamos explicitamente aqui, tal como o método directo
+    // fazia com o recurso `insights` (lib/mube/run-sync-job.ts). Sem isto o botão
+    // traz os leads mas o desempenho das campanhas fica por actualizar.
+    // Best-effort: uma falha aqui não invalida o replay já agendado (o ping
+    // insights.synced e o cron reconciliam).
+    let insightsMirror: Awaited<ReturnType<typeof refreshInsightsMirror>> | null = null
+    try {
+      const to = ymd(new Date())
+      const from = ymd(new Date(Date.now() - sinceDays * 86_400_000))
+      insightsMirror = await refreshInsightsMirror(createCrmAdminClient(), { from, to })
+      console.info('[meta-sync] insights mirror refreshed', {
+        userId: user.id,
+        from,
+        to,
+        ...insightsMirror,
+      })
+    } catch (err) {
+      console.error('[meta-sync] insights mirror refresh threw', {
+        err: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    return NextResponse.json(
+      { ...responseBody, insights_mirror: insightsMirror },
+      { status: 202 },
+    )
   } catch (err) {
     const message = err instanceof Error ? err.message : 'fetch_failed'
     console.error('[meta-sync] fetch threw', { err: message })

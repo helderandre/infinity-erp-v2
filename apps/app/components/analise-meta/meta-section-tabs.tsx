@@ -62,6 +62,9 @@ export function MetaSectionTabs() {
   // Drill-in state lives in <MetaCampaignsView>; it reports back so we can hide
   // the shared filter row (the detail carries its own period selector top-right).
   const [campaignDetailOpen, setCampaignDetailOpen] = useState(false)
+  // Bumped when a federated sync resolves — the insights mirror is fresh by then,
+  // so we signal the campaigns grid (+ open detail) to re-fetch in place.
+  const [syncNonce, setSyncNonce] = useState(0)
   const range = useMemo(
     () => (period === 'custom' ? customRange : presetToRange(period)),
     [period, customRange],
@@ -111,7 +114,9 @@ export function MetaSectionTabs() {
 
         {/* Sincronizar (federado, meta-api Mube) — substitui o antigo botão do
             método directo. Só gestão; o endpoint também o enforça. */}
-        {isManagement && <MetaFederatedSyncButton />}
+        {isManagement && (
+          <MetaFederatedSyncButton onSynced={() => setSyncNonce((n) => n + 1)} />
+        )}
       </div>
 
       {/* Shared filters (Campanhas + Leads) */}
@@ -151,6 +156,7 @@ export function MetaSectionTabs() {
           to={range.to}
           consultantId={selectedConsultant}
           onDetailOpenChange={setCampaignDetailOpen}
+          reloadSignal={syncNonce}
         />
       )}
       {subTab === 'leads' && (

@@ -119,6 +119,7 @@ export function MetaCampaignsView({
   to,
   consultantId,
   onDetailOpenChange,
+  reloadSignal,
 }: {
   from?: string
   to?: string
@@ -126,6 +127,9 @@ export function MetaCampaignsView({
   /** Notifies the parent when the inline campaign detail opens/closes so it can
    *  hide its shared filter row (the detail carries its own period selector). */
   onDetailOpenChange?: (open: boolean) => void
+  /** Changes whenever a sync resolves — forces the list + metric cards (and the
+   *  open detail) to re-fetch in place so fresh insights show without a reload. */
+  reloadSignal?: number
 } = {}) {
   // Account-wide totals for the metric cards (independent of pagination).
   const [totals, setTotals] = useState<GlobalTotals>({
@@ -196,7 +200,7 @@ export function MetaCampaignsView({
     return () => {
       active = false
     }
-  }, [debouncedQuery, page, from, to, consultantId, reloadKey])
+  }, [debouncedQuery, page, from, to, consultantId, reloadKey, reloadSignal])
 
   // Tell the parent whether the inline detail is open (so it hides its filters).
   useEffect(() => {
@@ -262,6 +266,7 @@ export function MetaCampaignsView({
         campaignId={selected.id}
         campaignName={selected.name}
         onBack={() => setSelected(null)}
+        reloadSignal={reloadSignal}
       />
     )
   }
@@ -768,10 +773,13 @@ function CampaignDetailInline({
   campaignId,
   campaignName,
   onBack,
+  reloadSignal,
 }: {
   campaignId: string
   campaignName: string | null
   onBack: () => void
+  /** Bumped by a sync — re-fetches the detail (Desempenho + reach-out) in place. */
+  reloadSignal?: number
 }) {
   const [detail, setDetail] = useState<MetaCampaignDetail | null>(null)
   const [groups, setGroups] = useState<MetaCampaignAdsetGroup[]>([])
@@ -845,7 +853,7 @@ function CampaignDetailInline({
     return () => {
       active = false
     }
-  }, [campaignId, from, to])
+  }, [campaignId, from, to, reloadSignal])
 
   const k = detail?.insightKpis
   const perfPeriod =

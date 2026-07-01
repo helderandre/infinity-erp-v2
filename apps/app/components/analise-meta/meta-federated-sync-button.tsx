@@ -41,7 +41,14 @@ type SyncResponse = {
   details?: { error?: string; message?: string }
 }
 
-export function MetaFederatedSyncButton() {
+export function MetaFederatedSyncButton({
+  onSynced,
+}: {
+  /** Disparado quando o sync resolve com 202 — nessa altura o mirror de insights
+   *  já foi refrescado server-side, por isso é o momento certo para os
+   *  consumidores (grelha de campanhas) re-buscarem os dados frescos. */
+  onSynced?: () => void
+} = {}) {
   const [days, setDays] = useState('30')
   const [pending, setPending] = useState(false)
 
@@ -61,6 +68,9 @@ export function MetaFederatedSyncButton() {
           description: `A buscar a atividade (${label}). Os dados vão aparecer à medida que são processados — sem precisares de refrescar.`,
           duration: 8000,
         })
+        // O mirror de insights (métricas das campanhas) já foi refrescado
+        // server-side antes deste 202 — sinaliza para a grelha re-buscar já.
+        onSynced?.()
         return
       }
 
