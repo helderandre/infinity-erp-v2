@@ -31,6 +31,14 @@ export const dynamic = 'force-dynamic'
 
 const SINCE_RE = /^\d{4}-\d{2}-\d{2}$/
 
+/**
+ * Sync directo via Graph API (botão "Sincronizar" da Análise → Meta) usa a conta
+ * Meta directa (act_24368990092726847), DESLIGADA por decisão do stakeholder
+ * (2026-06-30). Separada da ligação federada MUBE/Filipe. Pôr a true para
+ * reactivar. Ver memory project_meta_direct_account_disconnected.
+ */
+const DIRECT_META_SYNC_ENABLED = false
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const {
@@ -43,6 +51,13 @@ export async function POST(req: NextRequest) {
   const canManage = await hasPermissionServer(supabase, user.id, 'settings')
   if (!canManage) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  }
+
+  if (!DIRECT_META_SYNC_ENABLED) {
+    return NextResponse.json(
+      { error: 'direct_meta_account_disconnected', disabled: true },
+      { status: 409 },
+    )
   }
 
   let body: { resources?: unknown; since?: unknown }

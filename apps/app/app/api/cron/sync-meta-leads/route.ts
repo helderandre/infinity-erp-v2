@@ -34,12 +34,27 @@ function extractField(fields: MetaFieldData[] | undefined, ...names: string[]): 
   return null
 }
 
+/**
+ * Conta Meta direta (Graph API, act_24368990092726847) DESLIGADA por decisão do
+ * stakeholder (2026-06-30) — trazia leads de recrutamento de agentes que não
+ * queremos no CRM. Separada da ligação federada (MUBE/Filipe, via webhooks).
+ * Para reactivar, pôr a true. Ver memory project_meta_direct_account_disconnected.
+ */
+const DIRECT_META_SYNC_ENABLED = false
+
 export async function GET(req: NextRequest) {
   // Verify cron authorization
   const authHeader = req.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (!DIRECT_META_SYNC_ENABLED) {
+    return NextResponse.json(
+      { ok: true, disabled: true, reason: "direct_meta_account_disconnected" },
+      { status: 200 },
+    )
   }
 
   const accessToken = process.env.META_ACCESS_TOKEN
