@@ -604,39 +604,59 @@ export function LeadEntryDetailView({ entryId, isOpen, onClose, onQualify, onSta
 
               {/* Form data — the "Imóvel associado" details live in their own
                   card above; here we only render the actual form answers. */}
-              {entry.form_data && Object.keys(entry.form_data).length > 0 && (() => {
-                // Leads do Meta guardam as respostas reais do formulário em
-                // `form_data.raw_fields`; o nível de topo só tem IDs técnicos
-                // (meta_*/leadgen_id/form_id/page_id). Quando existe raw_fields,
-                // é essa a fonte das perguntas/respostas — caso contrário usamos
-                // o próprio form_data (formulários do site, voz, etc.).
-                const rawFields =
-                  entry.form_data.raw_fields && typeof entry.form_data.raw_fields === 'object'
-                    ? (entry.form_data.raw_fields as Record<string, unknown>)
-                    : null
-                // Chaves técnicas nunca mostradas como pergunta do formulário.
-                const HIDDEN_KEYS = new Set([
-                  'property_id', 'property_slug', 'property_title', 'property_external_ref',
-                  'raw_fields', 'leadgen_id', 'form_id', 'page_id',
-                  'meta_campaign_id', 'meta_ad_id', 'meta_adset_id',
-                ])
-                const source: Record<string, unknown> = rawFields ?? (entry.form_data as Record<string, unknown>)
-                const visibleEntries = Object.entries(source).filter(
-                  ([k, v]) => !HIDDEN_KEYS.has(k) && v != null && String(v).trim() !== '',
-                )
-                if (visibleEntries.length === 0) return null
+              {((entry.form_answers && entry.form_answers.length > 0) ||
+                (entry.form_data && Object.keys(entry.form_data).length > 0)) && (() => {
+                // Leads do Meta: o servidor humaniza as respostas (label da
+                // pergunta + valor da opção) via a definição do formulário e
+                // devolve-as em `form_answers` — idêntico à secção Análise → Meta.
+                // Só quando faltam (formulários do site/voz que não passam pela
+                // definição Meta) recorremos ao raw_fields cru.
+                const humanized = entry.form_answers
+                const isHumanized = !!humanized && humanized.length > 0
+
+                let rows: { label: string; value: string }[]
+                if (isHumanized) {
+                  rows = humanized!.map((a) => ({ label: a.label, value: a.value }))
+                } else {
+                  const rawFields =
+                    entry.form_data?.raw_fields && typeof entry.form_data.raw_fields === 'object'
+                      ? (entry.form_data.raw_fields as Record<string, unknown>)
+                      : null
+                  // Chaves técnicas nunca mostradas como pergunta do formulário.
+                  const HIDDEN_KEYS = new Set([
+                    'property_id', 'property_slug', 'property_title', 'property_external_ref',
+                    'raw_fields', 'leadgen_id', 'form_id', 'page_id',
+                    'meta_campaign_id', 'meta_ad_id', 'meta_adset_id',
+                  ])
+                  const source: Record<string, unknown> =
+                    rawFields ?? ((entry.form_data ?? {}) as Record<string, unknown>)
+                  rows = Object.entries(source)
+                    .filter(([k, v]) => !HIDDEN_KEYS.has(k) && v != null && String(v).trim() !== '')
+                    .map(([k, v]) => ({ label: humanizeFieldKey(k), value: String(v ?? '—') }))
+                }
+
+                if (rows.length === 0) return null
                 return (
                   <div className="rounded-xl border overflow-hidden">
                     <div className="px-4 py-2.5 border-b bg-muted/20">
                       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Respostas do formulário</p>
                     </div>
                     <div className="divide-y divide-border/50">
-                      {visibleEntries.map(([key, value]) => (
-                        <div key={key} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                          <span className="text-[10px] text-muted-foreground uppercase shrink-0">{humanizeFieldKey(key)}</span>
-                          <span className="text-xs font-medium text-foreground/80 sm:text-right break-words">{String(value ?? '—')}</span>
-                        </div>
-                      ))}
+                      {rows.map((r, i) =>
+                        isHumanized ? (
+                          // Perguntas humanizadas são frases completas — empilhadas
+                          // (pergunta em cima, resposta em baixo) e sem uppercase.
+                          <div key={`${r.label}-${i}`} className="flex flex-col gap-0.5 px-4 py-2.5">
+                            <span className="text-[11px] text-muted-foreground">{r.label}</span>
+                            <span className="text-sm font-medium text-foreground break-words">{r.value || '—'}</span>
+                          </div>
+                        ) : (
+                          <div key={`${r.label}-${i}`} className="flex flex-col gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                            <span className="text-[10px] text-muted-foreground uppercase shrink-0">{r.label}</span>
+                            <span className="text-xs font-medium text-foreground/80 sm:text-right break-words">{r.value || '—'}</span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
                 )

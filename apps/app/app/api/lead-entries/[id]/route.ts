@@ -3,6 +3,7 @@ import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { NextResponse } from 'next/server'
 import { updateLeadEntryStatusSchema } from '@/lib/validations/lead-entry'
 import { carryEntryNotesToContact } from '@/lib/crm/carry-entry-notes'
+import { humanizeMetaFormAnswers } from '@/lib/meta/humanize-form-answers'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -88,6 +89,34 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         } catch (err) {
           console.error('[lead-entries] meta_ads_raw lookup failed:', err)
         }
+      }
+    }
+
+    // Respostas do formulário humanizadas — a ingestão guarda em
+    // form_data.raw_fields as CHAVES cruas da Meta (label da pergunta + chave da
+    // opção). A definição do formulário (meta.meta_forms_raw) resolve chave →
+    // valor humano, para a ficha mostrar EXACTAMENTE o mesmo que a secção
+    // Análise → Meta. Read-only sobre o schema `meta` (service-role); auth já
+    // enforçada acima. Best-effort — falhar aqui não parte o resto do bundle.
+    const metaFormId = typeof fd.form_id === 'string' || typeof fd.form_id === 'number' ? String(fd.form_id) : null
+    const rawFields =
+      fd.raw_fields && typeof fd.raw_fields === 'object'
+        ? (fd.raw_fields as Record<string, unknown>)
+        : null
+    if (metaFormId && rawFields) {
+      try {
+        const adminMeta = createCrmAdminClient().schema('meta' as never) as any
+        const { data: form } = await adminMeta
+          .from('meta_forms_raw')
+          .select('payload')
+          .eq('form_id', metaFormId)
+          .limit(1)
+          .maybeSingle()
+        const questions = form?.payload?.form?.questions ?? []
+        const answers = humanizeMetaFormAnswers(rawFields, questions)
+        if (answers.length > 0) data.form_answers = answers
+      } catch (err) {
+        console.error('[lead-entries] form questions lookup failed:', err)
       }
     }
 

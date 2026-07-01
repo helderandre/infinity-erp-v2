@@ -74,6 +74,16 @@ export interface LeadEntry {
     status?: string | null
     creative_name?: string | null
   } | null
+  // Hydrated server-side from form_data.raw_fields + the Meta form definition
+  // (meta.meta_forms_raw) — the humanized question/answer pairs (field name →
+  // question label, option key → human value), so the sheet renders the same
+  // form responses as the Análise → Meta section instead of raw Meta keys.
+  form_answers?: {
+    name: string
+    label: string
+    type: string | null
+    value: string
+  }[]
   // Joined from leads_entries.property_id → dev_properties. This is the
   // canonical source for "imóvel associado a esta entrada" — consultants can
   // attach a property to a lead-entry after ingestion, so always prefer this

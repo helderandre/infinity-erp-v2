@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, FileText, Home, ExternalLink, Megaphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useMetaFormAnswers } from '@/hooks/use-meta-form-answers'
 
 const SOURCE_LABELS: Record<string, string> = {
   meta_ads: 'Meta Ads',
@@ -105,7 +106,16 @@ export function NegocioOrigemCard({ negocio, onPreviewProperty }: NegocioOrigemC
   const entry = negocio?.entry ?? null
   const source = (entry?.source ?? negocio?.origem) as string | null
   const sourceLabel = source ? SOURCE_LABELS[source] ?? source : null
-  const pairs = extractPairs(entry?.form_data)
+  // Leads Meta: humaniza as respostas (label da pergunta + valor da opção) via a
+  // definição do formulário — igual à secção Análise → Meta e à ficha do lead.
+  // Só busca quando a secção está aberta; cai para as chaves cruas enquanto
+  // carrega ou para formulários não-Meta (site/portal/voz).
+  const humanized = useMetaFormAnswers(entry?.form_data, { enabled: open })
+  const rawPairs = extractPairs(entry?.form_data)
+  const isHumanized = !!humanized
+  const pairs: Pair[] = isHumanized
+    ? humanized!.map((a) => ({ key: a.name, label: a.label, value: a.value }))
+    : rawPairs
   const formUrl = entry?.form_url as string | null
   const utms = [entry?.utm_source, entry?.utm_medium, entry?.utm_campaign]
     .filter(Boolean) as string[]
@@ -187,12 +197,20 @@ export function NegocioOrigemCard({ negocio, onPreviewProperty }: NegocioOrigemC
             <div className="border-t border-border/50 px-3 py-2.5 space-y-2">
               {pairs.length > 0 && (
                 <dl className="space-y-1.5">
-                  {pairs.map((p) => (
-                    <div key={p.key} className="flex gap-2 text-[12px]">
-                      <dt className="w-28 shrink-0 text-muted-foreground truncate">{p.label}</dt>
-                      <dd className="min-w-0 flex-1 break-words font-medium">{p.value}</dd>
-                    </div>
-                  ))}
+                  {pairs.map((p, i) =>
+                    isHumanized ? (
+                      // Perguntas humanizadas são frases completas — empilhadas.
+                      <div key={`${p.key}-${i}`} className="space-y-0.5 text-[12px]">
+                        <dt className="text-muted-foreground">{p.label}</dt>
+                        <dd className="break-words font-medium">{p.value}</dd>
+                      </div>
+                    ) : (
+                      <div key={`${p.key}-${i}`} className="flex gap-2 text-[12px]">
+                        <dt className="w-28 shrink-0 text-muted-foreground truncate">{p.label}</dt>
+                        <dd className="min-w-0 flex-1 break-words font-medium">{p.value}</dd>
+                      </div>
+                    ),
+                  )}
                 </dl>
               )}
               {utms.length > 0 && (

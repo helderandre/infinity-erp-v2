@@ -86,7 +86,11 @@ const HIDDEN_FORM_KEYS = new Set([
 /** Flatten an entry's (unstructured, source-dependent) form_data into a plain
  *  text blob the cheap extractor can read. Handles Meta's `raw_fields` (object
  *  or array of {name, values}) and flat website/portal payloads. */
-function buildFormDataText(formData: any, notes?: string | null): string {
+function buildFormDataText(
+  formData: any,
+  notes?: string | null,
+  humanizedAnswers?: Array<{ label: string; value: string }> | null,
+): string {
   const lines: string[] = []
   const add = (k: string, v: any) => {
     if (v == null) return
@@ -99,7 +103,13 @@ function buildFormDataText(formData: any, notes?: string | null): string {
     const s = String(v).trim()
     if (s) lines.push(`${k}: ${s}`)
   }
-  if (formData && typeof formData === 'object') {
+  // Respostas já humanizadas (label da pergunta + valor da opção) dão um sinal
+  // muito melhor ao extractor do que as chaves cruas da Meta (ex.: "T3" e
+  // "até 400.000 €" em vez de "t3_" / "até_400.000_€_"). Só existem quando a
+  // entry veio de /api/lead-entries/[id]; caso contrário usamos raw_fields.
+  if (humanizedAnswers && humanizedAnswers.length > 0) {
+    for (const a of humanizedAnswers) add(a.label, a.value)
+  } else if (formData && typeof formData === 'object') {
     const raw = formData.raw_fields
     if (Array.isArray(raw)) {
       for (const f of raw) {
@@ -110,6 +120,9 @@ function buildFormDataText(formData: any, notes?: string | null): string {
     } else if (raw && typeof raw === 'object') {
       for (const [k, v] of Object.entries(raw)) add(k, v)
     }
+  }
+  // Chaves de topo não-técnicas (payloads de site/portal) — sempre úteis.
+  if (formData && typeof formData === 'object') {
     for (const [k, v] of Object.entries(formData)) {
       if (HIDDEN_FORM_KEYS.has(k)) continue
       add(k, v)
@@ -303,7 +316,7 @@ export function QualifyEntryDialog({
     if (!open || !entry?.id) return
     if (prefilledEntryRef.current === entry.id) return
     prefilledEntryRef.current = entry.id
-    const text = buildFormDataText(entry.form_data, entry.notes)
+    const text = buildFormDataText(entry.form_data, entry.notes, entry.form_answers)
     if (!text) return
     setIsProcessing(true)
     fetch('/api/leads/extract-from-text', {
