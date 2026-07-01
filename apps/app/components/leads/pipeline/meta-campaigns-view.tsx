@@ -16,7 +16,7 @@
  * "attributed to me" summary in <MetaTab>.
  */
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   Loader2,
   Target,
@@ -39,6 +39,7 @@ import {
   Gauge,
   Radar,
   Plus,
+  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -46,6 +47,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   formatCampaignObjective,
   formatEur,
@@ -60,7 +62,11 @@ import { useDebounce } from '@/hooks/use-debounce'
 import { AttributionPanel } from '@/components/analise-meta/attribution-panel'
 import { AdDetailSheet } from '@/components/analise-meta/ad-detail-sheet'
 import { CreateCampaignSheet } from '@/components/analise-meta/create-campaign-sheet'
+import { MetaPeriodSelect } from '@/components/analise-meta/meta-period-select'
+import { CampaignLeadsTab, CampaignReachOutTab } from '@/components/analise-meta/campaign-reachout-tabs'
 import { toggleMetaEntityStatus } from '@/lib/meta/graph-actions'
+import { presetToRange, type MetaDatePreset } from '@/lib/meta/date-range'
+import type { CampaignReachOut } from '@/lib/meta/campaign-reachout'
 import type {
   MetaCampaignListItem,
   MetaCampaignDetail,
@@ -72,6 +78,14 @@ import { MetaTab } from './meta-tab'
 
 const PAGE_SIZE = 30
 const GLASS = 'rounded-2xl border border-border/40 bg-card/60 shadow-sm backdrop-blur-xl'
+
+// Detail tab pill — solid dark/light active state (mirrors the loja tabs).
+const TAB_TRIGGER = cn(
+  'inline-flex items-center justify-center shrink-0 gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-300',
+  'data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-sm',
+  'dark:data-[state=active]:bg-white dark:data-[state=active]:text-neutral-900',
+  'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50',
+)
 
 // Mirror of the sentinel in campaign-queries (kept local to avoid bundling the
 // server query module into this client component).
@@ -104,10 +118,14 @@ export function MetaCampaignsView({
   from,
   to,
   consultantId,
+  onDetailOpenChange,
 }: {
   from?: string
   to?: string
   consultantId?: string | null
+  /** Notifies the parent when the inline campaign detail opens/closes so it can
+   *  hide its shared filter row (the detail carries its own period selector). */
+  onDetailOpenChange?: (open: boolean) => void
 } = {}) {
   // Account-wide totals for the metric cards (independent of pagination).
   const [totals, setTotals] = useState<GlobalTotals>({
@@ -180,6 +198,12 @@ export function MetaCampaignsView({
     }
   }, [debouncedQuery, page, from, to, consultantId, reloadKey])
 
+  // Tell the parent whether the inline detail is open (so it hides its filters).
+  useEffect(() => {
+    onDetailOpenChange?.(!!selected)
+    return () => onDetailOpenChange?.(false)
+  }, [selected, onDetailOpenChange])
+
   // Reset to page 1 whenever the search term changes.
   const onSearch = useCallback((v: string) => {
     setQuery(v)
@@ -237,8 +261,6 @@ export function MetaCampaignsView({
       <CampaignDetailInline
         campaignId={selected.id}
         campaignName={selected.name}
-        from={from}
-        to={to}
         onBack={() => setSelected(null)}
       />
     )
@@ -745,19 +767,17 @@ function Num({ value, size = 'md' }: { value: string; size?: 'sm' | 'md' }) {
 function CampaignDetailInline({
   campaignId,
   campaignName,
-  from,
-  to,
   onBack,
 }: {
   campaignId: string
   campaignName: string | null
-  from?: string
-  to?: string
   onBack: () => void
 }) {
   const [detail, setDetail] = useState<MetaCampaignDetail | null>(null)
   const [groups, setGroups] = useState<MetaCampaignAdsetGroup[]>([])
+  const [reach, setReach] = useState<CampaignReachOut | null>(null)
   const [loading, setLoading] = useState(true)
+  const [reachLoading, setReachLoading] = useState(true)
   const [error, setError] = useState(false)
   // Ad detail opens in a sheet (not a page), like the rest of the meta tab.
   const [openAdId, setOpenAdId] = useState<string | null>(null)
@@ -770,14 +790,24 @@ function CampaignDetailInline({
       else next.add(adsetId)
       return next
     })
-  // Live status toggle (management). `statusOverride` reflects the change before
-  // the next sync; the server action also patches the mirror row.
+  // Live status toggle (management).
   const [statusOverride, setStatusOverride] = useState<string | null>(null)
   const [toggling, setToggling] = useState(false)
+
+  // Period selector — local to the detail, rendered top-right. Defaults to all-time.
+  const [period, setPeriod] = useState<MetaDatePreset | 'custom'>('maximum')
+  const [customRange, setCustomRange] = useState<{ from?: string; to?: string }>({})
+  const range = useMemo(
+    () => (period === 'custom' ? customRange : presetToRange(period)),
+    [period, customRange],
+  )
+  const from = range.from
+  const to = range.to
 
   useEffect(() => {
     let active = true
     setLoading(true)
+    setReachLoading(true)
     setError(false)
     const qs = new URLSearchParams()
     if (from) qs.set('from', from)
@@ -798,6 +828,19 @@ function CampaignDetailInline({
       })
       .finally(() => {
         if (active) setLoading(false)
+      })
+    // Reach-out (Leads + Reach-out tabs) — fetched independently so the CRM
+    // join doesn't block the header / Desempenho.
+    fetch(`/api/analise-meta/campaigns/${id}/reach-out${suffix}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        if (active) setReach(d)
+      })
+      .catch(() => {
+        if (active) setReach(null)
+      })
+      .finally(() => {
+        if (active) setReachLoading(false)
       })
     return () => {
       active = false
@@ -828,11 +871,60 @@ function CampaignDetailInline({
 
   return (
     <OpenAdContext.Provider value={setOpenAdId}>
-    <div className="space-y-5">
-      <Button variant="ghost" size="sm" className="-ml-3" onClick={onBack}>
-        <ArrowLeft className="mr-1 h-4 w-4" />
-        Campanhas
-      </Button>
+    <div className="space-y-4">
+      {/* Header — back + title on one line (left); period selector + attribution
+          card stacked top-right */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" className="-ml-3 shrink-0" onClick={onBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Campanhas
+          </Button>
+          <Target className="text-muted-foreground h-5 w-5 shrink-0" />
+          <h1 className="max-w-[52ch] truncate text-xl font-semibold tracking-tight">
+            {detail?.campaign.name ?? campaignName ?? '(sem nome)'}
+          </h1>
+          {detail && (
+            <Badge variant={metaStatusVariant(currentStatus)} className="text-[10px]">
+              {formatMetaStatus(currentStatus)}
+            </Badge>
+          )}
+          {detail && canToggle && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 rounded-full"
+              disabled={toggling}
+              onClick={onToggleStatus}
+            >
+              {toggling ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isActive ? (
+                <Pause className="h-3.5 w-3.5" />
+              ) : (
+                <Play className="h-3.5 w-3.5" />
+              )}
+              {isActive ? 'Pausar' : 'Activar'}
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <MetaPeriodSelect
+            period={period}
+            customRange={customRange}
+            onPeriodChange={setPeriod}
+            onCustomRangeChange={setCustomRange}
+          />
+          {detail && (
+            <AttributionPanel
+              scope="campaign"
+              targetId={detail.campaign.campaign_id}
+              targetName={detail.campaign.name}
+              compact
+            />
+          )}
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-muted-foreground flex items-center gap-2 py-16 text-sm">
@@ -841,90 +933,65 @@ function CampaignDetailInline({
       ) : error || !detail || !k ? (
         <div className="text-destructive text-sm">Erro a carregar a campanha.</div>
       ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <Target className="text-muted-foreground h-5 w-5" />
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {detail.campaign.name ?? campaignName ?? '(sem nome)'}
-            </h1>
-            <Badge variant={metaStatusVariant(currentStatus)} className="text-[10px]">
-              {formatMetaStatus(currentStatus)}
-            </Badge>
-            {canToggle && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="ml-auto h-8 gap-1.5 rounded-full"
-                disabled={toggling}
-                onClick={onToggleStatus}
-              >
-                {toggling ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : isActive ? (
-                  <Pause className="h-3.5 w-3.5" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {isActive ? 'Pausar' : 'Activar'}
-              </Button>
-            )}
-          </div>
-          <p className="text-muted-foreground text-sm">
-            {formatCampaignObjective(detail.campaign.objective)}
-          </p>
+        <Tabs defaultValue="desempenho" className="space-y-4">
+          <TabsList className="inline-flex h-auto w-fit items-center gap-1 self-start rounded-full border border-border/30 bg-muted/40 p-1 shadow-sm backdrop-blur-sm">
+            <TabsTrigger value="desempenho" className={TAB_TRIGGER}>
+              <Gauge className="h-3.5 w-3.5" />
+              Desempenho
+            </TabsTrigger>
+            <TabsTrigger value="estrutura" className={TAB_TRIGGER}>
+              <Layers className="h-3.5 w-3.5" />
+              Conjuntos de anúncios
+            </TabsTrigger>
+            <TabsTrigger value="leads" className={TAB_TRIGGER}>
+              <Users className="h-3.5 w-3.5" />
+              Leads
+            </TabsTrigger>
+            <TabsTrigger value="reachout" className={TAB_TRIGGER}>
+              <Clock className="h-3.5 w-3.5" />
+              Reach-out
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Performance — full metric grid (mirrors the old Meta Ads page) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Desempenho</p>
-              {perfPeriod && <span className="text-muted-foreground/70 text-[11px] tabular-nums">{perfPeriod}</span>}
+          {/* Desempenho — metric grid + funnel + attribution */}
+          <TabsContent value="desempenho" className="space-y-5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Desempenho</p>
+                {perfPeriod && <span className="text-muted-foreground/70 text-[11px] tabular-nums">{perfPeriod}</span>}
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <MetricCard icon={Euro} label="Gasto" value={formatEur(k.spend, k.currency)} color="text-red-500" />
+                <MetricCard
+                  icon={Target}
+                  label="Custo / lead"
+                  value={k.costPerLead !== null ? formatEur(k.costPerLead, k.currency) : '—'}
+                  color="text-[#1877F2]"
+                />
+                <MetricCard icon={Eye} label="Impressões" value={formatMetaInt(k.impressions)} />
+                <MetricCard icon={Radar} label="Alcance" value={formatMetaInt(k.reach)} />
+                <MetricCard icon={MousePointerClick} label="Cliques" value={formatMetaInt(k.clicks)} />
+                <MetricCard icon={Percent} label="CTR" value={k.ctr !== null ? formatMetaPct(k.ctr) : '—'} />
+                <MetricCard icon={Euro} label="CPC" value={k.cpc !== null ? formatEur(k.cpc, k.currency) : '—'} />
+                <MetricCard
+                  icon={Gauge}
+                  label="CPM"
+                  value={k.cpm !== null ? formatEur(k.cpm, k.currency) : '—'}
+                  sub={k.frequency !== null ? `Freq. ${k.frequency.toFixed(2)}` : undefined}
+                />
+              </div>
             </div>
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MetricCard icon={Euro} label="Gasto" value={formatEur(k.spend, k.currency)} color="text-red-500" />
-              <MetricCard
-                icon={Target}
-                label="Custo / lead"
-                value={k.costPerLead !== null ? formatEur(k.costPerLead, k.currency) : '—'}
-                color="text-[#1877F2]"
-              />
-              <MetricCard icon={Eye} label="Impressões" value={formatMetaInt(k.impressions)} />
-              <MetricCard icon={Radar} label="Alcance" value={formatMetaInt(k.reach)} />
-              <MetricCard icon={MousePointerClick} label="Cliques" value={formatMetaInt(k.clicks)} />
-              <MetricCard icon={Percent} label="CTR" value={k.ctr !== null ? formatMetaPct(k.ctr) : '—'} />
-              <MetricCard icon={Euro} label="CPC" value={k.cpc !== null ? formatEur(k.cpc, k.currency) : '—'} />
-              <MetricCard
-                icon={Gauge}
-                label="CPM"
-                value={k.cpm !== null ? formatEur(k.cpm, k.currency) : '—'}
-                sub={k.frequency !== null ? `Freq. ${k.frequency.toFixed(2)}` : undefined}
-              />
+              <MetricCard icon={Megaphone} label="Anúncios" value={formatMetaInt(detail.kpis.ads)} />
+              <MetricCard icon={Users} label="Leads" value={formatMetaInt(detail.kpis.leads)} color="text-[#1877F2]" />
+              <MetricCard icon={CheckCircle2} label="No CRM" value={formatMetaInt(detail.kpis.inCrm)} color="text-emerald-600" />
+              <MetricCard icon={Wallet} label="Orçamento/dia" value={detail.kpis.dailyBudget} />
             </div>
-          </div>
+          </TabsContent>
 
-          {/* Funnel — ads / leads / CRM / budget */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <MetricCard icon={Megaphone} label="Anúncios" value={formatMetaInt(detail.kpis.ads)} />
-            <MetricCard icon={Users} label="Leads" value={formatMetaInt(detail.kpis.leads)} color="text-[#1877F2]" />
-            <MetricCard icon={CheckCircle2} label="No CRM" value={formatMetaInt(detail.kpis.inCrm)} color="text-emerald-600" />
-            <MetricCard icon={Wallet} label="Orçamento/dia" value={detail.kpis.dailyBudget} />
-          </div>
-
-          {/* Attribution */}
-          <div className={`${GLASS} p-4`}>
-            <AttributionPanel
-              scope="campaign"
-              targetId={detail.campaign.campaign_id}
-              targetName={detail.campaign.name}
-              bare
-            />
-          </div>
-
-          {/* Conjuntos e anúncios — same accordion table as the list expansion */}
-          <section className="space-y-2.5">
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <Layers className="text-muted-foreground h-3.5 w-3.5" />
-              Conjuntos e anúncios
-            </h3>
+          {/* Conjuntos de anúncios */}
+          <TabsContent value="estrutura">
             {groups.length === 0 ? (
               <div className={`${GLASS} text-muted-foreground p-8 text-center text-sm`}>
                 Nenhum anúncio sincronizado para esta campanha.
@@ -959,8 +1026,18 @@ function CampaignDetailInline({
                 </div>
               </Card>
             )}
-          </section>
-        </>
+          </TabsContent>
+
+          {/* Leads — this campaign's CRM leads */}
+          <TabsContent value="leads">
+            <CampaignLeadsTab data={reach} loading={reachLoading} />
+          </TabsContent>
+
+          {/* Reach-out — response time, waiting leads, conversion */}
+          <TabsContent value="reachout">
+            <CampaignReachOutTab data={reach} loading={reachLoading} />
+          </TabsContent>
+        </Tabs>
       )}
 
       <AdDetailSheet adId={openAdId} open={!!openAdId} onOpenChange={(o) => !o && setOpenAdId(null)} />

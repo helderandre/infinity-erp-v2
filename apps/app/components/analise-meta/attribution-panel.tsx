@@ -98,12 +98,16 @@ export function AttributionPanel({
   targetId,
   targetName,
   bare = false,
+  compact = false,
 }: {
   scope: Scope
   targetId: string
   targetName?: string | null
   /** Render without the outer Card (for embedding inside another card). */
   bare?: boolean
+  /** Render as a small clickable chip ("Atribuída a: X" / "Atribuição da
+   *  campanha") that opens the edit sheet — for headers/top-right corners. */
+  compact?: boolean
 }) {
   const isMobile = useIsMobile()
   const [loading, setLoading] = useState(true)
@@ -572,6 +576,51 @@ export function AttributionPanel({
       </SheetContent>
     </Sheet>
   )
+
+  if (compact) {
+    const attributed = !!rule?.consultant_id
+    return (
+      <>
+        <button
+          type="button"
+          disabled={!canManage}
+          onClick={canManage ? openEditor : undefined}
+          title={canManage ? 'Editar atribuição' : undefined}
+          className={cn(
+            'group border-border/50 bg-card/60 inline-flex max-w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left shadow-sm backdrop-blur-xl transition-all',
+            canManage && 'hover:border-border/80 cursor-pointer hover:shadow',
+          )}
+        >
+          {loading ? (
+            <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Atribuição…
+            </span>
+          ) : attributed ? (
+            <>
+              <span className="bg-primary/10 text-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold">
+                {initialsOf(nameOf(rule!.consultant_id))}
+              </span>
+              <span className="min-w-0">
+                <span className="text-muted-foreground block text-[10px] uppercase leading-none tracking-wide">Atribuída a</span>
+                <span className="block max-w-[170px] truncate text-xs font-medium leading-tight">{nameOf(rule!.consultant_id)}</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="bg-muted text-muted-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                <UserCog className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-xs font-medium">Atribuição da campanha</span>
+            </>
+          )}
+          {canManage && !loading && (
+            <Pencil className="text-muted-foreground/60 group-hover:text-foreground ml-0.5 h-3 w-3 shrink-0" />
+          )}
+        </button>
+        {sheetNode}
+      </>
+    )
+  }
 
   if (bare) {
     return (

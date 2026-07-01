@@ -16,16 +16,13 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Loader2, RefreshCw } from 'lucide-react'
-import { format, isValid, parseISO } from 'date-fns'
-import { pt } from 'date-fns/locale'
+import { Loader2, RefreshCw } from 'lucide-react'
 
 import { CampaignRequestsBoard } from '@/components/analise-meta/campaign-requests-board'
 import { MetaLeadsInboxView } from '@/components/analise-meta/meta-leads-inbox-view'
+import { MetaPeriodSelect } from '@/components/analise-meta/meta-period-select'
 import { MetaCampaignsView } from '@/components/leads/pipeline/meta-campaigns-view'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -37,7 +34,7 @@ import { useMetaSyncJob } from '@/hooks/use-meta-sync-job'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useUser } from '@/hooks/use-user'
 import { isManagementRole } from '@/lib/auth/roles'
-import { META_DATE_PRESETS, presetToRange, type MetaDatePreset } from '@/lib/meta/date-range'
+import { presetToRange, type MetaDatePreset } from '@/lib/meta/date-range'
 import { cn } from '@/lib/utils'
 
 type SubTab = 'pedidos' | 'campanhas' | 'leads'
@@ -72,17 +69,13 @@ export function MetaSectionTabs() {
   const [period, setPeriod] = useState<MetaDatePreset | 'custom'>('maximum')
   const [customRange, setCustomRange] = useState<{ from?: string; to?: string }>({})
   const [consultantId, setConsultantId] = useState<string>(ALL_CONSULTANTS)
+  // Drill-in state lives in <MetaCampaignsView>; it reports back so we can hide
+  // the shared filter row (the detail carries its own period selector top-right).
+  const [campaignDetailOpen, setCampaignDetailOpen] = useState(false)
   const range = useMemo(
     () => (period === 'custom' ? customRange : presetToRange(period)),
     [period, customRange],
   )
-  const customLabel = useMemo(() => {
-    const f = customRange.from && isValid(parseISO(customRange.from)) ? parseISO(customRange.from) : null
-    const t = customRange.to && isValid(parseISO(customRange.to)) ? parseISO(customRange.to) : null
-    if (f && t) return `${format(f, 'dd MMM', { locale: pt })} – ${format(t, 'dd MMM yyyy', { locale: pt })}`
-    if (f) return `Desde ${format(f, 'dd MMM yyyy', { locale: pt })}`
-    return 'Escolher datas'
-  }, [customRange])
 
   // Consultant options (management only) for the consultor filter.
   const [consultants, setConsultants] = useState<ConsultantOption[]>([])
@@ -100,7 +93,9 @@ export function MetaSectionTabs() {
     }
   }, [isManagement])
 
-  const showFilters = subTab === 'campanhas' || subTab === 'leads'
+  // Hidden while a campaign detail is open — the detail has its own selector.
+  const showFilters =
+    (subTab === 'campanhas' && !campaignDetailOpen) || subTab === 'leads'
   const selectedConsultant = consultantId === ALL_CONSULTANTS ? null : consultantId
 
   return (
@@ -144,69 +139,12 @@ export function MetaSectionTabs() {
       {/* Shared filters (Campanhas + Leads) */}
       {showFilters && (
         <div className="flex flex-wrap items-center gap-3">
-          {/* Date presets + custom range */}
-          <div className="flex items-center gap-1 overflow-x-auto rounded-lg border bg-muted p-0.5">
-            <CalendarDays className="text-muted-foreground ml-2 mr-0.5 h-3.5 w-3.5 shrink-0" />
-            {META_DATE_PRESETS.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key)}
-                className={cn(
-                  'whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150',
-                  period === p.key
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setPeriod('custom')}
-              className={cn(
-                'whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150',
-                period === 'custom'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Personalizado
-            </button>
-          </div>
-
-          {/* Custom range calendar */}
-          {period === 'custom' && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs">
-                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                  {customLabel}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={{
-                    from: customRange.from && isValid(parseISO(customRange.from)) ? parseISO(customRange.from) : undefined,
-                    to: customRange.to && isValid(parseISO(customRange.to)) ? parseISO(customRange.to) : undefined,
-                  }}
-                  onSelect={(r) =>
-                    setCustomRange({
-                      from: r?.from ? format(r.from, 'yyyy-MM-dd') : undefined,
-                      to: r?.to ? format(r.to, 'yyyy-MM-dd') : undefined,
-                    })
-                  }
-                  locale={pt}
-                  numberOfMonths={2}
-                  captionLayout="dropdown"
-                  fromYear={2020}
-                  toYear={new Date().getFullYear() + 1}
-                />
-              </PopoverContent>
-            </Popover>
-          )}
+          <MetaPeriodSelect
+            period={period}
+            customRange={customRange}
+            onPeriodChange={setPeriod}
+            onCustomRangeChange={setCustomRange}
+          />
 
           {/* Consultor filter — management only */}
           {isManagement && (
@@ -234,6 +172,7 @@ export function MetaSectionTabs() {
           from={range.from}
           to={range.to}
           consultantId={selectedConsultant}
+          onDetailOpenChange={setCampaignDetailOpen}
         />
       )}
       {subTab === 'leads' && (
