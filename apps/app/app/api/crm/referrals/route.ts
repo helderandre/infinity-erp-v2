@@ -1,5 +1,6 @@
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { createReferralSchema } from '@/lib/validations/leads-crm'
+import { notifyPartnerNewLead } from '@/lib/parceiros/notify-partner'
 import { NextResponse } from 'next/server'
 
 const DEFAULT_REFERRAL_PCT = 25
@@ -271,6 +272,23 @@ export async function POST(request: Request) {
           { status: 500 },
         )
       }
+    }
+
+    // Notifica por email quando o referenciador creditado é um Parceiro — a
+    // lead passa a aparecer no portal de Parceiros. No-op para referenciadores
+    // internos (o helper valida o role 'Parceiro'). Best-effort.
+    if (effectiveReferrerId) {
+      const { data: contact } = await supabase
+        .from('leads')
+        .select('nome, telemovel, email')
+        .eq('id', input.contact_id)
+        .maybeSingle()
+      await notifyPartnerNewLead(supabase, {
+        partnerId: effectiveReferrerId,
+        leadName: contact?.nome ?? null,
+        contactPhone: contact?.telemovel ?? null,
+        contactEmail: contact?.email ?? null,
+      })
     }
 
     return NextResponse.json(audit, { status: 201 })

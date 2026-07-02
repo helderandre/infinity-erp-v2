@@ -10,6 +10,7 @@ type SupabaseClient = import('@supabase/supabase-js').SupabaseClient<any, any, a
 import { assignLeadEntry, findMatchingRule } from './assignment-engine'
 import { calculateSlaDeadline } from './sla-engine'
 import { isPartner } from '@/lib/auth/roles'
+import { notifyPartnerNewLead } from '@/lib/parceiros/notify-partner'
 import type { EntrySource, LeadSector, EntryPriority } from '@/types/leads-crm'
 
 export interface IngestLeadInput {
@@ -348,6 +349,13 @@ export async function ingestLead(
             referral_pct: entryReferralPct,
             status: 'accepted',
             notes: 'Referência automática (atribuição de campanha/anúncio Meta a parceiro).',
+          })
+          // Notifica o parceiro por email da nova lead (best-effort).
+          await notifyPartnerNewLead(supabase, {
+            partnerId: entryReferralConsultantId,
+            leadName: input.name,
+            contactPhone: input.phone,
+            contactEmail: input.email,
           })
         }
       }

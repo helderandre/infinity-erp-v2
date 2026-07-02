@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/permissions'
 import { isPartner } from '@/lib/auth/roles'
 import { createCrmAdminClient } from '@/lib/supabase/admin-untyped'
 import { getMetaCampaignSummaries } from '@/lib/meta/campaign-queries'
+import { notifyPartnerNewCampaignRequest } from '@/lib/parceiros/notify-partner'
 
 // GET — listagem de campanhas.
 //
@@ -120,6 +121,25 @@ export async function POST(request: Request) {
 
     if (campaignError || !campaign) {
       return NextResponse.json({ error: campaignError?.message || 'Erro ao criar campanha' }, { status: 500 })
+    }
+
+    // Notifica o parceiro por email (best-effort — não bloqueia o pedido).
+    // Usa admin client: o cliente user-scoped pode não ter RLS para ler a row
+    // do parceiro (dev_users + user_roles) e o email seria silenciosamente saltado.
+    if (campaign.partner_id) {
+      const adminDb = createCrmAdminClient()
+      const { data: requester } = await adminDb
+        .from('dev_users')
+        .select('commercial_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      await notifyPartnerNewCampaignRequest(adminDb, {
+        partnerId: campaign.partner_id,
+        objective: campaign.objective,
+        campaignType: campaign.campaign_type,
+        totalCost: campaign.total_cost,
+        requesterName: requester?.commercial_name ?? null,
+      })
     }
 
     // Debit conta corrente if applicable
