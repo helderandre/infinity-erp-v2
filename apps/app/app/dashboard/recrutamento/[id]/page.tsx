@@ -21,7 +21,7 @@ import type {
   RecruitmentOnboarding, RecruitmentStageLog, RecruitmentCommunication,
   RecruitmentProbation, CandidateStatus, CommunicationType, CommunicationDirection,
 } from '@/types/recruitment'
-import { CANDIDATE_SOURCES, CANDIDATE_STATUSES, PIPELINE_STAGES } from '@/types/recruitment'
+import { CANDIDATE_SOURCES, CANDIDATE_STATUSES, CANDIDATE_STATUS_DOT, PIPELINE_STAGES, normalizeCandidateStatus } from '@/types/recruitment'
 
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -62,11 +62,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key']
 
 function getStatusColor(status: CandidateStatus): string {
-  const colors: Record<CandidateStatus, string> = {
-    prospect: '#64748b', in_contact: '#3b82f6', in_process: '#a855f7',
-    decision_pending: '#f59e0b', joined: '#10b981', declined: '#ef4444', on_hold: '#f97316',
-  }
-  return colors[status]
+  return CANDIDATE_STATUS_DOT[normalizeCandidateStatus(status)]
 }
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()

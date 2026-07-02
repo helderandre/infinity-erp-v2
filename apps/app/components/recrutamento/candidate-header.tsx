@@ -95,13 +95,14 @@ export function CandidateHeader({
           {/* Status */}
           <span className={cn(
             'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border',
-            candidate.status === 'joined' && 'bg-emerald-500/30 text-emerald-200 border-emerald-400/30',
-            candidate.status === 'declined' && 'bg-red-500/30 text-red-200 border-red-400/30',
-            candidate.status === 'on_hold' && 'bg-orange-500/30 text-orange-200 border-orange-400/30',
-            candidate.status === 'prospect' && 'bg-slate-500/30 text-slate-200 border-slate-400/30',
-            candidate.status === 'in_contact' && 'bg-blue-500/30 text-blue-200 border-blue-400/30',
-            candidate.status === 'in_process' && 'bg-purple-500/30 text-purple-200 border-purple-400/30',
-            candidate.status === 'decision_pending' && 'bg-amber-500/30 text-amber-200 border-amber-400/30',
+            candidate.status === 'contratado' && 'bg-emerald-500/30 text-emerald-200 border-emerald-400/30',
+            candidate.status === 'rejeitado' && 'bg-red-500/30 text-red-200 border-red-400/30',
+            candidate.status === 'em_espera' && 'bg-slate-500/30 text-slate-200 border-slate-400/30',
+            candidate.status === 'novo' && 'bg-blue-500/30 text-blue-200 border-blue-400/30',
+            candidate.status === 'triagem' && 'bg-yellow-500/30 text-yellow-200 border-yellow-400/30',
+            candidate.status === 'entrevista' && 'bg-purple-500/30 text-purple-200 border-purple-400/30',
+            candidate.status === 'avaliacao' && 'bg-orange-500/30 text-orange-200 border-orange-400/30',
+            candidate.status === 'oferta' && 'bg-green-500/30 text-green-200 border-green-400/30',
           )}>
             {statusInfo.label}
           </span>

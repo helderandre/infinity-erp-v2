@@ -17,7 +17,7 @@ import type {
   CommunicationType,
   CommunicationDirection,
 } from '@/types/recruitment'
-import { CANDIDATE_SOURCES, CANDIDATE_STATUSES } from '@/types/recruitment'
+import { CANDIDATE_SOURCES, CANDIDATE_STATUSES, normalizeCandidateStatus } from '@/types/recruitment'
 import { CommunicationsTimeline } from './communications-timeline'
 import { upsertPainPitch } from '@/app/dashboard/recrutamento/actions'
 import { cn } from '@/lib/utils'
@@ -92,7 +92,7 @@ export function CandidateOverviewTab({
     if (error) { toast.error(error) } else { toast.success('Pain & Pitch guardado'); onReload?.() }
   }
 
-  const showDecision = !hideDecision && ['decision_pending', 'joined', 'declined'].includes(candidate.status)
+  const showDecision = !hideDecision && ['avaliacao', 'oferta', 'contratado', 'rejeitado'].includes(candidate.status)
   const recruiterName = recruiters.find(r => r.id === candidate.assigned_recruiter_id)?.commercial_name
 
   return (
@@ -170,8 +170,8 @@ export function CandidateOverviewTab({
           {showHistory && (
             <div className={`${cardBodyClass} space-y-2`}>
               {stageLogs.map(log => {
-                const from = log.from_status ? CANDIDATE_STATUSES[log.from_status] : null
-                const to = CANDIDATE_STATUSES[log.to_status]
+                const from = log.from_status ? CANDIDATE_STATUSES[normalizeCandidateStatus(log.from_status)] : null
+                const to = CANDIDATE_STATUSES[normalizeCandidateStatus(log.to_status)]
                 return (
                   <div key={log.id} className="flex items-start gap-2.5 rounded-lg bg-muted/20 px-3 py-2">
                     <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />

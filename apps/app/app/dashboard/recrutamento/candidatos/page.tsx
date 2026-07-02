@@ -16,7 +16,7 @@ import {
   bulkUpdateStatus, bulkAssignRecruiter, exportCandidatesCsv,
 } from "@/app/dashboard/recrutamento/actions"
 import type { RecruitmentCandidate, CandidateSource, CandidateStatus } from "@/types/recruitment"
-import { CANDIDATE_SOURCES, CANDIDATE_STATUSES, PIPELINE_STAGES } from "@/types/recruitment"
+import { CANDIDATE_SOURCES, CANDIDATE_STATUSES, CANDIDATE_STATUS_DOT, PIPELINE_STAGES, TERMINAL_CANDIDATE_STATUSES, normalizeCandidateStatus } from "@/types/recruitment"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -38,11 +38,7 @@ type ViewMode = "table" | "kanban"
 interface Recruiter { id: string; commercial_name: string }
 
 function getStatusDotColor(status: CandidateStatus): string {
-  const colors: Record<CandidateStatus, string> = {
-    prospect: "#64748b", in_contact: "#3b82f6", in_process: "#a855f7",
-    decision_pending: "#f59e0b", joined: "#10b981", declined: "#ef4444", on_hold: "#f97316",
-  }
-  return colors[status]
+  return CANDIDATE_STATUS_DOT[normalizeCandidateStatus(status)]
 }
 
 export default function CandidatosPage() {
@@ -74,7 +70,7 @@ export default function CandidatosPage() {
   const [creating, setCreating] = useState(false)
   const [newCandidate, setNewCandidate] = useState({
     full_name: "", phone: "", email: "", source: "linkedin" as CandidateSource,
-    source_detail: "", status: "prospect" as CandidateStatus,
+    source_detail: "", status: "novo" as CandidateStatus,
     assigned_recruiter_id: "", first_contact_date: "", notes: "",
   })
 
@@ -122,7 +118,7 @@ export default function CandidatosPage() {
     setCreating(false)
     if (error) { toast.error(error) } else {
       toast.success("Candidato criado"); setCreateOpen(false)
-      setNewCandidate({ full_name: "", phone: "", email: "", source: "linkedin", source_detail: "", status: "prospect", assigned_recruiter_id: "", first_contact_date: "", notes: "" })
+      setNewCandidate({ full_name: "", phone: "", email: "", source: "linkedin", source_detail: "", status: "novo", assigned_recruiter_id: "", first_contact_date: "", notes: "" })
       fetchData()
     }
   }
@@ -152,7 +148,7 @@ export default function CandidatosPage() {
     if (error) { toast.error("Erro ao mover candidato"); fetchData() }
   }, [draggedCandidateId, candidates, fetchData])
   const getInitials = (name: string) => name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
-  const terminalStatuses: CandidateStatus[] = ["joined", "declined"]
+  const terminalStatuses: CandidateStatus[] = TERMINAL_CANDIDATE_STATUSES
 
   return (
     <div className="space-y-6 p-4 sm:p-6 overflow-x-hidden">
@@ -349,8 +345,8 @@ export default function CandidatosPage() {
                     <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getStatusDotColor(stage) }} />
                     <span className="text-sm font-medium truncate">{statusInfo.label}</span>
                     {isTerminal && (
-                      <Badge variant={stage === "joined" ? "default" : "destructive"} className="text-[9px] h-4 px-1.5 py-0 font-medium rounded-full">
-                        {stage === "joined" ? "Ganho" : "Perdido"}
+                      <Badge variant={stage === "contratado" ? "default" : "destructive"} className="text-[9px] h-4 px-1.5 py-0 font-medium rounded-full">
+                        {stage === "contratado" ? "Ganho" : "Perdido"}
                       </Badge>
                     )}
                   </div>

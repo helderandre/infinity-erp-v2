@@ -46,23 +46,25 @@ interface ReportData {
 // ─── Stage Colors ─────────────────────────────────────────────────────────────
 
 const STAGE_COLORS: Record<string, string> = {
-  prospect: "bg-slate-500",
-  in_contact: "bg-blue-500",
-  in_process: "bg-purple-500",
-  decision_pending: "bg-amber-500",
-  joined: "bg-emerald-500",
-  declined: "bg-red-500",
-  on_hold: "bg-orange-500",
+  novo: "bg-blue-500",
+  triagem: "bg-yellow-500",
+  entrevista: "bg-purple-500",
+  avaliacao: "bg-orange-500",
+  oferta: "bg-green-500",
+  contratado: "bg-emerald-600",
+  rejeitado: "bg-red-500",
+  em_espera: "bg-slate-500",
 }
 
 const STAGE_BG_LIGHT: Record<string, string> = {
-  prospect: "bg-slate-100",
-  in_contact: "bg-blue-100",
-  in_process: "bg-purple-100",
-  decision_pending: "bg-amber-100",
-  joined: "bg-emerald-100",
-  declined: "bg-red-100",
-  on_hold: "bg-orange-100",
+  novo: "bg-blue-100",
+  triagem: "bg-yellow-100",
+  entrevista: "bg-purple-100",
+  avaliacao: "bg-orange-100",
+  oferta: "bg-green-100",
+  contratado: "bg-emerald-100",
+  rejeitado: "bg-red-100",
+  em_espera: "bg-slate-100",
 }
 
 // ─── PT month names ───────────────────────────────────────────────────────────

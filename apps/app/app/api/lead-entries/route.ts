@@ -420,7 +420,7 @@ export async function POST(request: Request) {
         email: normEmail || null,
         source: candidateSource,
         source_detail: input.source,
-        status: 'prospect',
+        status: 'novo',
         assigned_recruiter_id: assignedConsultantId || null,
         notes: input.notes || null,
         first_contact_date: new Date().toISOString().split('T')[0],

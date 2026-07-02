@@ -148,13 +148,13 @@ export function CandidateOnboardingTab({
     setSaving(false)
   }, [candidateId])
 
-  // Guard: candidate must be 'joined' or 'decision_pending'
-  if (!['joined', 'decision_pending'].includes(candidate.status)) {
+  // Guard: onboarding prepara-se a partir da fase Oferta e conclui-se em Contratado
+  if (!['oferta', 'contratado'].includes(candidate.status)) {
     return (
       <div className={cn(cardClass, 'flex flex-col items-center justify-center gap-3 py-16 p-6')}>
         <UserCheck className="h-10 w-10 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground text-center max-w-md">
-          O onboarding fica disponível quando o estado for &quot;Decisão Pendente&quot; ou &quot;Aderiu&quot;.
+          O onboarding fica disponível quando o estado for &quot;Oferta&quot; ou &quot;Contratado&quot;.
         </p>
       </div>
     )
@@ -246,7 +246,7 @@ export function CandidateOnboardingTab({
       </div>
 
       {/* ─── Probation Section (below pipeline) ────────────────────── */}
-      {candidate.status === 'joined' && (
+      {candidate.status === 'contratado' && (
         <ProbationSection candidateId={candidateId} probation={probation} onReload={onReload} />
       )}
     </div>

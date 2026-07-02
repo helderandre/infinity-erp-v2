@@ -6,11 +6,12 @@ import type { CandidateStatus } from '@/types/recruitment'
 import { CANDIDATE_STATUSES } from '@/types/recruitment'
 
 const FLOW_STAGES: CandidateStatus[] = [
-  'prospect',
-  'in_contact',
-  'in_process',
-  'decision_pending',
-  'joined',
+  'novo',
+  'triagem',
+  'entrevista',
+  'avaliacao',
+  'oferta',
+  'contratado',
 ]
 
 interface PipelineProgressProps {
@@ -20,12 +21,12 @@ interface PipelineProgressProps {
 }
 
 export function PipelineProgress({ currentStatus, onStatusChange, disabled }: PipelineProgressProps) {
-  const isTerminal = currentStatus === 'declined' || currentStatus === 'on_hold'
+  const isTerminal = currentStatus === 'rejeitado' || currentStatus === 'em_espera'
   const currentIdx = FLOW_STAGES.indexOf(currentStatus)
 
   function pillClass(stage: CandidateStatus, idx: number) {
-    if (isTerminal && currentStatus === 'declined') return 'bg-red-500/30 text-red-200 border-red-400/30'
-    if (isTerminal && currentStatus === 'on_hold') return 'bg-orange-500/30 text-orange-200 border-orange-400/30'
+    if (isTerminal && currentStatus === 'rejeitado') return 'bg-red-500/30 text-red-200 border-red-400/30'
+    if (isTerminal && currentStatus === 'em_espera') return 'bg-orange-500/30 text-orange-200 border-orange-400/30'
     if (idx < currentIdx) return 'bg-emerald-500/40 text-emerald-200 border-emerald-400/30'
     if (stage === currentStatus) return 'bg-white text-neutral-900 border-white/60 shadow-sm'
     return 'bg-white/10 text-neutral-400 border-white/10'
@@ -74,7 +75,7 @@ export function PipelineProgress({ currentStatus, onStatusChange, disabled }: Pi
               <div
                 className={cn(
                   'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold border',
-                  currentStatus === 'declined'
+                  currentStatus === 'rejeitado'
                     ? 'bg-red-500/30 text-red-200 border-red-400/30'
                     : 'bg-orange-500/30 text-orange-200 border-orange-400/30',
                 )}

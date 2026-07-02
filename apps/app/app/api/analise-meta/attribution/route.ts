@@ -46,8 +46,10 @@ const upsertSchema = z
       .default('agency_commission'),
     referral_fixed_amount: z.number().min(0).optional().nullable(),
     // Lead type the campaign/ad generates (pre-fills qualification).
+    // 'recruitment' desvia os leads para o módulo de Recrutamento (candidatos)
+    // em vez do CRM de vendas — ver lib/crm/ingest-recruitment-candidate.ts.
     lead_sector: z
-      .enum(['real_estate_buy', 'real_estate_sell', 'real_estate_rent', 'real_estate_landlord'])
+      .enum(['real_estate_buy', 'real_estate_sell', 'real_estate_rent', 'real_estate_landlord', 'recruitment'])
       .optional()
       .nullable(),
     lead_business_type: z.enum(['Venda', 'Arrendamento', 'Trespasse']).optional().nullable(),
@@ -143,6 +145,17 @@ export async function POST(req: NextRequest) {
   }
   const v = parsed.data
   const col = matchColumnFor(v.scope)
+
+  // Destino Recrutamento: tipo de negócio, imóvel e referral não se aplicam a
+  // candidatos — força-os a vazio, qualquer que seja o payload do cliente.
+  if (v.lead_sector === 'recruitment') {
+    v.lead_business_type = null
+    v.property_id = null
+    v.has_referral = false
+    v.referral_consultant_id = null
+    v.referral_pct = null
+    v.referral_fixed_amount = null
+  }
 
   // Resolve the property's external_ref (canonical) from the chosen id so the
   // rule carries both columns in sync — same shape the assignment engine reads.

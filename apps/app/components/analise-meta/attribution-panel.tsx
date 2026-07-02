@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, UserCog, Gift, Pencil, Building2, X, ChevronsUpDown } from 'lucide-react'
+import { Loader2, UserCog, Gift, Pencil, Building2, X, ChevronsUpDown, Briefcase, Home } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -93,6 +93,12 @@ const PERSPECTIVES: { label: string; sector: string }[] = [
   { label: 'Senhorio', sector: 'real_estate_landlord' },
 ]
 
+// Destino dos leads: CRM imobiliário (default) ou módulo de Recrutamento.
+// Com 'recruitment' o lead entra como candidato (recruitment_candidates) e
+// não cria contacto/entrada no CRM — tipo de negócio, imóvel e referral não
+// se aplicam.
+type Destination = 'crm' | 'recruitment'
+
 export function AttributionPanel({
   scope,
   targetId,
@@ -120,6 +126,7 @@ export function AttributionPanel({
 
   // form state
   const [consultantId, setConsultantId] = useState('')
+  const [destination, setDestination] = useState<Destination>('crm')
   const [hasReferral, setHasReferral] = useState(false)
   const [referralConsultantId, setReferralConsultantId] = useState('')
   const [referralBasis, setReferralBasis] = useState<ReferralBasis>('agency_commission')
@@ -133,6 +140,7 @@ export function AttributionPanel({
   const hydrate = useCallback((r: AttributionRule | null, property?: LinkedProperty | null) => {
     setRule(r)
     setConsultantId(r?.consultant_id ?? '')
+    setDestination(r?.lead_sector === 'recruitment' ? 'recruitment' : 'crm')
     setHasReferral(r?.has_referral ?? false)
     setReferralConsultantId(r?.referral_consultant_id ?? '')
     setReferralBasis(r?.referral_basis ?? 'agency_commission')
@@ -195,20 +203,39 @@ export function AttributionPanel({
       const res = await fetch('/api/analise-meta/attribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scope,
-          target_id: targetId,
-          target_name: targetName ?? null,
-          consultant_id: consultantId,
-          has_referral: hasReferral,
-          referral_consultant_id: hasReferral ? referralConsultantId || null : null,
-          referral_basis: referralBasis,
-          referral_pct: hasReferral && referralBasis !== 'fixed' ? Number(referralPct) : null,
-          referral_fixed_amount: hasReferral && referralBasis === 'fixed' ? Number(referralFixed) : null,
-          lead_business_type: leadBusinessType === NONE ? null : leadBusinessType,
-          lead_sector: leadSector === NONE ? null : leadSector,
-          property_id: propertyId,
-        }),
+        body: JSON.stringify(
+          destination === 'recruitment'
+            ? {
+                // Recrutamento: os leads entram como candidatos — negócio,
+                // imóvel e referral não se aplicam.
+                scope,
+                target_id: targetId,
+                target_name: targetName ?? null,
+                consultant_id: consultantId,
+                has_referral: false,
+                referral_consultant_id: null,
+                referral_basis: 'agency_commission',
+                referral_pct: null,
+                referral_fixed_amount: null,
+                lead_business_type: null,
+                lead_sector: 'recruitment',
+                property_id: null,
+              }
+            : {
+                scope,
+                target_id: targetId,
+                target_name: targetName ?? null,
+                consultant_id: consultantId,
+                has_referral: hasReferral,
+                referral_consultant_id: hasReferral ? referralConsultantId || null : null,
+                referral_basis: referralBasis,
+                referral_pct: hasReferral && referralBasis !== 'fixed' ? Number(referralPct) : null,
+                referral_fixed_amount: hasReferral && referralBasis === 'fixed' ? Number(referralFixed) : null,
+                lead_business_type: leadBusinessType === NONE ? null : leadBusinessType,
+                lead_sector: leadSector === NONE || leadSector === 'recruitment' ? null : leadSector,
+                property_id: propertyId,
+              },
+        ),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -248,6 +275,7 @@ export function AttributionPanel({
   // discarded edits from a previous open don't linger.
   function openEditor() {
     setConsultantId(rule?.consultant_id ?? '')
+    setDestination(rule?.lead_sector === 'recruitment' ? 'recruitment' : 'crm')
     setHasReferral(rule?.has_referral ?? false)
     setReferralConsultantId(rule?.referral_consultant_id ?? '')
     setReferralBasis(rule?.referral_basis ?? 'agency_commission')
@@ -290,15 +318,23 @@ export function AttributionPanel({
         </div>
         {(rule.lead_business_type || rule.lead_sector) && (
           <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-            {rule.lead_business_type && (
-              <Badge variant="secondary" className="font-normal">
-                {rule.lead_business_type}
+            {rule.lead_sector === 'recruitment' ? (
+              <Badge className="gap-1 border-violet-500/30 bg-violet-50 font-normal text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" variant="outline">
+                <Briefcase className="h-3 w-3" /> Recrutamento
               </Badge>
-            )}
-            {rule.lead_sector && (
-              <Badge variant="outline" className="font-normal">
-                {PERSPECTIVES.find((p) => p.sector === rule.lead_sector)?.label}
-              </Badge>
+            ) : (
+              <>
+                {rule.lead_business_type && (
+                  <Badge variant="secondary" className="font-normal">
+                    {rule.lead_business_type}
+                  </Badge>
+                )}
+                {rule.lead_sector && (
+                  <Badge variant="outline" className="font-normal">
+                    {PERSPECTIVES.find((p) => p.sector === rule.lead_sector)?.label}
+                  </Badge>
+                )}
+              </>
             )}
           </div>
         )}
@@ -385,6 +421,46 @@ export function AttributionPanel({
               </p>
             </div>
 
+            {/* Destino dos leads — CRM imobiliário ou módulo de Recrutamento */}
+            <div className="space-y-2 rounded-lg border p-3">
+              <Label className="text-xs">Destino dos leads</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDestination('crm')}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                    destination === 'crm'
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border/60 text-muted-foreground hover:bg-muted/40',
+                  )}
+                >
+                  <Home className="h-3.5 w-3.5" /> CRM Imobiliário
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDestination('recruitment')}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                    destination === 'recruitment'
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-border/60 text-muted-foreground hover:bg-muted/40',
+                  )}
+                >
+                  <Briefcase className="h-3.5 w-3.5" /> Recrutamento
+                </button>
+              </div>
+              {destination === 'recruitment' && (
+                <p className="text-muted-foreground text-xs">
+                  Os leads desta campanha entram como <span className="font-medium">candidatos no módulo de
+                  Recrutamento</span> (atribuídos ao consultor escolhido como recrutador) e não criam contactos
+                  no CRM de vendas.
+                </p>
+              )}
+            </div>
+
+            {destination === 'crm' && (
+            <>
             {/* Lead type — pre-fills the qualification of every lead from this campaign/ad */}
             <div className="grid grid-cols-2 gap-2 rounded-lg border p-3">
               <div className="col-span-2">
@@ -518,6 +594,8 @@ export function AttributionPanel({
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
 
     </>

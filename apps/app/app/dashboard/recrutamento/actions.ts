@@ -87,7 +87,7 @@ export async function createCandidate(candidate: {
     await (admin as any).from("recruitment_stage_log").insert({
       candidate_id: data.id,
       from_status: null,
-      to_status: candidate.status || "prospect",
+      to_status: candidate.status || "novo",
       changed_by: user?.id ?? null,
       notes: "Candidato criado",
     })
@@ -118,10 +118,10 @@ export async function updateCandidate(
       })
 
       // Auto-set decision_date and last_interaction_date
-      if (updates.status === "joined" || updates.status === "declined") {
+      if (updates.status === "contratado" || updates.status === "rejeitado") {
         updates.decision_date = updates.decision_date || new Date().toISOString().split("T")[0]
-        if (updates.status === "joined") updates.decision = "joined"
-        if (updates.status === "declined" && !updates.decision) updates.decision = "declined"
+        if (updates.status === "contratado") updates.decision = "joined"
+        if (updates.status === "rejeitado" && !updates.decision) updates.decision = "declined"
       }
     }
   }
@@ -437,7 +437,7 @@ export async function getRecruitmentKPIs(): Promise<{
   })
 
   // Conversion rate
-  const joined = candidates.filter((c) => c.status === "joined").length
+  const joined = candidates.filter((c) => c.status === "contratado").length
   const conversionRate = total > 0 ? (joined / total) * 100 : 0
 
   // Avg time to decision (first_contact_date → decision_date)
@@ -453,7 +453,7 @@ export async function getRecruitmentKPIs(): Promise<{
   }
 
   // Avg time to hire (created_at → decision_date for joined candidates)
-  const hiredCandidates = candidates.filter((c) => c.status === "joined" && c.decision_date)
+  const hiredCandidates = candidates.filter((c) => c.status === "contratado" && c.decision_date)
   let avgTimeToHire: number | null = null
   if (hiredCandidates.length > 0) {
     const totalDays = hiredCandidates.reduce((sum, c) => {
@@ -688,8 +688,8 @@ export interface RecruitmentCommunication {
 export async function getCommunications(candidateId: string): Promise<{ communications: RecruitmentCommunication[]; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any).from("temp_recruitment_communications")
-    .select("*, user:dev_users!temp_recruitment_communications_logged_by_fkey(id, commercial_name)")
+  const { data, error } = await (admin as any).from("recruitment_communications")
+    .select("*, user:dev_users!logged_by(id, commercial_name)")
     .eq("candidate_id", candidateId)
     .order("created_at", { ascending: false })
 
@@ -711,7 +711,7 @@ export async function createCommunication(
   const { data: { user } } = await supabase.auth.getUser()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from("temp_recruitment_communications").insert({
+  const { error } = await (admin as any).from("recruitment_communications").insert({
     candidate_id: candidateId,
     type: commData.type,
     subject: commData.subject || null,
@@ -759,7 +759,7 @@ export interface RecruitmentProbation {
 export async function getProbation(candidateId: string): Promise<{ probation: RecruitmentProbation | null; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any).from("temp_recruitment_probation")
+  const { data, error } = await (admin as any).from("recruitment_probation")
     .select("*")
     .eq("candidate_id", candidateId)
     .maybeSingle()
@@ -774,7 +774,7 @@ export async function upsertProbation(
 ): Promise<{ success: boolean; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from("temp_recruitment_probation").upsert({
+  const { error } = await (admin as any).from("recruitment_probation").upsert({
     ...probationData,
     candidate_id: candidateId,
   }, { onConflict: "candidate_id" })
@@ -801,7 +801,7 @@ export interface RecruitmentCommTemplate {
 export async function getCommTemplates(stage?: CandidateStatus): Promise<{ templates: RecruitmentCommTemplate[]; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (admin as any).from("temp_recruitment_comm_templates")
+  let query = (admin as any).from("recruitment_comm_templates")
     .select("*")
     .order("created_at", { ascending: false })
 
@@ -825,7 +825,7 @@ export async function createCommTemplate(
 ): Promise<{ template: RecruitmentCommTemplate | null; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any).from("temp_recruitment_comm_templates").insert({
+  const { data, error } = await (admin as any).from("recruitment_comm_templates").insert({
     name: templateData.name,
     stage: templateData.stage,
     channel: templateData.channel,
@@ -845,7 +845,7 @@ export async function updateCommTemplate(
 ): Promise<{ success: boolean; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from("temp_recruitment_comm_templates")
+  const { error } = await (admin as any).from("recruitment_comm_templates")
     .update(updates)
     .eq("id", id)
 
@@ -856,7 +856,7 @@ export async function updateCommTemplate(
 export async function deleteCommTemplate(id: string): Promise<{ success: boolean; error: string | null }> {
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from("temp_recruitment_comm_templates").delete().eq("id", id)
+  const { error } = await (admin as any).from("recruitment_comm_templates").delete().eq("id", id)
   if (error) return { success: false, error: error.message }
   return { success: true, error: null }
 }
@@ -935,7 +935,7 @@ export async function mergeCandidates(
   try {
     // Update all related records to point to the kept candidate
     const tables = [
-      { table: "temp_recruitment_communications", column: "candidate_id" },
+      { table: "recruitment_communications", column: "candidate_id" },
       { table: "recruitment_interviews", column: "candidate_id" },
       { table: "recruitment_pain_pitch", column: "candidate_id" },
       { table: "recruitment_stage_log", column: "candidate_id" },
@@ -986,7 +986,7 @@ export async function getRecruitmentAlerts(): Promise<{ alerts: RecruitmentAlert
   const fifteenDaysAgo = new Date(today.getTime() - 15 * 86400000).toISOString().split("T")[0]
 
   // Terminal statuses that should not trigger no_contact alerts
-  const terminalStatuses = ['joined', 'declined']
+  const terminalStatuses = ['contratado', 'rejeitado']
 
   // 1. No contact alerts — candidates not in terminal status with stale last_interaction_date
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1075,11 +1075,11 @@ export async function getRecruitmentAlerts(): Promise<{ alerts: RecruitmentAlert
     }
   }
 
-  // 4. Onboarding incomplete — candidates with status 'joined' where onboarding is incomplete after 15 days
+  // 4. Onboarding incomplete — candidates with status 'contratado' where onboarding is incomplete after 15 days
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: joinedCandidates } = await (admin as any).from("recruitment_candidates")
     .select("id, full_name, updated_at")
-    .eq("status", "joined")
+    .eq("status", "contratado")
 
   if (joinedCandidates) {
     const joinedIds = (joinedCandidates as any[]).map((c) => c.id)
@@ -1118,7 +1118,7 @@ export async function getRecruitmentAlerts(): Promise<{ alerts: RecruitmentAlert
 
   // 5. Probation milestones approaching (within 3 days)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: probations } = await (admin as any).from("temp_recruitment_probation")
+  const { data: probations } = await (admin as any).from("recruitment_probation")
     .select("candidate_id, start_date, milestone_30_days, milestone_60_days, milestone_90_days, status")
     .eq("status", "active")
 
@@ -1212,7 +1212,7 @@ export async function getRecruitmentReportData(dateFrom?: string, dateTo?: strin
   for (const c of candidates) {
     if (!sourceGroups[c.source]) sourceGroups[c.source] = { total: 0, joined: 0 }
     sourceGroups[c.source].total++
-    if (c.status === "joined") sourceGroups[c.source].joined++
+    if (c.status === "contratado") sourceGroups[c.source].joined++
   }
   const sourceEffectiveness = Object.entries(sourceGroups).map(([source, sData]) => ({
     source,
@@ -1266,7 +1266,7 @@ export async function getRecruitmentReportData(dateFrom?: string, dateTo?: strin
       recruiterGroups[recruiterId] = { name: recruiterName, total: 0, joined: 0, totalDays: 0, decisionCount: 0 }
     }
     recruiterGroups[recruiterId].total++
-    if (c.status === "joined") recruiterGroups[recruiterId].joined++
+    if (c.status === "contratado") recruiterGroups[recruiterId].joined++
     if (c.first_contact_date && c.decision_date) {
       const days = Math.round((new Date(c.decision_date).getTime() - new Date(c.first_contact_date).getTime()) / (1000 * 60 * 60 * 24))
       recruiterGroups[recruiterId].totalDays += days
@@ -1281,7 +1281,7 @@ export async function getRecruitmentReportData(dateFrom?: string, dateTo?: strin
   }))
 
   // 5. Conversion funnel (in pipeline order)
-  const pipelineOrder: CandidateStatus[] = ['prospect', 'in_contact', 'in_process', 'decision_pending', 'joined', 'declined', 'on_hold']
+  const pipelineOrder: CandidateStatus[] = ['novo', 'triagem', 'entrevista', 'avaliacao', 'oferta', 'contratado', 'rejeitado', 'em_espera']
   const statusCounts: Record<string, number> = {}
   for (const c of candidates) {
     statusCounts[c.status] = (statusCounts[c.status] || 0) + 1
@@ -1344,10 +1344,10 @@ export async function bulkUpdateStatus(
     last_interaction_date: new Date().toISOString().split("T")[0],
   }
 
-  if (newStatus === "joined" || newStatus === "declined") {
+  if (newStatus === "contratado" || newStatus === "rejeitado") {
     updateData.decision_date = new Date().toISOString().split("T")[0]
-    if (newStatus === "joined") updateData.decision = "joined"
-    if (newStatus === "declined") updateData.decision = "declined"
+    if (newStatus === "contratado") updateData.decision = "joined"
+    if (newStatus === "rejeitado") updateData.decision = "declined"
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1754,7 +1754,7 @@ export async function createConsultorFromCandidate(candidateId: string, data: {
   // 7. Auto-start probation
   const startDate = data.hiring_date || new Date().toISOString().slice(0, 10)
   const endDate = new Date(new Date(startDate).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  await (admin as any).from("temp_recruitment_probation").upsert({
+  await (admin as any).from("recruitment_probation").upsert({
     candidate_id: candidateId,
     start_date: startDate,
     end_date: endDate,

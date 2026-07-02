@@ -1,7 +1,20 @@
 // ─── Recruitment Module Types ────────────────────────────────────────────────
 
 export type CandidateSource = 'linkedin' | 'social_media' | 'referral' | 'inbound' | 'paid_campaign' | 'event' | 'other'
-export type CandidateStatus = 'prospect' | 'in_contact' | 'in_process' | 'decision_pending' | 'joined' | 'declined' | 'on_hold'
+
+// Pipeline ATS (design quintino): Novo → Triagem → Entrevista → Avaliação →
+// Oferta → Contratado/Rejeitado. 'em_espera' é um estado de pausa fora do
+// funil. Estados legacy (prospect/in_contact/…) foram migrados na migration
+// 20260702_recruitment_pipeline_revamp.sql — ver LEGACY_CANDIDATE_STATUS_MAP.
+export type CandidateStatus =
+  | 'novo'
+  | 'triagem'
+  | 'entrevista'
+  | 'avaliacao'
+  | 'oferta'
+  | 'contratado'
+  | 'rejeitado'
+  | 'em_espera'
 export type CandidateDecision = 'joined' | 'declined' | 'ghosted' | 'on_hold'
 export type OriginBrand = 'remax' | 'century21' | 'era' | 'keller_williams' | 'realty_one' | 'independent' | 'other'
 export type InterviewFormat = 'in_person' | 'video_call' | 'phone'
@@ -28,6 +41,13 @@ export interface RecruitmentCandidate {
   photo_url: string | null
   cv_url: string | null
   linkedin_url: string | null
+  // Ingestão de campanha Meta (atribuição Recrutamento em Análise Meta)
+  meta_leadgen_id?: string | null
+  campaign_external_id?: string | null
+  ad_external_id?: string | null
+  form_data?: Record<string, unknown> | null
+  // Estado anterior à migração de pipeline (backup, só leitura)
+  legacy_status?: string | null
   created_at: string
   updated_at: string
   // Joined
@@ -225,13 +245,44 @@ export const CANDIDATE_SOURCES: Record<CandidateSource, string> = {
 }
 
 export const CANDIDATE_STATUSES: Record<CandidateStatus, { label: string; color: string }> = {
-  prospect: { label: 'Prospecto', color: 'bg-slate-100 text-slate-700' },
-  in_contact: { label: 'Em Contacto', color: 'bg-blue-100 text-blue-700' },
-  in_process: { label: 'Em Processo', color: 'bg-purple-100 text-purple-700' },
-  decision_pending: { label: 'Decisão Pendente', color: 'bg-amber-100 text-amber-700' },
-  joined: { label: 'Aderiu', color: 'bg-emerald-100 text-emerald-700' },
-  declined: { label: 'Recusou', color: 'bg-red-100 text-red-700' },
-  on_hold: { label: 'Em Espera', color: 'bg-orange-100 text-orange-700' },
+  novo: { label: 'Novo', color: 'bg-blue-100 text-blue-700' },
+  triagem: { label: 'Triagem', color: 'bg-yellow-100 text-yellow-700' },
+  entrevista: { label: 'Entrevista', color: 'bg-purple-100 text-purple-700' },
+  avaliacao: { label: 'Avaliação', color: 'bg-orange-100 text-orange-700' },
+  oferta: { label: 'Oferta', color: 'bg-green-100 text-green-700' },
+  contratado: { label: 'Contratado', color: 'bg-emerald-100 text-emerald-700' },
+  rejeitado: { label: 'Rejeitado', color: 'bg-red-100 text-red-700' },
+  em_espera: { label: 'Em Espera', color: 'bg-slate-100 text-slate-700' },
+}
+
+// Cor sólida (hex) por estado — usada nos dots/chips do kanban e detalhe.
+export const CANDIDATE_STATUS_DOT: Record<CandidateStatus, string> = {
+  novo: '#3b82f6',
+  triagem: '#eab308',
+  entrevista: '#a855f7',
+  avaliacao: '#f97316',
+  oferta: '#22c55e',
+  contratado: '#059669',
+  rejeitado: '#ef4444',
+  em_espera: '#64748b',
+}
+
+// Estados legacy (pré-migração 20260702) → novos. Usado só como salvaguarda de
+// display para dados que possam ter escapado à migração.
+export const LEGACY_CANDIDATE_STATUS_MAP: Record<string, CandidateStatus> = {
+  prospect: 'novo',
+  in_contact: 'triagem',
+  in_process: 'entrevista',
+  decision_pending: 'oferta',
+  joined: 'contratado',
+  declined: 'rejeitado',
+  on_hold: 'em_espera',
+}
+
+export function normalizeCandidateStatus(status: string | null | undefined): CandidateStatus {
+  if (!status) return 'novo'
+  if (status in CANDIDATE_STATUSES) return status as CandidateStatus
+  return LEGACY_CANDIDATE_STATUS_MAP[status] ?? 'novo'
 }
 
 export const CANDIDATE_DECISIONS: Record<CandidateDecision, { label: string; color: string }> = {
@@ -264,16 +315,30 @@ export const CAMPAIGN_PLATFORMS: Record<CampaignPlatform, string> = {
   other: 'Outra',
 }
 
-// Pipeline stages in order
+// Pipeline stages in order (kanban columns)
 export const PIPELINE_STAGES: CandidateStatus[] = [
-  'prospect',
-  'in_contact',
-  'in_process',
-  'decision_pending',
-  'joined',
-  'declined',
-  'on_hold',
+  'novo',
+  'triagem',
+  'entrevista',
+  'avaliacao',
+  'oferta',
+  'contratado',
+  'rejeitado',
+  'em_espera',
 ]
+
+// Fases activas do funil (sem terminais nem pausa) — usadas no funil do
+// dashboard e no progress do detalhe.
+export const ACTIVE_PIPELINE_STAGES: CandidateStatus[] = [
+  'novo',
+  'triagem',
+  'entrevista',
+  'avaliacao',
+  'oferta',
+]
+
+// Estados terminais (ganho/perdido)
+export const TERMINAL_CANDIDATE_STATUSES: CandidateStatus[] = ['contratado', 'rejeitado']
 
 // ─── Communication History ──────────────────────────────────────────────────
 

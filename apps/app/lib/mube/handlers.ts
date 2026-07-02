@@ -19,6 +19,8 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { ingestLead } from '@/lib/crm/ingest-lead'
+import { findMatchingRule } from '@/lib/crm/assignment-engine'
+import { ingestRecruitmentCandidate } from '@/lib/crm/ingest-recruitment-candidate'
 import { metaLeadToIngestInput } from '@/lib/mube/lead-to-ingest'
 import { getGestoraLeadsUserIds } from '@/lib/crm/gestora-leads'
 import { sendPushToUser } from '@/lib/crm/send-push'
@@ -113,6 +115,8 @@ export interface BridgeResult {
   status: 'ingested' | 'already' | 'unattributed' | 'error'
   contact_id?: string
   entry_id?: string
+  /** Preenchido quando a regra de atribuição desvia o lead para Recrutamento. */
+  candidate_id?: string
 }
 
 /**
@@ -160,6 +164,24 @@ export async function bridgeMetaLeadToCrm(
       return { status: 'already', contact_id: existing.contact_id }
     }
 
+    // 1b. Idempotency guard (Recrutamento) — leads desviados para o módulo de
+    //     recrutamento não têm leads_entries; a marca fica no candidato.
+    const { data: existingCandidate } = await supabase
+      .from('recruitment_candidates')
+      .select('id')
+      .eq('meta_leadgen_id', lead.leadgen_id)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingCandidate?.id) {
+      await supabase
+        .schema('meta')
+        .from('meta_leads_raw')
+        .update({ processed: true, processed_at: new Date().toISOString() })
+        .eq('id', rawId)
+      return { status: 'already', candidate_id: existingCandidate.id }
+    }
+
     // 2. Enrich adset_id from the synced ad (the lead payload doesn't carry it).
     let adsetId: string | null = null
     if (lead.ad_id) {
@@ -173,6 +195,51 @@ export async function bridgeMetaLeadToCrm(
     }
 
     const input = metaLeadToIngestInput(lead, adsetId)
+
+    // 2b. Desvio para Recrutamento — quando a regra de atribuição da
+    //     campanha/anúncio declara lead_sector='recruitment', o lead entra
+    //     como candidato em recruitment_candidates e NÃO cria contacto nem
+    //     entrada no CRM de vendas. A atribuição manual (forceAgentId) ignora
+    //     regras e segue sempre o caminho CRM — decisão explícita da gestora.
+    if (!opts?.forceAgentId) {
+      const matched = await findMatchingRule(supabase, {
+        entry: { source: input.source, campaign_id: input.campaign_id || null, sector: input.sector || null },
+        campaign: null,
+        contact_city: null,
+        meta_ad_id: typeof input.form_data?.meta_ad_id === 'string' ? (input.form_data.meta_ad_id as string) : null,
+        meta_adset_id: typeof input.form_data?.meta_adset_id === 'string' ? (input.form_data.meta_adset_id as string) : null,
+        meta_campaign_id: typeof input.form_data?.meta_campaign_id === 'string' ? (input.form_data.meta_campaign_id as string) : null,
+      })
+
+      if (matched?.lead_sector === 'recruitment') {
+        const rec = await ingestRecruitmentCandidate(supabase, {
+          name: input.name,
+          email: input.email ?? null,
+          phone: input.phone ?? null,
+          form_data: input.form_data ?? null,
+          notes: input.notes ?? null,
+          assigned_recruiter_id: matched.consultant_id ?? null,
+        })
+
+        await supabase
+          .schema('meta')
+          .from('meta_leads_raw')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('id', rawId)
+
+        console.info('[mube-webhook] lead ingested to Recrutamento', {
+          deliveryId,
+          leadgenId: lead.leadgen_id,
+          candidateId: rec.candidate_id,
+          recruiter: matched.consultant_id ?? 'none',
+          alreadyExisted: rec.already_existed,
+        })
+        return {
+          status: rec.already_existed ? 'already' : 'ingested',
+          candidate_id: rec.candidate_id,
+        }
+      }
+    }
 
     // 3. Ingest — forced (manual) or gated (webhook/backfill).
     let result
