@@ -14,6 +14,7 @@ import { qualifyNegocioPayload } from '@/lib/negocios/assert-qualified'
 import { notifyReferrerQualified } from '@/lib/crm/notify-referrer'
 import { resolveConsistentStageId } from '@/lib/crm/resolve-pipeline-stage'
 import { carryEntryNotesToContact } from '@/lib/crm/carry-entry-notes'
+import { syncNegocioObservacoesToActivities } from '@/lib/crm/observacoes-to-activities'
 
 export async function GET(request: Request) {
   try {
@@ -353,6 +354,24 @@ export async function POST(request: Request) {
         })
       } catch {
         // activity log is non-critical — ignore
+      }
+    }
+
+    // Carry the négocio's free-text Observações (qualify dialog / observations
+    // editor) into the notes feed as first-class notes, so they surface in the
+    // Notas tab of the oportunidade — not just in the deal's description field.
+    // Idempotent (metadata.obs_id guard) + best-effort — never aborts creation.
+    if (data?.id && qInput.observacoes) {
+      try {
+        await syncNegocioObservacoesToActivities(supabase, {
+          negocioId: data.id,
+          contactId: input.lead_id,
+          observacoes: qInput.observacoes,
+          createdBy: input.assigned_consultant_id ?? null,
+          fallbackOccurredAt: (data as Record<string, unknown>).created_at as string | null,
+        })
+      } catch {
+        // notes sync is non-critical — ignore
       }
     }
 
