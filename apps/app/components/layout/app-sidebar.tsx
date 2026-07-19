@@ -124,7 +124,8 @@ export const financeiroItems = [
 ]
 
 export const recrutamentoItems = [
-  { title: 'Candidatos', icon: Users, href: '/dashboard/recrutamento' },
+  { title: 'Candidatos', icon: Users, href: '/dashboard/recrutamento/candidatos' },
+  { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/recrutamento' },
   { title: 'Integração', icon: FileText, href: '/dashboard/recrutamento/formulario' },
 ]
 

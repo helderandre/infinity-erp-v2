@@ -18,7 +18,7 @@ import {
   Phone, Mail, User, FileText, AlertTriangle,
 } from 'lucide-react'
 
-interface ExtractedFields {
+export interface ExtractedFields {
   full_name?: string
   phone?: string
   email?: string
