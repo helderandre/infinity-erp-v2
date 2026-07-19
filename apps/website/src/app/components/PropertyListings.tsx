@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { MapPin, Bed, Bath, Square } from 'lucide-react';
-import { SimpleSearchBar } from './SimpleSearchBar';
+import { SimpleSearchBar, type SortOption } from './SimpleSearchBar';
 import { InfinityLoader } from './InfinityLoader';
 import { PropertyModal } from './PropertyModal';
 import { useProperties } from '../../hooks/useProperties';
@@ -41,6 +41,7 @@ export function PropertyListings() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [advancedFilters, setAdvancedFilters] = useState<any>({});
   const [showNoResults, setShowNoResults] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
 
   // Single source of truth — one fetch, passed down to children
   const { properties: dbProperties, loading: dbLoading } = useProperties();
@@ -208,15 +209,35 @@ export function PropertyListings() {
     return true;
   });
 
-  // Sort by reference number descending (latest first)
-  const sortedProperties = [...filteredProperties].sort((a, b) => {
+  // Ordenação — por omissão referência mais recente primeiro; opcionalmente por preço
+  // (imóveis sem preço vão sempre para o fim nas ordenações por preço)
+  const sortedProperties = (() => {
+    const arr = [...filteredProperties];
+    if (sortBy === 'price_asc' || sortBy === 'price_desc') {
+      return arr.sort((a, b) => {
+        if (!a.priceValue && !b.priceValue) return 0;
+        if (!a.priceValue) return 1;
+        if (!b.priceValue) return -1;
+        return sortBy === 'price_desc' ? b.priceValue - a.priceValue : a.priceValue - b.priceValue;
+      });
+    }
+    // 'recent' — sort by reference number descending (latest first)
     const getRefNumber = (ref: string | undefined): number => {
       if (!ref) return 0;
       const match = ref.match(/-(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     };
-    return getRefNumber(b.externalRef) - getRefNumber(a.externalRef);
-  });
+    return arr.sort((a, b) => getRefNumber(b.externalRef) - getRefNumber(a.externalRef));
+  })();
+
+  // Dois grupos, em vez de tudo misturado na mesma grelha:
+  //   1. Disponíveis           → imóveis ainda no mercado
+  //   2. Reservados e Vendidos → reservados / vendidos / arrendados (em baixo)
+  const UNAVAILABLE_STATES = ['reserved', 'rented', 'sold'];
+  const isUnavailable = (p: Property) =>
+    UNAVAILABLE_STATES.includes(p.state?.toLowerCase() || '');
+  const availableProperties = sortedProperties.filter((p) => !isUnavailable(p));
+  const unavailableProperties = sortedProperties.filter(isUnavailable);
 
   // Handle "no results" with delay
   useEffect(() => {
@@ -236,6 +257,116 @@ export function PropertyListings() {
     setSelectedProperty(property);
   };
 
+  // Etiqueta do estado — null quando o imóvel ainda está disponível.
+  const stateLabel = (state?: string): string | null => {
+    switch (state?.toLowerCase()) {
+      case 'reserved': return 'Reservado';
+      case 'rented': return 'Arrendado';
+      case 'sold': return 'Vendido';
+      default: return null;
+    }
+  };
+
+  const renderCard = (property: Property) => {
+    const badge = stateLabel(property.state);
+    return (
+      <div
+        onClick={() => setSelectedProperty(property)}
+        className="h-full bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group cursor-pointer"
+      >
+        {/* Image */}
+        <div className="relative aspect-[4/3] overflow-hidden">
+          <img
+            src={property.image}
+            alt={property.title}
+            className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${
+              badge ? 'opacity-80' : ''
+            }`}
+          />
+          {/* Venda/Arrendamento — só quando ainda está disponível */}
+          {!badge && (
+            <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 drop-shadow-lg">
+              {property.type === 'sale' ? 'Venda' : 'Arrendamento'}
+            </div>
+          )}
+
+          {/* Faixa Vendido / Reservado / Arrendado */}
+          {badge && (
+            <div className="absolute top-3 md:top-4 left-0 right-0 bg-black/40 backdrop-blur-md border-y border-white/20 text-white py-3 text-center">
+              <span className="text-sm font-medium drop-shadow-md">{badge}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <div className="mb-4">
+            <h3 className="text-xl mb-2">{property.title}</h3>
+            <div className="flex items-center gap-1 text-gray-600 text-sm">
+              <MapPin size={16} />
+              <span>{property.location}</span>
+            </div>
+            {property.externalRef && (
+              <div className="text-xs text-gray-500 mt-1">Ref: {property.externalRef}</div>
+            )}
+          </div>
+
+          {/* Features */}
+          <div className="flex items-center gap-4 mb-4 text-gray-600 text-sm">
+            {property.typology && (
+              <div className="flex items-center gap-1">
+                <Bed size={16} />
+                <span>{property.typology.replace('T', '')}</span>
+              </div>
+            )}
+            {property.baths > 0 && (
+              <div className="flex items-center gap-1">
+                <Bath size={16} />
+                <span>{property.baths}</span>
+              </div>
+            )}
+            {property.area_bruta > 0 && (
+              <div className="flex items-center gap-1">
+                <Square size={16} />
+                <span>{property.area_bruta} m2</span>
+              </div>
+            )}
+          </div>
+
+          {/* Price */}
+          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+            <div className="text-2xl">{badge ? 'Sob Consulta' : property.price}</div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewDetails(property);
+              }}
+              className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-5 py-2.5 rounded-full hover:bg-black/60 transition-all text-sm font-medium drop-shadow-lg whitespace-nowrap"
+            >
+              <span className="md:hidden">Ver</span>
+              <span className="hidden md:inline">Ver Detalhes &rarr;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Mobile: carrossel horizontal deslizável (scroll-snap).
+  // Desktop (md+): grelha normal de 2/3 colunas.
+  const renderRow = (items: Property[]) => (
+    <div className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 overflow-x-auto md:overflow-visible snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 pb-4 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {items.map((property) => (
+        <div
+          key={property.id}
+          className="shrink-0 w-[85%] sm:w-[55%] md:w-auto snap-start"
+        >
+          {renderCard(property)}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <section id="property" className="py-12 md:py-16 bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -252,6 +383,8 @@ export function PropertyListings() {
             resultCount={!dbLoading && !isLoading ? sortedProperties.length : undefined}
             onSearch={handleSearch}
             onAdvancedFilterChange={handleAdvancedFilterChange}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
             showMapButton
             onMapClick={() => {
               const params = searchParams.toString();
@@ -264,93 +397,27 @@ export function PropertyListings() {
         {isLoading || dbLoading ? (
           <InfinityLoader />
         ) : sortedProperties.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {sortedProperties.map((property) => (
+          <>
+            {/* 1. Disponíveis */}
+            {availableProperties.length > 0 && renderRow(availableProperties)}
+
+            {/* 2. Reservados e Vendidos — inclui também os arrendados */}
+            {unavailableProperties.length > 0 && (
               <div
-                key={property.id}
-                onClick={() => setSelectedProperty(property)}
-                className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group cursor-pointer"
+                className={
+                  availableProperties.length > 0
+                    ? 'mt-14 md:mt-16 pt-10 md:pt-12 border-t border-gray-200 dark:border-gray-700'
+                    : ''
+                }
               >
-                {/* Image */}
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <img
-                    src={property.image}
-                    alt={property.title}
-                    className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${
-                      ['reserved', 'rented'].includes(property.state?.toLowerCase() || '') ? 'opacity-80' : ''
-                    }`}
-                  />
-                  {/* Sale/Rent Tag — only if NOT reserved/rented */}
-                  {!['reserved', 'rented'].includes(property.state?.toLowerCase() || '') && (
-                    <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 drop-shadow-lg">
-                      {property.type === 'sale' ? 'Venda' : 'Arrendamento'}
-                    </div>
-                  )}
-
-                  {/* Reserved/Rented Banner */}
-                  {['reserved', 'rented'].includes(property.state?.toLowerCase() || '') && (
-                    <div className="absolute top-3 md:top-4 left-0 right-0 bg-black/40 backdrop-blur-md border-y border-white/20 text-white py-3 text-center">
-                      <span className="text-sm font-medium drop-shadow-md">
-                        {property.state?.toLowerCase() === 'reserved' ? 'Reservado' : 'Arrendado'}
-                      </span>
-                    </div>
-                  )}
+                <div className="flex items-baseline gap-3 mb-6 md:mb-8">
+                  <h3 className="text-2xl md:text-3xl">Reservados e Vendidos</h3>
+                  <span className="text-sm text-gray-500">{unavailableProperties.length}</span>
                 </div>
-
-                {/* Content */}
-                <div className="p-6">
-                  <div className="mb-4">
-                    <h3 className="text-xl mb-2">{property.title}</h3>
-                    <div className="flex items-center gap-1 text-gray-600 text-sm">
-                      <MapPin size={16} />
-                      <span>{property.location}</span>
-                    </div>
-                    {property.externalRef && (
-                      <div className="text-xs text-gray-500 mt-1">Ref: {property.externalRef}</div>
-                    )}
-                  </div>
-
-                  {/* Features */}
-                  <div className="flex items-center gap-4 mb-4 text-gray-600 text-sm">
-                    {property.typology && (
-                      <div className="flex items-center gap-1">
-                        <Bed size={16} />
-                        <span>{property.typology.replace('T', '')}</span>
-                      </div>
-                    )}
-                    {property.baths > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Bath size={16} />
-                        <span>{property.baths}</span>
-                      </div>
-                    )}
-                    {property.area_bruta > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Square size={16} />
-                        <span>{property.area_bruta} m2</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <div className="text-2xl">
-                      {['reserved', 'rented'].includes(property.state?.toLowerCase() || '') ? 'Sob Consulta' : property.price}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewDetails(property);
-                      }}
-                      className="bg-black/40 backdrop-blur-md border border-white/20 text-white px-5 py-2.5 rounded-full hover:bg-black/60 transition-all text-sm font-medium drop-shadow-lg"
-                    >
-                      Ver Detalhes &rarr;
-                    </button>
-                  </div>
-                </div>
+                {renderRow(unavailableProperties)}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : showNoResults ? (
           <div className="text-center py-16">
             <p className="text-gray-600 text-lg mb-4">Nenhuma propriedade encontrada com os critérios especificados.</p>

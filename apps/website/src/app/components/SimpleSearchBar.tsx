@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, MapPin, Home, ChevronDown, Building, SlidersHorizontal, X, Euro, Check, Map as MapIcon } from 'lucide-react';
+import { Search, MapPin, Home, ChevronDown, Building, SlidersHorizontal, X, Euro, Check, Map as MapIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { AdvancedFilters } from './AdvancedFilters';
+
+export type SortOption = 'recent' | 'price_desc' | 'price_asc';
 
 interface SimpleSearchBarProps {
   properties: any[];
@@ -17,13 +19,15 @@ interface SimpleSearchBarProps {
     transactionType: 'buy' | 'rent';
   }) => void;
   onAdvancedFilterChange?: (filters: any) => void;
+  sortBy?: SortOption;
+  onSortChange?: (sort: SortOption) => void;
   showMapButton?: boolean;
   onMapClick?: () => void;
 }
 
 type DropdownId = 'location' | 'type' | 'typology' | 'price' | null;
 
-export function SimpleSearchBar({ properties, resultCount, onSearch, onAdvancedFilterChange, showMapButton, onMapClick }: SimpleSearchBarProps) {
+export function SimpleSearchBar({ properties, resultCount, onSearch, onAdvancedFilterChange, sortBy, onSortChange, showMapButton, onMapClick }: SimpleSearchBarProps) {
   const searchParams = useSearchParams();
   const isFirstRender = useRef(true);
 
@@ -532,6 +536,39 @@ export function SimpleSearchBar({ properties, resultCount, onSearch, onAdvancedF
             <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
               {resultCount} {resultCount === 1 ? 'imóvel' : 'imóveis'}
             </span>
+          )}
+
+          {/* Ordenação por preço — cicla: recentes → preço desc → preço asc */}
+          {onSortChange && (
+            <button
+              type="button"
+              onClick={() =>
+                onSortChange(
+                  sortBy === 'price_desc' ? 'price_asc' : sortBy === 'price_asc' ? 'recent' : 'price_desc'
+                )
+              }
+              title={
+                sortBy === 'price_desc'
+                  ? 'Preço: do mais caro para o mais barato'
+                  : sortBy === 'price_asc'
+                    ? 'Preço: do mais barato para o mais caro'
+                    : 'Ordenar por preço'
+              }
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs border transition-colors mr-2 ${
+                sortBy === 'price_desc' || sortBy === 'price_asc'
+                  ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+              }`}
+            >
+              <span>Preço</span>
+              {sortBy === 'price_desc' ? (
+                <ArrowDown size={12} />
+              ) : sortBy === 'price_asc' ? (
+                <ArrowUp size={12} />
+              ) : (
+                <ArrowUpDown size={12} />
+              )}
+            </button>
           )}
 
           {selectedLocations.map(loc => (
