@@ -18,11 +18,13 @@ import {
   Sparkles,
   Phone,
   Check,
+  XCircle,
   Settings,
   Upload,
 } from 'lucide-react'
 
 import { LeadsKanban } from '@/components/leads/pipeline/leads-kanban'
+import { LeadsOutcomeSheet, type OutcomeStage } from '@/components/leads/pipeline/leads-outcome-sheet'
 import { GestaoLeadsSheet } from '@/components/crm/gestao-leads-sheet'
 import { BulkImportEntriesDialog } from '@/components/leads/bulk-import-entries-dialog'
 import { Button } from '@/components/ui/button'
@@ -39,9 +41,10 @@ export default function LeadsPipelinePage() {
   const canManageLeads = hasPermission('leads_management')
 
   const [view, setView] = useState<View>('minhas')
-  const [counts, setCounts] = useState<{ novo: number; contactado: number; qualificado: number } | null>(null)
+  const [counts, setCounts] = useState<{ novo: number; contactado: number; qualificado: number; perdido: number } | null>(null)
   const [gestaoOpen, setGestaoOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [outcomeStage, setOutcomeStage] = useState<OutcomeStage | null>(null)
 
   // Deep-link: ?gestao=por_atribuir|overdue|consultor auto-opens the
   // management sheet (preserves the old /crm/gestora?tab= push targets).
@@ -77,10 +80,17 @@ export default function LeadsPipelinePage() {
     return () => { off1(); off2() }
   }, [loadCounts])
 
-  const kpiStats = [
-    { Icon: Sparkles, label: 'Novos', mobileLabel: 'Novos', value: counts?.novo ?? null },
-    { Icon: Phone, label: 'Contactados', mobileLabel: 'Contact.', value: counts?.contactado ?? null },
-    { Icon: Check, label: 'Qualificados', mobileLabel: 'Qualif.', value: counts?.qualificado ?? null },
+  const kpiStats: {
+    Icon: typeof Sparkles
+    label: string
+    mobileLabel: string
+    value: number | null
+    stage: OutcomeStage | null
+  }[] = [
+    { Icon: Sparkles, label: 'Novos', mobileLabel: 'Novos', value: counts?.novo ?? null, stage: null },
+    { Icon: Phone, label: 'Contactados', mobileLabel: 'Contact.', value: counts?.contactado ?? null, stage: null },
+    { Icon: Check, label: 'Qualificados', mobileLabel: 'Qualif.', value: counts?.qualificado ?? null, stage: 'qualificado' },
+    { Icon: XCircle, label: 'Perdidos', mobileLabel: 'Perdid.', value: counts?.perdido ?? null, stage: 'perdido' },
   ]
 
   return (
@@ -141,36 +151,59 @@ export default function LeadsPipelinePage() {
           {/* 3. KPI row — segmented pill, same design as Oportunidades SummaryBar. */}
           <div className="flex justify-center">
             <div className="inline-flex items-stretch rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
-              {kpiStats.map(({ Icon, label, mobileLabel, value }, idx) => (
-                <div
-                  key={label}
-                  className={cn(
-                    'flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0',
-                    idx > 0 && 'border-l border-white/10',
-                  )}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Icon className="hidden md:block h-3 w-3 text-white/50" />
-                    <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
-                      <span className="md:hidden">{mobileLabel}</span>
-                      <span className="hidden md:inline">{label}</span>
-                    </span>
+              {kpiStats.map(({ Icon, label, mobileLabel, value, stage }, idx) => {
+                const base = cn(
+                  'flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 px-4 py-2 min-w-[78px] md:min-w-0',
+                  idx > 0 && 'border-l border-white/10',
+                )
+                const inner = (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <Icon className="hidden md:block h-3 w-3 text-white/50" />
+                      <span className="text-[8px] md:text-[10px] uppercase tracking-wider font-medium text-white/50 whitespace-nowrap leading-none">
+                        <span className="md:hidden">{mobileLabel}</span>
+                        <span className="hidden md:inline">{label}</span>
+                      </span>
+                    </div>
+                    {value === null ? (
+                      <Skeleton className="h-3.5 w-10 bg-white/10" />
+                    ) : (
+                      <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">
+                        {value}
+                      </span>
+                    )}
+                  </>
+                )
+                return stage ? (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setOutcomeStage(stage)}
+                    className={cn(base, 'cursor-pointer transition-colors hover:bg-white/10')}
+                    aria-label={`Ver leads ${label.toLowerCase()}`}
+                  >
+                    {inner}
+                  </button>
+                ) : (
+                  <div key={label} className={base}>
+                    {inner}
                   </div>
-                  {value === null ? (
-                    <Skeleton className="h-3.5 w-10 bg-white/10" />
-                  ) : (
-                    <span className="text-sm font-bold text-white tabular-nums whitespace-nowrap leading-tight">
-                      {value}
-                    </span>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
       </div>
 
       <LeadsKanban view={view} onViewChange={setView} />
+
+      {/* Qualificados / Perdidos — clicar no contador abre um Sheet com os cards. */}
+      <LeadsOutcomeSheet
+        open={!!outcomeStage}
+        onOpenChange={(o) => { if (!o) setOutcomeStage(null) }}
+        stage={outcomeStage ?? 'qualificado'}
+        scope={view}
+      />
 
       {/* Gestão de Leads — management sheet (replaces the old /crm/gestora page). */}
       {canManageLeads && (

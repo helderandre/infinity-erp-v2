@@ -386,7 +386,7 @@ export function LeadsKanban({
     let novo = 0, contactado = 0, qualificado = 0
     for (const e of filteredEntries) {
       if (e.status === 'new' || e.status === 'seen') novo++
-      else if (e.status === 'processing') contactado++
+      else if (e.status === 'processing' || e.status === 'no_answer' || e.status === 'no_answer_2plus') contactado++
       else if (e.status === 'converted') qualificado++
     }
     onFilteredCountsChange({ novo, contactado, qualificado })

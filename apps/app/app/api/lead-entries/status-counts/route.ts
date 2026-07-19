@@ -9,12 +9,15 @@ import { requireAuth } from '@/lib/auth/permissions'
  * view as the listing (`scope=referred` → entries I referred out; default →
  * entries currently assigned to me).
  *
- * Buckets follow the Leads kanban semantics:
+ * Buckets follow the Leads kanban semantics. "Contactado" agrega todos os
+ * estados de lead já trabalhada (contactada/tentada), incluindo as colunas
+ * "Não atendeu" — senão essas leads não apareciam em nenhum contador:
  *   • novo        ← status IN ('new', 'seen')
- *   • contactado  ← status = 'processing'
+ *   • contactado  ← status IN ('processing', 'no_answer', 'no_answer_2plus')
  *   • qualificado ← status = 'converted'
+ *   • perdido     ← status = 'discarded'
  *
- * Response: { counts: { novo, contactado, qualificado }, total }
+ * Response: { counts: { novo, contactado, qualificado, perdido }, total }
  */
 export async function GET(request: Request) {
   try {
@@ -47,7 +50,7 @@ export async function GET(request: Request) {
       )
       if (restrictIds.length === 0) {
         return NextResponse.json({
-          counts: { novo: 0, contactado: 0, qualificado: 0 },
+          counts: { novo: 0, contactado: 0, qualificado: 0, perdido: 0 },
           total: 0,
         })
       }
@@ -67,10 +70,11 @@ export async function GET(request: Request) {
       return count ?? 0
     }
 
-    const [novoCount, contactadoCount, qualificadoCount, totalCount] = await Promise.all([
+    const [novoCount, contactadoCount, qualificadoCount, perdidoCount, totalCount] = await Promise.all([
       buildCount(['new', 'seen']),
-      buildCount(['processing']),
+      buildCount(['processing', 'no_answer', 'no_answer_2plus']),
       buildCount(['converted']),
+      buildCount(['discarded']),
       buildCount(null),
     ])
 
@@ -79,6 +83,7 @@ export async function GET(request: Request) {
         novo: novoCount,
         contactado: contactadoCount,
         qualificado: qualificadoCount,
+        perdido: perdidoCount,
       },
       total: totalCount,
     })
