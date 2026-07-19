@@ -53,7 +53,7 @@ export const meuEspacoItems = [
 ]
 
 export const comunicacaoItems = [
-  { title: 'Chat Interno', icon: MessagesSquare, href: '/dashboard/comunicacao/chat', permission: 'dashboard' },
+  { title: 'Chat Interno', icon: MessagesSquare, href: '/dashboard/comunicacao/chat', permission: 'chat' },
   { title: 'WhatsApp', icon: WhatsAppIcon, href: '/dashboard/whatsapp', permission: 'dashboard' },
   { title: 'Email', icon: Mail, href: '/dashboard/email', permission: 'dashboard' },
 ]

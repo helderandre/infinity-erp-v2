@@ -1708,6 +1708,7 @@ export const PERMISSION_MODULES: { key: string; label: string; group: string }[]
   { key: 'goals', label: 'Objectivos', group: 'Negócio' },
   { key: 'credit', label: 'Crédito', group: 'Negócio' },
   // Sistema
+  { key: 'chat', label: 'Chat Interno', group: 'Sistema' },
   { key: 'marketing', label: 'Marketing', group: 'Sistema' },
   { key: 'templates', label: 'Templates', group: 'Sistema' },
   { key: 'calendar', label: 'Calendário', group: 'Sistema' },
