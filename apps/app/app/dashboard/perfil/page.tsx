@@ -27,6 +27,7 @@ import { ConsultantAvailabilityPanel } from '@/components/booking/consultant-ava
 import { cn } from '@/lib/utils'
 import { createClient as createBrowserSupabase } from '@/lib/supabase/client'
 import { useImageCompress } from '@/hooks/use-image-compress'
+import { ConsultantPhotoCropper } from '@/components/consultants/consultant-photo-cropper'
 import { DeviceNotificationsControl } from '@/components/notifications/device-notifications-control'
 
 const TABS = [
@@ -105,6 +106,8 @@ export default function PerfilPage() {
   const [loading, setLoading] = useState(true)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('geral')
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null)
+  const [cropperOpen, setCropperOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { compressImage } = useImageCompress()
 
@@ -133,13 +136,26 @@ export default function PerfilPage() {
     .toUpperCase()
     .slice(0, 2)
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Abre o cropper (3:4, rosto no topo) em vez de enviar a foto crua —
+  // mesma experiência da página de detalhe do consultor
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('O ficheiro seleccionado não é uma imagem')
+      return
+    }
+    const url = URL.createObjectURL(file)
+    setCropperSrc(url)
+    setCropperOpen(true)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
+  const handleCroppedPhoto = async (blob: Blob) => {
     setPhotoUploading(true)
     try {
-      const compressed = file.type.startsWith('image/') ? await compressImage(file) : file
+      const raw = new File([blob], 'photo.webp', { type: 'image/webp' })
+      const compressed = await compressImage(raw)
       const formData = new FormData()
       formData.append('file', compressed)
 
@@ -154,7 +170,10 @@ export default function PerfilPage() {
       toast.error(err.message || 'Erro ao enviar foto')
     } finally {
       setPhotoUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      if (cropperSrc) {
+        URL.revokeObjectURL(cropperSrc)
+        setCropperSrc(null)
+      }
     }
   }
 
@@ -193,7 +212,7 @@ export default function PerfilPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={handlePhotoUpload}
+              onChange={handlePhotoSelect}
             />
           </div>
           <div className="flex-1 min-w-0 w-full">
@@ -241,7 +260,7 @@ export default function PerfilPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={handlePhotoUpload}
+              onChange={handlePhotoSelect}
             />
           </div>
           <div className="flex-1 min-w-0 p-6 flex flex-col justify-center">
@@ -360,6 +379,23 @@ export default function PerfilPage() {
 
         {activeTab === 'seguranca' && <SecurityTab />}
       </div>
+
+      {/* ─── Photo Cropper ─── */}
+      {cropperSrc && (
+        <ConsultantPhotoCropper
+          imageSrc={cropperSrc}
+          open={cropperOpen}
+          onOpenChange={(open) => {
+            setCropperOpen(open)
+            if (!open) {
+              URL.revokeObjectURL(cropperSrc)
+              setCropperSrc(null)
+            }
+          }}
+          onCropDone={handleCroppedPhoto}
+          consultantName={profile?.commercial_name || 'Consultor'}
+        />
+      )}
     </div>
   )
 }
